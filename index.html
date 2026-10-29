@@ -165,7 +165,18 @@ const CYL=(g,k,a,b,r)=>({g,k,t:"cyl",a,b,r});
 const TUBE=(g,k,a,b,r,ri)=>({g,k,t:"tube",a,b,r,ri});
 const STRAP=(g,k,A,B,w,h,wd)=>({g,k,t:"strap",A,B,w,h,wd:wd||[0,1,0]});
 const PARTS=[];
-const add=p=>PARTS.push(p);
+// The cage body (posts, floor, seat, controls, rider) sits CAGE_SHIFT mm behind the pitch axis so the whole cage
+// balances front-to-back without a ballast bar (pedals/stick/floor are in front of the rider). Parts that slide on or
+// belong to the side rails, and the parts that must line up with the ring (lock plates, stop tabs), are not shifted.
+const CAGE_SHIFT=-53;
+const NO_SHIFT=new Set(["side_rail","pitch_weight","lock_cage","pitch_tab","pitch_pulley","pitch_belt","cover","pitch_shaft","pitch_motor"]);
+function shiftX(p,dx){
+  if(p.t==="box"){p.a[0]+=dx;p.a[1]+=dx}
+  else if(p.t==="cyl"||p.t==="tube"){p.a[0]+=dx;p.b[0]+=dx}
+  else if(p.t==="strap"){p.A[0]+=dx;p.B[0]+=dx}
+  else if(p.t==="sph"){p.c[0]+=dx}
+}
+const add=p=>{if((p.g==="cage"||p.g==="person")&&!NO_SHIFT.has(p.k))shiftX(p,CAGE_SHIFT);PARTS.push(p)};
 const S2=[1,-1], ys=(s,a,b)=>s>0?[a,b]:[-b,-a];
 // ---- main dimensions (VR-only compact, 2026-10-29) ----
 const PF=1180,PB=-900;          // base post centres (front / back)
@@ -259,7 +270,6 @@ for(const s of S2){
 add(BOX("cage","buckle",15,75,-40,40,-207,-183));
 add(CYL("cage","pitch_shaft",[-PX,-362,60],[-PX,362,60],6));
 add(BOX("cage","pitch_motor",-PX-25,-PX+25,-30,30,35,85));add(CYL("cage","pitch_motor",[-PX,0,85],[-PX,0,165],18));
-add(BOX("cage","ballast",XR,XR+40,-YS+20,YS-20,-60,-20));   // rear ballast bar: cancels the front-heavy pedals/stick/floor, also ties the rail ends
 // ---- boarding platform (right side = -y), fixed / wheeled ----
 const DK0=-1000,DK1=-560,DX=330,DZ=-400;          // deck y range, half length in x, top z
 add(BOX("board","deck",-DX,DX,DK0,DK1,DZ-40,DZ));
@@ -445,7 +455,7 @@ function massTable(){
   const riderM=+$("inM").value||80, riderZ=-(+$("inZ").value||0);
   const T={base:[],ring:[],cage:[]};
   for(const p of PARTS){if(!T[p.g])continue;const m=partMass(p);if(m>0)T[p.g].push({k:p.k,m,c:partGeom(p).c})}
-  T.cage.push({k:"rider",m:riderM,c:[0,0,riderZ]});
+  T.cage.push({k:"rider",m:riderM,c:[CAGE_SHIFT,0,riderZ]});
   return T;
 }
 const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
@@ -507,7 +517,7 @@ function renderStrength(){
   rows.push(beam("케이지 옆 레일 (pitch 축)",memberProfile.side_rail,P1,a2,b2,L2));
   rows.push(beam("바닥 틀 앞뒤 막대 (좌석)",memberProfile.floor_long,seatW/2,a2,b2,L2));
   {const ball=sum(B.T.cage.filter(x=>x.k==="ballast"),x=>x.m)/2, pw=B.mp/2, back=-XB/1000;
-   rows.push(cant("케이지 옆 레일 뒤 외팔보 (균형 막대 + 무게추)",memberProfile.side_rail,0,0,(ball*(-XR/1000-back)+pw*(B.xmax-back))*G*DF));}
+   rows.push(cant("케이지 옆 레일 뒤 외팔보 (무게추가 뒤 끝일 때)",memberProfile.side_rail,0,0,(ball*(-XR/1000-back)+pw*(B.xmax-back))*G*DF));}
   // pins (single shear) and pillow-block static load
   const d=+($("inPin")?.value||25), Apin=Math.PI*d*d/4;
   const all=[...B.T.cage,...B.T.ring], Mall=sum(all,x=>x.m);
@@ -559,7 +569,6 @@ function renderBOM(){
   items.push(["구동","pitch 구동축 Ø12 + 베어링 2","1식",25000,""]);
   items.push(["구동","무게추 받침 (V휠 슬라이드)","3",3*30000,""]);
   items.push(["구동",`강철 무게추 (roll ${f1(B.mr)} + pitch ${f1(B.mp)} kg)`,`${f1(B.mr+B.mp)} kg`,4000*(B.mr+B.mp),"철재상 재단"]);
-  items.push(["프레임","뒤 균형 막대 (강철 40×40×760)","약 9.5 kg",40000,""]);
   items.push(["안전","잠금 핀 + 잠금판","3",30000,""]);
   items.push(["안전","고무 멈춤쇠","4",20000,""]);
   items.push(["안전","끼임 방지 덮개 (아크릴/PLA)","1식",40000,""]);
