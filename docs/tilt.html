@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>기울기 체감</title>
+<style>
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#ddd;--acc:#2f6fd6;--warn:#d9822b;--bad:#d93a3a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#333}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.5}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.4rem;margin:0 0 4px}
+.lead{margin:0 0 14px;color:var(--sub)}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+#view{width:100%;height:560px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(#cfe0f3,#eef3f8)}
+#view canvas{display:block}
+.hint{position:absolute;left:10px;bottom:8px;font-size:.8rem;color:#456;background:#fff8;padding:2px 8px;border-radius:6px}
+label{display:block;font-size:.92rem;color:var(--sub);margin-top:6px}
+label b{color:var(--ink);font-size:1.05rem}
+input[type=range]{width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+button{font:inherit;font-size:.9rem;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.feel{margin-top:10px;padding:10px;border-radius:10px;background:var(--bg)}
+.feel h3{margin:0 0 6px;font-size:1rem}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:2px 0 6px}
+.bar i{display:block;height:100%;background:var(--acc)}
+.cmp{font-size:.92rem}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+td,th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left}
+tr.hit td{background:#2f6fd622;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>±20° · ±15° 는 얼마나 기우나</h1>
+<p class="lead">v3 의자 (사람 175 cm 기준) 를 그대로 옮겼습니다. 슬라이더나 버튼으로 기울이고, 화면을 끌어서 돌려 보세요. 오른쪽에 "몸으로 느끼는 힘" 과 일상 비교가 나옵니다.</p>
+<div class="grid">
+  <div class="card"><div id="view"><span class="hint">드래그 = 돌려 보기 · 휠 = 확대</span></div></div>
+  <div class="card">
+    <label>roll (좌우) <b id="rv">0°</b></label><input id="roll" type="range" min="-30" max="30" step="0.5" value="0">
+    <label>pitch (앞뒤, + = 기수 들기) <b id="pv">0°</b></label><input id="pitch" type="range" min="-30" max="30" step="0.5" value="0">
+    <div class="btns">
+      <button data-r="0" data-p="0">수평</button>
+      <button data-r="20" data-p="0">roll +20°</button>
+      <button data-r="-20" data-p="0">roll −20°</button>
+      <button data-r="0" data-p="15">pitch +15°</button>
+      <button data-r="0" data-p="-15">pitch −15°</button>
+      <button data-r="20" data-p="15">둘 다 최대</button>
+      <button data-r="30" data-p="0">멈춤쇠 30°</button>
+    </div>
+    <div class="btns">
+      <button id="demo">▶ 선회 데모 (천천히)</button>
+      <button id="cam1">1인칭 시점</button>
+    </div>
+    <div class="feel">
+      <h3>몸으로 느끼는 힘</h3>
+      <div class="cmp">옆으로 미는 힘 <b id="gs">0.00 g</b></div><div class="bar"><i id="gsb" style="width:0"></i></div>
+      <div class="cmp">앞뒤로 미는 힘 <b id="gp">0.00 g</b></div><div class="bar"><i id="gpb" style="width:0"></i></div>
+      <div class="cmp" id="say" style="margin-top:4px"></div>
+    </div>
+    <table>
+      <tr><th>각도</th><th>경사 %</th><th>비슷한 것</th></tr>
+      <tbody id="ref"></tbody>
+    </table>
+    <p style="font-size:.8rem;color:var(--sub);margin:8px 0 0">미는 힘 = sin(각도) × 중력. 기울기가 천천히 바뀌면 몸은 "기울었다" 보다 "밀린다" 로 느끼기 쉽습니다 (시뮬레이터가 가속을 흉내 내는 원리). 비교값은 대략.</p>
+  </div>
+</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const REFS=[[3,"휠체어 경사로 한계 (약 1/12 = 4.8°) 보다 완만"],[5,"휠체어 경사로 (8.3%)"],[10,"아주 가파른 도로 (18%)"],[15,"스키장 초급 슬로프 정도"],[20,"스키장 중급 슬로프 · 자동차 급커브 옆힘 (0.34 g)"],[30,"계단 기울기 정도 · 멈춤쇠"]];
+function fillRef(a){a=Math.abs(a);let best=0;REFS.forEach((r,i)=>{if(a>=r[0]-1.5)best=i});
+  $("ref").innerHTML=REFS.map((r,i)=>`<tr class="${i===best&&a>1?'hit':''}"><td>${r[0]}°</td><td>${Math.round(Math.tan(r[0]*Math.PI/180)*100)}%</td><td>${r[1]}</td></tr>`).join("");}
+// ---------- scene (mm -> m; three: x fwd, y up, z = -lateral) ----------
+const view=$("view");
+const R=new THREE.WebGLRenderer({antialias:true,alpha:true});R.setPixelRatio(Math.min(2,devicePixelRatio));view.prepend(R.domElement);
+const S=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(40,1,0.05,50);
+S.add(new THREE.HemisphereLight(0xffffff,0x8899aa,0.75));
+const sun=new THREE.DirectionalLight(0xffffff,0.7);sun.position.set(3,5,4);S.add(sun);
+const M=c=>new THREE.MeshLambertMaterial({color:c});
+const mFix=M(0x8a8f98),mRing=M(0x2f6fd6),mCage=M(0x5b8fe0),mW=M(0xe08a1e),mSeat=M(0x333840),mSkin=M(0xf0c8a0),mShirt=M(0x3a9d6a),mPants=M(0x2a3550),mMon=M(0x111111),mPC=M(0x55595f),mFloor=M(0xc9c3b4);
+const mm=v=>v/1000;
+function box(par,x0,x1,y0,y1,z0,z1,mat){ // our coords: x fwd, y left, z up
+  const g=new THREE.BoxGeometry(mm(x1-x0),mm(z1-z0),mm(y1-y0));const m=new THREE.Mesh(g,mat);
+  m.position.set(mm((x0+x1)/2),mm((z0+z1)/2),-mm((y0+y1)/2));par.add(m);return m}
+function cyl(par,r,len,mat,pos,rot){const m=new THREE.Mesh(new THREE.CylinderGeometry(mm(r),mm(r),mm(len),24),mat);m.position.set(...pos.map(mm));if(rot)m.rotation.set(...rot);par.add(m);return m}
+// ground
+const ground=new THREE.Mesh(new THREE.CircleGeometry(4,64),M(0xdcd8cc));ground.rotation.x=-Math.PI/2;ground.position.y=mm(-1321);S.add(ground);
+const base=new THREE.Group();S.add(base);
+cyl(base,1300,20,M(0xa9a59a),[0,-1310,0]);
+for(const x of[1240,-1240]) box(base,x-20,x+20,-20,20,-1300,40,mFix);
+cyl(base,20,40,mFix,[1200,0,0],[0,0,Math.PI/2]);cyl(base,20,40,mFix,[-1200,0,0],[0,0,Math.PI/2]);
+// roll ring
+const ring=new THREE.Group();S.add(ring);
+const RF=1160,RB=-1160,RS=480,RE=640;
+for(const y of[RS,-RS]) box(ring,RB-20,RF+20,y-20,y+20,-20,20,mRing);
+for(const x of[RF,RB]) box(ring,x-20,x+20,-RE,RE,-20,20,mRing);
+box(ring,RF-50,RF+50,-50,50,20,120,mW);box(ring,RB-50,RB+50,-50,50,20,120,mW);
+for(const s of[1,-1]) cyl(ring,20,40,mRing,[0,0,-s*440]);
+// pitch cage
+const cage=new THREE.Group();ring.add(cage);
+const XF=780,XB=-780,YS=400,ZT=700,ZF=-820;
+for(const x of[XF,XB])for(const y of[YS,-YS])box(cage,x-20,x+20,y-20,y+20,ZF-20,ZT+20,mCage);
+for(const z of[ZF,ZT]){for(const y of[YS,-YS])box(cage,XB-20,XF+20,y-20,y+20,z-20,z+20,mCage);for(const x of[XF,XB])box(cage,x-20,x+20,-YS+20,YS-20,z-20,z+20,mCage)}
+for(const y of[YS,-YS])box(cage,XB+20,XF-20,y-20,y+20,-20,20,mCage);
+box(cage,XB+20,XF-20,-YS+20,YS-20,ZF+20,ZF+30,mFloor);
+box(cage,-200,200,-150,150,ZF+30,-380,mSeat);box(cage,-230,230,-250,250,-380,-330,mSeat);box(cage,-260,-230,-250,250,-330,400,mSeat);
+box(cage,XF-20,XF+20,-YS+20,YS-20,360,400,mCage);box(cage,750,760,-60,60,330,430,mMon);
+const scr=box(cage,690,750,-310,310,195,565,mMon);
+box(cage,XB-20,XB+20,-YS+20,YS-20,-265,-225,mCage);box(cage,XB+20,-260,-240,240,-245,-225,mFloor);box(cage,-480,-270,-225,225,-225,225,mPC);
+box(cage,-50,50,YS-50,YS+50,20,120,mW);box(cage,-50,50,-YS-50,-YS+50,20,120,mW);
+// person (seated, faces +x)
+box(cage,-220,40,-180,180,-330,-230,mPants);                // hips/thighs base
+for(const y of[-100,100]){box(cage,0,420,y-70,y+70,-330,-210,mPants);box(cage,380,480,y-60,y+60,-780,-210,mPants);box(cage,380,560,y-55,y+55,-800,-760,mSeat)}
+box(cage,-220,-20,-190,190,-230,260,mShirt);                  // torso
+for(const y of[-230,230]){box(cage,-150,-60,y-45,y+45,-10,250,mShirt);box(cage,-100,300,y-40,y+40,-60,20,mShirt)}
+const head=new THREE.Mesh(new THREE.SphereGeometry(mm(105),24,16),mSkin);head.position.set(mm(-110),mm(400),0);cage.add(head);
+box(cage,300,360,-60,60,-200,-40,mSeat); // stick
+// room (fixed) so tilt is visible from inside
+const grid=new THREE.GridHelper(8,16,0x8899aa,0xb8c2cc);grid.position.y=mm(-1319);S.add(grid);
+const room=new THREE.Mesh(new THREE.BoxGeometry(8,4.2,8),new THREE.MeshLambertMaterial({color:0xf2efe8,side:THREE.BackSide}));room.position.y=mm(-1320)+2.1;S.add(room);
+const roomEdges=new THREE.LineSegments(new THREE.EdgesGeometry(room.geometry),new THREE.LineBasicMaterial({color:0x9aa4ae}));roomEdges.position.copy(room.position);S.add(roomEdges);
+const win=new THREE.Mesh(new THREE.PlaneGeometry(3,1.2),new THREE.MeshBasicMaterial({color:0xbcd8f2}));win.position.set(3.99,0.3,0);win.rotation.y=-Math.PI/2;S.add(win);
+const winE=new THREE.LineSegments(new THREE.EdgesGeometry(win.geometry),new THREE.LineBasicMaterial({color:0x56708a}));winE.position.copy(win.position);winE.rotation.copy(win.rotation);S.add(winE);
+// horizon reference ring (fixed)
+const hz=new THREE.Mesh(new THREE.RingGeometry(1.75,1.77,96),new THREE.MeshBasicMaterial({color:0x88aacc,side:THREE.DoubleSide,transparent:true,opacity:.5}));hz.rotation.x=-Math.PI/2;S.add(hz);
+// ---------- camera control ----------
+let az=-0.75,el=0.32,dist=3.6,fp=false;
+function place(){
+  const fov=fp?95:40;if(cam.fov!==fov){cam.fov=fov;cam.updateProjectionMatrix()}
+  scr.visible=!fp; // see through the monitor to the room
+  if(fp){ // eye in cage, follows motion
+    const eye=new THREE.Vector3(mm(-60),mm(420),0),look=new THREE.Vector3(mm(800),mm(380),0);
+    cage.updateMatrixWorld(true);cam.position.copy(eye.applyMatrix4(cage.matrixWorld));look.applyMatrix4(cage.matrixWorld);
+    cam.up.set(0,1,0).applyQuaternion(new THREE.Quaternion().setFromRotationMatrix(cage.matrixWorld));cam.lookAt(look);
+  }else{cam.up.set(0,1,0);cam.position.set(dist*Math.cos(el)*Math.cos(az),dist*Math.sin(el)-0.2,dist*Math.cos(el)*Math.sin(az));cam.lookAt(0,-0.35,0)}
+}
+let drag=null;view.addEventListener("pointerdown",e=>{drag=[e.clientX,e.clientY];view.setPointerCapture(e.pointerId)});
+view.addEventListener("pointermove",e=>{if(!drag||fp)return;az+=(e.clientX-drag[0])*0.008;el=Math.max(-0.2,Math.min(1.3,el+(e.clientY-drag[1])*0.006));drag=[e.clientX,e.clientY]});
+view.addEventListener("pointerup",()=>drag=null);
+view.addEventListener("wheel",e=>{e.preventDefault();dist=Math.max(2.5,Math.min(10,dist*(1+e.deltaY*0.001)))},{passive:false});
+function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}
+addEventListener("resize",resize);resize();
+// ---------- motion ----------
+let tr=0,tp=0,cr=0,cp=0,demo=null;
+const rate=10; // deg/s smoothing toward target
+function setT(r,p){tr=r;tp=p;$("roll").value=r;$("pitch").value=p}
+document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{demo=null;$("demo").classList.remove("on");setT(+b.dataset.r,+b.dataset.p)});
+$("roll").oninput=e=>{demo=null;tr=+e.target.value};$("pitch").oninput=e=>{demo=null;tp=+e.target.value};
+$("cam1").onclick=e=>{fp=!fp;e.target.classList.toggle("on",fp);e.target.textContent=fp?"밖에서 보기":"1인칭 시점"};
+$("demo").onclick=e=>{demo=demo?null:0;e.target.classList.toggle("on",demo!==null)};
+const seq=[[0,0,1.5],[20,4,4],[20,4,3],[0,0,4],[-20,4,4],[-20,4,3],[0,0,3],[0,15,3],[0,-15,4],[0,0,3]];
+let last=performance.now();
+{const h=new URLSearchParams(location.hash.slice(1));if(h.has("r")||h.has("p")){setT(+h.get("r")||0,+h.get("p")||0);cr=tr;cp=tp}if(h.get("fp")==="1")$("cam1").click()}
+function loop(t){
+  const dt=Math.max(0.001,Math.min(0.05,(t-last)/1000));last=t;
+  if(demo!==null){demo+=dt;let acc=0;for(const s of seq){acc+=s[2];if(demo<acc){tr=s[0];tp=s[1];break}}if(demo>=acc)demo=0;$("roll").value=tr;$("pitch").value=tp}
+  const st=rate*dt;cr+=Math.max(-st,Math.min(st,tr-cr));cp+=Math.max(-st,Math.min(st,tp-cp));
+  ring.rotation.x=cr*Math.PI/180;   // + roll = right wing down (rider's right = -z side down)
+  cage.rotation.z=cp*Math.PI/180;    // + pitch = nose up
+  $("rv").textContent=cr.toFixed(1)+"°";$("pv").textContent=cp.toFixed(1)+"°";
+  const gs=Math.sin(Math.abs(cr)*Math.PI/180),gp=Math.sin(Math.abs(cp)*Math.PI/180);
+  $("gs").textContent=gs.toFixed(2)+" g";$("gp").textContent=gp.toFixed(2)+" g";
+  $("gsb").style.width=Math.min(100,gs/0.5*100)+"%";$("gpb").style.width=Math.min(100,gp/0.5*100)+"%";
+  const kg=Math.round(gs*70),kp=Math.round(gp*70);
+  $("say").innerHTML=`몸무게 70 kg 이면 옆으로 <b>${kg} kg</b>, 앞뒤로 <b>${kp} kg</b> 힘으로 밀리는 느낌 (벨트·좌석이 받쳐 줌).`;
+  fillRef(Math.max(Math.abs(cr),Math.abs(cp)));
+  place();R.render(S,cam);requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>의자 모터 후보</title>
+<style>
+:root{--bg:#f5f5f2;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--bad:#d93a3a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.55}
+main{max-width:1100px;margin:0 auto;padding:22px 16px 48px}
+h1{font-size:1.45rem;margin:0 0 6px}
+h2{font-size:1.12rem;margin:24px 0 10px}
+.lead{font-size:1.02rem;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.need{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.stat{background:var(--bg);border-radius:10px;padding:8px 12px}
+.stat .v{font-size:1.2rem;font-weight:700}
+.stat .k{font-size:.8rem;color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.p{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.p.best{border:2px solid var(--ok)}
+.p .img{height:190px;background:#fff;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line)}
+.p .img img{max-width:100%;max-height:190px;object-fit:contain}
+.p .img .noimg{color:#999;font-size:.85rem}
+.p .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.p h3{margin:0;font-size:1rem}
+.price{font-size:1.15rem;font-weight:700}
+.kv{display:grid;grid-template-columns:86px 1fr;gap:2px 8px;font-size:.86rem}
+.kv span:nth-child(odd){color:var(--sub)}
+.badge{display:inline-block;font-size:.74rem;padding:1px 8px;border-radius:9px;color:#fff;margin-right:4px}
+.b-ok{background:var(--ok)}.b-warn{background:var(--warn)}.b-bad{background:var(--bad)}.b-acc{background:var(--acc)}
+.verdict{font-size:.86rem;margin-top:auto;padding-top:6px;border-top:1px dashed var(--line)}
+a{color:var(--acc)}
+.small{font-size:.82rem;color:var(--sub)}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:720px}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{font-size:.8rem;color:var(--sub);background:var(--bg)}
+ul{margin:6px 0 0 18px;padding:0}li{margin:3px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>의자 무게추 모터 — 국내 배송 후보</h1>
+<p class="lead"><b>결론: 국내에서 "57각 + 폐루프 + 브레이크" 를 다 갖춘 싼 제품은 못 찾음.</b> 국내 배송으로 가려면
+<b>① 디바이스마트 브레이크 BLDC 감속모터 50 W</b> (브레이크 내장, 위치는 의자 각도 센서로 맞춤) 가 가장 현실적이고,
+엔코더 정밀 위치가 꼭 필요하면 <b>② 미스터조각기 2.2 N·m 폐루프 세트 + 브레이크 따로</b>. 다 갖춘 국내 공식품은 Festo (비쌈).</p>
+
+<div class="card">
+  <b>필요한 성능</b> <span class="small">(T8 리드 8 mm, 무게추 초속 8 cm = 600 rpm, 30° 기운 최악 조건, 추정)</span>
+  <div class="need" style="margin-top:8px">
+    <div class="stat"><div class="v">0.25 N·m ≈ 2.5 kgf·cm</div><div class="k">roll @600 rpm (13 kg)</div></div>
+    <div class="stat"><div class="v">0.17 N·m ≈ 1.7 kgf·cm</div><div class="k">pitch @600 rpm (8.5 kg, 나사 2개)</div></div>
+    <div class="stat"><div class="v">약 16 W</div><div class="k">실제 하는 일 (roll)</div></div>
+    <div class="stat"><div class="v">브레이크 필수</div><div class="k">리드 8 mm 는 저절로 안 잠김</div></div>
+  </div>
+  <p class="small" style="margin:8px 0 0">왜 엔코더가 꼭은 아닌가: 의자 각도는 어차피 각도 센서(IMU)로 재서 무게추를 움직이므로, 무게추 위치가 mm 단위로 정확할 필요는 없다. 끝 위치 리밋 스위치 2개면 충분 (추정).</p>
+</div>
+
+<h2>국내 배송</h2>
+<div class="grid">
+
+  <div class="p best">
+    <div class="img"><img src="https://www.devicemart.co.kr/data/goods/1/2016/10/1326567_tmp_06d6f2882cdfc8037e05398e2790146d4477large.jpg" alt="브레이크 BLDC 감속모터 DBG52-BL24V-50W" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-ok">국내 추천</span><span class="badge b-acc">브레이크 내장</span></div>
+      <h3>브레이크 BLDC 감속모터 DBG52-BL24V-50W</h3>
+      <div class="price">287,700원</div>
+      <div class="kv"><span>판매처</span><span><a href="https://www.devicemart.co.kr/goods/catalog?code=001500010011">디바이스마트 › 브레이크 모터</a></span>
+        <span>출력</span><span>50 W, 24 V, 52각</span>
+        <span>토크</span><span>4.6 ~ 100 kgf·cm (감속비에 따라)</span>
+        <span>브레이크</span><span>내장</span>
+        <span>폐루프</span><span>BLDC 홀센서 (엔코더 아님)</span></div>
+      <div class="verdict">감속비를 <b>1/5 근처</b>로 골라 약 600 rpm 이면 토크 충분 (추정). <b>확인 필요</b>: 감속비 옵션·브레이크 전압·BLDC 컨트롤러 (별도 구매일 수 있음).</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://mizo.kr/web/product/big/202102/bfc53ad785ca51c3dd719eb0f8b4096c.jpg" alt="2.2N.m 폐루프 스테핑모터 HBS57 세트" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-acc">폐루프</span><span class="badge b-warn">브레이크 없음</span><span class="badge b-bad">품절 표시</span></div>
+      <h3>2.2 N·m 폐루프 스테핑모터 + HBS57 드라이버 세트</h3>
+      <div class="price">155,000원 <span class="small">배송 3,300원 (10만 원 이상 무료), 1~3일</span></div>
+      <div class="kv"><span>판매처</span><span><a href="https://mizo.kr/product/22nm-%ED%8F%90%EB%A3%A8%ED%94%84-%EA%B3%A0%EC%86%8D-%EC%8A%A4%ED%85%8C%ED%95%91%EB%AA%A8%ED%84%B0-%EB%93%9C%EB%9D%BC%EC%9D%B4%EB%B2%84-%EC%84%B8%ED%8A%B8-%ED%8F%90%EB%A3%A8%ED%94%84-%EA%B3%A0%EC%86%8D-%EC%8A%A4%ED%85%8C%ED%95%91%EB%AA%A8%ED%84%B0-hbs57%EB%93%9C%EB%9D%BC%EC%9D%B4%EB%B2%84/59/">미스터조각기</a></span>
+        <span>토크</span><span>정지 2.2 N·m, 4 A</span>
+        <span>크기</span><span>NEMA23 (57각), 길이 76, 축 Ø8</span>
+        <span>드라이버</span><span>HBS57, DC 16~70 V (권장 24~48)</span>
+        <span>전력</span><span>약 50~90 W (추정)</span></div>
+      <div class="verdict">토크는 넉넉. <b>브레이크를 따로</b> 달아야 함 (뒤쪽 축 없음 → 모터와 나사 사이에 다는 브레이크 필요). 재입고 문의.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://godomall.speedycdn.net/0b1d1d5a8242e9f3d9338acf0040007f/goods/1000036100/image/main/1000036100_main_025.jpg" alt="SMDS-57N55" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-warn">브레이크 표기 없음</span></div>
+      <h3>57각 스텝모터+드라이버 세트 SMDS-57N55 (EtherCAT)</h3>
+      <div class="price">290,000원 <span class="small">CJ 택배, 15만 원 이상 무료</span></div>
+      <div class="kv"><span>판매처</span><span><a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000036100">모터뱅크</a></span>
+        <span>토크</span><span>정지 2.3 N·m</span>
+        <span>전압</span><span>모터 24 V, 드라이버 20~50 V</span>
+        <span>폐루프</span><span>표기 없음</span></div>
+      <div class="verdict">EtherCAT 이라 연결이 어렵고 비쌈. 비추천.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://godomall.speedycdn.net/0b1d1d5a8242e9f3d9338acf0040007f/goods/1000033608/image/main/1000033608_main_051.jpg" alt="MS-57S" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-warn">브레이크 없음</span><span class="badge b-warn">발주 후 2주</span></div>
+      <h3>2상 57각 스텝모터 드라이버 세트 MS-57S (A~D)</h3>
+      <div class="price">153,700 ~ 200,800원</div>
+      <div class="kv"><span>판매처</span><span><a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000033608">모터뱅크</a></span>
+        <span>길이</span><span>75 / 98 / 105 / 143 mm</span>
+        <span>전압</span><span>DC 24~48 V</span>
+        <span>폐루프</span><span>표기 없음 (오픈루프로 보임)</span></div>
+      <div class="verdict">일반 스텝모터. 브레이크·엔코더 없음.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://www.devicemart.co.kr/data/goods/1/2016/10/1326570_tmp_67a1be25316e625d6ea5ce81df3dd3bd7510large.jpg" alt="DBSM-42WL61A" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-acc">브레이크 내장</span><span class="badge b-bad">힘 부족</span></div>
+      <h3>브레이크 스테핑모터 DBSM-42WL61A (42각)</h3>
+      <div class="price">91,272원</div>
+      <div class="kv"><span>판매처</span><span><a href="https://www.devicemart.co.kr/goods/catalog?code=001500010011">디바이스마트 › 브레이크 모터</a></span>
+        <span>토크</span><span>정지 3,200 gf·cm ≈ 0.31 N·m</span></div>
+      <div class="verdict">국내에서 찾은 유일한 브레이크 스텝모터지만, 600 rpm 에서는 0.25 N·m 를 못 낼 것 (추정). 비추천.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><span class="noimg">이미지 없음 (Festo 페이지 접근 차단)</span></div>
+    <div class="body">
+      <div><span class="badge b-acc">폐루프</span><span class="badge b-acc">브레이크 내장</span><span class="badge b-warn">비쌈</span></div>
+      <h3>Festo EMMS-ST-57-M-SEB (57각)</h3>
+      <div class="price">가격 문의 <span class="small">(브레이크만 있는 SB 형이 해외 $943)</span></div>
+      <div class="kv"><span>판매처</span><span><a href="https://www.festo.com/kr/ko/">Festo 코리아</a></span>
+        <span>토크</span><span>정지 1.4 N·m, 브레이크 1 N·m, 24 V</span>
+        <span>엔코더</span><span>있음</span></div>
+      <div class="verdict">조건을 다 갖춘 국내 공식품. 축당 100만 원 넘을 것으로 봄 (추정).</div>
+    </div>
+  </div>
+</div>
+
+<h2>참고: 해외 직구 (배송 1~3주)</h2>
+<div class="card wrap">
+<table>
+<tr><th>제품</th><th>정지 토크</th><th>브레이크</th><th>폐루프</th><th>가격</th><th>어디서</th></tr>
+<tr><td><b>Leadshine CS-M22313B</b> (+ 드라이버 CS-D507E 별도)</td><td>1.3 N·m</td><td>내장 2 N·m, 24 V</td><td>○</td><td>€130 (부가세 별도)</td><td><a href="https://damencnc.com/en/closed-loop-stepper-motor-with-brake-nema23-1-3nm-cs-m22313b-2phase/a5351">DamenCNC</a></td></tr>
+<tr><td>Oyostepper P 시리즈 NEMA23 + 전자 브레이크</td><td>1.2 N·m</td><td>내장</td><td>○</td><td>$119.96</td><td><a href="https://www.oyostepper.com/category-107-b0-Nema-23-Closed-loop-Stepper-Motor.html">Oyostepper</a></td></tr>
+<tr><td>무명 NEMA23 폐루프 + 전자 브레이크</td><td>2.0 N·m</td><td>내장</td><td>○</td><td>€125.10</td><td><a href="https://www.ebay.de/itm/316926374447">eBay 독일</a></td></tr>
+<tr><td>NEMA23·24 용 24 V 전자 브레이크 2 N·m (단품)</td><td>—</td><td>○</td><td>—</td><td>Amazon 가격 확인</td><td><a href="https://www.amazon.com/clp/B0F8BN74TQ">Amazon</a></td></tr>
+<tr><td>StepperOnline CL57T 2 N·m 세트</td><td>2.0 N·m</td><td>없음</td><td>○</td><td>$81~131</td><td><a href="https://www.ebay.de/itm/315060904689">eBay 독일</a></td></tr>
+</table>
+</div>
+
+<h2>주의</h2>
+<div class="card">
+<ul>
+  <li>앞서 "T8 리드 8 mm 는 저절로 잠긴다" 고 했던 것은 <b>틀림</b> (나사산 기울기 약 20°). 그래서 모터 쪽 브레이크가 필수.</li>
+  <li>쿠팡·네이버 스마트스토어는 검색으로 해당 제품을 찾지 못함. 이 페이지 가격은 2026-10-29 검색 기준이고 바뀔 수 있음.</li>
+  <li>전력은 정격 전류·전압으로 계산한 대략값. 실제로 하는 일은 roll 약 16 W, pitch 약 11 W.</li>
+  <li>이미지는 판매처 서버에서 바로 불러온 것이라 안 보이면 판매 페이지에서 확인.</li>
+</ul>
+</div>
+
+<h2>출처</h2>
+<div class="card small">
+<a href="https://www.devicemart.co.kr/goods/catalog?code=001500010011">디바이스마트 브레이크 모터</a> ·
+<a href="https://mizo.kr/product/22nm-%ED%8F%90%EB%A3%A8%ED%94%84-%EA%B3%A0%EC%86%8D-%EC%8A%A4%ED%85%8C%ED%95%91%EB%AA%A8%ED%84%B0-%EB%93%9C%EB%9D%BC%EC%9D%B4%EB%B2%84-%EC%84%B8%ED%8A%B8-%ED%8F%90%EB%A3%A8%ED%94%84-%EA%B3%A0%EC%86%8D-%EC%8A%A4%ED%85%8C%ED%95%91%EB%AA%A8%ED%84%B0-hbs57%EB%93%9C%EB%9D%BC%EC%9D%B4%EB%B2%84/59/">미스터조각기 2.2 N·m 세트</a> ·
+<a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000036100">모터뱅크 SMDS-57N55</a> ·
+<a href="https://www.motorbank.kr/goods/goods_list.php?cateCd=052002">모터뱅크 세트 목록</a> ·
+<a href="https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/DataSheet/KO_KR/549415.pdf">Festo EMMS-ST-57-M-SEB 데이터시트</a> ·
+<a href="https://www.dixonelectric.ca/products/uncategorized/p-RkVTRU1NUy1TVC01Ny1NLVNCLUcy-festo-inc-1370480-emms-st-57-m-sb-g2-stepper-motor">Festo SB 형 해외가</a> ·
+<a href="https://damencnc.com/en/closed-loop-stepper-motor-with-brake-nema23-1-3nm-cs-m22313b-2phase/a5351">DamenCNC</a> ·
+<a href="https://www.oyostepper.com/category-107-b0-Nema-23-Closed-loop-Stepper-Motor.html">Oyostepper</a> ·
+<a href="https://www.ebay.de/itm/316926374447">eBay</a> ·
+<a href="https://www.amazon.com/clp/B0F8BN74TQ">Amazon 브레이크</a>
+</div>
+</main>
+</body>
+</html>

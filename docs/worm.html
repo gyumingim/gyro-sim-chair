@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>웜기어 모터 후보</title>
+<style>
+:root{--bg:#f5f5f2;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--bad:#d93a3a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.55}
+main{max-width:1100px;margin:0 auto;padding:22px 16px 48px}
+h1{font-size:1.45rem;margin:0 0 6px}
+h2{font-size:1.12rem;margin:24px 0 10px}
+.lead{font-size:1.02rem;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.need{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.stat{background:var(--bg);border-radius:10px;padding:8px 12px}
+.stat .v{font-size:1.15rem;font-weight:700}
+.stat .k{font-size:.8rem;color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.p{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.p.best{border:2px solid var(--ok)}
+.p .img{height:190px;background:#fff;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line)}
+.p .img img{max-width:100%;max-height:190px;object-fit:contain}
+.noimg{color:#999;font-size:.85rem}
+.p .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.p h3{margin:0;font-size:1rem}
+.price{font-size:1.15rem;font-weight:700}
+.kv{display:grid;grid-template-columns:86px 1fr;gap:2px 8px;font-size:.86rem}
+.kv span:nth-child(odd){color:var(--sub)}
+.badge{display:inline-block;font-size:.74rem;padding:1px 8px;border-radius:9px;color:#fff;margin-right:4px}
+.b-ok{background:var(--ok)}.b-warn{background:var(--warn)}.b-bad{background:var(--bad)}.b-acc{background:var(--acc)}
+.verdict{font-size:.86rem;margin-top:auto;padding-top:6px;border-top:1px dashed var(--line)}
+a{color:var(--acc)}
+.small{font-size:.82rem;color:var(--sub)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+th{font-size:.8rem;color:var(--sub);background:var(--bg)}
+ul{margin:6px 0 0 18px;padding:0}li{margin:3px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>웜기어 모터 — 국내 배송 (브레이크·엔코더 없음)</h1>
+<p class="lead"><b>추천: 모터뱅크 WGM40C-315724, 감속비 1/28 (약 5만 원) + T8 리드 14 mm 나사</b>, 축마다 1개.
+웜기어가 무게추를 붙잡고 (셀프락), 위치는 의자 각도 센서 + 끝 리밋 스위치로 맞춘다. 더 힘센 게 필요하면 WGM50-428724.</p>
+
+<div class="card">
+  <b>필요한 것</b> <span class="small">(30° 기운 최악 조건, 추정)</span>
+  <div class="need" style="margin-top:8px">
+    <div class="stat"><div class="v">≈ 3 kgf·cm</div><div class="k">roll 13 kg, 리드 14 mm 나사 기준 모터 출력축 토크</div></div>
+    <div class="stat"><div class="v">≈ 200 rpm</div><div class="k">× 리드 14 mm = 초속 약 4.6 cm (끝까지 약 13 초)</div></div>
+    <div class="stat"><div class="v">셀프락</div><div class="k">감속비 약 1/28 이상이면 웜이 잘 잠김 (일반적, 실물 확인)</div></div>
+    <div class="stat"><div class="v">24 V</div><div class="k">드라이버 BTS7960 류 + 리밋 스위치 2개</div></div>
+  </div>
+  <p class="small" style="margin:8px 0 0">왜 리드 14 mm 나사로 바꾸나: 이제 웜기어가 잠가 주니 나사는 안 잠겨도 됨 → 리드가 큰 나사로 같은 모터 회전에 무게추를 더 빨리 옮긴다. (리드 8 mm 그대로면 1/28 에서 초속 약 2.6 cm, 끝까지 약 23 초.)</p>
+</div>
+
+<h2>국내 배송 후보</h2>
+<div class="grid">
+
+  <div class="p best">
+    <div class="img"><img src="https://godomall.speedycdn.net/0b1d1d5a8242e9f3d9338acf0040007f/goods/1000035741/image/main/1000035741_main_56.jpg" alt="WGM40C-315724" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-ok">추천</span><span class="badge b-acc">황동 웜휠</span></div>
+      <h3>직각축 웜기어 감속모터 WGM40C-315724 (24 V)</h3>
+      <div class="price">44,100원 <span class="small">(1/28 선택 기준) · CJ 택배 3,500원, 15만 원 이상 무료</span></div>
+      <div class="kv"><span>판매처</span><span><a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000035741">모터뱅크</a></span>
+        <span>속도</span><span>10 ~ 550 rpm (감속비 15종: 1/10 ~ 1/634)</span>
+        <span>토크</span><span>정격 1.2 ~ 50 kgf·cm (감속비에 따라)</span>
+        <span>셀프락</span><span>페이지에 표기 없음</span></div>
+      <div class="verdict"><b>1/28</b> (약 200 rpm 추정) 이 속도·잠김 균형점. 1/17 은 더 빠르지만 잘 안 잠길 수 있음. <b>살 때 "1/28 셀프락 되나요, 정격 토크는?" 상품문의</b>.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://godomall.speedycdn.net/0b1d1d5a8242e9f3d9338acf0040007f/goods/1000035596/image/main/1000035596_main_07.jpg" alt="WGM50-428724" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-acc">고토크</span></div>
+      <h3>웜기어 감속모터 WGM50-428724 (24 V)</h3>
+      <div class="price">69,700원 ~ <span class="small">감속비 추가금 +2,200 ~ 6,600원</span></div>
+      <div class="kv"><span>판매처</span><span><a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000035596">모터뱅크</a></span>
+        <span>속도</span><span>14 ~ 313 rpm (1/16 ~ 1/353, 9종)</span>
+        <span>토크</span><span>최대 238 kgf·cm</span>
+        <span>셀프락</span><span>표기 없음</span></div>
+      <div class="verdict">더 크고 힘셈. 1/30 (약 170 rpm 추정) 정도. 무게추를 더 무겁게 할 때.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://godomall-storage.cdn-nhncommerce.com/24178dde3f2f64b7e87174ef28b7ead5/goods/1000036701/image/main/1000036701_main_017.jpg" alt="WGM58-4578P-60" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-ok">셀프락 명시</span><span class="badge b-warn">비쌈</span></div>
+      <h3>웜기어 모터 WGM58-4578P-60 (IP68 방수)</h3>
+      <div class="price">179,000원</div>
+      <div class="kv"><span>판매처</span><span><a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000036701">모터뱅크</a></span>
+        <span>전압</span><span>12 / 24 V</span>
+        <span>토크</span><span>정격 0.3 ~ 10 N·m</span>
+        <span>셀프락</span><span>제목에 표기</span></div>
+      <div class="verdict">잠김이 확실해야 하면. 방수는 필요 없어서 값이 아까움.</div>
+    </div>
+  </div>
+
+  <div class="p">
+    <div class="img"><img src="https://godomall-storage.cdn-nhncommerce.com/9a97a47d0a18c35058482309fef60713/goods/1120/image/main/1120_main_045.jpg" alt="DWP-DC6066F-24" onerror="this.outerHTML='<span class=noimg>이미지 못 불러옴 — 판매 페이지에서 확인</span>'"></div>
+    <div class="body">
+      <div><span class="badge b-ok">확실히 잠김</span><span class="badge b-bad">느림</span></div>
+      <h3>윈도우 모터 DWP-DC6066F-24 (24 V)</h3>
+      <div class="price">46,750원</div>
+      <div class="kv"><span>판매처</span><span><a href="https://www.dnjmall.com/goods/goods_list.php?cateCd=017">디엔지몰</a></span>
+        <span>속도</span><span>62 rpm</span>
+        <span>토크</span><span>30 kgf·cm</span></div>
+      <div class="verdict">자동차 창문 모터라 잠김은 확실. 하지만 리드 14 로도 초속 1.4 cm (끝까지 40 초) — 너무 느림.</div>
+    </div>
+  </div>
+</div>
+
+<h2>같이 살 것 (축 하나당, 추정가)</h2>
+<div class="card">
+<table>
+<tr><th>부품</th><th>예</th><th>대략</th></tr>
+<tr><td>리드스크류 + 너트</td><td>T8 <b>리드 14 mm</b>, 길이 1.3 m (roll) / 1.5 m ×2 (pitch)</td><td>1~3만 원</td></tr>
+<tr><td>모터 드라이버</td><td>BTS7960 (24 V, 정·역회전 + 속도 PWM)</td><td>1만 원 안팎</td></tr>
+<tr><td>리밋 스위치</td><td>마이크로 스위치 2개 (레일 양끝)</td><td>수천 원</td></tr>
+<tr><td>커플러</td><td>모터 출력축 ↔ T8 (축 지름은 도면 확인)</td><td>수천 원</td></tr>
+<tr><td>전원</td><td>24 V 10 A 하나로 두 축</td><td>2~3만 원</td></tr>
+</table>
+<p class="small">축당 모터+부품 약 7~10만 원, 두 축 + 전원 약 15~20만 원 (추정). 앞서 본 브레이크 폐루프 방식 (축당 20만 원 이상) 의 절반 이하.</p>
+</div>
+
+<h2>주의</h2>
+<div class="card">
+<ul>
+  <li><b>셀프락은 받아서 꼭 시험</b>: 전원 끈 채 의자를 30° 기울여 무게추가 미끄러지는지 본다. 미끄러지면 감속비를 한 단계 큰 것으로.</li>
+  <li>웜기어는 효율이 낮아 (30~50 %) 모터가 따뜻해질 수 있음 — 계속 왕복하는 용도라 정격 토크 안에서 쓰기.</li>
+  <li>감속비별 정확한 rpm·토크는 판매 페이지에 없음 → 위 rpm 은 최고 550 rpm 을 감속비로 나눈 추정. 상품문의로 확인.</li>
+  <li>가격은 2026-10-29 판매 페이지 기준.</li>
+</ul>
+</div>
+
+<h2>출처</h2>
+<div class="card small">
+<a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000035741">모터뱅크 WGM40C-315724</a> ·
+<a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000035596">모터뱅크 WGM50-428724</a> ·
+<a href="https://motorbank.kr/goods/goods_view.php?goodsNo=1000036701">모터뱅크 WGM58-4578P-60</a> ·
+<a href="https://www.motorbank.kr/goods/goods_list.php?cateCd=064005">모터뱅크 웜기어 목록</a> ·
+<a href="https://www.dnjmall.com/goods/goods_list.php?cateCd=017">디엔지몰 웜기어드 모터</a>
+</div>
+</main>
+</body>
+</html>

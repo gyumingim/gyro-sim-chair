@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>무게추 모션 의자</title>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#ddd;--fix:#8a8f98;--rot:#2f6fd6;--w:#e08a1e;--cg:#9b3fb5;--damp:#1f9d55;--bad:#d93a3a;--grid:#eee}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#333;--grid:#2a2a2e}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.5}
+main{max-width:1000px;margin:0 auto;padding:22px 16px 48px}
+h1{font-size:1.45rem;margin:0 0 4px}
+.lead{margin:0 0 16px;font-size:1.05rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px}
+.card h2{font-size:1.1rem;margin:0 0 8px}
+canvas{width:100%;display:block;border-radius:10px}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 22px;margin-top:10px}
+.ctl label{font-size:.92rem;color:var(--sub);display:block}
+.ctl b{color:var(--ink)}
+input[type=range]{width:100%}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.stat{background:var(--bg);border-radius:10px;padding:8px 12px;min-width:120px}
+.stat .v{font-size:1.35rem;font-weight:700}
+.stat .k{font-size:.8rem;color:var(--sub)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.9rem;margin-bottom:8px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+ul{margin:6px 0 0 18px;padding:0}
+li{margin:3px 0}
+button{font:inherit;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+<h1>무게추로 기울이는 비행 시뮬레이터 의자</h1>
+<p class="lead">앞에서 본 그림 (roll 축이 화면 안쪽). <b>무게추를 레일에서 옮기면 의자가 기울고, 댐퍼가 출렁임을 잡습니다.</b> 아래 슬라이더로 직접 움직여 보세요.</p>
+
+<div class="card">
+  <div class="legend">
+    <span><span class="sw" style="background:var(--fix)"></span>고정 프레임</span>
+    <span><span class="sw" style="background:var(--rot)"></span>도는 부분 (링·의자·레일)</span>
+    <span><span class="sw" style="background:var(--w)"></span>무게추</span>
+    <span><span class="sw" style="background:var(--cg)"></span>무게중심 (사람+의자)</span>
+    <span><span class="sw" style="background:var(--damp)"></span>댐퍼</span>
+  </div>
+  <canvas id="view" width="1000" height="560"></canvas>
+  <div class="ctl">
+    <div><label>무게추 위치 (목표) <b id="xv"></b></label><input id="x" type="range" min="-50" max="50" value="0"></div>
+    <div><label>무게추 무게 <b id="mv"></b></label><input id="m" type="range" min="1" max="20" value="6.3" step="0.1"></div>
+    <div><label>축 아래 무게중심 거리 d <b id="dv"></b></label><input id="d" type="range" min="2" max="30" value="10"></div>
+    <div><label>댐퍼 세기 (0 = 없음, 0.7 = 추천) <b id="zv"></b></label><input id="z" type="range" min="0" max="1.2" value="0.7" step="0.05"></div>
+    <div><label>무게추 이동 속도 <b id="sv"></b></label><input id="s" type="range" min="0.1" max="2" value="0.5" step="0.05"></div>
+    <div><label>사람+의자 무게 <b id="Mv"></b></label><input id="M" type="range" min="50" max="130" value="80"></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="ang">0°</div><div class="k">지금 각도</div></div>
+    <div class="stat"><div class="v" id="eq">0°</div><div class="k">멈출 각도 (계산)</div></div>
+    <div class="stat"><div class="v" id="per">-</div><div class="k">출렁임 주기 (댐퍼 없을 때)</div></div>
+    <div class="stat"><div class="v" id="ct">-</div><div class="k">댐퍼 감쇠 (r=15 cm 기준)</div></div>
+  </div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+    <button onclick="setX(30)">오른쪽 선회 ▶</button>
+    <button onclick="setX(-30)">◀ 왼쪽 선회</button>
+    <button onclick="setX(0)">수평</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>각도 기록 (최근 10초)</h2>
+  <canvas id="plot" width="1000" height="200"></canvas>
+  <p style="color:var(--sub);margin:6px 0 0">점선 = 멈출 각도. 댐퍼를 0으로 놓고 버튼을 눌러 보면 그네처럼 출렁입니다.</p>
+</div>
+
+<div class="card">
+  <h2>만드는 법 요약</h2>
+  <ul>
+    <li><b>회전축은 무게중심보다 위에</b> (d = 5~15 cm). 축 아래로 무게중심이 있어야 오뚝이처럼 돌아옵니다.</li>
+    <li><b>레일은 무게중심 높이에 수평으로</b>, 무게추는 벨트·리드스크류로 옮깁니다.</li>
+    <li><b>댐퍼</b>: 고정 프레임 ↔ 도는 링, 축에서 약 15 cm 떨어진 점. 양 끝은 로드엔드(볼조인트). 0° 일 때 링에 직각.</li>
+    <li><b>pitch 축</b>도 똑같은 구조를 roll 링 안쪽에 90° 돌려서 한 번 더 (축·레일·댐퍼 각각 하나씩).</li>
+    <li><b>안전</b>: 최대 각도 기계식 멈춤쇠, d 가 0 이하가 되면 뒤집힘.</li>
+  </ul>
+  <p style="color:var(--sub)">숫자는 추정입니다 — 의자 관성은 회전 반경 0.4 m 로 가정했고, 실제 값은 조립 뒤 재서 맞춥니다.</p>
+</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const css=()=>{const s=getComputedStyle(document.documentElement);const v=n=>s.getPropertyValue(n).trim();return{ink:v("--ink"),sub:v("--sub"),fix:v("--fix"),rot:v("--rot"),w:v("--w"),cg:v("--cg"),damp:v("--damp"),grid:v("--grid"),card:v("--card"),bad:v("--bad")}};
+let C=css(); matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>C=css());
+const g=9.81, K2=0.16;           // radius of gyration^2 (0.4 m)
+let th=0, om=0, xw=0, hist=[];
+function P(){return{xt:+$("x").value/100,m:+$("m").value,d:+$("d").value/100,z:+$("z").value,sp:+$("s").value,M:+$("M").value}}
+function setX(v){$("x").value=v}
+function eqAngle(p,x){ // solve m(x cos + y sin) = M d sin, y = -d
+  const y=-p.d; return Math.atan2(p.m*x, p.M*p.d - p.m*y);
+}
+function step(dt){
+  const p=P();
+  const dx=p.xt-xw, mv=p.sp*dt; xw+= Math.abs(dx)<mv?dx:Math.sign(dx)*mv;
+  const y=-p.d, I=p.M*(K2+p.d*p.d)+p.m*(xw*xw+y*y);
+  const K=(p.M*p.d - p.m*y)*g, cc=2*Math.sqrt(Math.max(K,1e-6)*I), c=p.z*cc;
+  const tq=p.m*g*(xw*Math.cos(th)+y*Math.sin(th)) - p.M*g*p.d*Math.sin(th) - c*om;
+  om+=tq/I*dt; th+=om*dt;
+  th=Math.max(-1.2,Math.min(1.2,th)); if(Math.abs(th)===1.2) om=0;   // mechanical stop
+  return {p,I,K,c};
+}
+const v=$("view"), vx=v.getContext("2d"), pl=$("plot"), px=pl.getContext("2d");
+function draw(s){
+  const p=s.p, W=v.width, H=v.height, S=300, cx=W/2, cy=190;  // 1 m = 300 px, pivot at (cx,cy)
+  vx.clearRect(0,0,W,H);
+  // fixed frame
+  vx.strokeStyle=C.fix; vx.fillStyle=C.fix; vx.lineWidth=10; vx.lineCap="round";
+  vx.beginPath(); vx.moveTo(cx-260,H-30); vx.lineTo(cx+260,H-30); vx.stroke();
+  for(const k of[-1,1]){vx.beginPath(); vx.moveTo(cx+k*230,H-30); vx.lineTo(cx+k*230,cy-40); vx.lineTo(cx+k*40,cy-110); vx.stroke();}
+  vx.beginPath(); vx.moveTo(cx-40,cy-110); vx.lineTo(cx+40,cy-110); vx.lineTo(cx,cy); vx.closePath(); vx.lineWidth=6; vx.stroke();
+  // rotating group
+  const R=(x,y)=>{const c=Math.cos(th),s_=Math.sin(th);return[cx+(x*c - y*s_*-1)*S*0+ (x*c + y*s_)*S, cy-(-x*s_ + y*c)*S]};
+  // ring
+  vx.strokeStyle=C.rot; vx.lineWidth=8; vx.beginPath(); vx.arc(cx,cy+0.32*S*Math.cos(th)*0, 0, 0, 0); vx.stroke();
+  vx.save(); vx.translate(cx,cy); vx.rotate(th);
+  vx.strokeStyle=C.rot; vx.lineWidth=8;
+  vx.beginPath(); vx.ellipse(0,0.33*S,0.62*S,0.52*S,0,0,2*Math.PI); vx.stroke();          // roll ring
+  vx.lineWidth=6; vx.beginPath(); vx.moveTo(0,0); vx.lineTo(0,-0.19*S); vx.stroke();    // hanger to ring top
+  // seat + person
+  vx.fillStyle=C.rot; vx.globalAlpha=.18; vx.fillRect(-0.25*S,0.25*S,0.5*S,0.08*S); vx.fillRect(-0.25*S,-0.1*S,0.06*S,0.4*S); vx.globalAlpha=1;
+  vx.strokeStyle=C.ink; vx.lineWidth=4; vx.globalAlpha=.55;
+  vx.beginPath(); vx.arc(0,-0.02*S,0.07*S,0,2*Math.PI); vx.stroke();
+  vx.beginPath(); vx.moveTo(0,0.05*S); vx.lineTo(0,0.25*S); vx.moveTo(-0.12*S,0.12*S); vx.lineTo(0.12*S,0.12*S); vx.moveTo(0,0.25*S); vx.lineTo(-0.08*S,0.45*S); vx.moveTo(0,0.25*S); vx.lineTo(0.08*S,0.45*S); vx.stroke(); vx.globalAlpha=1;
+  // rail at CG height
+  const yr=p.d*S;
+  vx.strokeStyle=C.rot; vx.lineWidth=5; vx.beginPath(); vx.moveTo(-0.55*S,yr); vx.lineTo(0.55*S,yr); vx.stroke();
+  // weight
+  const wsz=Math.max(18,Math.min(46,10+p.m*2));
+  vx.fillStyle=C.w; vx.fillRect(xw*S-wsz/2,yr-wsz/2,wsz,wsz);
+  vx.fillStyle=C.ink; vx.font="bold 15px system-ui"; vx.textAlign="center"; vx.fillText(p.m.toFixed(1)+" kg",xw*S,yr+wsz/2+17);
+  // CG star
+  star(0,yr,10,C.cg);
+  // damper attach (rotating) point at r=15cm, right side, at pivot height
+  vx.restore();
+  // pivot
+  vx.fillStyle=C.card; vx.strokeStyle=C.ink; vx.lineWidth=3; vx.beginPath(); vx.arc(cx,cy,9,0,2*Math.PI); vx.fill(); vx.stroke();
+  // damper: fixed point on right upright, moving point at 0.15 m from pivot on ring hanger level
+  const a=[cx+0.15*S*Math.cos(th), cy+0.15*S*Math.sin(th)], f=[cx+230, cy-0.0*S];
+  if(p.z>0){
+    const dx=f[0]-a[0], dy=f[1]-a[1], L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+    vx.strokeStyle=C.damp; vx.lineWidth=5; vx.beginPath(); vx.moveTo(a[0],a[1]); vx.lineTo(a[0]+ux*L*0.45,a[1]+uy*L*0.45); vx.stroke();
+    vx.lineWidth=14; vx.beginPath(); vx.moveTo(f[0]-ux*L*0.55,f[1]-uy*L*0.55); vx.lineTo(f[0],f[1]); vx.stroke();
+    for(const q of[a,f]){vx.fillStyle=C.card; vx.strokeStyle=C.damp; vx.lineWidth=3; vx.beginPath(); vx.arc(q[0],q[1],6,0,2*Math.PI); vx.fill(); vx.stroke();}
+    vx.fillStyle=C.damp; vx.font="600 15px system-ui"; vx.textAlign="left"; vx.fillText("댐퍼",(a[0]+f[0])/2-10,(a[1]+f[1])/2-14);
+  }
+  // labels
+  vx.font="600 15px system-ui"; vx.textAlign="left"; vx.fillStyle=C.ink;
+  vx.fillText("회전축 (roll)",cx+14,cy-14);
+  vx.fillStyle=C.cg; vx.fillText("★ 무게중심: 축 아래 "+Math.round(p.d*100)+" cm",20,30);
+  vx.fillStyle=C.w; vx.fillText("■ 무게추: 레일 위 "+(xw*100).toFixed(0)+" cm",20,52);
+  vx.fillStyle=C.sub; vx.fillText("고정 프레임",cx-300,H-40);
+  // angle arc
+  vx.strokeStyle=C.bad; vx.lineWidth=2; vx.setLineDash([5,4]); vx.beginPath(); vx.moveTo(cx,cy); vx.lineTo(cx,cy+0.95*S); vx.stroke(); vx.setLineDash([]);
+  vx.fillStyle=C.bad; vx.textAlign="center"; vx.fillText((th*180/Math.PI).toFixed(1)+"°",cx+ (th>0?-40:40),cy+0.9*S);
+}
+function star(x,y,r,col){vx.fillStyle=col;vx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*0.45:r;vx.lineTo(x+rr*Math.cos(a),y+rr*Math.sin(a))}vx.closePath();vx.fill()}
+function plot(eqd){
+  const W=pl.width,H=pl.height,ymax=50; px.clearRect(0,0,W,H);
+  const Y=a=>H/2-a/ymax*(H/2-12);
+  px.strokeStyle=C.grid; px.lineWidth=1; px.fillStyle=C.sub; px.font="12px system-ui"; px.textAlign="left";
+  for(const a of[-40,-20,0,20,40]){px.beginPath();px.moveTo(40,Y(a));px.lineTo(W,Y(a));px.stroke();px.fillText(a+"°",4,Y(a)+4)}
+  px.strokeStyle=C.bad; px.setLineDash([6,5]); px.beginPath(); px.moveTo(40,Y(eqd)); px.lineTo(W,Y(eqd)); px.stroke(); px.setLineDash([]);
+  px.strokeStyle=C.rot; px.lineWidth=2.5; px.beginPath();
+  hist.forEach((a,i)=>{const x=40+(W-40)*i/600; i?px.lineTo(x,Y(a)):px.moveTo(x,Y(a))}); px.stroke();
+}
+let last=performance.now(), acc=0;
+function loop(t){
+  let dt=Math.max(0.001,Math.min(0.05,(t-last)/1000)); last=t; let s;
+  const n=Math.max(1,Math.ceil(dt/0.002)); for(let i=0;i<n;i++) s=step(dt/n);
+  const p=s.p, eqd=eqAngle(p,p.xt)*180/Math.PI;
+  acc+=dt; while(acc>1/60){hist.push(th*180/Math.PI); if(hist.length>600) hist.shift(); acc-=1/60}
+  $("xv").textContent=(p.xt*100).toFixed(0)+" cm"; $("mv").textContent=p.m.toFixed(1)+" kg"; $("dv").textContent=Math.round(p.d*100)+" cm";
+  $("zv").textContent=p.z.toFixed(2); $("sv").textContent=p.sp.toFixed(2)+" m/s"; $("Mv").textContent=p.M+" kg";
+  $("ang").textContent=(th*180/Math.PI).toFixed(1)+"°"; $("eq").textContent=eqd.toFixed(1)+"°";
+  $("per").textContent=(2*Math.PI*Math.sqrt(s.I/s.K)).toFixed(1)+" s";
+  $("ct").textContent=s.c<1?"없음":Math.round(s.c/0.0225)+" N·s/m";
+  draw(s); plot(eqd); requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
