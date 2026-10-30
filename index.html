@@ -110,7 +110,7 @@ const INFO={
   roll_bracket:["풀리 받침","레일 끝에 붙여 풀리를 잡는 판.","8 mm 판"],
   ring_back:["링 앞 막대 (뼈대)","무게추 없음 (앞쪽은 교관·견학 시야용으로 비워 둠). 링을 닫는 뼈대.","40×80 (세로), 길이 1000, x = +1100"],
   roll_motor:["roll 웜기어 모터","24 V 웜기어 DC 모터 (예: 모터뱅크 WGM40C-315724, 감속비 1/218 ≈ 25 rpm, 추정). 웜기어가 저절로 잠겨 전원이 꺼져도 무게추를 붙잡는다.","약 25 rpm × 100 mm = 초속 4.2 cm (추정)"],
-  roll_weight:["roll 무게추 약 17.6 kg","강철 블록. roll 20° 에 약 17.6 kg 필요 (계산 탭, 추정, 레일 끝 ±0.565 m).","68×150×220 강철 ≈ 17.6 kg"],
+  roll_weight:["roll 무게추 약 18.6 kg","강철 블록. roll 20° 에 약 17.6 kg 필요 (계산 탭, 추정, 레일 끝 ±0.565 m).","68×150×232 강철 ≈ 18.6 kg"],
   pitch_pin:["pitch 회전축","케이지가 이 축을 중심으로 앞뒤로 기운다. 링 옆 막대에 붙어 있다.","Ø40, y = ±440"],
   guard_pitch:["끼임 방지 덮개 (pitch 축)","도는 케이지와 링 사이 틈을 막는 통.","Ø90 / 안 Ø46"],
   pitch_arm:["pitch 멈춤쇠 팔","링에 붙은 세로 막대 (위아래 32 cm). 케이지 돌기가 ±30.5° 에서 이 팔의 고무에 닿는다.","40×18×640"],
@@ -147,7 +147,7 @@ const INFO={
   pc_bar:["균형추 받침 가로대","뒤 기둥 사이.","40×760×40"],
   pc_shelf:["균형추 선반","등받이 뒤. 고정 균형추를 볼트로 고정. 케이블 묶음도 여기서 정리.","500×480×20"],
   ballast:["뒤 균형 막대 (고정 추)","페달·스틱·바닥 앞부분 때문에 케이지가 앞으로 숙이는 것 (계산상 약 13°) 을 잡는 강철 막대. 뒤로 나온 두 레일 끝을 이어 주는 역할도 함.","강철 40×40×760 ≈ 9.5 kg, x = −0.70 m"],
-  pitch_weight:["pitch 무게추 (양옆 2개)","pitch 15° 에 합계 약 13~14 kg 필요 (계산 탭, 추정). 한쪽 약 6.8 kg. 안쪽 벨트에 물려 있다.","150×36×160 강철 ≈ 6.8 kg"],
+  pitch_weight:["pitch 무게추 (양옆 2개)","pitch 15° 에 합계 약 13~14 kg 필요 (계산 탭, 추정). 한쪽 약 6.8 kg. 안쪽 벨트에 물려 있다.","150×36×170 강철 ≈ 7.2 kg"],
   lock_cage:["pitch 잠금판 (케이지 쪽)","링 쪽 잠금판과 짝.","40×38×60, 구멍 Ø13"],
   pitch_tab:["pitch 멈춤쇠 돌기","케이지 옆 레일에 붙은 돌기. ±30.5° 에서 링의 멈춤쇠 고무에 닿는다.","40×32×40"],
   belt_sh:["안전벨트 어깨끈 (4점식)","등받이 위에서 버클로.","폭 50"],
@@ -212,10 +212,10 @@ const RBX0=RB-50,RBX1=RB-35,RBZ=70,RPR=16;
 for(const y of[680,-680]){add(CYL("ring","roll_pulley",[RBX0,y,RBZ],[RBX1,y,RBZ],RPR));add(BOX("ring","roll_bracket",RB-55,RB-20,y-25,y+25,RBZ-30,RBZ+30))}
 for(const dz of[RPR,-RPR]) add(BOX("ring","roll_belt",RBX0,RBX1,-680,680,RBZ+dz-1.8,RBZ+dz+1.8));
 add(BOX("ring","roll_weight",RB-40,RB-18,-15,15,RBZ+RPR-4,RBZ+RPR+3)); // clamp arm to top run (passes over the pivot guard)
-add(BOX("ring","roll_motor",RB-95,RB-55,655,705,RBZ-25,RBZ+25));
-add(CYL("ring","roll_motor",[RB-75,705,RBZ],[RB-75,785,RBZ],18));
+add(BOX("ring","roll_motor",RB-95,RB-55,-705,-655,RBZ-25,RBZ+25));   // on the right end: offsets the left-hand throttle
+add(CYL("ring","roll_motor",[RB-75,-705,RBZ],[RB-75,-785,RBZ],18));
 add(BOX("ring","cover",RBX0-5,RBX1+5,-700,700,RBZ+RPR+4,RBZ+RPR+7));
-add(BOX("ring","roll_weight",RB-18,RB+50,-75,75,40,260));   // stays clear of the back pivot pin/guard
+add(BOX("ring","roll_weight",RB-18,RB+50,-75,75,40,272));   // stays clear of the back pivot pin/guard
 add(BOX("ring","lock_roll_ring",RF+20,RF+38,-20,20,-150,-60));
 for(const s of S2){
   add(CYL("ring","pitch_pin",[0,s*420,0],[0,s*460,0],20));
@@ -267,7 +267,7 @@ add(BOX("cage","pedals",580,640,-170,170,-780,-750));
 add(BOX("cage","vr_hook",-470,-440,-262,-252,240,260));
 const PX=700;                   // pitch belt pulley x (+-)
 for(const s of S2){
-  const[w0,w1]=ys(s,382,418);add(BOX("cage","pitch_weight",-75,75,w0,w1,40,200));
+  const[w0,w1]=ys(s,382,418);add(BOX("cage","pitch_weight",-75,75,w0,w1,40,210));
   const[l0,l1]=ys(s,400,438);add(BOX("cage","lock_cage",580,620,l0,l1,-80,-20));
   const[t0,t1]=ys(s,420,452);add(BOX("cage","pitch_tab",480,520,t0,t1,-20,20));
   add(STRAP("cage","belt_sh",[-420,s*110,330],[35,s*45,-180],50,3,[0,1,0]));
