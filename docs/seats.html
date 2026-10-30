@@ -4,70 +4,105 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>버킷 시트 후보</title>
+<title>시트 후보 (새 제품)</title>
 <style>
-:root{--bg:#f5f5f2;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b}
+:root{--bg:#f5f5f2;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--bad:#d93a3a}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.55}
 main{max-width:1100px;margin:0 auto;padding:22px 16px 48px}
 h1{font-size:1.45rem;margin:0 0 6px}
-h2{font-size:1.12rem;margin:24px 0 10px}
+h2{font-size:1.12rem;margin:26px 0 10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.grid.sm{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .p{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
 .p.best{border:2px solid var(--ok)}
-.p .img{height:180px;background:#fff;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line)}
-.p .img img{max-width:100%;max-height:180px;object-fit:contain}
-.p .body{padding:10px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
-.p h3{margin:0;font-size:.98rem}
-.price{font-size:1.1rem;font-weight:700}
-.badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:9px;color:#fff;margin-right:4px}
-.b-ok{background:var(--ok)}.b-acc{background:var(--acc)}.b-warn{background:var(--warn)}
-.small{font-size:.82rem;color:var(--sub)}
+.p .img{height:200px;background:#fff;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line);overflow:hidden}
+.p .img img{width:100%;height:200px;object-fit:cover}
+.p .img img.fit{object-fit:contain}
+.grid.sm .p .img,.grid.sm .p .img img{height:160px}
+.p .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.p h3{margin:0;font-size:1.02rem}
+.price{font-size:1.15rem;font-weight:700}
+.badge{display:inline-block;font-size:.74rem;padding:1px 8px;border-radius:9px;color:#fff;margin-right:4px}
+.b-ok{background:var(--ok)}.b-acc{background:var(--acc)}.b-warn{background:var(--warn)}.b-bad{background:var(--bad)}
+.kv{display:grid;grid-template-columns:52px 1fr;gap:2px 8px;font-size:.86rem}
+.kv span:nth-child(odd){color:var(--sub)}
+.links{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
+.links a{font-size:.84rem;padding:4px 10px;border:1px solid var(--line);border-radius:14px;text-decoration:none;background:var(--bg)}
+.credit{font-size:.72rem;color:var(--sub)}
+.small{font-size:.84rem;color:var(--sub)}
 a{color:var(--acc)}
-.links a{display:inline-block;margin:4px 8px 4px 0;padding:6px 12px;border:1px solid var(--line);border-radius:18px;background:var(--card);text-decoration:none}
-table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+th{color:var(--sub);font-size:.82rem}
 </style>
 </head>
 <body>
 <main>
-<h1>버킷 시트 후보 (2026-10-30)</h1>
-<p><b>가장 싸게: 중고 세미버킷 (10~20만 원) + 레일 4.4만 + 4점 벨트 6.6만.</b> 새 제품은 국내 시뮬레이터 업체 PNS 가 레일·벨트·브래킷까지 한 곳에 있어 맞추기 쉽다 (시트 33만 원~).</p>
-<div class="card small">쿠팡·네이버 쇼핑은 자동 접속을 막아서 이 페이지에서 상품·재고를 직접 확인하지 못함 → 아래 <b>검색 바로가기</b>로 확인. PNS 상품은 판매 페이지에 품절 표시가 없는 것만 넣음 (실제 재고는 주문 전 확인).</div>
+<h1>좌석 — 새 제품, 싼 순서</h1>
+<p><b>추천: 네이버·쿠팡에서 "범용 버킷시트" (새 제품) 를 20만 원 안쪽으로 → 없으면 카트 시트 + 방석.</b> 4점 벨트를 케이지 프레임에 고정하면 시트는 몸만 받치면 되므로 싼 시트도 된다. 레일·벨트는 PNS.</p>
+<div class="card small">⚠ 쿠팡·네이버는 자동 접속을 막아 개별 상품·재고를 확인하지 못함. 아래 큰 사진은 <b>종류 예시</b> (위키미디어 공용), 가격은 <b>대략 추정</b> — 각 카드의 검색 버튼으로 실제 상품을 확인. 확인된 실제 상품은 아래 "PNS" 칸.</div>
 
-<h2>검색 바로가기 (싼 것 찾기)</h2>
-<div class="links">
-  <a href="https://www.coupang.com/np/search?q=%EC%84%B8%EB%AF%B8%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">쿠팡: 세미버킷시트</a>
-  <a href="https://www.coupang.com/np/search?q=%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8+%EB%A0%88%EC%9D%BC">쿠팡: 버킷시트 레일</a>
-  <a href="https://search.shopping.naver.com/search/all?query=%EC%84%B8%EB%AF%B8%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">네이버: 세미버킷시트</a>
-  <a href="https://search.shopping.naver.com/search/all?query=%EB%A0%88%EC%9D%B4%EC%8B%B1+%EC%8B%9C%EB%AE%AC%EB%A0%88%EC%9D%B4%ED%84%B0+%EC%8B%9C%ED%8A%B8">네이버: 레이싱 시뮬레이터 시트</a>
-  <a href="https://m.bunjang.co.kr/search/products?q=%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">번개장터: 버킷시트 (중고)</a>
-  <a href="https://web.joongna.com/search/%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">중고나라: 버킷시트</a>
-</div>
-<p class="small">고를 때: 폭 0.6 m 이하 (케이지 안쪽 0.76 m) · 어깨 벨트 구멍 · 사이드 브래킷 볼트 구멍 · 등받이 15~20° · 체격 차이가 크면 세미버킷.</p>
-
-<h2>PNS (국내 레이싱 시뮬레이터 장비 제작사)</h2>
+<h2>종류별 (싼 순)</h2>
 <div class="grid">
-  <div class="p best"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_90.jpg" alt=""></div><div class="body"><span><span class="badge b-ok">새 제품 중 가장 쌈</span></span><h3>버킷시트 조절식 기본형 [챌린저]</h3><div class="price">330,000원</div><a href="https://pnskr.com/product/pns-버킷시트-조절식-기본형-챌린저/90/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_123.jpg" alt=""></div><div class="body"><h3>버킷시트 고정식 기본형 [파르제]</h3><div class="price">352,000원</div><a href="https://pnskr.com/product/pns-버킷시트-고정식-기본형-파르제/123/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_194.jpg" alt=""></div><div class="body"><h3>버킷시트 [파르제 XL] 가죽</h3><div class="price">385,000원</div><div class="small">큰 체격용</div><a href="https://pnskr.com/product/pns-버킷시트-파르제-xl-verleather/194/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_111.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">필요</span></span><h3>버킷시트 슬라이딩 레일</h3><div class="price">44,000원</div><div class="small">앞뒤 조절 (교육생 키)</div><a href="https://pnskr.com/product/pns-버킷시트-슬라이딩-레일/111/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_113.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">필요</span></span><h3>사이드서포터 (사이드브라켓)</h3><div class="price">33,000원</div><div class="small">시트 → 레일 고정</div><a href="https://pnskr.com/product/pns-버킷시트-사이드서포터-사이드브라켓/113/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_7.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">필요</span></span><h3>Safety-Belt 4점식</h3><div class="price">66,000원</div><a href="https://pnskr.com/product/pns-버킷시트-safety-belt-4점식/7/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://pnskr.com/web/product/medium/kartmall_110.jpg" alt=""></div><div class="body"><h3>4점벨트 고정용 L브라켓</h3><div class="price">11,000원</div><div class="small">벨트를 프레임에 고정</div><a href="https://pnskr.com/product/pns-버킷시트-4점벨트-고정용l브라켓/110/">판매 페이지</a></div></div>
-  <div class="p"><div class="img"><img src="https://caroundmall.co.kr/web/product/medium/201805/1c5e54ee9d2f9f62cc009e87dbf76698.jpg" alt=""></div><div class="body"><h3>카라운드 버킷 시트 레일 (슬라이더)</h3><div class="price">50,000원</div><a href="https://caroundmall.co.kr/product/detail.html?product_no=598&cate_no=47&display_group=1">판매 페이지</a></div></div>
+  <div class="p">
+    <div class="img"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Poljud%20-%20VIP%20stands.JPG?width=640" alt="관람석 의자 예시"></div>
+    <div class="body">
+      <div><span class="badge b-ok">가장 쌈</span><span class="badge b-warn">시제품용</span></div>
+      <h3>① 관람석(스타디움) 플라스틱 의자</h3>
+      <div class="price">약 수만 원 이하 <span class="small">(추정)</span></div>
+      <div class="kv"><span>좋은 점</span><span>아주 싸고 가볍다 (약 2~3 kg). 볼트로 바로 고정</span>
+        <span>나쁜 점</span><span>등받이 낮고 옆을 잘 안 잡음. 방석 필요. 레일 달기 애매</span></div>
+      <div class="links"><a href="https://search.shopping.naver.com/search/all?query=%EA%B4%80%EB%9E%8C%EC%84%9D+%EC%9D%98%EC%9E%90+%EC%A2%8C%EC%84%9D">네이버 검색</a><a href="https://www.coupang.com/np/search?q=%EC%8A%A4%ED%83%80%EB%94%94%EC%9B%80+%EC%9D%98%EC%9E%90">쿠팡 검색</a></div>
+      <div class="credit">사진 예시: <a href="https://commons.wikimedia.org/wiki/File:Poljud_-_VIP_stands.JPG">Poljud - VIP stands.JPG</a> (Wikimedia Commons)</div>
+    </div>
+  </div>
+  <div class="p best">
+    <div class="img"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Go-Kart%20(15942250813).jpg?width=640" alt="카트 시트 예시"></div>
+    <div class="body">
+      <div><span class="badge b-ok">싸고 튼튼</span></div>
+      <h3>② 카트 시트 (고카트용)</h3>
+      <div class="price">약 수만 원대 <span class="small">(추정)</span></div>
+      <div class="kv"><span>좋은 점</span><span>플라스틱 한 덩어리, 옆을 잘 잡음, 가볍다 (약 3~5 kg) → 무게추 부담 적음</span>
+        <span>나쁜 점</span><span>쿠션 얇음 → 패드·방석. 벨트 구멍 없는 것 많음 → 벨트는 프레임에. 큰 체격은 사이즈 확인</span></div>
+      <div class="links"><a href="https://search.shopping.naver.com/search/all?query=%EA%B3%A0%EC%B9%B4%ED%8A%B8+%EC%8B%9C%ED%8A%B8">네이버 검색</a><a href="https://www.coupang.com/np/search?q=%EA%B3%A0%EC%B9%B4%ED%8A%B8+%EC%8B%9C%ED%8A%B8">쿠팡 검색</a><a href="https://search.shopping.naver.com/search/all?query=%EC%B9%B4%ED%8A%B8+%EC%8B%9C%ED%8A%B8+%ED%8C%A8%EB%93%9C">시트 패드</a></div>
+      <div class="credit">사진 예시: <a href="https://commons.wikimedia.org/wiki/File:Go-Kart_(15942250813).jpg">Go-Kart (15942250813).jpg</a> (Wikimedia Commons)</div>
+    </div>
+  </div>
+  <div class="p best">
+    <div class="img"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Osaka%20Auto%20Messe%202014%20(121)%20BRIDE%20bucket%20seats.JPG?width=640" alt="버킷시트 예시"></div>
+    <div class="body">
+      <div><span class="badge b-ok">추천</span><span class="badge b-acc">완성도</span></div>
+      <h3>③ 무브랜드 버킷시트 (새 제품)</h3>
+      <div class="price">약 15~25만 원 <span class="small">(추정)</span></div>
+      <div class="kv"><span>좋은 점</span><span>쿠션·옆 날개·벨트 구멍·브라켓 구멍 다 있음. PNS 레일 바로 사용</span>
+        <span>나쁜 점</span><span>품질 들쭉날쭉 → 후기·치수 확인. 무게 8~12 kg</span></div>
+      <div class="links"><a href="https://search.shopping.naver.com/search/all?query=%EB%B2%94%EC%9A%A9+%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8+-%EA%B2%8C%EC%9D%B4%EB%B0%8D">네이버 "범용 버킷시트"</a><a href="https://search.shopping.naver.com/search/all?query=PVC+%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">네이버 "PVC 버킷시트"</a><a href="https://www.coupang.com/np/search?q=%ED%8A%9C%EB%8B%9D+%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">쿠팡 "튜닝 버킷시트"</a></div>
+      <div class="credit">사진 예시 (BRIDE 시트, 모양 참고용): <a href="https://commons.wikimedia.org/wiki/File:Osaka_Auto_Messe_2014_(121)_BRIDE_bucket_seats.JPG">Osaka Auto Messe 2014 (121)</a> (Wikimedia Commons)</div>
+    </div>
+  </div>
 </div>
 
-<h2>조합별 합계</h2>
-<div class="card">
-<table><tr><th>조합</th><th>구성</th><th>합계</th></tr>
-<tr><td><b>최저가</b></td><td>중고 세미버킷 (10~20만, 번개장터·중고나라 시세) + PNS 레일 4.4만 + 사이드브라켓 3.3만 + 4점 벨트 6.6만 + L브라켓 1.1만×2</td><td>약 26~36만 원</td></tr>
-<tr><td>새 제품</td><td>PNS 챌린저 33만 + 레일 4.4만 + 사이드브라켓 3.3만 + 4점 벨트 6.6만 + L브라켓 1.1만×2</td><td>약 49.5만 원</td></tr>
-</table>
-<p class="small">중고 시세는 번개장터·중고나라 검색 결과의 예 (브리드 세미버킷 10만 원대, 다른 세미버킷 20만 원). 부품표의 "버킷 시트 15만 원" 은 중고 기준.</p>
+<h2>PNS — 확인된 실제 상품 (국내, 판매 페이지에 품절 표시 없음)</h2>
+<div class="grid sm">
+  <div class="p"><div class="img"><img class="fit" src="https://pnskr.com/web/product/medium/kartmall_90.jpg" alt=""></div><div class="body"><h3>버킷시트 조절식 기본형 [챌린저]</h3><div class="price">330,000원</div><div class="links"><a href="https://pnskr.com/product/pns-버킷시트-조절식-기본형-챌린저/90/">판매 페이지</a></div></div></div>
+  <div class="p"><div class="img"><img class="fit" src="https://pnskr.com/web/product/medium/kartmall_111.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">필요</span></span><h3>슬라이딩 레일</h3><div class="price">44,000원</div><div class="links"><a href="https://pnskr.com/product/pns-버킷시트-슬라이딩-레일/111/">판매 페이지</a></div></div></div>
+  <div class="p"><div class="img"><img class="fit" src="https://pnskr.com/web/product/medium/kartmall_113.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">버킷시트면 필요</span></span><h3>사이드브라켓</h3><div class="price">33,000원</div><div class="links"><a href="https://pnskr.com/product/pns-버킷시트-사이드서포터-사이드브라켓/113/">판매 페이지</a></div></div></div>
+  <div class="p"><div class="img"><img class="fit" src="https://pnskr.com/web/product/medium/kartmall_7.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">필요</span></span><h3>4점 벨트</h3><div class="price">66,000원</div><div class="links"><a href="https://pnskr.com/product/pns-버킷시트-safety-belt-4점식/7/">판매 페이지</a></div></div></div>
+  <div class="p"><div class="img"><img class="fit" src="https://pnskr.com/web/product/medium/kartmall_110.jpg" alt=""></div><div class="body"><span><span class="badge b-acc">필요 ×2</span></span><h3>벨트 고정 L브라켓 (프레임에)</h3><div class="price">11,000원</div><div class="links"><a href="https://pnskr.com/product/pns-버킷시트-4점벨트-고정용l브라켓/110/">판매 페이지</a></div></div></div>
 </div>
-<p class="small">출처: <a href="https://pnskr.com/">PNS</a> · <a href="https://caroundmall.co.kr/category/%EB%B2%84%EC%BC%93%EC%8B%9C%ED%8A%B8bucket-seat/47/">카라운드</a> · <a href="https://m.bunjang.co.kr/keywords/%EB%B2%84%ED%82%B7%EC%8B%9C%ED%8A%B8">번개장터</a> · <a href="https://web.joongna.com/product/187400809">중고나라 예</a></p>
+
+<h2>조합별 합계 (새 제품만)</h2>
+<div class="card">
+<table><tr><th>조합</th><th>구성</th><th>합계 (추정)</th></tr>
+<tr><td>카트 시트</td><td>카트 시트 (수만 원) + 패드 + 4점 벨트 6.6만 + L브라켓 2.2만 (레일 없이 시트를 프로파일에 직접, 앞뒤는 프로파일 위치로 조절)</td><td><b>약 15만 원 안팎</b></td></tr>
+<tr><td>무브랜드 버킷</td><td>버킷시트 15~25만 + 레일 4.4만 + 사이드브라켓 3.3만 + 4점 벨트 6.6만 + L브라켓 2.2만</td><td>약 32~42만 원</td></tr>
+<tr><td>PNS 세트</td><td>챌린저 33만 + 레일 + 사이드브라켓 + 4점 벨트 + L브라켓</td><td>약 49.5만 원</td></tr>
+</table>
+<p class="small">고를 때: 폭 0.6 m 이하 (케이지 안쪽 0.76 m) · 바닥이나 옆에 볼트 구멍 · 무게가 가벼울수록 무게추 부담이 적다 (시트가 축 아래에 있음) · 큰 체격 교육생도 들어가는 크기.</p>
+</div>
+<p class="credit">PNS 상품 정보: <a href="https://pnskr.com/">pnskr.com</a> (2026-10-30 확인). 예시 사진: Wikimedia Commons 각 파일 페이지의 저작자·라이선스 참고.</p>
 </main>
 </body>
 </html>

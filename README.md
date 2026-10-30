@@ -15,7 +15,7 @@
 | [`docs/worm.html`](docs/worm.html) | 웜기어 모터 후보 (국내 배송) |
 | [`docs/motors.html`](docs/motors.html) | 스텝모터·브레이크 후보 (예전 검토, 채택 안 함) |
 | [`docs/controls.html`](docs/controls.html) | 비행 조종기 종류 |
-| [`docs/seats.html`](docs/seats.html) | 버킷 시트·레일·벨트 후보 (국내) |
+| [`docs/seats.html`](docs/seats.html) | 좌석 후보 (새 제품, 싼 순) · 레일 · 벨트 |
 
 로컬에서 열기: 폴더에서 `python -m http.server` 후 브라우저로 `http://localhost:8000/`.
 (GitHub Pages 를 켜면 웹으로 바로 볼 수 있음.)
