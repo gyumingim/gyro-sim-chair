@@ -91,7 +91,7 @@ function readControls(dt){const pads=navigator.getGamepads();
   ctrl.rud=ax("rud")??kb("KeyD","KeyA",ctrl.rud,2);
   const t=ax("thr");ctrl.thr=t!==null?(1-t)/2:Math.max(0,Math.min(1,ctrl.thr+((keys.KeyW?1:0)-(keys.KeyS?1:0))*0.4*dt));
   const bl=ax("brk_l"),br=ax("brk_r");ctrl.brk_l=bl!==null?(bl+1)/2:(keys.KeyB?1:0);ctrl.brk_r=br!==null?(br+1)/2:(keys.KeyB?1:0);
-  send({ctrl})}
+  send({ctrl,rid})}
 // ---------------- HUD ----------------
 const H=hud.getContext("2d");
 function drawHUD(){const W=hud.width,Hh=hud.height,s=devicePixelRatio;H.clearRect(0,0,W,Hh);if(!S)return;

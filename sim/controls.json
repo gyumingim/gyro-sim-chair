@@ -1,0 +1,11 @@
+{
+  "_help": "Joystick axis mapping for server.py (pygame). axis = pygame axis index, invert = flip sign. Throttle uses (1 - v) / 2 so the usual 'forward = -1' throttle lever gives full power. Elevator: JSBSim + = nose down (push); most sticks give -1 when pushed forward, so invert = true. Restart server.py after editing.",
+  "joystick_index": 0,
+  "deadzone": 0.03,
+  "axes": {
+    "ail":  {"axis": 0, "invert": false},
+    "elev": {"axis": 1, "invert": true},
+    "thr":  {"axis": 2, "invert": false},
+    "rud":  {"axis": 3, "invert": false}
+  }
+}
