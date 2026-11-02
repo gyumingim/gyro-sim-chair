@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자이로 의자 시뮬레이터</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,"Malgun Gothic",sans-serif}
+#hud{position:absolute;inset:0;pointer-events:none}
+#panel{position:absolute;right:10px;top:10px;width:300px;background:#0d1117cc;color:#dfe7ef;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5}
+#panel h1{font-size:14px;margin:0 0 6px}
+#panel button{font:inherit;padding:4px 8px;margin:2px 2px 0 0;border-radius:6px;border:1px solid #445;background:#1c2330;color:#dfe7ef;cursor:pointer}
+#panel select{font:inherit;background:#1c2330;color:#dfe7ef;border:1px solid #445;border-radius:4px;max-width:150px}
+#panel table{width:100%;border-collapse:collapse}#panel td{padding:1px 2px}
+#chair{display:flex;gap:8px;align-items:center;margin-top:6px}
+.k{color:#8fa3b8}
+#help{position:absolute;left:10px;bottom:10px;color:#dfe7efcc;font-size:12px;background:#0008;padding:6px 8px;border-radius:6px}
+</style>
+</head>
+<body>
+<canvas id="hud"></canvas>
+<div id="panel">
+  <h1>자이로 의자 시뮬레이터 (프로토타입)</h1>
+  <div><span class="k">비행 모델</span> JSBSim F-16 · <span id="conn">연결 중…</span></div>
+  <div style="margin-top:6px">
+    <button onclick="send({cmd:'reset',mode:'air'})">공중 시작</button>
+    <button onclick="send({cmd:'reset',mode:'runway'})">활주로 시작</button>
+    <button onclick="send({cmd:'pause'})">일시정지</button>
+    <button id="view">시점: 조종석</button>
+  </div>
+  <table style="margin-top:6px" id="tele"></table>
+  <div id="chair"><canvas id="chairc" width="120" height="70"></canvas><div><span class="k">의자로 보내는 값</span><br><b id="chv">roll 0° · pitch 0°</b><br><span class="k">UDP 127.0.0.1:4210</span></div></div>
+  <div style="margin-top:8px"><span class="k">조종기</span> <span id="pads">없음 (키보드)</span></div>
+  <table id="map" style="margin-top:4px"></table>
+</div>
+<div id="help">키보드: ← → 좌우(roll) · ↑ ↓ 앞뒤(pitch, ↓ = 당기기) · A D 러더 · W S 스로틀 · B 브레이크 · G 바퀴 · V 시점 · P 일시정지</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------------- connection ----------------
+let ws, S=null, rid=null;
+function connect(){ws=new WebSocket(`ws://${location.hostname}:8781`);ws.onopen=()=>conn.textContent="연결됨";ws.onclose=()=>{conn.textContent="끊김 — 다시 연결";setTimeout(connect,1000)};ws.onmessage=e=>{S=JSON.parse(e.data);if(S.rid!==rid){rid=S.rid;ctrl.thr=S.thr_init;ctrl.gear=S.gear_init}}}
+const send=m=>ws&&ws.readyState===1&&ws.send(JSON.stringify(m));connect();
+// ---------------- scene ----------------
+const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(2,devicePixelRatio));document.body.prepend(R.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x8fb8e8);scene.fog=new THREE.Fog(0xa9c6e8,8000,60000);
+const cam=new THREE.PerspectiveCamera(70,1,0.5,120000);
+scene.add(new THREE.HemisphereLight(0xffffff,0x556644,0.9));const sun=new THREE.DirectionalLight(0xffffff,0.6);sun.position.set(3000,8000,2000);scene.add(sun);
+// ground: big textured plane + grid lines every 1 km
+const tex=(()=>{const c=document.createElement("canvas");c.width=c.height=512;const g=c.getContext("2d");
+  for(let i=0;i<64;i++)for(let j=0;j<64;j++){const v=90+Math.random()*40;g.fillStyle=`rgb(${v*0.55|0},${v|0},${v*0.45|0})`;g.fillRect(i*8,j*8,8,8)}
+  g.strokeStyle="rgba(255,255,255,.25)";g.lineWidth=2;g.strokeRect(0,0,512,512);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(200,200);return t})();
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200000,200000),new THREE.MeshLambertMaterial({map:tex}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+// runway at the start point (3 km × 45 m, north-south) + centre line
+const rw=new THREE.Mesh(new THREE.PlaneGeometry(45,3000),new THREE.MeshLambertMaterial({color:0x333438}));rw.rotation.x=-Math.PI/2;rw.position.set(0,0.2,-1300);scene.add(rw);
+for(let i=0;i<40;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(1,30),new THREE.MeshBasicMaterial({color:0xffffff}));m.rotation.x=-Math.PI/2;m.position.set(0,0.3,-1300+1450-i*75);scene.add(m)}
+// hills for reference
+const rnd=(s=>()=>(s=(s*16807)%2147483647)/2147483647)(7);
+for(let i=0;i<160;i++){const h=200+rnd()*1500,r=800+rnd()*2500;const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(0.27+rnd()*0.05,0.35,0.28+rnd()*0.1)}));
+  m.position.set((rnd()-0.5)*90000,h/2,(rnd()-0.5)*90000);if(Math.hypot(m.position.x,m.position.z)>4000)scene.add(m)}
+// simple aircraft model for the chase view
+const plane=new THREE.Group();const grey=new THREE.MeshLambertMaterial({color:0x8a9099});
+const fus=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.9,15,12),grey);fus.rotation.x=Math.PI/2;plane.add(fus);
+const wing=new THREE.Mesh(new THREE.BoxGeometry(9.5,0.2,3.5),grey);wing.position.set(0,0,1);plane.add(wing);
+const tail=new THREE.Mesh(new THREE.BoxGeometry(0.2,3,2.5),grey);tail.position.set(0,1.6,6);plane.add(tail);
+const hst=new THREE.Mesh(new THREE.BoxGeometry(5.5,0.15,2),grey);hst.position.set(0,0,6.3);plane.add(hst);
+scene.add(plane);
+let chase=false;document.getElementById("view").onclick=()=>{chase=!chase;view.textContent="시점: "+(chase?"3인칭":"조종석")};
+function resize(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();hud.width=innerWidth*devicePixelRatio;hud.height=innerHeight*devicePixelRatio;hud.style.width=innerWidth+"px";hud.style.height=innerHeight+"px"}
+addEventListener("resize",resize);resize();
+// NED Euler -> three basis (three: x = east, y = up, z = south)
+function attitudeBasis(phi,th,psi){const d=Math.PI/180;const[cf,sf,ct,st,cp,sp]=[Math.cos(phi*d),Math.sin(phi*d),Math.cos(th*d),Math.sin(th*d),Math.cos(psi*d),Math.sin(psi*d)];
+  // body axes in NED
+  const fwd=[ct*cp,ct*sp,-st], right=[sf*st*cp-cf*sp, sf*st*sp+cf*cp, sf*ct], down=[cf*st*cp+sf*sp, cf*st*sp-sf*cp, cf*ct];
+  const t=v=>new THREE.Vector3(v[1],-v[2],-v[0]);              // NED -> three (east, up, -north)
+  return {f:t(fwd),r:t(right),u:t(down).negate()}}
+// ---------------- controls ----------------
+const keys={};addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyG")ctrl.gear=ctrl.gear?0:1;if(e.code==="KeyV")view.click();if(e.code==="KeyP")send({cmd:"pause"})});addEventListener("keyup",e=>keys[e.code]=false);
+const ctrl={ail:0,elev:0,rud:0,thr:0,brk_l:0,brk_r:0,gear:0};
+const AXES=["ail","elev","rud","thr","brk_l","brk_r"],NAMES={ail:"좌우 (roll)",elev:"앞뒤 (pitch)",rud:"러더",thr:"스로틀",brk_l:"왼 브레이크",brk_r:"오른 브레이크"};
+let map=JSON.parse(localStorage.getItem("axisMap")||"{}");             // name -> "pad:axis:invert"
+function buildMap(){const pads=[...navigator.getGamepads()].filter(Boolean);document.getElementById("pads").textContent=pads.length?pads.map(p=>p.id.slice(0,24)).join(", "):"없음 (키보드)";
+  const opts=['<option value="">키보드</option>'];pads.forEach(p=>p.axes.forEach((_,a)=>{for(const inv of[0,1])opts.push(`<option value="${p.index}:${a}:${inv}">${p.index}번 축${a}${inv?" (반대)":""}</option>`)}));
+  document.getElementById("map").innerHTML=AXES.map(k=>`<tr><td class="k">${NAMES[k]}</td><td><select data-k="${k}">${opts.join("")}</select></td></tr>`).join("");
+  document.querySelectorAll("#map select").forEach(s=>{s.value=map[s.dataset.k]||"";s.onchange=()=>{map[s.dataset.k]=s.value;localStorage.setItem("axisMap",JSON.stringify(map))}})}
+addEventListener("gamepadconnected",buildMap);addEventListener("gamepaddisconnected",buildMap);buildMap();
+function readControls(dt){const pads=navigator.getGamepads();
+  const ax=k=>{const m=map[k];if(!m)return null;const[pi,ai,inv]=m.split(":").map(Number);const p=pads[pi];if(!p)return null;let v=p.axes[ai];return inv?-v:v};
+  const kb=(a,b,v,rate)=>Math.max(-1,Math.min(1,v+((keys[a]?1:0)-(keys[b]?1:0))*rate*dt-(!keys[a]&&!keys[b]?v*Math.min(1,4*dt):0)));
+  ctrl.ail=ax("ail")??kb("ArrowRight","ArrowLeft",ctrl.ail,2);
+  ctrl.elev=ax("elev")??kb("ArrowUp","ArrowDown",ctrl.elev,2);                 // JSBSim: + elevator = nose down (push)
+  ctrl.rud=ax("rud")??kb("KeyD","KeyA",ctrl.rud,2);
+  const t=ax("thr");ctrl.thr=t!==null?(1-t)/2:Math.max(0,Math.min(1,ctrl.thr+((keys.KeyW?1:0)-(keys.KeyS?1:0))*0.4*dt));
+  const bl=ax("brk_l"),br=ax("brk_r");ctrl.brk_l=bl!==null?(bl+1)/2:(keys.KeyB?1:0);ctrl.brk_r=br!==null?(br+1)/2:(keys.KeyB?1:0);
+  send({ctrl})}
+// ---------------- HUD ----------------
+const H=hud.getContext("2d");
+function drawHUD(){const W=hud.width,Hh=hud.height,s=devicePixelRatio;H.clearRect(0,0,W,Hh);if(!S)return;
+  H.save();H.translate(W/2,Hh/2);H.strokeStyle=H.fillStyle="#3dff7a";H.lineWidth=2*s;H.font=`${14*s}px monospace`;H.textAlign="center";
+  const ppd=Hh/cam.fov;                                            // pixels per degree
+  H.save();H.rotate(-S.phi*Math.PI/180);
+  for(let p=-90;p<=90;p+=5){const y=(S.theta-p)*ppd;if(Math.abs(y)>Hh*0.35)continue;const w=(p===0?W*0.3:(p%10?40:80)*s);H.setLineDash(p<0?[8*s,6*s]:[]);
+    H.beginPath();H.moveTo(-w,y);H.lineTo(-w*0.25,y);H.moveTo(w*0.25,y);H.lineTo(w,y);H.stroke();if(p&&p%10===0){H.fillText(p,-w-18*s,y+5*s);H.fillText(p,w+18*s,y+5*s)}}
+  H.setLineDash([]);H.restore();
+  H.beginPath();H.moveTo(-30*s,0);H.lineTo(-10*s,0);H.lineTo(0,8*s);H.lineTo(10*s,0);H.lineTo(30*s,0);H.stroke();       // waterline
+  // tapes
+  H.textAlign="right";H.fillText(`${S.kts.toFixed(0)} KT`,-W*0.2,0);H.fillText(`M ${S.mach.toFixed(2)}`,-W*0.2,22*s);H.fillText(`G ${S.nz.toFixed(1)}`,-W*0.2,44*s);H.fillText(`α ${S.alpha.toFixed(1)}`,-W*0.2,66*s);
+  H.textAlign="left";H.fillText(`${(S.alt_m/0.3048).toFixed(0)} FT`,W*0.2,0);H.fillText(`${S.vs_fpm>0?"+":""}${S.vs_fpm.toFixed(0)} FPM`,W*0.2,22*s);H.fillText(`R ${(S.agl_m/0.3048).toFixed(0)}`,W*0.2,44*s);
+  H.textAlign="center";const hdg=((S.psi%360)+360)%360;H.fillText(hdg.toFixed(0).padStart(3,"0"),0,-Hh*0.38);
+  for(let d=-30;d<=30;d+=10){const h=Math.round((hdg+d)/10)*10;const x=(h-hdg)*W*0.006;H.fillText(((h+360)%360/10|0).toString().padStart(2,"0"),x,-Hh*0.42)}
+  H.fillText(`THR ${(S.thr*100).toFixed(0)}%  ${S.gear>0.5?"GEAR DN":""}${S.paused?"  PAUSED":""}`,0,Hh*0.42);
+  H.restore()}
+function drawChair(){const c=chairc.getContext("2d");c.clearRect(0,0,120,70);if(!S)return;c.strokeStyle="#9fb3c8";c.lineWidth=2;
+  for(const[x,a,lbl]of[[30,S.chair_roll,"roll"],[90,S.chair_pitch,"pitch"]]){c.save();c.translate(x,38);c.rotate(a*Math.PI/180);c.strokeRect(-18,-6,36,12);c.restore();c.fillStyle="#9fb3c8";c.fillText(lbl,x-12,68)}
+  chv.textContent=`roll ${S.chair_roll.toFixed(1)}° · pitch ${S.chair_pitch.toFixed(1)}°`}
+// ---------------- loop ----------------
+let last=performance.now();
+function loop(t){const dt=Math.min(0.05,(t-last)/1000);last=t;readControls(dt);
+  if(S){const x=(S.lon-S.lon0)*111320*Math.cos(S.lat0*Math.PI/180),n=(S.lat-S.lat0)*110540,pos=new THREE.Vector3(x,S.alt_m,-n);
+    const b=attitudeBasis(S.phi,S.theta,S.psi);
+    plane.position.copy(pos);plane.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(b.r,b.u,b.f.clone().negate()));
+    if(chase){plane.visible=true;cam.position.copy(pos).addScaledVector(b.f,-40).addScaledVector(b.u,8);cam.up.copy(b.u);cam.lookAt(pos.clone().addScaledVector(b.f,30))}
+    else{plane.visible=false;cam.position.copy(pos).addScaledVector(b.u,1.2);cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(b.r,b.u,b.f.clone().negate()))}
+    tele.innerHTML=`<tr><td class="k">속도</td><td>${S.kts.toFixed(0)} kt</td><td class="k">고도</td><td>${(S.alt_m/0.3048).toFixed(0)} ft</td></tr><tr><td class="k">자세</td><td colspan=3>롤 ${S.phi.toFixed(0)}° · 피치 ${S.theta.toFixed(0)}° · 방위 ${(((S.psi%360)+360)%360).toFixed(0)}°</td></tr>`;
+    drawChair()}
+  R.render(scene,cam);drawHUD();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
