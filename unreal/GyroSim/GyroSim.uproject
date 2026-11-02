@@ -6,6 +6,7 @@
 	"Plugins": [
 		{ "Name": "PythonScriptPlugin", "Enabled": true },
 		{ "Name": "EditorScriptingUtilities", "Enabled": true },
-		{ "Name": "OpenXR", "Enabled": true }
+		{ "Name": "OpenXR", "Enabled": true },
+		{ "Name": "GeometryScripting", "Enabled": true }
 	]
 }

@@ -3,7 +3,7 @@
 언리얼로 가기 전에 빠르게 만든 첫 버전. 비행 모델은 JSBSim F-16 (언리얼로 옮겨도 같은 JSBSim 을 쓸 수 있음).
 
 ```
-pip install jsbsim websockets pygame
+pip install jsbsim websockets pygame pillow
 python sim/server.py          # → http://127.0.0.1:8780/
 ```
 
@@ -12,8 +12,13 @@ python sim/server.py          # → http://127.0.0.1:8780/
   UDP JSON `{"roll":..,"pitch":..}` 을 127.0.0.1:4210 으로 보냄 (의자 제어기는 아직 없음).
 - `web/index.html`: three.js 화면 + HUD, 조이스틱(Gamepad API, 축 매핑은 패널에서 고르고 브라우저에 저장) 또는 키보드.
   키보드: ← → 롤, ↑ ↓ 피치 (↓ = 당기기), A D 러더, W S 스로틀, B 브레이크, G 바퀴, V 시점, P 일시정지.
-- 언리얼 화면 (`unreal/README.md`): 같은 상태를 UDP JSON 127.0.0.1:4220 으로 60 Hz 전송, UDP 4221 로 조종/명령 JSON 받음.
+- 언리얼 화면 (`unreal/README.md`): 같은 상태를 UDP JSON 127.0.0.1:4220 으로 60 Hz 전송 (실제 적용된 조종 입력 ail/elev/rud/thr/brk_l/brk_r, 바퀴 접지 wow,
+  강의 상태 tut 포함), UDP 4221 로 조종/명령 JSON 받음.
+- `tutorial.py`: 초보 비행 강의 6 개 (조종 장치 · 수평 직진 · 선회 · 상승/강하 · 이륙 · 착륙 접근), 비행 상태로 조건 판정·점수.
+  명령 `{"cmd":"tut","op":"menu|start|next|restart|stop","lesson":1..6}` (브라우저 버튼, 언리얼 F1/1~6/N/M/F2).
+  한글 강의판을 `out/tut_panel_*.png` 로 그려 언리얼 조종석에 보여 줌 (PIL + 맑은 고딕). 최고 점수 `out/tutorial_scores.json`.
+  착륙 강의용 시작 모드 `approach` (활주로 9 km 앞, 1550 ft, 180 kt). 설명서: `docs/sim-tutorial.html` (= http://127.0.0.1:8780/docs/sim-tutorial.html).
 - 조이스틱: pygame (`pip install pygame`), 축 매핑은 `controls.json`. 꽂혀 있으면 그 축은 브라우저/언리얼 입력보다 우선.
   언리얼 창이 앞에 있어도 동작 (SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1).
 
-남은 것: 의자 큐 값 실제 탑승으로 조정, 지형/공항 실제화, 훈련 과제(이륙·선회·착륙 채점), 언리얼 이전.
+남은 것: 의자 큐 값 실제 탑승으로 조정, 강의 조건값을 실제 초보자로 조정 (자동 조종 스크립트로만 끝까지 가는지 확인함).

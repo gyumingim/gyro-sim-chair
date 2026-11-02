@@ -17,6 +17,7 @@ os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")     # joystic
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import jsbsim
+from tutorial import Tutorial
 from websockets.asyncio.server import serve
 
 HTTP_PORT, WS_PORT = 8780, 8781
@@ -36,12 +37,18 @@ def new_fdm(mode="air"):
     fdm.set_dt(DT)
     fdm.load_model("f16")
     fdm["ic/lat-geod-deg"], fdm["ic/long-gc-deg"] = START["lat"], START["lon"]
+    if mode == "approach":                       # tutorial lesson 6: 9 km before the south threshold (north -150 m), 3 deg path
+        fdm["ic/lat-geod-deg"] = START["lat"] + (-150.0 - 9000.0) / 110540.0
     fdm["ic/psi-true-deg"] = START["hdg"]
     fdm["ic/terrain-elevation-ft"] = 0
     if mode == "runway":
         fdm["ic/h-agl-ft"] = 4.0
         fdm["ic/vc-kts"] = 0
         fdm["ic/theta-deg"] = 0
+    elif mode == "approach":
+        fdm["ic/h-sl-ft"] = 1550
+        fdm["ic/vc-kts"] = 180
+        fdm["ic/gamma-deg"] = 0
     else:
         fdm["ic/h-sl-ft"] = START["alt_ft"]
         fdm["ic/vc-kts"] = START["kts"]
@@ -78,13 +85,17 @@ def snapshot():
     ax, ay = f["accelerations/a-pilot-x-ft_sec2"] / g, f["accelerations/a-pilot-y-ft_sec2"] / g
     phi, th, psi = math.degrees(f["attitude/phi-rad"]), math.degrees(f["attitude/theta-rad"]), math.degrees(f["attitude/psi-rad"])
     cr, cp = state["chair"].update(phi, th, ax, ay, 1 / 60)
+    c = state["ctrl"]
     s = dict(t=f.get_sim_time(), lat=f["position/lat-geod-deg"], lon=f["position/long-gc-deg"], alt_m=f["position/h-sl-ft"] * 0.3048,
              agl_m=f["position/h-agl-ft"] * 0.3048, phi=phi, theta=th, psi=psi, kts=f["velocities/vc-kts"], mach=f["velocities/mach"],
              vs_fpm=f["velocities/h-dot-fps"] * 60, alpha=f["aero/alpha-deg"], nz=-f["accelerations/n-pilot-z-norm"],
              thr=f["fcs/throttle-cmd-norm"], gear=f["gear/gear-pos-norm"], ax=ax, ay=ay, chair_roll=cr, chair_pitch=cp,
              lat0=START["lat"], lon0=START["lon"], paused=state["paused"],
              rid=state["rid"], thr_init=state["thr_init"], gear_init=state["ctrl"]["gear"],
+             ail=c["ail"], elev=c["elev"], rud=c["rud"], brk=(c["brk_l"] + c["brk_r"]) / 2, brk_l=c["brk_l"], brk_r=c["brk_r"],
+             gear_cmd=c["gear"], wow=any(f["gear/unit[%d]/WOW" % i] > 0.5 for i in range(3)),
              joystick=state["joy_name"], src="joystick" if state["joy"] else ("unreal" if udp_fresh() else "browser"))
+    s["tut"] = tutorial.update(s, 1 / 60)
     for payload, addr in ((dict(roll=round(cr, 2), pitch=round(cp, 2)), CHAIR_UDP), (s, UNREAL_UDP)):
         try:
             udp.sendto(json.dumps(payload).encode(), addr)
@@ -96,14 +107,22 @@ def snapshot():
 def udp_fresh():
     return time.monotonic() - state["udp_ctrl_t"] < UDP_FRESH_S
 
+def reset(mode):
+    state["fdm"] = new_fdm(mode); state["chair"] = Chair()
+    state["ctrl"].update(ail=0, elev=0, rud=0, brk_l=0, brk_r=0)
+    state["ctrl"]["gear"] = 1 if mode == "runway" else 0
+    state["ctrl"]["thr"] = state["thr_init"] = state["fdm"]["fcs/throttle-cmd-norm"]
+    state["rid"] += 1
+    state["paused"] = False
+
+tutorial = Tutorial(reset)
+
 def handle_msg(m, src):
     """Same JSON for WebSocket (src='ws') and UDP 4221 (src='udp')."""
     if m.get("cmd") == "reset":
-        state["fdm"] = new_fdm(m.get("mode", "air")); state["chair"] = Chair()
-        state["ctrl"].update(ail=0, elev=0, rud=0, brk_l=0, brk_r=0)
-        state["ctrl"]["gear"] = 1 if m.get("mode") == "runway" else 0
-        state["ctrl"]["thr"] = state["thr_init"] = state["fdm"]["fcs/throttle-cmd-norm"]
-        state["rid"] += 1
+        reset(m.get("mode", "air"))
+    elif m.get("cmd") == "tut":
+        tutorial.command(m)
     elif m.get("cmd") == "pause":
         state["paused"] = not state["paused"]
     elif "ctrl" in m:
@@ -200,8 +219,15 @@ async def physics():
         await asyncio.sleep(max(0, nxt - time.perf_counter()))
 
 def http_server():
+    docs = os.path.join(os.path.dirname(HERE), "docs")
+
+    class Handler(SimpleHTTPRequestHandler):           # sim/web at /, repo docs/ at /docs/ (tutorial manual)
+        def translate_path(self, path):
+            if path.startswith("/docs/"):
+                return os.path.join(docs, os.path.basename(path.split("?")[0]))
+            return super().translate_path(path)
     os.chdir(WEB)
-    ThreadingHTTPServer(("127.0.0.1", HTTP_PORT), SimpleHTTPRequestHandler).serve_forever()
+    ThreadingHTTPServer(("127.0.0.1", HTTP_PORT), Handler).serve_forever()
 
 async def main():
     threading.Thread(target=http_server, daemon=True).start()

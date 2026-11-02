@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>비행 훈련 설명서</title>
+<style>
+:root{--bg:#f5f5f2;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--key:#ececec}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a;--key:#2c2c31}}
+:root[data-theme="dark"]{--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a;--key:#2c2c31}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.6}
+main{max-width:980px;margin:0 auto;padding:22px 16px 48px}
+h1{font-size:1.45rem;margin:0 0 6px}
+h2{font-size:1.12rem;margin:28px 0 10px}
+.lead{margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--sub);font-weight:600}
+kbd{display:inline-block;min-width:1.6em;padding:0 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--key);font:600 .85rem ui-monospace,Consolas,monospace;text-align:center}
+.small{font-size:.85rem;color:var(--sub)}
+.lesson h3{margin:0 0 4px;font-size:1.02rem}
+ol{margin:4px 0 4px 20px;padding:0}
+.ok{color:var(--ok);font-weight:600}.warn{color:var(--warn);font-weight:600}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>비행 훈련 설명서 (키보드로 비행하기)</h1>
+<p class="lead">자이로 의자 시뮬레이터의 F-16 으로 처음 비행을 배우는 사람을 위한 짧은 설명서입니다.
+강의 6 개는 시뮬레이터 안(조종석 왼쪽 아래 판, 브라우저 화면 아래)에 단계별로 나오고, 조건을 맞추면 저절로 다음 단계로 넘어갑니다.</p>
+
+<h2>1. 시작</h2>
+<div class="card">
+<ol>
+<li><code>python sim/server.py</code> 실행 (비행 계산). 브라우저 화면: <a href="http://127.0.0.1:8780/">http://127.0.0.1:8780/</a></li>
+<li>언리얼: <code>unreal/GyroSim/GyroSim.uproject</code> 열고 <b>Play</b> (모니터). VR 헤드셋이 있으면 Play 옆 ▾ → <b>VR Preview</b>.</li>
+<li><kbd>F1</kbd> 강의 메뉴 → 숫자 <kbd>1</kbd>~<kbd>6</kbd> 로 강의 시작. 브라우저에서는 버튼으로도 됩니다.</li>
+</ol>
+<p class="small">키보드는 언리얼 창이 앞에 있을 때만 언리얼에서 읽습니다. 조이스틱이 꽂혀 있으면 조이스틱이 먼저입니다.</p>
+</div>
+
+<h2>2. 키보드 조종</h2>
+<div class="card">
+<table>
+<tr><th>키</th><th>하는 일</th><th>조종석에서 보이는 것</th></tr>
+<tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>좌우 기울이기 (롤)</td><td>가운데 스틱이 좌우로 기움</td></tr>
+<tr><td><kbd>↓</kbd> / <kbd>↑</kbd></td><td>당기기 = 기수 올림 / 밀기 = 기수 내림</td><td>스틱이 뒤 / 앞으로</td></tr>
+<tr><td><kbd>A</kbd> <kbd>D</kbd></td><td>러더 (기수 좌우, 지상 방향 조종)</td><td>발 페달이 앞뒤로</td></tr>
+<tr><td><kbd>W</kbd> <kbd>S</kbd></td><td>스로틀 올림 / 내림</td><td>왼쪽 스로틀 손잡이가 앞뒤로</td></tr>
+<tr><td><kbd>B</kbd></td><td>브레이크 (누르는 동안)</td><td>페달 윗부분이 앞으로 꺾임</td></tr>
+<tr><td><kbd>G</kbd></td><td>바퀴(기어) 올림/내림</td><td>바퀴가 보였다 사라짐</td></tr>
+<tr><td><kbd>R</kbd> / <kbd>T</kbd></td><td>공중 시작 (6000 ft, 350 kt) / 활주로 시작</td><td></td></tr>
+<tr><td><kbd>V</kbd> · <kbd>C</kbd> · <kbd>Q</kbd> <kbd>E</kbd></td><td>시점 조종석/뒤쪽 · 아래 내려다보기(스틱·페달 보기) · 왼쪽/오른쪽 보기</td><td>모니터 모드만 (VR 은 고개로)</td></tr>
+<tr><td><kbd>P</kbd> · <kbd>H</kbd></td><td>일시정지 · HUD 글자 켜기/끄기</td><td></td></tr>
+<tr><td><kbd>F1</kbd> · <kbd>1</kbd>~<kbd>6</kbd> · <kbd>N</kbd> · <kbd>M</kbd> · <kbd>F2</kbd></td><td>강의 메뉴 · 강의 시작 · 다음 단계(건너뛰기, 점수 -20) · 다시 하기 · 강의 끄기</td><td></td></tr>
+<tr><td><kbd>F3</kbd> · <kbd>F9</kbd></td><td>VR 정면 다시 맞추기 · VR 화면(스테레오) 켜기/끄기</td><td>VR Preview 중에만</td></tr>
+</table>
+<p class="small">키를 누르고 있으면 스틱이 천천히 끝까지 가고, 놓으면 가운데로 돌아옵니다 (진짜 스틱처럼). 작게 조종하려면 키를 짧게 톡톡 누르세요.</p>
+</div>
+
+<h2>3. HUD 읽기</h2>
+<div class="card">
+<table>
+<tr><th>자리</th><th>내용</th></tr>
+<tr><td>왼쪽</td><td>속도 (KT = 노트), 마하, G, 받음각(AOA)</td></tr>
+<tr><td>오른쪽</td><td>고도 (FT), 상승률 (FPM, + 는 올라감), R = 땅에서 높이</td></tr>
+<tr><td>위</td><td>방위 (000 = 북쪽, 090 = 동쪽). 활주로는 북쪽(000)을 향함</td></tr>
+<tr><td>가운데·아래</td><td>경사·피치, 스로틀 %, 기어, 브레이크, 강의 단계와 진행 막대</td></tr>
+</table>
+</div>
+
+<h2>4. 강의</h2>
+<div class="card lesson"><h3>1. 조종 장치 익히기 <span class="small">(활주로에서 정지)</span></h3>
+<ol><li>스틱 오른쪽 / 왼쪽 / 당기기 / 밀기</li><li>페달 왼쪽 / 오른쪽, 브레이크</li><li>스로틀 30% 이상 → 0%</li></ol>
+<span class="small">각 동작이 감지되면 다음으로. 점수 = 끝까지 하면 100 (건너뛴 단계마다 -20).</span></div>
+<div class="card lesson"><h3>2. 수평 직진 유지 <span class="small">(공중 6000 ft, 350 kt)</span></h3>
+<ol><li>고도 ±100 ft, 방위 000 ±5° 를 <b>15 초</b> 연속 유지</li></ol>
+<span class="small">벗어나면 타이머가 0 부터 다시. 점수 = 100 − 최대 고도 오차(ft)/10.</span></div>
+<div class="card lesson"><h3>3. 선회 (경사 30°)</h3>
+<ol><li>오른쪽 경사 25~35° 를 2 초</li><li>방위 090 에서 수평 (경사 &lt;5°, 3 초), 고도 ±300 ft</li><li>왼쪽 경사 30° → 방위 000 에서 수평</li></ol>
+<span class="small">350 kt 에서 30° 경사는 1 초에 약 2° 돕니다 (90° 에 약 50 초). 방위 080 쯤에서 풀기 시작하세요. 점수: 고도 오차, 45° 넘게 기울면 -15.</span></div>
+<div class="card lesson"><h3>4. 상승과 강하</h3>
+<ol><li>8000 ft 에서 ±100 ft, 상승률 &lt;500 fpm 로 5 초</li><li>5000 ft 에서 같은 조건 5 초</li></ol>
+<span class="small">목표 500 ft 전부터 기수를 천천히 내리기. 점수: 넘어선 고도, 200 kt 아래로 느려지면 -15.</span></div>
+<div class="card lesson"><h3>5. 이륙 <span class="small">(활주로)</span></h3>
+<ol><li>스로틀 100% (<kbd>W</kbd> 누르고 있기)</li><li>가운데 선 유지 (<kbd>A</kbd>/<kbd>D</kbd>), 150 kt 까지</li><li>기수 들기 (<kbd>↓</kbd>) 피치 8~12°</li><li>50 ft 이상 상승 → 기어 올리기 (<kbd>G</kbd>) → 1500 ft</li></ol>
+<span class="small">점수: 지상에서 피치 13° 넘김(꼬리 닿음) -25, 300 kt 넘어서 기어 내림 -15, 중심선에서 8 m 넘게 벗어난 만큼 감점.</span></div>
+<div class="card lesson"><h3>6. 착륙 접근 <span class="small">(활주로 9 km 앞, 1550 ft, 180 kt)</span></h3>
+<ol><li>기어 내리기</li><li>속도 160 kt 근처로</li><li>3° 강하 (600~800 fpm), 활주로 정렬, 300 ft 까지</li><li>접지 → 브레이크로 정지</li></ol>
+<span class="small">점수 = 접지 강하율 (300 fpm 미만 60 / 600 미만 45 / 900 미만 25) + 중심선 (10 m 이내 20 / 22 m 이내 10) + 접지 위치 (문턱 뒤 750 m 이내 20).
+1500 fpm 넘게 또는 기수가 숙여진 채 닿으면 0 점.</span></div>
+
+<h2>5. 알아 둘 것</h2>
+<div class="card">
+<ul>
+<li>땅의 산은 <b>보이기만</b> 합니다. 비행 계산(JSBSim)의 땅은 해발 0 ft 평지라서 산에 부딪히지 않습니다.</li>
+<li>강의 점수 최고 기록은 <code>sim/out/tutorial_scores.json</code> 에 남습니다.</li>
+<li>강의 판정은 <code>sim/tutorial.py</code> (서버) 가 비행 상태로 합니다. 같은 강의가 언리얼·브라우저 어디서든 보입니다.</li>
+<li>VR 은 OpenXR 로 동작하도록 만들었지만 이 PC 에는 헤드셋·OpenXR 런타임이 없어 <span class="warn">실제 헤드셋으로는 시험하지 않았습니다</span>.</li>
+</ul>
+</div>
+</main>
+</body>
+</html>

@@ -14,6 +14,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
 #panel table{width:100%;border-collapse:collapse}#panel td{padding:1px 2px}
 #chair{display:flex;gap:8px;align-items:center;margin-top:6px}
 .k{color:#8fa3b8}
+#tut{position:absolute;left:50%;transform:translateX(-50%);bottom:44px;width:min(640px,90vw);background:#08101acc;color:#e8eef4;border:1px solid #3c8;border-radius:10px;padding:10px 14px;font-size:15px;line-height:1.5;display:none}
+#tut h2{font-size:16px;margin:0 0 4px;color:#7fffa8}#tut .hint{color:#9cc4ea;font-size:13px}#tut .msg{color:#ffb070;font-size:13px}
+#tutbar{height:8px;background:#223;border-radius:4px;margin-top:6px}#tutbar div{height:100%;background:#3c8;border-radius:4px;width:0}
 #help{position:absolute;left:10px;bottom:10px;color:#dfe7efcc;font-size:12px;background:#0008;padding:6px 8px;border-radius:6px}
 </style>
 </head>
@@ -32,8 +35,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
   <div id="chair"><canvas id="chairc" width="120" height="70"></canvas><div><span class="k">의자로 보내는 값</span><br><b id="chv">roll 0° · pitch 0°</b><br><span class="k">UDP 127.0.0.1:4210</span></div></div>
   <div style="margin-top:8px"><span class="k">조종기</span> <span id="pads">없음 (키보드)</span></div>
   <table id="map" style="margin-top:4px"></table>
+  <div style="margin-top:8px"><span class="k">비행 훈련 강의</span> (<a href="/docs/sim-tutorial.html" target="_blank" style="color:#8cf">설명서</a>)<br>
+    <button onclick="tut('menu')">메뉴 (F1)</button><span id="lessons"></span><br>
+    <button onclick="tut('next')">다음 (N)</button><button onclick="tut('restart')">다시 (M)</button><button onclick="tut('stop')">끄기</button>
+  </div>
 </div>
-<div id="help">키보드: ← → 좌우(roll) · ↑ ↓ 앞뒤(pitch, ↓ = 당기기) · A D 러더 · W S 스로틀 · B 브레이크 · G 바퀴 · V 시점 · P 일시정지</div>
+<div id="tut"><h2 id="tutt"></h2><div id="tutx"></div><div class="hint" id="tuth"></div><div class="msg" id="tutm"></div><div id="tutbar"><div></div></div></div>
+<div id="help">키보드: ← → 좌우(roll) · ↑ ↓ 앞뒤(pitch, ↓ = 당기기) · A D 러더 · W S 스로틀 · B 브레이크 · G 바퀴 · V 시점 · P 일시정지 · 1~6 강의 · N 다음 · M 다시</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ---------------- connection ----------------
@@ -74,7 +82,12 @@ function attitudeBasis(phi,th,psi){const d=Math.PI/180;const[cf,sf,ct,st,cp,sp]=
   const t=v=>new THREE.Vector3(v[1],-v[2],-v[0]);              // NED -> three (east, up, -north)
   return {f:t(fwd),r:t(right),u:t(down).negate()}}
 // ---------------- controls ----------------
-const keys={};addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyG")ctrl.gear=ctrl.gear?0:1;if(e.code==="KeyV")view.click();if(e.code==="KeyP")send({cmd:"pause"})});addEventListener("keyup",e=>keys[e.code]=false);
+function tut(op,lesson){send({cmd:"tut",op,lesson})}
+document.getElementById("lessons").innerHTML=[1,2,3,4,5,6].map(i=>`<button onclick="tut('start',${i})">${i}</button>`).join("");
+function drawTut(){const T=S&&S.tut,box=document.getElementById("tut");if(!T||!T.on){box.style.display="none";return}box.style.display="block";
+  tutt.textContent=T.title+(T.menu?"":`  ${T.step}/${T.n}`)+(T.score!=null?`  ·  점수 ${T.score}`:"");tutx.innerText=T.text;tuth.textContent=T.hint||"";tutm.textContent=T.msg||"";
+  document.querySelector("#tutbar div").style.width=(T.menu?0:T.prog*100)+"%"}
+const keys={};addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="F1"){e.preventDefault();tut("menu")}if(/^Digit[1-6]$/.test(e.code))tut("start",+e.code.slice(5));if(e.code==="KeyN")tut("next");if(e.code==="KeyM")tut("restart");if(e.code==="KeyG")ctrl.gear=ctrl.gear?0:1;if(e.code==="KeyV")view.click();if(e.code==="KeyP")send({cmd:"pause"})});addEventListener("keyup",e=>keys[e.code]=false);
 const ctrl={ail:0,elev:0,rud:0,thr:0,brk_l:0,brk_r:0,gear:0};
 const AXES=["ail","elev","rud","thr","brk_l","brk_r"],NAMES={ail:"좌우 (roll)",elev:"앞뒤 (pitch)",rud:"러더",thr:"스로틀",brk_l:"왼 브레이크",brk_r:"오른 브레이크"};
 let map=JSON.parse(localStorage.getItem("axisMap")||"{}");             // name -> "pad:axis:invert"
@@ -121,7 +134,7 @@ function loop(t){const dt=Math.min(0.05,(t-last)/1000);last=t;readControls(dt);
     if(chase){plane.visible=true;cam.position.copy(pos).addScaledVector(b.f,-40).addScaledVector(b.u,8);cam.up.copy(b.u);cam.lookAt(pos.clone().addScaledVector(b.f,30))}
     else{plane.visible=false;cam.position.copy(pos).addScaledVector(b.u,1.2);cam.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(b.r,b.u,b.f.clone().negate()))}
     tele.innerHTML=`<tr><td class="k">속도</td><td>${S.kts.toFixed(0)} kt</td><td class="k">고도</td><td>${(S.alt_m/0.3048).toFixed(0)} ft</td></tr><tr><td class="k">자세</td><td colspan=3>롤 ${S.phi.toFixed(0)}° · 피치 ${S.theta.toFixed(0)}° · 방위 ${(((S.psi%360)+360)%360).toFixed(0)}°</td></tr>`;
-    drawChair()}
+    drawChair();drawTut()}
   R.render(scene,cam);drawHUD();requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
 </script>
