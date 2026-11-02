@@ -1,0 +1,274 @@
+{
+ "meta": {
+  "created": "2026-11-02T18:36:08",
+  "pivot": [
+   0,
+   0,
+   45
+  ],
+  "swing_deg": 30,
+  "printer": [
+   240,
+   240,
+   240
+  ]
+ },
+ "parts": [
+  {
+   "name": "base",
+   "kind": "print",
+   "qty": 1,
+   "note": "바닥판, M6 ×4 로 의자 스로틀 받침판에 고정",
+   "material": "PLA",
+   "size": [
+    190.0,
+    80.0,
+    6.0
+   ],
+   "volume_cm3": 90.2,
+   "grams": 61.5,
+   "moving": false,
+   "file": "stl/base.stl"
+  },
+  {
+   "name": "wall_left",
+   "kind": "print",
+   "qty": 1,
+   "note": "옆벽 (왼쪽, +y). 608 베어링 자리, 바깥에 센서 받침",
+   "material": "PLA",
+   "size": [
+    90.0,
+    8.0,
+    74.0
+   ],
+   "volume_cm3": 50.3,
+   "grams": 34.3,
+   "moving": false,
+   "file": "stl/wall_left.stl"
+  },
+  {
+   "name": "wall_right",
+   "kind": "print",
+   "qty": 1,
+   "note": "옆벽 (오른쪽, −y). 608 베어링 자리",
+   "material": "PLA",
+   "size": [
+    90.0,
+    8.0,
+    74.0
+   ],
+   "volume_cm3": 50.3,
+   "grams": 34.3,
+   "moving": false,
+   "file": "stl/wall_right.stl"
+  },
+  {
+   "name": "lever",
+   "kind": "print",
+   "qty": 1,
+   "note": "허브 + 레버 한 덩어리. M8 너트가 허브에 끼워져 축이 레버와 같이 돔. 출력: 옆으로 눕혀서",
+   "material": "PETG",
+   "size": [
+    44.0,
+    48.0,
+    142.0
+   ],
+   "volume_cm3": 88.3,
+   "grams": 61.7,
+   "moving": true,
+   "file": "stl/lever.stl"
+  },
+  {
+   "name": "grip",
+   "kind": "print",
+   "qty": 1,
+   "note": "손잡이: 엄지 버튼 2 + 검지 트리거 1 + 4방향 햇 1. 안은 비어 배선 통로",
+   "material": "PLA",
+   "size": [
+    44.0,
+    50.0,
+    75.0
+   ],
+   "volume_cm3": 84.6,
+   "grams": 57.7,
+   "moving": true,
+   "file": "stl/grip.stl"
+  },
+  {
+   "name": "detent_block",
+   "kind": "print",
+   "qty": 1,
+   "note": "앞 블록: M6 볼 플런저가 허브 홈에 걸려 애프터버너 '딸깍'",
+   "material": "PLA",
+   "size": [
+    18.0,
+    24.0,
+    51.0
+   ],
+   "volume_cm3": 21.6,
+   "grams": 14.7,
+   "moving": false,
+   "file": "stl/detent_block.stl"
+  },
+  {
+   "name": "friction_block",
+   "kind": "print",
+   "qty": 1,
+   "note": "뒤 블록: M5 손나사가 고무 패드를 허브에 눌러 마찰 조절",
+   "material": "PLA",
+   "size": [
+    18.0,
+    24.0,
+    51.0
+   ],
+   "volume_cm3": 20.9,
+   "grams": 14.3,
+   "moving": false,
+   "file": "stl/friction_block.stl"
+  },
+  {
+   "name": "top_cover",
+   "kind": "print",
+   "qty": 1,
+   "note": "윗덮개: 레버 홈 (±30°), 손가락 끼임 방지",
+   "material": "PLA",
+   "size": [
+    90.0,
+    76.0,
+    4.0
+   ],
+   "volume_cm3": 22.6,
+   "grams": 15.4,
+   "moving": false,
+   "file": "stl/top_cover.stl"
+  },
+  {
+   "name": "sensor_mount",
+   "kind": "print",
+   "qty": 1,
+   "note": "AS5600 받침 (축 끝 자석과 약 2 mm)",
+   "material": "PLA",
+   "size": [
+    44.0,
+    17.6,
+    44.0
+   ],
+   "volume_cm3": 6.6,
+   "grams": 4.5,
+   "moving": false,
+   "file": "stl/sensor_mount.stl"
+  },
+  {
+   "name": "magnet_cap",
+   "kind": "print",
+   "qty": 1,
+   "note": "볼트 끝에 끼우는 자석 컵 (6×2.5 mm 직경 방향 자석)",
+   "material": "PLA",
+   "size": [
+    14.0,
+    10.0,
+    14.0
+   ],
+   "volume_cm3": 1.1,
+   "grams": 0.8,
+   "moving": true,
+   "file": "stl/magnet_cap.stl"
+  },
+  {
+   "name": "electronics_bay",
+   "kind": "print",
+   "qty": 1,
+   "note": "전자부 칸: Pro Micro, USB 구멍 뒤쪽",
+   "material": "PLA",
+   "size": [
+    43.0,
+    64.0,
+    28.0
+   ],
+   "volume_cm3": 18.4,
+   "grams": 12.6,
+   "moving": false,
+   "file": "stl/electronics_bay.stl"
+  },
+  {
+   "name": "bearing_608_L",
+   "kind": "buy",
+   "qty": 1,
+   "note": "608ZZ 베어링",
+   "material": "",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "moving": false,
+   "file": "stl/bearing_608_L.stl"
+  },
+  {
+   "name": "bearing_608_R",
+   "kind": "buy",
+   "qty": 1,
+   "note": "608ZZ 베어링",
+   "material": "",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "moving": false,
+   "file": "stl/bearing_608_R.stl"
+  },
+  {
+   "name": "shaft_M8x90",
+   "kind": "buy",
+   "qty": 1,
+   "note": "M8×90 볼트 (축)",
+   "material": "",
+   "size": [
+    8.0,
+    90.0,
+    8.0
+   ],
+   "volume_cm3": 4.5,
+   "grams": null,
+   "moving": true,
+   "file": "stl/shaft_M8x90.stl"
+  },
+  {
+   "name": "as5600",
+   "kind": "buy",
+   "qty": 1,
+   "note": "AS5600 홀 센서 보드",
+   "material": "",
+   "size": [
+    23.0,
+    1.6,
+    23.0
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "moving": false,
+   "file": "stl/as5600.stl"
+  },
+  {
+   "name": "pro_micro",
+   "kind": "buy",
+   "qty": 1,
+   "note": "아두이노 Pro Micro (ATmega32U4)",
+   "material": "",
+   "size": [
+    30.0,
+    18.0,
+    2.0
+   ],
+   "volume_cm3": 1.1,
+   "grams": null,
+   "moving": false,
+   "file": "stl/pro_micro.stl"
+  }
+ ]
+}
