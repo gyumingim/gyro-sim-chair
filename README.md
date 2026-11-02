@@ -17,6 +17,7 @@
 | [`docs/controls.html`](docs/controls.html) | 비행 조종기 종류 |
 | [`docs/throttle.html`](docs/throttle.html) | 자작 스로틀 v1: 3D (부품 클릭·레버 각도·분해 보기), 출력·구매 부품표, 배선 |
 | [`docs/stick.html`](docs/stick.html) | 자작 가운데 스틱 v1: 2축 짐벌 3D (roll·pitch·분해), 부품표, 배선 |
+| [`docs/pedals.html`](docs/pedals.html) | 자작 러더 페달 v0 (대강): 러더 바 + 발끝 브레이크 3D, 부품표 |
 | [`docs/seats.html`](docs/seats.html) | 좌석 후보 (새 제품, 싼 순) · 레일 · 벨트 |
 
 로컬에서 열기: 폴더에서 `python -m http.server` 후 브라우저로 `http://localhost:8000/`.

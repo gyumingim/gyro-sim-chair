@@ -1,0 +1,223 @@
+{
+ "meta": {
+  "created": "2026-11-02T18:55:23",
+  "rudder_deg": 20,
+  "brake_deg": 15,
+  "hinge": [
+   30,
+   70
+  ]
+ },
+ "parts": [
+  {
+   "name": "base_board",
+   "group": "fixed",
+   "kind": "cut",
+   "note": "바닥 합판 18 mm (320×400) — 출력 안 함, 재단",
+   "material": "합판",
+   "size": [
+    320.0,
+    400.0,
+    18.0
+   ],
+   "grams": null,
+   "file": "stl/base_board.stl"
+  },
+  {
+   "name": "pivot_post",
+   "group": "fixed",
+   "kind": "print",
+   "note": "가운데 축 받침: 608 베어링 (세로), 아래에 AS5600",
+   "material": "PETG",
+   "size": [
+    60.0,
+    60.0,
+    11.0
+   ],
+   "grams": 19.7,
+   "file": "stl/pivot_post.stl"
+  },
+  {
+   "name": "spring_post_L",
+   "group": "fixed",
+   "kind": "print",
+   "note": "가운데로 돌아오는 스프링 고정 기둥",
+   "material": "PLA",
+   "size": [
+    16.0,
+    16.0,
+    52.0
+   ],
+   "grams": 7.3,
+   "file": "stl/spring_post_L.stl"
+  },
+  {
+   "name": "spring_post_R",
+   "group": "fixed",
+   "kind": "print",
+   "note": "가운데로 돌아오는 스프링 고정 기둥",
+   "material": "PLA",
+   "size": [
+    16.0,
+    16.0,
+    52.0
+   ],
+   "grams": 7.3,
+   "file": "stl/spring_post_R.stl"
+  },
+  {
+   "name": "heel_rest",
+   "group": "fixed",
+   "kind": "cut",
+   "note": "발뒤꿈치 받침 — 400 mm 라 출력 안 함, 나무 각재 재단 + 고무",
+   "material": "각재",
+   "size": [
+    60.0,
+    400.0,
+    10.0
+   ],
+   "grams": null,
+   "file": "stl/heel_rest.stl"
+  },
+  {
+   "name": "rudder_bar",
+   "group": "rudder",
+   "kind": "buy",
+   "note": "알루미늄 프로파일 20×30, 340 mm (러더 바)",
+   "material": "",
+   "size": [
+    30.0,
+    340.0,
+    20.0
+   ],
+   "grams": null,
+   "file": "stl/rudder_bar.stl"
+  },
+  {
+   "name": "bar_hub",
+   "group": "rudder",
+   "kind": "buy",
+   "note": "M8 축 + 와셔 (바를 베어링에)",
+   "material": "",
+   "size": [
+    40.0,
+    40.0,
+    20.0
+   ],
+   "grams": null,
+   "file": "stl/bar_hub.stl"
+  },
+  {
+   "name": "hinge_bracket_L",
+   "group": "rudder",
+   "kind": "print",
+   "note": "페달 경첩 받침 (바 끝)",
+   "material": "PETG",
+   "size": [
+    30.0,
+    110.0,
+    50.0
+   ],
+   "grams": 20.5,
+   "file": "stl/hinge_bracket_L.stl"
+  },
+  {
+   "name": "pedal_L",
+   "group": "brakeL",
+   "kind": "print",
+   "note": "페달 판 (발끝으로 누르면 앞으로 꺾임 = 브레이크)",
+   "material": "PETG",
+   "size": [
+    87.9,
+    84.0,
+    216.4
+   ],
+   "grams": 134.6,
+   "file": "stl/pedal_L.stl"
+  },
+  {
+   "name": "hinge_pin_L",
+   "group": "rudder",
+   "kind": "buy",
+   "note": "M6 볼트 (경첩 축)",
+   "material": "",
+   "size": [
+    6.0,
+    113.0,
+    6.0
+   ],
+   "grams": null,
+   "file": "stl/hinge_pin_L.stl"
+  },
+  {
+   "name": "brake_sensor_L",
+   "group": "rudder",
+   "kind": "print",
+   "note": "브레이크 AS5600 받침 (경첩 축 끝)",
+   "material": "PLA",
+   "size": [
+    32.0,
+    10.0,
+    32.0
+   ],
+   "grams": 7.2,
+   "file": "stl/brake_sensor_L.stl"
+  },
+  {
+   "name": "hinge_bracket_R",
+   "group": "rudder",
+   "kind": "print",
+   "note": "페달 경첩 받침 (바 끝)",
+   "material": "PETG",
+   "size": [
+    30.0,
+    110.0,
+    50.0
+   ],
+   "grams": 20.5,
+   "file": "stl/hinge_bracket_R.stl"
+  },
+  {
+   "name": "pedal_R",
+   "group": "brakeR",
+   "kind": "print",
+   "note": "페달 판 (발끝으로 누르면 앞으로 꺾임 = 브레이크)",
+   "material": "PETG",
+   "size": [
+    87.9,
+    84.0,
+    216.4
+   ],
+   "grams": 134.6,
+   "file": "stl/pedal_R.stl"
+  },
+  {
+   "name": "hinge_pin_R",
+   "group": "rudder",
+   "kind": "buy",
+   "note": "M6 볼트 (경첩 축)",
+   "material": "",
+   "size": [
+    6.0,
+    113.0,
+    6.0
+   ],
+   "grams": null,
+   "file": "stl/hinge_pin_R.stl"
+  },
+  {
+   "name": "brake_sensor_R",
+   "group": "rudder",
+   "kind": "print",
+   "note": "브레이크 AS5600 받침 (경첩 축 끝)",
+   "material": "PLA",
+   "size": [
+    32.0,
+    10.0,
+    32.0
+   ],
+   "grams": 7.2,
+   "file": "stl/brake_sensor_R.stl"
+  }
+ ]
+}
