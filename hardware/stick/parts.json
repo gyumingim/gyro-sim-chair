@@ -1,0 +1,378 @@
+{
+ "meta": {
+  "created": "2026-11-02T18:42:23",
+  "pivot": [
+   0,
+   0,
+   60
+  ],
+  "travel_deg": 20,
+  "printer": [
+   240,
+   240,
+   240
+  ]
+ },
+ "parts": [
+  {
+   "name": "base",
+   "group": "fixed",
+   "kind": "print",
+   "note": "바닥판: M6 ×4 로 접이식 스틱 받침 위에",
+   "material": "PLA",
+   "size": [
+    140.0,
+    140.0,
+    6.0
+   ],
+   "volume_cm3": 116.6,
+   "grams": 79.5,
+   "file": "stl/base.stl"
+  },
+  {
+   "name": "wall_front",
+   "group": "fixed",
+   "kind": "print",
+   "note": "앞벽: roll 축 608 베어링",
+   "material": "PLA",
+   "size": [
+    8.0,
+    60.0,
+    94.0
+   ],
+   "volume_cm3": 42.2,
+   "grams": 28.8,
+   "file": "stl/wall_front.stl"
+  },
+  {
+   "name": "wall_back",
+   "group": "fixed",
+   "kind": "print",
+   "note": "뒤벽: roll 축 608 베어링",
+   "material": "PLA",
+   "size": [
+    8.0,
+    60.0,
+    94.0
+   ],
+   "volume_cm3": 42.2,
+   "grams": 28.8,
+   "file": "stl/wall_back.stl"
+  },
+  {
+   "name": "plunger_block_roll",
+   "group": "fixed",
+   "kind": "print",
+   "note": "roll 가운데 맞춤: M10 볼 플런저가 캠 V 홈을 누름",
+   "material": "PLA",
+   "size": [
+    20.0,
+    18.0,
+    18.0
+   ],
+   "volume_cm3": 3.3,
+   "grams": 2.2,
+   "file": "stl/plunger_block_roll.stl"
+  },
+  {
+   "name": "sensor_mount_roll",
+   "group": "fixed",
+   "kind": "print",
+   "note": "roll AS5600 받침 (뒤벽)",
+   "material": "PLA",
+   "size": [
+    26.0,
+    40.0,
+    50.0
+   ],
+   "volume_cm3": 20.1,
+   "grams": 13.7,
+   "file": "stl/sensor_mount_roll.stl"
+  },
+  {
+   "name": "yoke",
+   "group": "roll",
+   "kind": "print",
+   "note": "바깥 요크: roll 로 돎, 안쪽 블록의 pitch 베어링을 잡음",
+   "material": "PETG",
+   "size": [
+    96.0,
+    70.0,
+    40.0
+   ],
+   "volume_cm3": 72.2,
+   "grams": 50.4,
+   "file": "stl/yoke.stl"
+  },
+  {
+   "name": "plunger_block_pitch",
+   "group": "roll",
+   "kind": "print",
+   "note": "pitch 가운데 맞춤: M10 볼 플런저 (요크에 붙음)",
+   "material": "PLA",
+   "size": [
+    18.0,
+    20.0,
+    16.0
+   ],
+   "volume_cm3": 3.9,
+   "grams": 2.7,
+   "file": "stl/plunger_block_pitch.stl"
+  },
+  {
+   "name": "sensor_mount_pitch",
+   "group": "roll",
+   "kind": "print",
+   "note": "pitch AS5600 받침 (요크 +y 쪽, 같이 돎)",
+   "material": "PLA",
+   "size": [
+    40.0,
+    16.0,
+    40.0
+   ],
+   "volume_cm3": 5.7,
+   "grams": 3.9,
+   "file": "stl/sensor_mount_pitch.stl"
+  },
+  {
+   "name": "inner_block",
+   "group": "pitch",
+   "kind": "print",
+   "note": "안쪽 블록: pitch 로 돎, Ø20 스틱 관이 꽂힘",
+   "material": "PETG",
+   "size": [
+    32.0,
+    48.0,
+    32.0
+   ],
+   "volume_cm3": 42.0,
+   "grams": 29.3,
+   "file": "stl/inner_block.stl"
+  },
+  {
+   "name": "stick_tube",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "알루미늄 관 Ø20×2t, 길이 130",
+   "material": "",
+   "size": [
+    20.0,
+    20.0,
+    132.0
+   ],
+   "volume_cm3": 14.9,
+   "grams": null,
+   "file": "stl/stick_tube.stl"
+  },
+  {
+   "name": "grip",
+   "group": "pitch",
+   "kind": "print",
+   "note": "손잡이 (오른손): 트리거, 엄지 햇, 엄지 버튼 2, 새끼 버튼 1. 안은 배선 통로",
+   "material": "PLA",
+   "size": [
+    50.4,
+    40.0,
+    126.8
+   ],
+   "volume_cm3": 122.8,
+   "grams": 83.8,
+   "file": "stl/grip.stl"
+  },
+  {
+   "name": "roll_stub_front",
+   "group": "roll",
+   "kind": "buy",
+   "note": "M8×35 볼트 (roll 앞)",
+   "material": "",
+   "size": [
+    32.0,
+    8.0,
+    8.0
+   ],
+   "volume_cm3": 1.6,
+   "grams": null,
+   "file": "stl/roll_stub_front.stl"
+  },
+  {
+   "name": "roll_stub_back",
+   "group": "roll",
+   "kind": "buy",
+   "note": "M8×30 볼트 (roll 뒤)",
+   "material": "",
+   "size": [
+    26.0,
+    8.0,
+    8.0
+   ],
+   "volume_cm3": 1.3,
+   "grams": null,
+   "file": "stl/roll_stub_back.stl"
+  },
+  {
+   "name": "pitch_shaft",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "M8×90 볼트 (pitch 축)",
+   "material": "",
+   "size": [
+    8.0,
+    86.0,
+    8.0
+   ],
+   "volume_cm3": 4.3,
+   "grams": null,
+   "file": "stl/pitch_shaft.stl"
+  },
+  {
+   "name": "cam_roll",
+   "group": "roll",
+   "kind": "print",
+   "note": "roll V 캠 (볼 플런저가 홈에 걸려 가운데로)",
+   "material": "PETG",
+   "size": [
+    6.0,
+    52.0,
+    51.4
+   ],
+   "volume_cm3": 12.2,
+   "grams": 8.5,
+   "file": "stl/cam_roll.stl"
+  },
+  {
+   "name": "cam_pitch",
+   "group": "pitch",
+   "kind": "print",
+   "note": "pitch V 캠",
+   "material": "PETG",
+   "size": [
+    44.0,
+    6.0,
+    43.3
+   ],
+   "volume_cm3": 8.6,
+   "grams": 6.0,
+   "file": "stl/cam_pitch.stl"
+  },
+  {
+   "name": "magcap_roll",
+   "group": "roll",
+   "kind": "print",
+   "note": "roll 자석 컵",
+   "material": "PLA",
+   "size": [
+    7.0,
+    14.0,
+    14.0
+   ],
+   "volume_cm3": 0.9,
+   "grams": 0.6,
+   "file": "stl/magcap_roll.stl"
+  },
+  {
+   "name": "magcap_pitch",
+   "group": "pitch",
+   "kind": "print",
+   "note": "pitch 자석 컵",
+   "material": "PLA",
+   "size": [
+    14.0,
+    8.0,
+    14.0
+   ],
+   "volume_cm3": 0.9,
+   "grams": 0.6,
+   "file": "stl/magcap_pitch.stl"
+  },
+  {
+   "name": "as5600_roll",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "AS5600 (roll)",
+   "material": "",
+   "size": [
+    1.6,
+    23.0,
+    23.0
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "file": "stl/as5600_roll.stl"
+  },
+  {
+   "name": "as5600_pitch",
+   "group": "roll",
+   "kind": "buy",
+   "note": "AS5600 (pitch)",
+   "material": "",
+   "size": [
+    23.0,
+    1.6,
+    23.0
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "file": "stl/as5600_pitch.stl"
+  },
+  {
+   "name": "bearing_roll_front",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608ZZ",
+   "material": "",
+   "size": [
+    7.0,
+    22.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "file": "stl/bearing_roll_front.stl"
+  },
+  {
+   "name": "bearing_roll_back",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608ZZ",
+   "material": "",
+   "size": [
+    7.0,
+    22.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "file": "stl/bearing_roll_back.stl"
+  },
+  {
+   "name": "bearing_pitch_L",
+   "group": "roll",
+   "kind": "buy",
+   "note": "608ZZ",
+   "material": "",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "file": "stl/bearing_pitch_L.stl"
+  },
+  {
+   "name": "bearing_pitch_R",
+   "group": "roll",
+   "kind": "buy",
+   "note": "608ZZ",
+   "material": "",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "file": "stl/bearing_pitch_R.stl"
+  }
+ ]
+}

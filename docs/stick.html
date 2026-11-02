@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자작 스틱</title>
+<style>
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.5}
+#app{display:grid;grid-template-columns:1fr 470px;height:100vh}
+@media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}}
+#view{position:relative;background:linear-gradient(#dfe7ef,#f4f6f8);min-height:340px}
+#view canvas{display:block}
+#hud{position:absolute;left:10px;top:10px;font-size:.8rem;background:#fffc;color:#234;padding:4px 8px;border-radius:6px}
+aside{overflow:auto;padding:14px;border-left:1px solid var(--line);background:var(--card)}
+h1{font-size:1.15rem;margin:0 0 4px}h2{font-size:.98rem;margin:14px 0 6px}
+.sub{color:var(--sub);font-size:.85rem;margin:0 0 8px}
+.box{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+label{font-size:.86rem;color:var(--sub);display:block}label b{color:var(--ink)}
+input[type=range]{width:100%}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+td,th{border-bottom:1px solid var(--line);padding:4px 5px;text-align:left;vertical-align:top}
+th{color:var(--sub)}
+tr.sel td{background:#2f6fd622}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+.tot{font-weight:700}
+#info{font-size:.86rem;min-height:2.6em}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 부품 클릭 = 설명</div></div>
+  <aside>
+    <h1>자작 가운데 스틱 v1 (오른손)</h1>
+    <p class="sub">2축 짐벌 (바깥 요크 = roll, 안쪽 블록 = pitch), 608 베어링 4, AS5600 2, V 캠 + M10 볼 플런저로 가운데 맞춤, Ø20 알루미늄 관 + 3D 출력 손잡이. 접이식 스틱 받침 위에 M6 ×4. 모델: <code>hardware/stick/stick.py</code>, STL: <code>hardware/stick/stl/</code>. roll·pitch ±20° 9 자세에서 부품끼리 겹침 없음 (모델 검사).</p>
+    <div class="box">
+      <label>roll (좌우) <b id="rv">0°</b></label><input id="roll" type="range" min="-20" max="20" value="0">
+      <label>pitch (앞뒤, + = 앞으로 밀기) <b id="av">0°</b></label><input id="ang" type="range" min="-20" max="20" value="0">
+      <label>분해 보기 <b id="ev">0</b></label><input id="exp" type="range" min="0" max="100" value="0">
+      <div id="info">부품을 누르면 설명이 나옵니다.</div>
+    </div>
+    <h2>출력 부품</h2>
+    <table id="tp"><tr><th></th><th>부품</th><th>크기 (mm)</th><th>재료</th><th>무게</th></tr></table>
+    <h2>살 부품 (가격 추정)</h2>
+    <table id="tb"><tr><th>품목</th><th>수량</th><th>금액</th><th>메모</th></tr></table>
+    <h2>배선 (Pro Micro)</h2>
+    <table>
+      <tr><th>연결</th><th>Pro Micro 핀</th></tr>
+      <tr><td>AS5600 ×2 (I2C 주소가 같음)</td><td>roll: SDA/SCL = 2/3, pitch: 소프트 I2C 또는 아날로그 OUT → A0 (보드 OUT 핀)</td></tr>
+      <tr><td>트리거, 엄지 1·2, 새끼</td><td>4, 5, 6, 7 (반대쪽 GND, 내부 풀업)</td></tr>
+      <tr><td>햇 위 / 아래 / 왼 / 오른</td><td>8, 9, 10, 16</td></tr>
+    </table>
+    <p class="sub" style="margin-top:6px">펌웨어: X·Y 축 2 개 + 버튼 4 + 햇 1. 스로틀 보드와 따로 (USB 2 개) 또는 한 보드로 합쳐도 됨. (다음 단계)</p>
+    <h2>출력 메모</h2>
+    <ul class="sub" style="padding-left:18px;margin:0">
+      <li>요크·안쪽 블록·캠은 힘을 받으니 <b>PETG</b>, 나머지 PLA, 채움 30 % 이상, 벽 4 줄.</li>
+      <li>가운데로 돌아오는 힘 = 볼 플런저 스프링 세기 × V 홈 각도. 약하면 플런저를 더 조이거나 센 것으로.</li>
+      <li>교육생이 세게 당기므로 스틱 관은 알루미늄, 축은 M8 볼트 (출력물로 만들지 않음).</li>
+      <li>무게는 부피 × 밀도 × 0.55 (채움 30 %) 추정.</li>
+    </ul>
+  </aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script>
+const BASE="../hardware/stick/";
+const BUY=[["아두이노 Pro Micro (ATmega32U4)",1,9000,""],["AS5600 자기 각도 센서 보드 + 자석",2,8000,"roll·pitch"],["608ZZ 베어링",4,4000,""],
+ ["M8 볼트 (×90 1, ×35 1, ×30 1) + 너트",1,4000,"축"],["M10 볼 플런저 (스프링 센 것)",2,8000,"가운데 맞춤"],["알루미늄 관 Ø20×2t, 130 mm",1,3000,"스틱"],
+ ["12 mm 택트 스위치",4,2000,"트리거·엄지 2·새끼"],["4방향 햇 스위치",1,2500,""],["M3·M6 나사 세트",1,4000,""],["USB 케이블 2 m",1,3000,""],["전선 · 핀헤더",1,3000,""]];
+const COLORS={base:0x6b7280,wall_front:0x2f6fd6,wall_back:0x2f6fd6,plunger_block_roll:0x1f9d55,sensor_mount_roll:0x8e44ad,yoke:0xe08a1e,
+ plunger_block_pitch:0x1f9d55,sensor_mount_pitch:0x8e44ad,inner_block:0xd93a3a,grip:0x333840,cam_roll:0xf2c94c,cam_pitch:0xf2c94c,magcap_roll:0x8e44ad,magcap_pitch:0x8e44ad};
+const EXPLODE={base:[0,0,-50],wall_front:[50,0,0],wall_back:[-50,0,0],plunger_block_roll:[70,0,40],sensor_mount_roll:[-80,0,0],yoke:[0,0,10],
+ plunger_block_pitch:[0,-60,30],sensor_mount_pitch:[0,70,0],inner_block:[0,0,25],stick_tube:[0,0,60],grip:[0,0,120],roll_stub_front:[40,0,0],roll_stub_back:[-40,0,0],
+ pitch_shaft:[0,0,25],cam_roll:[60,0,0],cam_pitch:[0,-45,25],magcap_roll:[-60,0,0],magcap_pitch:[0,55,25],as5600_roll:[-75,0,0],as5600_pitch:[0,65,0],
+ bearing_roll_front:[30,0,0],bearing_roll_back:[-30,0,0],bearing_pitch_L:[0,30,10],bearing_pitch_R:[0,-30,10]};
+const $=id=>document.getElementById(id), won=v=>Math.round(v).toLocaleString("ko-KR")+"원";
+const view=$("view"),R=new THREE.WebGLRenderer({antialias:true,alpha:true});R.setPixelRatio(Math.min(2,devicePixelRatio));view.appendChild(R.domElement);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(35,1,1,5000);cam.position.set(380,330,420);
+const ctl=new THREE.OrbitControls(cam,R.domElement);ctl.target.set(0,110,0);ctl.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xffffff,0x889,0.85));const sun=new THREE.DirectionalLight(0xffffff,0.6);sun.position.set(200,400,300);scene.add(sun);
+const grid=new THREE.GridHelper(400,20,0x9aa6b2,0xc9d0d6);scene.add(grid);
+const world=new THREE.Group();world.rotation.x=-Math.PI/2;scene.add(world);           // model is z-up mm
+const meshes={},rollG=new THREE.Group(),pitchG=new THREE.Group();let PZ=60,parts=[];
+world.add(rollG);rollG.add(pitchG);
+function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener("resize",resize);resize();
+fetch(BASE+"parts.json").then(r=>r.json()).then(d=>{
+  parts=d.parts;PZ=d.meta.pivot[2];rollG.position.set(0,0,PZ);
+  const loader=new THREE.STLLoader();
+  for(const p of parts){
+    loader.load(BASE+p.file,g=>{g.computeVertexNormals();
+      const buy=p.kind==="buy";const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:buy?0xb8bcc2:(COLORS[p.name]??0x888888),metalness:buy?0.6:0.05,roughness:buy?0.35:0.7}));
+      m.userData=p;meshes[p.name]=m;
+      const h=new THREE.Group();h.add(m);m.userData.holder=h;
+      if(p.group==="fixed")world.add(h);else{m.position.set(0,0,-PZ);(p.group==="roll"?rollG:pitchG).add(h)}
+      update()})}
+  // BOM tables
+  const tp=$("tp");let g=0;
+  for(const p of parts.filter(p=>p.kind==="print")){g+=p.grams;tp.insertAdjacentHTML("beforeend",`<tr data-n="${p.name}"><td><span class="sw" style="background:#${(COLORS[p.name]??0x888888).toString(16).padStart(6,"0")}"></span></td><td>${p.note.split(/[:(]/)[0]||p.name}<br><span style="color:var(--sub)">${p.name}.stl</span></td><td>${p.size.join("×")}</td><td>${p.material}</td><td>${p.grams} g</td></tr>`)}
+  const fil=Math.ceil(g*1.15/10)*10, filCost=fil*25;   // +15 % supports/waste, ~25 원/g
+  tp.insertAdjacentHTML("beforeend",`<tr class="tot"><td></td><td>필라멘트 합계 (+15 % 여유)</td><td></td><td></td><td>약 ${fil} g</td></tr>`);
+  const tb=$("tb");let tot=filCost;
+  for(const[n,q,pr,memo]of BUY){tot+=pr*(n.startsWith("M6 볼트")||n.startsWith("608")||n.startsWith("12 mm")?1:1);tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td>${q}</td><td>${won(pr)}</td><td>${memo}</td></tr>`)}
+  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 (PLA + PETG)</td><td>${fil} g</td><td>${won(filCost)}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td>${won(tot)}</td><td>배송비 제외</td></tr>`);
+  document.querySelectorAll("#tp tr[data-n]").forEach(r=>r.onclick=()=>select(r.dataset.n));
+});
+function update(){
+  const a=+$("ang").value,r=+$("roll").value,e=+$("exp").value/100;$("av").textContent=a+"°";$("rv").textContent=r+"°";$("ev").textContent=Math.round(e*100);
+  rollG.rotation.x=r*Math.PI/180;pitchG.rotation.y=a*Math.PI/180;
+  for(const n in meshes){const v=EXPLODE[n]||[0,0,0];meshes[n].userData.holder.position.set(v[0]*e,v[1]*e,v[2]*e)}
+}
+$("ang").oninput=update;$("roll").oninput=update;$("exp").oninput=update;
+let selN=null;
+function select(n){for(const k in meshes)meshes[k].material.emissive?.setHex(k===n?0x553300:0);selN=n;
+  const p=meshes[n]?.userData;if(p)$("info").innerHTML=`<b>${p.name}</b> — ${p.note}<br><span style="color:var(--sub)">${p.kind==="print"?"출력 · "+p.material+" · 약 "+p.grams+" g":"구매 부품"} · ${p.size.join("×")} mm</span>`;
+  document.querySelectorAll("#tp tr[data-n]").forEach(r=>r.classList.toggle("sel",r.dataset.n===n))}
+const ray=new THREE.Raycaster(),mp=new THREE.Vector2();let down=null;
+R.domElement.addEventListener("pointerdown",e=>down=[e.clientX,e.clientY]);
+R.domElement.addEventListener("pointerup",e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>5)return;const r=R.domElement.getBoundingClientRect();
+  mp.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mp,cam);const h=ray.intersectObjects(Object.values(meshes))[0];if(h)select(h.object.userData.name)});
+(function loop(){ctl.update();R.render(scene,cam);requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>
