@@ -64,6 +64,18 @@ button,.chk{font:inherit;font-size:.84rem;padding:5px 9px;border-radius:7px;bord
         <label class="chk"><input type="checkbox" id="xray">반투명</label>
       </div>
     </div>
+    <div class="box">
+      <h2>사람 모형 (더미)</h2>
+      <p class="spec" id="dState" style="margin:0 0 6px">더미 불러오는 중…</p>
+      <label>키 <b><output id="oH">175</output> cm</b></label><input id="dH" type="range" min="150" max="195" value="175" oninput="oH.value=value">
+      <label>등 기울기 <b><output id="oB">15</output>°</b></label><input id="dBack" type="range" min="0" max="35" value="15" oninput="oB.value=value">
+      <label>고개 숙임 <b><output id="oHd">10</output>°</b></label><input id="dHead" type="range" min="-20" max="40" value="10" oninput="oHd.value=value">
+      <label>엉덩이 앞뒤 <b><output id="oHx">0</output> mm</b></label><input id="dHx" type="range" min="-80" max="80" value="0" oninput="oHx.value=value">
+      <label>엉덩이 높이 <b><output id="oHz">0</output> mm</b></label><input id="dHz" type="range" min="-40" max="60" value="0" oninput="oHz.value=value">
+      <label>무릎 벌림 <b><output id="oK">15</output></b></label><input id="dKnee" type="range" min="0" max="80" value="15" oninput="oK.value=value">
+      <label>팔꿈치 벌림 <b><output id="oE">30</output></b></label><input id="dElbow" type="range" min="0" max="100" value="30" oninput="oE.value=value">
+      <div class="row"><label class="chk"><input type="checkbox" id="dHands" checked>손을 스틱·스로틀에 (발은 항상 페달)</label><button id="dReset">기본 자세</button></div>
+    </div>
     <div class="box" id="calcbox">
       <h2>계산 <span style="font-weight:400;font-size:.78rem;color:var(--sub)">(모든 값 추정 — 부품 무게·단면은 가정, 실물로 확인)</span></h2>
       <div class="row" id="ctabs"><button data-t="w" class="on">무게추</button><button data-t="s">강도</button><button data-t="b">부품표·비용</button></div>
@@ -81,6 +93,7 @@ button,.chk{font:inherit;font-size:.84rem;padding:5px 9px;border-radius:7px;bord
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 // ======================= MODEL DATA (mm) =======================
 const GROUPS={
@@ -377,7 +390,8 @@ document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{tr=+b.dataset.r;
 $("roll").oninput=e=>tr=+e.target.value;$("pitch").oninput=e=>tp=+e.target.value;
 function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}
 addEventListener("resize",resize);resize();
-{const h=new URLSearchParams(location.hash.slice(1));if(h.has("r")){tr=cr=+h.get("r")}if(h.has("p")){tp=cp=+h.get("p")}if(h.get("sel"))select(h.get("sel"))}
+{const h=new URLSearchParams(location.hash.slice(1));if(h.has("r")){tr=cr=+h.get("r")}if(h.has("p")){tp=cp=+h.get("p")}if(h.get("sel"))select(h.get("sel"));
+ const CAMS={side:[0,-0.25,-2.6],front:[2.6,0.1,0],top:[0.01,3.2,0]};if(CAMS[h.get("cam")]){cam.position.set(...CAMS[h.get("cam")]);ctl.update()}}
 
 // ======================= COLLISION CHECK =======================
 function obbOf(m){
@@ -610,6 +624,68 @@ document.querySelectorAll("#ctabs button").forEach(b=>b.onclick=()=>{document.qu
   for(const t of["w","s","b"])$("c"+t).style.display=b.dataset.t===t?"":"none"});
 ["inM","inZ"].forEach(id=>$(id).onchange=renderCalc);
 renderCalc();
+
+// ======================= DUMMY (rigged mannequin, joints posed by IK) =======================
+// Mixamo "X Bot" from the three.js examples (T-pose, 1.775 m, faces +z, left = +x). Loaded at runtime from the CDN.
+const DUMMY_URL="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/models/gltf/Xbot.glb";
+const dummy={root:null,bones:{},ready:false};
+const P_=(x,y,z)=>groups.person.localToWorld(V3(x,y,z));          // cage-local mm -> world
+function boneW(b){return b.getWorldPosition(new THREE.Vector3())}
+function aim(bone,child,dirW){                                       // rotate bone (shortest arc) so bone->child points along dirW
+  bone.updateMatrixWorld(true);
+  const cur=boneW(child).sub(boneW(bone)).normalize();
+  const q=new THREE.Quaternion().setFromUnitVectors(cur,dirW.clone().normalize());
+  const W=bone.getWorldQuaternion(new THREE.Quaternion()), Wp=bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.copy(Wp.invert().multiply(q.multiply(W)));bone.updateMatrixWorld(true);
+}
+function twoBone(a,b,c,T,pole){                                      // a->b->c chain, end c to world target T, bend toward pole (world dir)
+  const A=boneW(a),L1=boneW(b).distanceTo(A),L2=boneW(c).distanceTo(boneW(b));
+  let D=T.clone().sub(A);const d=Math.min(D.length(),(L1+L2)*0.999);const u=D.normalize();
+  const av=(L1*L1-L2*L2+d*d)/(2*d),h=Math.sqrt(Math.max(L1*L1-av*av,0));
+  const v=pole.clone().sub(u.clone().multiplyScalar(pole.dot(u))).normalize();
+  const Bp=A.clone().add(u.clone().multiplyScalar(av)).add(v.multiplyScalar(h));
+  aim(a,b,Bp.clone().sub(A));aim(b,c,A.clone().add(u.multiplyScalar(d)).sub(boneW(b)));
+}
+function poseDummy(){
+  if(!dummy.ready)return;
+  const B=dummy.bones,g=n=>+$(n).value;
+  for(const k in B)B[k].quaternion.copy(B[k].userData.q0);
+  const H=g("dH")/100, s=H/1.775; dummy.root.scale.setScalar(s); dummy.root.position.set(0,0,0); dummy.root.updateMatrixWorld(true);
+  // pelvis on the seat
+  const hip=P_(-140+CAGE_SHIFT+g("dHx"),0,-260+g("dHz")), hp=boneW(B.Hips);
+  dummy.root.position.add(groups.person.worldToLocal(hip.clone()).sub(groups.person.worldToLocal(hp)));dummy.root.updateMatrixWorld(true);
+  // torso recline about the rider's lateral axis (world)
+  const lat=P_(0,1000,0).sub(P_(0,0,0)).normalize();
+  const rot=(bone,deg)=>{const q=new THREE.Quaternion().setFromAxisAngle(lat,deg*Math.PI/180);const W=bone.getWorldQuaternion(new THREE.Quaternion()),Wp=bone.parent.getWorldQuaternion(new THREE.Quaternion());bone.quaternion.copy(Wp.invert().multiply(q.multiply(W)));bone.updateMatrixWorld(true)};
+  rot(B.Spine,-g("dBack"));rot(B.Head,g("dHead"));
+  const down=P_(0,0,-1000).sub(P_(0,0,0)).normalize(), fwd=P_(1000,0,0).sub(P_(0,0,0)).normalize();
+  const out=s=>P_(0,s*1000,0).sub(P_(0,0,0)).normalize();
+  // legs -> pedals (knees up/forward), arms -> stick (right) and throttle (left), elbows down/out
+  const kneeOut=g("dKnee")/100, elbowOut=g("dElbow")/100;
+  for(const[s,side]of[[1,"Left"],[-1,"Right"]]){
+    twoBone(B[side+"UpLeg"],B[side+"Leg"],B[side+"Foot"],P_(530+CAGE_SHIFT,s*100,-690),fwd.clone().add(P_(0,0,1000).sub(P_(0,0,0)).normalize()).add(out(s).multiplyScalar(kneeOut)));
+    aim(B[side+"Foot"],B[side+"ToeBase"],fwd.clone().multiplyScalar(0.6).add(P_(0,0,1000).sub(P_(0,0,0)).normalize()));
+  }
+  if($("dHands").checked){
+    twoBone(B.RightArm,B.RightForeArm,B.RightHand,P_(318+CAGE_SHIFT,0,-40),down.clone().add(out(-1).multiplyScalar(elbowOut)));
+    twoBone(B.LeftArm,B.LeftForeArm,B.LeftHand,P_(77+CAGE_SHIFT,320,-90),down.clone().add(out(1).multiplyScalar(elbowOut)));
+  }else{
+    for(const[s,side]of[[1,"Left"],[-1,"Right"]]){aim(B[side+"Arm"],B[side+"ForeArm"],down.clone().add(out(s).multiplyScalar(0.25)));aim(B[side+"ForeArm"],B[side+"Hand"],fwd.clone().add(down))}
+  }
+}
+function loadDummy(){
+  if(!THREE.GLTFLoader)return;
+  new THREE.GLTFLoader().load(DUMMY_URL,gl=>{
+    const root=new THREE.Group();root.rotation.y=Math.PI/2;root.add(gl.scene);groups.person.add(root);dummy.root=root;
+    gl.scene.traverse(o=>{if(o.isBone){const k=o.name.replace("mixamorig","");dummy.bones[k]=o;o.userData.q0=o.quaternion.clone()}
+      if(o.isMesh){o.frustumCulled=false;o.userData={g:"person",k:"person",t:"dummy"}}});
+    for(const m of meshes)if(m.userData.k==="person")m.visible=false;     // hide the box figure
+    dummy.ready=true;poseDummy();$("dState").textContent="더미 불러옴 (X Bot, 관절은 아래 슬라이더 + 손발 자동 맞춤)";
+  },undefined,()=>{$("dState").textContent="더미를 불러오지 못함 (인터넷 확인) — 상자 사람으로 표시"});
+}
+["dH","dHx","dHz","dBack","dHead","dKnee","dElbow","dHands"].forEach(id=>$(id).addEventListener("input",poseDummy));
+$("dReset").onclick=()=>{for(const[id,v]of[["dH",175],["dHx",0],["dHz",0],["dBack",15],["dHead",10],["dKnee",15],["dElbow",30]])$(id).value=v;$("dHands").checked=true;poseDummy()};
+loadDummy();
 
 let last=performance.now();
 function loop(t){const dt=Math.max(0.001,Math.min(0.05,(t-last)/1000));last=t;const st=15*dt;
