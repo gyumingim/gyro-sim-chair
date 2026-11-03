@@ -54,7 +54,7 @@ a{color:var(--acc)}
 <tr><td><kbd>G</kbd></td><td>바퀴(기어) 올림/내림</td><td>바퀴가 보였다 사라짐</td></tr>
 <tr><td><kbd>R</kbd> / <kbd>T</kbd></td><td>공중 시작 (6000 ft, 350 kt) / 활주로 시작</td><td></td></tr>
 <tr><td><kbd>V</kbd> · <kbd>C</kbd> · <kbd>Q</kbd> <kbd>E</kbd></td><td>시점 조종석/뒤쪽 · 아래 내려다보기(스틱·페달 보기) · 왼쪽/오른쪽 보기</td><td>모니터 모드만 (VR 은 고개로)</td></tr>
-<tr><td><kbd>P</kbd> · <kbd>H</kbd></td><td>일시정지 · HUD 글자 켜기/끄기</td><td></td></tr>
+<tr><td><kbd>P</kbd> · <kbd>H</kbd> · <kbd>U</kbd></td><td>일시정지 · 강의판 켜기/끄기 · HUD 켜기/끄기 (언리얼)</td><td></td></tr>
 <tr><td><kbd>F1</kbd> · <kbd>1</kbd>~<kbd>6</kbd> · <kbd>N</kbd> · <kbd>M</kbd> · <kbd>F2</kbd></td><td>강의 메뉴 · 강의 시작 · 다음 단계(건너뛰기, 점수 -20) · 다시 하기 · 강의 끄기</td><td></td></tr>
 <tr><td><kbd>F3</kbd> · <kbd>F9</kbd></td><td>VR 정면 다시 맞추기 · VR 화면(스테레오) 켜기/끄기</td><td>VR Preview 중에만</td></tr>
 </table>
@@ -65,10 +65,11 @@ a{color:var(--acc)}
 <div class="card">
 <table>
 <tr><th>자리</th><th>내용</th></tr>
-<tr><td>왼쪽</td><td>속도 (KT = 노트), 마하, G, 받음각(AOA)</td></tr>
-<tr><td>오른쪽</td><td>고도 (FT), 상승률 (FPM, + 는 올라감), R = 땅에서 높이</td></tr>
-<tr><td>위</td><td>방위 (000 = 북쪽, 090 = 동쪽). 활주로는 북쪽(000)을 향함</td></tr>
-<tr><td>가운데·아래</td><td>경사·피치, 스로틀 %, 기어, 브레이크, 강의 단계와 진행 막대</td></tr>
+<tr><td>왼쪽 상자</td><td>속도 (노트). 위 = G, 아래 = 마하, 받음각(AOA)</td></tr>
+<tr><td>오른쪽 상자</td><td>고도 (FT, 해발). 위 = 상승률 (FPM, + 는 올라감), 아래 R = 땅에서 높이</td></tr>
+<tr><td>가운데</td><td>피치 사다리 (5° 마다, 아래쪽은 점선)와 수평선, 동그라미에 날개 = 비행경로 표시(실제로 가는 방향), 작은 십자 = 기수 방향</td></tr>
+<tr><td>아래</td><td>방위 테이프 (000 = 북쪽, 090 = 동쪽). 청주 활주로 06R 은 052 를 향함. 강의 단계 한 줄</td></tr>
+<tr><td>왼쪽 아래</td><td>스로틀 %, 기어, 브레이크</td></tr>
 </table>
 </div>
 
@@ -86,9 +87,9 @@ a{color:var(--acc)}
 <ol><li>8000 ft 에서 ±100 ft, 상승률 &lt;500 fpm 로 5 초</li><li>5000 ft 에서 같은 조건 5 초</li></ol>
 <span class="small">목표 500 ft 전부터 기수를 천천히 내리기. 점수: 넘어선 고도, 200 kt 아래로 느려지면 -15.</span></div>
 <div class="card lesson"><h3>5. 이륙 <span class="small">(활주로)</span></h3>
-<ol><li>스로틀 100% (<kbd>W</kbd> 누르고 있기)</li><li>가운데 선 유지 (<kbd>A</kbd>/<kbd>D</kbd>), 150 kt 까지</li><li>기수 들기 (<kbd>↓</kbd>) 피치 8~12°</li><li>50 ft 이상 상승 → 기어 올리기 (<kbd>G</kbd>) → 1500 ft</li></ol>
+<ol><li>스로틀 100% (<kbd>W</kbd> 누르고 있기)</li><li>가운데 선 유지 (<kbd>A</kbd>/<kbd>D</kbd>), 150 kt 까지</li><li>기수 들기 (<kbd>↓</kbd>) 피치 8~12°</li><li>50 ft 이상 상승 → 기어 올리기 (<kbd>G</kbd>) → 1700 ft (활주로 위 1500 ft)</li></ol>
 <span class="small">점수: 지상에서 피치 13° 넘김(꼬리 닿음) -25, 300 kt 넘어서 기어 내림 -15, 중심선에서 8 m 넘게 벗어난 만큼 감점.</span></div>
-<div class="card lesson"><h3>6. 착륙 접근 <span class="small">(활주로 9 km 앞, 1550 ft, 180 kt)</span></h3>
+<div class="card lesson"><h3>6. 착륙 접근 <span class="small">(청주 06R 9 km 앞, 1740 ft = 활주로 위 1550 ft, 180 kt)</span></h3>
 <ol><li>기어 내리기</li><li>속도 160 kt 근처로</li><li>3° 강하 (600~800 fpm), 활주로 정렬, 300 ft 까지</li><li>접지 → 브레이크로 정지</li></ol>
 <span class="small">점수 = 접지 강하율 (300 fpm 미만 60 / 600 미만 45 / 900 미만 25) + 중심선 (10 m 이내 20 / 22 m 이내 10) + 접지 위치 (문턱 뒤 750 m 이내 20).
 1500 fpm 넘게 또는 기수가 숙여진 채 닿으면 0 점.</span></div>

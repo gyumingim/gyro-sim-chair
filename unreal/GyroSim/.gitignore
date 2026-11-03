@@ -5,3 +5,10 @@ DerivedDataCache/
 *.sln
 .vs/
 __pycache__/
+# third-party content fetched by scripts (see README / ATTRIBUTION.md)
+Plugins/CesiumForUnreal/
+ThirdParty/
+Content/ThirdParty/
+# your Cesium ion access token (never commit)
+Config/cesium_token.txt
+cesium-request-cache.sqlite*

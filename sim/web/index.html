@@ -58,9 +58,10 @@ const tex=(()=>{const c=document.createElement("canvas");c.width=c.height=512;co
   for(let i=0;i<64;i++)for(let j=0;j<64;j++){const v=90+Math.random()*40;g.fillStyle=`rgb(${v*0.55|0},${v|0},${v*0.45|0})`;g.fillRect(i*8,j*8,8,8)}
   g.strokeStyle="rgba(255,255,255,.25)";g.lineWidth=2;g.strokeRect(0,0,512,512);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(200,200);return t})();
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(200000,200000),new THREE.MeshLambertMaterial({map:tex}));ground.rotation.x=-Math.PI/2;scene.add(ground);
-// runway at the start point (3 km × 45 m, north-south) + centre line
-const rw=new THREE.Mesh(new THREE.PlaneGeometry(45,3000),new THREE.MeshLambertMaterial({color:0x333438}));rw.rotation.x=-Math.PI/2;rw.position.set(0,0.2,-1300);scene.add(rw);
-for(let i=0;i<40;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(1,30),new THREE.MeshBasicMaterial({color:0xffffff}));m.rotation.x=-Math.PI/2;m.position.set(0,0.3,-1300+1450-i*75);scene.add(m)}
+// runway at the start point (RKTU 06R, 2738 m × 45 m, turned to the runway heading S.rwy_hdg) + centre line
+const rwg=new THREE.Group();scene.add(rwg);
+const rw=new THREE.Mesh(new THREE.PlaneGeometry(45,2738),new THREE.MeshLambertMaterial({color:0x333438}));rw.rotation.x=-Math.PI/2;rw.position.set(0,0.2,-1219);rwg.add(rw);
+for(let i=0;i<36;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(1,30),new THREE.MeshBasicMaterial({color:0xffffff}));m.rotation.x=-Math.PI/2;m.position.set(0,0.3,-1219+1300-i*75);rwg.add(m)}
 // hills for reference
 const rnd=(s=>()=>(s=(s*16807)%2147483647)/2147483647)(7);
 for(let i=0;i<160;i++){const h=200+rnd()*1500,r=800+rnd()*2500;const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(0.27+rnd()*0.05,0.35,0.28+rnd()*0.1)}));
@@ -128,7 +129,7 @@ function drawChair(){const c=chairc.getContext("2d");c.clearRect(0,0,120,70);if(
 // ---------------- loop ----------------
 let last=performance.now();
 function loop(t){const dt=Math.min(0.05,(t-last)/1000);last=t;readControls(dt);
-  if(S){const x=(S.lon-S.lon0)*111320*Math.cos(S.lat0*Math.PI/180),n=(S.lat-S.lat0)*110540,pos=new THREE.Vector3(x,S.alt_m,-n);
+  if(S){const x=(S.lon-S.lon0)*111320*Math.cos(S.lat0*Math.PI/180),n=(S.lat-S.lat0)*110950,pos=new THREE.Vector3(x,S.alt_m-(S.field_m||0),-n);rwg.rotation.y=-(S.rwy_hdg||0)*Math.PI/180;
     const b=attitudeBasis(S.phi,S.theta,S.psi);
     plane.position.copy(pos);plane.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(b.r,b.u,b.f.clone().negate()));
     if(chase){plane.visible=true;cam.position.copy(pos).addScaledVector(b.f,-40).addScaledVector(b.u,8);cam.up.copy(b.u);cam.lookAt(pos.clone().addScaledVector(b.f,30))}

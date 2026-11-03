@@ -21,10 +21,12 @@ def hdg_err(psi, target):
 
 
 def ne(s):
-    """north, east of the aircraft from the start point (lat0/lon0), m. Runway: east 0, north -150 .. 2850."""
-    n = (s["lat"] - s["lat0"]) * 110540.0
+    """(along, cross) of the aircraft from the start point (lat0/lon0), m, in runway axes (along = runway heading
+    s["rwy_hdg"], cross = right of the centre line). Runway: cross 0, along -150 .. 2590 (RKTU 06R, 2738 m)."""
+    n = (s["lat"] - s["lat0"]) * 110950.0
     e = (s["lon"] - s["lon0"]) * 111320.0 * math.cos(math.radians(s["lat0"]))
-    return n, e
+    h = math.radians(s.get("rwy_hdg", 0.0))
+    return n * math.cos(h) + e * math.sin(h), -n * math.sin(h) + e * math.cos(h)
 
 
 class Step:
@@ -130,13 +132,13 @@ def lesson_takeoff():
     return dict(
         title="5. 이륙", mode="runway",
         steps=[
-            Step("활주로 끝에 정지. 목표: 150 kt 에서 기수 들기 → 이륙 → 기어 올리기.", lambda s, L: True, 5),
+            Step("청주 기지 활주로 06R 끝에 정지. 목표: 150 kt 에서 기수 들기 → 이륙 → 기어 올리기.", lambda s, L: True, 5),
             Step("스로틀 최대:  W 를 누르고 있기 (100%)", lambda s, L: s["thr"] > 0.95, 0.3),
             Step("활주. 가운데 선 유지 (A/D 페달). 150 kt 까지 기다리기", lambda s, L: s["kts"] >= 145, 0.2, "기수가 돌면 반대쪽 페달을 톡"),
             Step("기수 들기:  ↓ 당겨서 피치 8~12°", lambda s, L: s["theta"] > 8, 0.3, "15° 넘기면 꼬리가 땅에 닿습니다"),
             Step("이륙! 땅에서 50 ft 이상, 상승 중", lambda s, L: not s["wow"] and s["agl_m"] > 15 and s["vs_fpm"] > 0, 1),
             Step("기어 올리기:  G 키", lambda s, L: s["gear"] < 0.1, 0.3, "300 kt 전에 올리기"),
-            Step("1500 ft 까지 상승", lambda s, L: _ft(s) > 1500, 0.3),
+            Step("1700 ft (활주로 위 1500 ft) 까지 상승", lambda s, L: _ft(s) > 1700, 0.3),
             Step("이륙 완료!", lambda s, L: True, 3),
         ],
         monitor=mon,
@@ -167,7 +169,7 @@ def lesson_landing():
     return dict(
         title="6. 착륙 접근", mode="approach",
         steps=[
-            Step("활주로 9 km 앞, 1550 ft, 180 kt. 3° 강하로 접근합니다.", lambda s, L: True, 4),
+            Step("청주 활주로 06R 9 km 앞, 1740 ft (활주로 위 1550 ft), 180 kt. 3° 강하로 접근합니다.", lambda s, L: True, 4),
             Step("기어 내리기:  G 키", lambda s, L: s["gear"] > 0.9, 0.3),
             Step("속도 160 kt 근처로 (S 로 스로틀 줄이기)", lambda s, L: s["kts"] < 168, 1, "기수는 약간 위 (받음각 10° 정도)"),
             Step("활주로 정렬 유지하며 강하 (강하율 600~800 fpm). 300 ft 까지",

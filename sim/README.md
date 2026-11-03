@@ -7,7 +7,9 @@ pip install jsbsim websockets pygame pillow
 python sim/server.py          # → http://127.0.0.1:8780/
 ```
 
-- `server.py`: JSBSim 120 Hz, 공중 시작은 수평 비행 트림 (6000 ft, 350 kt). WebSocket 8781 로 상태 60 Hz 전송, 조종 입력 받음.
+- `airfield.py`: 시작 비행장 = 청주 기지 RKTU 활주로 06R (실제 좌표, 방위 052.38°, 표고 191 ft, 지오이드 25.08 m — 출처는 파일 안).
+  JSBSim 땅 높이 = 191 ft (어디나 평지). 활주로 시작·착륙 접근(9 km 앞, 1740 ft)이 이 활주로 기준.
+- `server.py`: JSBSim 120 Hz, 공중 시작은 수평 비행 트림 (6000 ft, 350 kt, 방위 000). WebSocket 8781 로 상태 60 Hz 전송, 조종 입력 받음.
 - 의자 명령: 롤 = 0.35·기체 롤 + 25·옆 가속(g), 피치 = 0.30·기체 피치 + 20·앞 가속(g), ±20° / ±15° 제한, 8°/s 속도 제한.
   UDP JSON `{"roll":..,"pitch":..}` 을 127.0.0.1:4210 으로 보냄 (의자 제어기는 아직 없음).
 - `web/index.html`: three.js 화면 + HUD, 조이스틱(Gamepad API, 축 매핑은 패널에서 고르고 브라우저에 저장) 또는 키보드.

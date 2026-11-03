@@ -51,16 +51,18 @@ def check_controls(name, exp):
         rc = a.root_component
         rr, rl = rc.get_editor_property("relative_rotation"), rc.get_editor_property("relative_location")
         out[tag] = dict(rot=[round(rr.roll, 1), round(rr.pitch, 1)], dx=round(rl.x - base.x, 1))
+    sc = sim_client
     st = out.get("StickPivot", {}).get("rot", [0, 0])
-    out["stick_ok"] = abs(st[0] - 18 * exp["ail"]) < 2 and abs(st[1] + 14 * exp["elev"]) < 2
-    out["pedal_ok"] = abs(out.get("PedalR", {}).get("dx", 0) - 6 * exp["rud"]) < 1 and abs(out.get("PedalL", {}).get("dx", 0) + 6 * exp["rud"]) < 1
-    out["brake_ok"] = abs(out.get("PedalL", {}).get("rot", [0, 0])[1] + 18 * exp["brk"]) < 2
+    out["stick_ok"] = abs(st[0] - sc.STICK_ROLL * exp["ail"]) < 1.5 and abs(st[1] + sc.STICK_PITCH * exp["elev"]) < 1.5
+    out["pedal_ok"] = abs(out.get("PedalR", {}).get("dx", 0) - sc.PEDAL_CM * exp["rud"]) < 1 and abs(out.get("PedalL", {}).get("dx", 0) + sc.PEDAL_CM * exp["rud"]) < 1
+    out["brake_ok"] = abs(out.get("PedalL", {}).get("rot", [0, 0])[1] + sc.TOE_DEG * exp["brk"]) < 2
     th = out.get("ThrottlePivot", {}).get("rot", [0, 0])[1]
-    out["throttle_ok"] = abs(th - (25 - 50 * c.s.get("thr", 0))) < 2
+    out["throttle_ok"] = abs(th + sc.THR_TRAVEL * c.s.get("thr", 0)) < 3
     tut = c.s.get("tut") or {}
     out["tutorial"] = dict(on=tut.get("on"), lesson=tut.get("lesson"), step=tut.get("step"), text=tut.get("text"), img=tut.get("img"),
                            panel_ver=c.tut_ver, panel_shown=c.panel_shown)
-    out["hud_text"] = {k: v for k, v in c.txt_cache.items()}
+    out["hud"] = dict(frames=c.hud_n, draw_ms=round(c.hud_ms, 2), visible=c.hud_vis, cesium=c.cesium_mode, radar_m=c.radar_m,
+                      screens=sorted(c.screens))
     RESULT[name] = out
     log(name, json.dumps(out, ensure_ascii=False))
 
@@ -74,15 +76,21 @@ def motion_start():
 
 def motion_stop(name):
     MOTION["on"] = False
-    p = MOTION["pts"]
+    tp = MOTION["pts"]
+    p = [q[1:] for q in tp]
     d = [math.dist(p[i], p[i + 1]) for i in range(len(p) - 1)]
-    d = [x for x in d]
+    v = [d[i] / (tp[i + 1][0] - tp[i][0]) for i in range(len(d)) if tp[i + 1][0] > tp[i][0]]    # cm/s per frame
     if len(d) > 5:
         m = sum(d) / len(d)
         sd = math.sqrt(sum((x - m) ** 2 for x in d) / len(d))
         acc = [abs(d[i + 1] - d[i]) for i in range(len(d) - 1)]
         RESULT[name] = dict(frames=len(p), mean_step_cm=round(m, 1), std_step_cm=round(sd, 1), cv=round(sd / m, 3) if m else None,
                             zero_steps=sum(1 for x in d if x < 0.01 * m), mean_abs_step_change_cm=round(sum(acc) / len(acc), 1))
+        RESULT[name]["steps_cm"] = [round(x) for x in d]
+        RESULT[name]["dts_ms"] = [round((tp[i + 1][0] - tp[i][0]) * 1000, 1) for i in range(len(d))]
+        if len(v) > 5:            # speed per frame (step / frame time): independent of frame-time jitter
+            mv = sum(v) / len(v)
+            RESULT[name]["speed_cv"] = round(math.sqrt(sum((x - mv) ** 2 for x in v) / len(v)) / mv, 3) if mv else None
         log(name, json.dumps(RESULT[name]))
 
 
@@ -135,7 +143,17 @@ def look_up():
 def c_tut():
     check("runway_cockpit_tutorial"); shot("2_cockpit_tutorial")
 
-@at(13.2)
+@at(13.0)
+def panel_off():
+    C().panel_on = False                  # H key: tutorial panel off
+
+@at(13.6)
+def panel_check():
+    c = C()
+    RESULT["panel_toggle"] = dict(panel_on=c.panel_on, panel_shown=c.panel_shown, ok=c.panel_shown is False)
+    c.panel_on = True
+
+@at(13.8)
 def air():
     c = C()
     c.override = dict(NEUTRAL)
@@ -144,7 +162,11 @@ def air():
 
 @at(17)
 def c_air():
-    check("air_cockpit_level"); motion_start()
+    check("air_cockpit_level"); shot("2b_cockpit_air_hud")
+
+@at(17.6)
+def m0():
+    motion_start()                       # after the screenshot hitch
 
 @at(19)
 def m1():
@@ -234,7 +256,7 @@ def tick(dt):
             log("hitch %.1f s - timeline shifted" % dt)
         if MOTION["on"] and c.aircraft:
             l = c.aircraft.get_actor_location()
-            MOTION["pts"].append((l.x, l.y, l.z))
+            MOTION["pts"].append((time.perf_counter(), l.x, l.y, l.z))
         el = now - T0[0]
         while steps and el >= steps[0][0]:
             t, f = steps.pop(0)

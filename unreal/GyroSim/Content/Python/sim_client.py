@@ -4,8 +4,15 @@
   input out: UDP JSON 127.0.0.1:4221 ({"ctrl": {...}} / {"cmd": "reset"|"pause"|"tut"}) - keyboard, only while the
              editor window has focus (Windows GetAsyncKeyState), so the browser page / joystick still work otherwise.
 
-World frame: X = north, Y = east, Z = up, cm; origin = (lat0, lon0) from the packet, sea level = Z 0.
-NED Euler -> UE Rotator: roll = phi, pitch = theta, yaw = psi (UE yaw turns X toward Y = north toward east).
+World frame: X = north, Y = east, Z = up, cm; origin = (lat0, lon0) from the packet at ellipsoid height geoid_n
+(Z 0 = mean sea level there), exact WGS84 local tangent frame (geo.py) = Cesium's frame turned by yaw 90 deg, so the
+aircraft sits on the real Earth curvature like the Cesium globe. NED Euler -> UE Rotator: roll = phi, pitch = theta,
+yaw = psi (plus the small tilt of the local level away from the origin, geo.Frame.body_axes).
+
+Cesium (Play): Config/cesium_token.txt (your Cesium ion token, not in git) -> Cesium World Terrain + Bing aerial imagery
+(line 2 "photoreal" -> Google Photorealistic 3D Tiles). No token -> WGS84 ellipsoid raised to the field elevation +
+Sentinel-2 cloudless satellite imagery (EOX, no login), note on the HUD / right MFD.
+HUD / MFDs: hud.py draws them with UCanvas into render targets on world-space planes (VR works).
 
 Smooth motion: packets carry the sim time t. The client keeps the last packets, maps sim time to local time
 (perf_counter) and renders ~1 packet interval in the past, interpolating position (linear) and attitude (quaternion
@@ -17,27 +24,36 @@ and the tutorial panel are world-space actors attached to the camera actor (visi
 
 Started by init_unreal.py on editor start. In the editor Python console:  import sim_client; sim_client.status()
 """
-import ctypes, json, math, os, socket, time
+import ctypes, importlib, json, math, os, socket, time
 import unreal
+import geo, hud
+importlib.reload(geo); importlib.reload(hud)
 
 STATE_ADDR = ("127.0.0.1", 4220)
 CMD_ADDR = ("127.0.0.1", 4221)
 EYE = (430.0, 0.0, 100.0)          # cockpit eye point in body axes, cm (fwd, right, up) from the aircraft reference
 CHASE_BACK, CHASE_UP = 2600.0, 650.0
-GEAR_BOTTOM_CM = 190.0             # model wheels are this far below the actor origin
+GEAR_BOTTOM_CM = 177.5             # F-16 model tire bottom below the actor origin (ThirdParty/f16_obj/manifest.json)
 AGL_REST_M = 1.66                  # JSBSim F-16 h-agl when standing on the runway (measured from server.py, runway start)
 Z_OFFSET_CM = GEAR_BOTTOM_CM - AGL_REST_M * 100.0
 INTERP_DELAY = 1 / 60 + 0.004      # s behind the newest packet
 MAX_EXTRAP = 0.05
 
-A_WGS, E2 = 6378137.0, 6.69437999014e-3
+TOKEN_FILE = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "cesium_token.txt")
+EOX_URL = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg"
+ION_TERRAIN, ION_BING, ION_PHOTOREAL = 1, 2, 2275207
+RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
+HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
+MFD_HZ = 5.0
 
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
-          R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
+          R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
           F1=0x70, F2=0x71, F3=0x72, F9=0x78, **{"K%d" % i: 0x30 + i for i in range(1, 7)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
 RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
+STICK_ROLL, STICK_PITCH, THR_TRAVEL, PEDAL_CM, TOE_DEG = 12.0, 10.0, 80.0, 6.0, 15.0
+HUD_BRIGHT, MFD_BRIGHT = 2.0, 1.2
 CENTER = 3.0
 THR_RATE = 0.35
 BRK_RATE = 4.0
@@ -86,7 +102,7 @@ class Interp:
         self.buf = []                  # (t_sim, (x, y, z) cm, quat)
         self.off = None
 
-    def push(self, s, now, loc):
+    def push(self, s, now, loc, rot):
         t = s["t"]
         if self.buf and (t < self.buf[-1][0] - 1e-6 or t - self.buf[-1][0] > 0.5):
             self.reset()
@@ -100,7 +116,7 @@ class Interp:
             self.off = off
         else:
             self.off += min(off - self.off, 0.0005)     # follow slow drift upward
-        self.buf.append((t, (loc.x, loc.y, loc.z), e2q(s["phi"], s["theta"], s["psi"])))
+        self.buf.append((t, (loc.x, loc.y, loc.z), e2q(rot.roll, rot.pitch, rot.yaw)))
         if len(self.buf) > 12:
             self.buf.pop(0)
 
@@ -220,6 +236,17 @@ class SimClient:
         self.tut_ver = -1
         self.gear_shown = None
         self.last_pose = None
+        self.panel_on = True          # H: tutorial panel on/off
+        self.painter = None
+        self.screens = {}
+        self.hud_t = self.mfd_t = self.trace_t = 0.0
+        self.hud_vis = None
+        self.hud_n, self.hud_ms = 0, 0.0
+        self.cesium_mode = None       # 'terrain' | 'photoreal' | 'flat' | 'none' | 'error'
+        self.radar_m = None           # height above whatever is under the aircraft (line trace), m
+        self.crashed = False
+        self.t_bind = 0.0
+        self.georef = self.tileset = None
 
     # ---------------------------------------------------------------------------------------------------------------
     def _find(self, tag):
@@ -240,11 +267,34 @@ class SimClient:
                 b = a.root_component.get_editor_property("relative_location")
                 self.pivots[tag] = (a, unreal.Vector(b.x, b.y, b.z))
         self.texts = {}
-        for tag in ("HUD_SPD", "HUD_ALT", "HUD_HDG", "HUD_MID", "HUD_STAT"):
-            a = self._find(tag)
-            if a:
-                self.texts[tag] = a.text_render
         self.panel = self._find("TutorPanel")
+        self.painter = None
+        self.screens = {}
+        try:
+            self.painter = hud.Painter(world)
+            for tag, rt in (("HUD", self.painter.rt_hud), ("MFD_L", self.painter.rt_mfd[0]), ("MFD_R", self.painter.rt_mfd[1])):
+                a = self._find(tag)
+                if a:
+                    mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
+                    mid.set_texture_parameter_value("Tex", rt)
+                    if tag == "HUD":
+                        mid.set_texture_parameter_value("Ladder", self.painter.rt_ladder)
+                        mid.set_scalar_parameter_value("TexAlpha", 1.0)
+                        mid.set_scalar_parameter_value("Brightness", HUD_BRIGHT)
+                    else:
+                        mid.set_scalar_parameter_value("Brightness", MFD_BRIGHT)
+                    self.screens[tag] = (a, mid)
+        except Exception as e:
+            _log("HUD painter", repr(e))
+        self.terrain_hit = False
+        self.cesium_failed = None
+        self.trace_ignore = [self.aircraft] + list(unreal.GameplayStatics.get_all_actors_with_tag(world, "AircraftPart"))
+        self.crashed = False
+        self.t_bind = time.perf_counter()
+        self.hud_vis = None
+        self.ladder_on = None
+        self.max_tries = 40               # maximize the new PIE window over the next frames
+        self._setup_cesium()
         self.panel_mid = None
         self.panel_shown = None
         if self.panel:
@@ -258,8 +308,72 @@ class SimClient:
         self.interp.reset()
         self.preset = None
         _log("game world", world.get_name(), "aircraft", bool(self.aircraft), "camera", bool(self.camera),
-             "pivots", sorted(self.pivots), "texts", len(self.texts), "panel", bool(self.panel_mid))
+             "pivots", sorted(self.pivots), "screens", sorted(self.screens), "panel", bool(self.panel_mid), "cesium", self.cesium_mode)
         self._set_view_target()
+
+    @staticmethod
+    def read_token():
+        """(token, mode) from Config/cesium_token.txt: first non-comment line = Cesium ion access token, optional
+        line 'photoreal' = Google Photorealistic 3D Tiles instead of World Terrain + Bing."""
+        try:
+            lines = [l.strip() for l in open(TOKEN_FILE, encoding="utf-8-sig") if l.strip() and not l.strip().startswith("#")]
+        except OSError:
+            return None, None
+        if not lines:
+            return None, None
+        return lines[0], ("photoreal" if any(l.lower() == "photoreal" for l in lines[1:]) else "terrain")
+
+    def _setup_cesium(self):
+        gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
+        self.georef, self.tileset = gr, ts
+        if not ts or not hasattr(unreal, "Cesium3DTileset"):
+            self.cesium_mode = "none"
+            return
+        token, mode = self.read_token()
+        ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
+        eox, ion = ovs.get("CesiumUrlTemplateRasterOverlay"), ovs.get("CesiumIonRasterOverlay")
+        try:
+            if token:
+                ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+                if eox:
+                    eox.remove_from_tileset()
+                ts.set_editor_property("ion_access_token", token)
+                ts.set_editor_property("ion_asset_id", ION_PHOTOREAL if mode == "photoreal" else ION_TERRAIN)
+                ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_CESIUM_ION)
+                if ion and mode != "photoreal":
+                    ion.set_editor_property("ion_access_token", token)
+                    ion.set_editor_property("ion_asset_id", ION_BING)
+                    ion.add_to_tileset()
+                ts.refresh_tileset()
+                self.cesium_mode = mode
+            else:
+                if ion:
+                    ion.remove_from_tileset()
+                self.cesium_mode = "flat" if eox else "error"
+        except Exception as e:
+            _log("cesium setup failed", repr(e))
+            self.cesium_mode = "error"
+        _log("cesium mode", self.cesium_mode, "token file", TOKEN_FILE, "found" if token else "missing", "overlays", sorted(ovs))
+
+    def _cesium_fallback(self, why):
+        """terrain mode failed -> ellipsoid at the field elevation + Sentinel-2 imagery (same as no token)."""
+        ts = self.tileset
+        _log("cesium fallback to flat:", why)
+        try:
+            ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
+            if "CesiumIonRasterOverlay" in ovs:
+                ovs["CesiumIonRasterOverlay"].remove_from_tileset()
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
+            h = self.s.get("field_m", 58.2) if self.s else 58.2
+            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            if "CesiumUrlTemplateRasterOverlay" in ovs:
+                ovs["CesiumUrlTemplateRasterOverlay"].add_to_tileset()
+            ts.refresh_tileset()
+        except Exception as e:
+            _log("fallback failed", repr(e))
+        self.cesium_mode = "flat"
+        self.cesium_failed = why
+        self.t_bind = time.perf_counter()          # show the HUD note again
 
     def _set_view_target(self):
         pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
@@ -283,8 +397,8 @@ class SimClient:
             self.rx_t = time.perf_counter()
             if s.get("paused") or s.get("rid") != self.rid:
                 self.interp.reset()
-            loc, _ = self.to_world(s)
-            self.interp.push(s, self.rx_t, loc)
+            loc, rot = self.to_world(s)
+            self.interp.push(s, self.rx_t, loc, rot)
 
     def _send(self, m):
         try:
@@ -293,18 +407,20 @@ class SimClient:
             pass
 
     # ---------------------------------------------------------------------------------------------------------------
-    @staticmethod
-    def to_world(s):
-        lat0 = math.radians(s["lat0"])
-        sl = math.sin(lat0)
-        w = 1 - E2 * sl * sl
-        m_r = A_WGS * (1 - E2) / w ** 1.5                     # meridian radius
-        n_r = A_WGS / math.sqrt(w)                            # prime vertical radius
-        north = math.radians(s["lat"] - s["lat0"]) * m_r
-        east = math.radians(s["lon"] - s["lon0"]) * n_r * math.cos(lat0)
-        loc = unreal.Vector(north * 100.0, east * 100.0, s["alt_m"] * 100.0 + Z_OFFSET_CM)
-        rot = unreal.Rotator(roll=s["phi"], pitch=s["theta"], yaw=s["psi"])
-        return loc, rot
+    _frame = None
+
+    @classmethod
+    def to_world(cls, s):
+        """packet -> (UE location of the aircraft reference, UE rotator) on the exact WGS84 frame (geo.py)."""
+        n = s.get("geoid_n", 0.0)
+        f = cls._frame
+        if f is None or (f.lat0, f.lon0, f.h0) != (s["lat0"], s["lon0"], n):
+            f = cls._frame = geo.Frame(s["lat0"], s["lon0"], n)
+        fwd, right, up = f.body_axes(s["lat"], s["lon"], s["phi"], s["theta"], s["psi"])
+        x, y, z = f.world(s["lat"], s["lon"], s["alt_m"] + n)
+        loc = unreal.Vector(x, y, z) + unreal.Vector(*up) * Z_OFFSET_CM
+        r, p, yw = geo.euler_from_axes(fwd, up)
+        return loc, unreal.Rotator(roll=r, pitch=p, yaw=yw)
 
     def _sync_reset(self):
         """Follow the server after a reset (or on first packet): take its throttle / gear so we don't fight it."""
@@ -313,6 +429,7 @@ class SimClient:
             return
         first = self.rid is None
         self.rid = s.get("rid")
+        self.crashed = False
         c["thr"] = float(s["thr"] if first else s.get("thr_init", c["thr"]))
         c["gear"] = float((s["gear"] > 0.5) if first else s.get("gear_init", c["gear"]))
         c.update(ail=0.0, elev=0.0, rud=0.0)
@@ -356,8 +473,10 @@ class SimClient:
             self.view = "chase" if self.view == "cockpit" else "cockpit"
             self.chase_yaw = None
         if kb.pressed("H"):
+            self.panel_on = not self.panel_on
+        if kb.pressed("U"):
             self.hud = not self.hud
-            self.txt_cache.clear()
+            self.hud_t = 0.0
         if kb.pressed("C"):
             self.look_down = not self.look_down
         self.look_tgt = [-35.0 if self.look_down else 0.0, (60.0 if kb.down("E") else 0.0) - (60.0 if kb.down("Q") else 0.0)]
@@ -453,56 +572,145 @@ class SimClient:
         for n in self.disp:
             self.disp[n] += (float(src.get(n, s.get(n, 0.0)) or 0.0) - self.disp[n]) * k
         d, P = self.disp, self.pivots
+        # F-16 side stick on the right console (the real one moves only a few mm - shown +-STICK_ROLL / STICK_PITCH deg
+        # so the input is visible), throttle on the left console: FlightGear throttle.xml travel 80 deg, top forward = more.
         if "StickPivot" in P:
-            P["StickPivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=18.0 * d["ail"], pitch=-14.0 * d["elev"], yaw=0.0), False, True)
+            P["StickPivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=STICK_ROLL * d["ail"], pitch=-STICK_PITCH * d["elev"], yaw=0.0), False, True)
         if "ThrottlePivot" in P:
-            P["ThrottlePivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=25.0 - 50.0 * d["thr"], yaw=0.0), False, True)
+            P["ThrottlePivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=-THR_TRAVEL * d["thr"], yaw=0.0), False, True)
         for tag, sign, bk in (("PedalL", -1.0, "brk_l"), ("PedalR", 1.0, "brk_r")):
             if tag in P:
                 a, base = P[tag]
-                a.root_component.set_relative_location_and_rotation(base + unreal.Vector(6.0 * sign * d["rud"], 0, 0),
-                                                                    unreal.Rotator(roll=0.0, pitch=-18.0 * d[bk], yaw=0.0), False, True)
+                a.root_component.set_relative_location_and_rotation(base + unreal.Vector(PEDAL_CM * sign * d["rud"], 0, 0),
+                                                                    unreal.Rotator(roll=0.0, pitch=-TOE_DEG * d[bk], yaw=0.0), False, True)
         g = s.get("gear", 1.0) > 0.05
         if g != self.gear_shown:
             self.gear_shown = g
             for a in self.gear_parts:
                 a.set_actor_hidden_in_game(not g)
 
-    def _set_text(self, tag, txt):
-        if self.txt_cache.get(tag) != txt and tag in self.texts:
-            self.txt_cache[tag] = txt
-            self.texts[tag].set_text(txt)
+    def _trace(self, now):
+        """Height of the wheels above whatever is under the aircraft (Cesium terrain tiles have collision), 10 Hz.
+        JSBSim's ground is flat at the field elevation, so with real terrain this is the only hill check: below the
+        terrain while JSBSim still flies = terrain collision -> pause."""
+        s = self.s
+        if not s or not self.last_pose or now - self.trace_t < 0.1:
+            return
+        self.trace_t = now
+        if self.cesium_mode not in ("terrain", "photoreal"):
+            self.radar_m = s.get("agl_m")
+            return
+        loc = self.last_pose[0]
+        start, end = loc + unreal.Vector(0, 0, 200000.0), loc - unreal.Vector(0, 0, 3000000.0)
+        try:
+            r = unreal.SystemLibrary.line_trace_single(self.world, start, end, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False,
+                                                       self.trace_ignore, unreal.DrawDebugTrace.NONE, True)
+            hit = r if isinstance(r, unreal.HitResult) else (r[-1] if isinstance(r, (tuple, list)) else None)
+            t = hit.to_tuple() if hit is not None else None
+            if t and t[0]:
+                self.radar_m = (loc.z - t[4].z - Z_OFFSET_CM) / 100.0
+                self.terrain_hit = True
+            else:
+                self.radar_m = s.get("agl_m")
+                if not getattr(self, "terrain_hit", False) and now - self.t_bind > 20.0:
+                    self._cesium_fallback("no terrain tiles 20 s after Play (token rejected / offline?)")
+        except Exception as e:
+            self.radar_m = s.get("agl_m")
+            if now - self.last_log > 2:
+                _log("trace", repr(e))
+        if (not self.crashed and self.radar_m is not None and self.radar_m < -1.0 and not s.get("wow") and s.get("agl_m", 0) > 15
+                and not s.get("paused")):
+            self.crashed = True
+            self._send({"cmd": "pause"})
+            _log("terrain collision at radar %.1f m, JSBSim agl %.1f m" % (self.radar_m, s.get("agl_m", 0)))
+
+    def _hud_extra(self, now):
+        s = self.s
+        tut = s.get("tut") or {}
+        ex = dict(radar_m=self.radar_m if self.radar_m is not None else s.get("agl_m"))
+        if self.crashed:
+            ex["warn"] = "TERRAIN  -  R / T RESTART"
+        else:
+            r, vs = ex["radar_m"], s.get("vs_fpm", 0) * 0.00508
+            if r is not None and not s.get("wow") and vs < -1 and r / -vs < 6.0 and s.get("gear", 0) < 0.5:
+                ex["warn"] = "PULL UP"
+        if tut.get("on") and not tut.get("menu"):
+            n = int(round(tut.get("prog", 0) * 10))
+            ex["tut_line"] = "LESSON %d  STEP %d/%d  [%s%s]%s" % (tut.get("lesson", 0), tut.get("step", 0), tut.get("n", 0), "|" * n, "." * (10 - n),
+                                                                ("  SCORE %d" % tut["score"]) if tut.get("score") is not None else "")
+        if self.cesium_mode == "flat" and now - self.t_bind < 25:
+            ex["note"] = ("CESIUM TERRAIN FAILED (TOKEN?) - FLAT GROUND" if getattr(self, "cesium_failed", None)
+                          else "NO CESIUM TOKEN: FLAT GROUND + SATELLITE PHOTO  (unreal/README.md)")
+        return ex
+
+    def _mfd_extra(self):
+        s = self.s
+        lat, lon = s["lat"], s["lon"]
+        ml, mo = 110950.0, 111320.0 * math.cos(math.radians(lat))
+        rws = []
+        for rw in s.get("runways") or RUNWAYS:
+            rws.append(((rw[0] - lat) * ml, (rw[1] - lon) * mo, (rw[2] - lat) * ml, (rw[3] - lon) * mo))
+        n, e = rws[0][0], rws[0][1]
+        line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "flat": "FLAT GROUND - NO CESIUM TOKEN",
+                "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
+        return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 
     def _overlay(self, now):
+        s = self.s
+        fresh = s is not None and now - self.rx_t < 1.0
+        P = self.painter
+        hv = self.view == "cockpit"
+        if "HUD" in self.screens and getattr(self, "hud_vis", None) != hv:      # no HUD in the chase view
+            self.hud_vis = hv
+            self.screens["HUD"][0].set_actor_hidden_in_game(not hv)
+        if hv and "HUD" in self.screens and self.last_pose:          # ladder: every frame, interpolated attitude
+            r = self.last_pose[1]
+            mid = self.screens["HUD"][1]
+            mid.set_scalar_parameter_value("Roll", math.radians(r.roll))
+            mid.set_scalar_parameter_value("Pitch", math.radians(r.pitch))
+            on = 1.0 if (self.hud and fresh) else 0.0
+            if getattr(self, "ladder_on", None) != on:
+                self.ladder_on = on
+                mid.set_scalar_parameter_value("LadderOn", on)
+        if P and hv and "HUD" in self.screens and now - self.hud_t >= 1.0 / HUD_HZ:
+            self.hud_t = now
+            t0 = time.perf_counter()
+            try:
+                if not fresh:
+                    P._begin(P.rt_hud, hud.CLEAR)
+                    P.text("NO DATA - start  python sim/server.py  (UDP 4220)", 512, 450, 1.0, hud.AMBER)
+                    P._end()
+                elif not self.hud:
+                    if self.hud_n >= 0:
+                        P._begin(P.rt_hud, hud.CLEAR); P._end()
+                        self.hud_n = -1
+                else:
+                    sv = dict(s)
+                    if self.last_pose:                      # interpolated attitude (smooth ladder)
+                        r = self.last_pose[1]
+                        sv["phi"], sv["theta"] = r.roll, r.pitch
+                    P.draw_hud(sv, self._hud_extra(now))
+                    self.hud_n = max(0, self.hud_n) + 1
+                    self.hud_ms += ((time.perf_counter() - t0) * 1000 - self.hud_ms) * 0.05
+            except Exception as e:
+                if now - self.last_log > 2:
+                    self.last_log = now
+                    _log("hud draw", repr(e))
+        if P and fresh and now - self.mfd_t >= 0.5 / MFD_HZ:           # one MFD per call, alternating (spreads the cost)
+            self.mfd_t = now
+            try:
+                self.mfd_i = 1 - getattr(self, "mfd_i", 0)
+                tag = ("MFD_L", "MFD_R")[self.mfd_i]
+                if tag in self.screens:
+                    P.draw_mfd(self.mfd_i, s, self._mfd_extra())
+            except Exception as e:
+                _log("mfd draw", repr(e))
         if now - self.txt_t < 1 / 15:
             return
         self.txt_t = now
-        s = self.s
-        age = now - self.rx_t
+        # tutorial panel (Korean text rendered to PNG by sim/tutorial.py), H toggles
         tut = (s or {}).get("tut") or {}
-        if s is None or age > 1.0:
-            for t in ("HUD_SPD", "HUD_ALT", "HUD_HDG", "HUD_MID"):
-                self._set_text(t, "")
-            self._set_text("HUD_STAT", "NO DATA - start  python sim/server.py  (UDP 4220)")
-        elif not self.hud:
-            for t in self.texts:
-                self._set_text(t, "")
-        else:
-            self._set_text("HUD_SPD", "%3.0f KT<br>M %.2f<br>G %.1f<br>AOA %.1f" % (s["kts"], s["mach"], s["nz"], s["alpha"]))
-            self._set_text("HUD_ALT", "%5.0f FT<br>%+5.0f FPM<br>R %5.0f" % (s["alt_m"] / 0.3048, s["vs_fpm"], s["agl_m"] / 0.3048))
-            self._set_text("HUD_HDG", "%03.0f" % (s["psi"] % 360))
-            self._set_text("HUD_MID", "BANK %+3.0f   PITCH %+3.0f" % (s["phi"], s["theta"]))
-            stat = "THR %3.0f%%  GEAR %s  BRK %s  [%s]%s" % (s["thr"] * 100, "DN" if s["gear"] > 0.5 else ("UP" if s["gear"] < 0.05 else "--"),
-                                                          "ON" if s.get("brk", 0) > 0.3 else "--", s.get("src", "?"), "  PAUSED" if s.get("paused") else "")
-            if tut.get("on") and not tut.get("menu"):
-                n = int(round(tut.get("prog", 0) * 10))
-                stat += "<br>LESSON %d  STEP %d/%d  [%s%s]%s" % (tut.get("lesson", 0), tut.get("step", 0), tut.get("n", 0), "#" * n, "-" * (10 - n),
-                                                              ("  SCORE %d" % tut["score"]) if tut.get("score") is not None else "")
-            else:
-                stat += "<br>F1 = LESSONS"
-            self._set_text("HUD_STAT", stat)
-        # tutorial panel (Korean text rendered to PNG by sim/tutorial.py)
-        show = bool(tut.get("on")) and bool(tut.get("img"))
+        show = bool(tut.get("on")) and bool(tut.get("img")) and self.panel_on
         if self.panel:
             if self.panel_shown != show:
                 self.panel_shown = show
@@ -527,11 +735,17 @@ class SimClient:
                 self._bind_world(world)
                 if self.aircraft is None:
                     return
+            if getattr(self, "max_tries", 0) > 0 and not self.hmd:
+                self.max_tries -= 1
+                if maximize_pie_window():
+                    self.max_tries = 0
+                    _log("PIE window maximized")
             self._check_hmd(now)
             self._keyboard(dt)
             if self.s is not None:
                 self._place(dt, now)
                 self._controls(dt)
+            self._trace(now)
             self._overlay(now)
             self._set_view_target()
             self.frames += 1
@@ -553,7 +767,8 @@ class SimClient:
         s = self.s or {}
         return dict(bound=self.bound, rx=self.rx_n, age=round(time.perf_counter() - self.rx_t, 2), view=self.view, hmd=self.hmd,
                     preset=self.preset, world=self.world.get_name() if self.world else None, t=s.get("t"), alt_m=s.get("alt_m"),
-                    interp_n=len(self.interp.buf))
+                    interp_n=len(self.interp.buf), cesium=self.cesium_mode, hud_frames=self.hud_n, hud_ms=round(self.hud_ms, 2),
+                    radar_m=self.radar_m, crashed=self.crashed, panel_on=self.panel_on)
 
 
 def recenter():
@@ -562,6 +777,34 @@ def recenter():
         _log("VR recenter")
     except Exception as e:
         _log("recenter failed", e)
+
+
+def maximize_pie_window():
+    """Maximize the Play-in-new-window (PIE) window of this editor process (Windows). Returns True when found.
+    The project defaults Play to 'New Editor Window' (Config/DefaultEditorPerProjectUserSettings.ini); F11 = fullscreen."""
+    if os.name != "nt":
+        return False
+    import ctypes.wintypes as W
+    u32 = ctypes.windll.user32
+    pid = os.getpid()
+    found = []
+    CB = ctypes.WINFUNCTYPE(ctypes.c_bool, W.HWND, W.LPARAM)
+
+    def cb(h, l):
+        p = ctypes.c_ulong()
+        u32.GetWindowThreadProcessId(h, ctypes.byref(p))
+        if p.value == pid and u32.IsWindowVisible(h):
+            n = u32.GetWindowTextLengthW(h)
+            buf = ctypes.create_unicode_buffer(n + 1)
+            u32.GetWindowTextW(h, buf, n + 1)
+            t = buf.value
+            if "[NetMode:" in t:                     # "GyroSim 프리뷰 [NetMode: Standalone 0] ..." (any editor language)
+                found.append(h)
+        return True
+    u32.EnumWindows(CB(cb), 0)
+    for h in found:
+        u32.ShowWindow(h, 3)            # SW_MAXIMIZE
+    return bool(found)
 
 
 def start():

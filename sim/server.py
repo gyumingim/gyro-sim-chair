@@ -29,7 +29,9 @@ DT = 1 / 120
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 CONTROLS = os.path.join(HERE, "controls.json")
-START = dict(lat=36.70, lon=127.50, alt_ft=6000, kts=350, hdg=0.0)       # somewhere over central Korea, sea-level ground
+# Real airfield: Cheongju Air Base (RKTU) runway 06R, field elevation 191 ft - sources in airfield.py.
+from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0, rwy_point
+START = dict(lat=LAT0, lon=LON0, alt_ft=6000, kts=350, hdg=0.0, rwy_hdg=RWY["hdg"])
 
 def new_fdm(mode="air"):
     fdm = jsbsim.FGFDMExec(jsbsim.get_default_root_dir())
@@ -37,16 +39,18 @@ def new_fdm(mode="air"):
     fdm.set_dt(DT)
     fdm.load_model("f16")
     fdm["ic/lat-geod-deg"], fdm["ic/long-gc-deg"] = START["lat"], START["lon"]
-    if mode == "approach":                       # tutorial lesson 6: 9 km before the south threshold (north -150 m), 3 deg path
-        fdm["ic/lat-geod-deg"] = START["lat"] + (-150.0 - 9000.0) / 110540.0
     fdm["ic/psi-true-deg"] = START["hdg"]
-    fdm["ic/terrain-elevation-ft"] = 0
+    if mode in ("runway", "approach"):
+        fdm["ic/psi-true-deg"] = RWY["hdg"]
+    if mode == "approach":                       # tutorial lesson 6: 9 km before the 06R threshold, 3 deg path
+        fdm["ic/lat-geod-deg"], fdm["ic/long-gc-deg"] = rwy_point(-9000.0)
+    fdm["ic/terrain-elevation-ft"] = FIELD_FT
     if mode == "runway":
         fdm["ic/h-agl-ft"] = 4.0
         fdm["ic/vc-kts"] = 0
         fdm["ic/theta-deg"] = 0
     elif mode == "approach":
-        fdm["ic/h-sl-ft"] = 1550
+        fdm["ic/h-sl-ft"] = FIELD_FT + 1550     # 9 km x tan 3 deg = 472 m above the field
         fdm["ic/vc-kts"] = 180
         fdm["ic/gamma-deg"] = 0
     else:
@@ -90,7 +94,8 @@ def snapshot():
              agl_m=f["position/h-agl-ft"] * 0.3048, phi=phi, theta=th, psi=psi, kts=f["velocities/vc-kts"], mach=f["velocities/mach"],
              vs_fpm=f["velocities/h-dot-fps"] * 60, alpha=f["aero/alpha-deg"], nz=-f["accelerations/n-pilot-z-norm"],
              thr=f["fcs/throttle-cmd-norm"], gear=f["gear/gear-pos-norm"], ax=ax, ay=ay, chair_roll=cr, chair_pitch=cp,
-             lat0=START["lat"], lon0=START["lon"], paused=state["paused"],
+             lat0=START["lat"], lon0=START["lon"], paused=state["paused"], field_m=FIELD_FT * 0.3048, geoid_n=GEOID_N,
+             rwy_hdg=RWY["hdg"], beta=f["aero/beta-deg"], gamma=math.degrees(f["flight-path/gamma-rad"]),
              rid=state["rid"], thr_init=state["thr_init"], gear_init=state["ctrl"]["gear"],
              ail=c["ail"], elev=c["elev"], rud=c["rud"], brk=(c["brk_l"] + c["brk_r"]) / 2, brk_l=c["brk_l"], brk_r=c["brk_r"],
              gear_cmd=c["gear"], wow=any(f["gear/unit[%d]/WOW" % i] > 0.5 for i in range(3)),
