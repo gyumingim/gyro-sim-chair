@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>의자 제어</title>
+<style>
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--bad:#d93a3a;--box:#eef3fb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a;--box:#1d2633}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.6}
+main{max-width:1050px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:1.45rem;margin:0 0 6px}h2{font-size:1.12rem;margin:28px 0 10px}h3{font-size:1rem;margin:16px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.concl{border:2px solid var(--acc)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0}
+.stat{background:var(--bg);border-radius:10px;padding:8px 12px}.stat .v{font-size:1.2rem;font-weight:700}.stat .k{font-size:.8rem;color:var(--sub)}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{font-size:.8rem;color:var(--sub);background:var(--bg)}
+.small{font-size:.83rem;color:var(--sub)}
+.tag{display:inline-block;font-size:.74rem;padding:0 7px;border-radius:9px;color:#fff;margin-right:4px}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}.acc{background:var(--acc)}
+img{max-width:100%;border:1px solid var(--line);border-radius:8px;background:#fff}
+code{font-size:.85em;background:var(--bg);padding:1px 4px;border-radius:4px}
+svg{max-width:100%;height:auto}
+svg text{font-family:system-ui,"Malgun Gothic",sans-serif;fill:var(--ink)}
+svg .bx{fill:var(--card);stroke:var(--sub);stroke-width:1.4}
+svg .hi{fill:var(--box);stroke:var(--acc);stroke-width:1.6}
+svg .red{fill:none;stroke:var(--bad);stroke-width:2}
+svg .ln{stroke:var(--sub);stroke-width:1.4;fill:none}
+ol li,ul li{margin:3px 0}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>의자 제어 — 무게추 2축 의자를 움직이는 프로그램과 전자부</h1>
+<p class="small">2026-11-05 밤샘 작업. 코드: <code>control/</code> (PC), <code>firmware/chair/</code> (의자 보드). 숫자는 모두 <b>추정</b>이고 실물로 재야 합니다 (아래 "확인 안 된 것").</p>
+
+<div class="card concl">
+<b>결론</b>
+<ul>
+<li><b>이 의자는 느립니다.</b> 모터 25 rpm × 풀리 100 mm = 무게추 초속 약 4.2 cm. 그래서 기울기 속도는 <b>pitch 약 1.1 °/s, roll 약 1.6 °/s</b>가 최대입니다 (추정). 지금 시뮬레이터(<code>sim/server.py</code>)는 8 °/s 로 보내는데, 이건 <b>5~7 배 빠릅니다 — 실현 불가</b>.</li>
+<li>권장 값: 속도 <b>pitch 0.95 · roll 1.3 °/s</b>, 가속 <b>0.48 · 0.6 °/s²</b>, 각도 한계 <b>pitch ±14° · roll ±18°</b>. PC 프로그램과 펌웨어에 이미 넣었습니다.</li>
+<li>보드: <b>ESP32 DevKitC + Cytron MDD10A 모터 드라이버 + LSM6DSOX 기울기 센서 + 무게추 위치 센서 AS5600 2개</b>. 하드웨어 비상정지는 릴레이로 모터 전원을 직접 끊습니다 (프로그램과 무관).</li>
+<li>컴퓨터 안 시험 (실제 펌웨어 코드 + 의자 물리 모델): <b>30 / 30 통과</b>. 펌웨어 2개 모두 <b>컴파일 성공</b>. <b>실물에서는 아직 한 번도 안 돌려 봤습니다.</b></li>
+</ul>
+</div>
+
+<h2>1. 의자가 낼 수 있는 움직임 (계산)</h2>
+<div class="stats">
+<div class="stat"><div class="v">4.2 cm/s</div><div class="k">무게추 속도 (25 rpm × 100 mm, 추정)</div></div>
+<div class="stat"><div class="v">1.1 °/s</div><div class="k">pitch 최대 기울기 속도 (37 mm 당 1°)</div></div>
+<div class="stat"><div class="v">1.6 °/s</div><div class="k">roll 최대 기울기 속도 (26 mm 당 1°)</div></div>
+<div class="stat"><div class="v">2.0 / 2.2 s</div><div class="k">출렁임 주기 pitch / roll</div></div>
+</div>
+<div class="wrap"><table>
+<tr><th></th><th>pitch</th><th>roll</th><th>근거</th></tr>
+<tr><td>움직이는 무게추</td><td>14.4 kg (양옆 합)</td><td>18.6 kg</td><td>index.html 계산</td></tr>
+<tr><td>되돌아오는 힘 M·d</td><td>30.6 kg·m</td><td>27.6 kg·m</td><td>index.html (80 kg, 무게중심 축 아래 10 cm)</td></tr>
+<tr><td>최대 각도</td><td>±15.8°</td><td>오른쪽 21.4° / 왼쪽 20.3°</td><td>무게추가 레일 끝일 때</td></tr>
+<tr><td>0 → 10° 걸리는 시간</td><td>약 9 s</td><td>약 6 s</td><td>무게추 4.2 cm/s</td></tr>
+<tr><td>가운데 → 끝 (최대 각도까지)</td><td>14 s</td><td>14 s</td><td></td></tr>
+<tr><td>출렁임 주기</td><td>2.0 s</td><td>2.2 s</td><td>index.html 관성 + 탑승자 자체 관성 5 / 4 kg·m² (가정)</td></tr>
+<tr><td>무게추를 갑자기 출발·정지시키면 남는 출렁임</td><td>0.5°</td><td>0.7°</td><td>감쇠비 0.03 가정 (댐퍼 없음)</td></tr>
+<tr><td>→ 가속을 "속도 ÷ 주기"로 천천히 하면</td><td>0.02°</td><td>0.02°</td><td>펌웨어가 이렇게 함 (가속 약 20 mm/s²)</td></tr>
+<tr><td>모터 축에 필요한 토크 (31° 고무 멈춤쇠에서)</td><td>12.6 kgf·cm</td><td>16.3 kgf·cm</td><td>20T 풀리, 마찰 0.03 가정 — <b>1/218 모터 정격 토크 확인 필요</b></td></tr>
+</table></div>
+<p><img src="../control/out/chair_open_loop.png" alt="무게추를 10° 위치로 옮길 때 각도 변화"></p>
+<p class="small">파란 실선: 무게추가 갑자기 출발·정지 → 끝에서 출렁임. 주황: 가속을 천천히 → 거의 안 출렁임. 점선: 감쇠가 더 클 때.</p>
+
+<h3>탑승자에 따라 달라짐</h3>
+<div class="wrap"><table>
+<tr><th>탑승자</th><th>쉴 때 pitch</th><th>pitch 최대 (뒤로 / 앞으로)</th><th>roll 최대</th><th>속도 pitch / roll</th></tr>
+<tr><td>60 kg</td><td>−2.0° (앞으로 숙임)</td><td>+15.0 / −18.6°</td><td>+22.9 / −21.8°</td><td>1.20 / 1.74 °/s</td></tr>
+<tr><td>80 kg (기준)</td><td>0°</td><td>±15.8°</td><td>+21.4 / −20.3°</td><td>1.13 / 1.61 °/s</td></tr>
+<tr><td>100 kg</td><td>+1.7°</td><td>+16.5 / −13.3°</td><td>+20.1 / −19.0°</td><td>1.06 / 1.50 °/s</td></tr>
+<tr><td>80 kg, 무게중심 축 아래 20 cm</td><td>0°</td><td>±12.7°</td><td>+16.9 / −16.0°</td><td>0.89 / 1.25 °/s</td></tr>
+</table></div>
+<p class="small">그래서 탈 때마다 초기 캘리브레이션을 합니다 — 펌웨어가 "1 mm 당 몇 도"와 "수평이 되는 무게추 위치"를 실제로 재고, 낼 수 있는 최대 각도를 PC 에 알려 줍니다. 탑승자가 몸을 3 cm 옆으로 기울이면 roll 이 약 5° 바뀝니다 (무게추가 천천히 따라가서 되돌림).</p>
+
+<h3>더 빠르게 하려면 (사용자 결정)</h3>
+<div class="wrap"><table>
+<tr><th>바꿀 것</th><th>무게추 속도</th><th>pitch / roll 속도</th><th>대가</th></tr>
+<tr><td>지금: 1/218 + 20T 풀리</td><td>42 mm/s</td><td>1.1 / 1.6 °/s</td><td></td></tr>
+<tr><td>풀리만 30T (1회전 150 mm)</td><td>62 mm/s</td><td>1.7 / 2.4 °/s</td><td>필요 토크 1.5 배 (roll 약 25 kgf·cm)</td></tr>
+<tr><td>감속비 약 1/100 + 20T</td><td>92 mm/s</td><td>2.5 / 3.5 °/s</td><td>모터 토크 절반쯤, 셀프락 약해질 수 있음 — 확인 필요</td></tr>
+<tr><td>1/28 + 20T</td><td>327 mm/s</td><td>8.8 / 12.6 °/s</td><td>토크 부족 · 셀프락 안 될 가능성 큼 (비추천)</td></tr>
+</table></div>
+<p class="small">회전 감지 문턱(약 2~3 °/s) 아래라서 지금 속도는 "몸이 기우는 줄 모르고 지속 가속도처럼 느끼는" 용도(이륙 가속, 제동, 선회 지속 G 흉내)에는 오히려 맞습니다. 급한 움직임(난기류, 착륙 충격)은 이 방식으로는 못 냅니다.</p>
+
+<h3>시뮬레이터 cue 제안 (<code>sim/server.py</code> 담당에게 — 여기서는 안 고침)</h3>
+<div class="wrap"><table>
+<tr><th></th><th>지금</th><th>제안</th></tr>
+<tr><td>속도 한계</td><td>8 °/s</td><td>pitch 0.95, roll 1.3 °/s (가속 0.48 / 0.6 °/s²)</td></tr>
+<tr><td>pitch</td><td>0.30·θ + 20·ax</td><td>저주파(1 s)[0.8·ax(g)·57.3] + 0.2·고주파(15 s)[θ] — 이륙·제동 가속은 기울기로, 자세는 15 초 뒤 0 으로 씻어냄</td></tr>
+<tr><td>roll</td><td>0.35·φ + 25·ay</td><td>저주파(1 s)[0.8·ay(g)·57.3] + 0.25·고주파(15 s)[φ]</td></tr>
+<tr><td>한계</td><td>±20 / ±15</td><td>roll ±18, pitch ±14 (탑승자에 따라 더 작음 — 보드가 알려 줌)</td></tr>
+</table></div>
+<p class="small">PC 다리 프로그램(<code>chair_bridge.py</code>)이 지금 cue 를 그대로 받아도 속도·가속·한계를 다시 깎으므로 안전에는 문제 없습니다. 다만 8 °/s 로 만든 cue 는 의자에서 크게 늦어집니다 (사인 시험 참고).</p>
+
+<h2>2. 구성</h2>
+<svg viewBox="0 0 1000 330" role="img" aria-label="구성도">
+ <rect class="bx" x="10" y="20" width="170" height="64" rx="8"/><text x="22" y="46" font-size="14">PC: sim/server.py</text><text x="22" y="68" font-size="12">cue roll·pitch (UDP 4210)</text>
+ <rect class="hi" x="230" y="20" width="200" height="64" rx="8"/><text x="242" y="46" font-size="14">control/chair_bridge.py</text><text x="242" y="68" font-size="12">속도·가속·한계, deadman, 50 Hz</text>
+ <rect class="hi" x="480" y="20" width="230" height="110" rx="8"/><text x="492" y="46" font-size="14">ESP32 DevKitC (의자 케이지)</text><text x="492" y="68" font-size="12">상태기계 · 무게추 위치 제어</text><text x="492" y="88" font-size="12">캘리 · 안전 · watchdog 0.5 s</text><text x="492" y="108" font-size="12">firmware/chair</text>
+ <rect class="bx" x="770" y="20" width="210" height="50" rx="8"/><text x="782" y="50" font-size="13">Cytron MDD10A (2 채널)</text>
+ <rect class="bx" x="770" y="90" width="210" height="50" rx="8"/><text x="782" y="112" font-size="13">웜기어 모터 roll · pitch</text><text x="782" y="130" font-size="11">24 V, 셀프락</text>
+ <rect class="bx" x="480" y="170" width="230" height="140" rx="8"/><text x="492" y="194" font-size="13">센서</text><text x="492" y="216" font-size="12">LSM6DSOX 기울기 (I2C0)</text><text x="492" y="236" font-size="12">AS5600 ×2 무게추 위치 (I2C0, I2C1)</text><text x="492" y="256" font-size="12">홀센서 ×2 레일 가운데 표시</text><text x="492" y="276" font-size="12">리밋 스위치 (NC) · 잠금핀 · 승강대</text><text x="492" y="296" font-size="12">비상정지 감지 (PC817)</text>
+ <rect class="bx" x="770" y="170" width="210" height="140" rx="8"/><text x="782" y="194" font-size="13" fill="var(--bad)">비상정지 회로 (하드웨어)</text><text x="782" y="216" font-size="12">버섯 버튼 ×2 (NC 직렬)</text><text x="782" y="236" font-size="12">→ 24 V 릴레이 (자기유지)</text><text x="782" y="256" font-size="12">→ 모터 전원 차단</text><text x="782" y="276" font-size="12">다시 켜기 = 시작 버튼</text><text x="782" y="296" font-size="12">+ PC 에서 RESET</text>
+ <path class="ln" d="M180 52 H230"/><path class="ln" d="M430 52 H480"/><text x="436" y="44" font-size="11">USB</text>
+ <path class="ln" d="M710 45 H770"/><path class="ln" d="M875 70 V90"/><path class="ln" d="M595 130 V170"/>
+ <path class="red" d="M875 170 V150 H990 V45 H980"/>
+</svg>
+
+<h3>왜 이 부품인가</h3>
+<div class="wrap"><table>
+<tr><th>부분</th><th>고른 것</th><th>이유</th></tr>
+<tr><td>보드</td><td>ESP32 DevKitC (WROOM-32)</td><td>I2C 버스가 2개라 주소가 같은 AS5600 둘을 바로 붙임. 하드웨어 watchdog, 비휘발 저장(NVS), USB 시리얼, 3.3 V. 약 1~1.5 만 원.</td></tr>
+<tr><td>모터 드라이버</td><td>Cytron MDD10A (10 A ×2, 5~30 V)</td><td>한 장에 두 모터, 3.3 V 신호 바로 됨 (BTS7960/IBT-2 는 5 V 논리 문턱이 애매). 웜 모터 전류는 수 A 이하로 추정 — 10 A 면 넉넉. BTS7960 (8,250원 ×2) 도 가능.</td></tr>
+<tr><td>기울기 센서</td><td>LSM6DSOX (가속도 + 자이로)</td><td>의자는 느려서 가속도로 재는 기울기가 정확 (흔들림 오차 약 0.2° 이하, 추정). 자이로는 잡음 거르기용. 9축 융합칩(BNO055/085)은 자기 보정 때문에 값이 튈 수 있어 안 씀. 국내 재고 있음.</td></tr>
+<tr><td>무게추 위치</td><td>AS5600 자석 센서를 풀리 축 끝에 (1회전 = 100 mm, 회전 수 세기)</td><td>각도만으로는 "무게추가 어디 있는지" 모름 → IMU 가 고장 나도 무게추를 가운데로 돌려놓을 수 있게. 0.024 mm 단위. 조종기와 같은 센서.</td></tr>
+<tr><td>가운데 표시</td><td>A3144 홀센서 + 무게추에 자석 (축마다 1)</td><td>켤 때마다 레일 끝까지 가지 않고 가운데를 찾음 (끝까지 가면 20° 넘게 기욺).</td></tr>
+<tr><td>비상정지</td><td>NC 버섯 버튼 2 (교관 · 교육생) → 자기유지 릴레이</td><td>프로그램이 멈춰도 모터 전원이 끊김. 버튼을 풀어도 저절로 다시 안 켜짐.</td></tr>
+</table></div>
+
+<h2>3. 배선</h2>
+<div class="wrap"><table>
+<tr><th>ESP32 핀</th><th>연결</th><th>비고</th></tr>
+<tr><td>21 SDA / 22 SCL (I2C0)</td><td>LSM6DSOX (0x6A) + AS5600 pitch (0x36)</td><td>둘 다 케이지 쪽. 100 kHz, 차폐 4심 선 ≤ 1.5 m, 풀업 2.2 kΩ</td></tr>
+<tr><td>18 SDA / 19 SCL (I2C1)</td><td>AS5600 roll (0x36)</td><td>roll 링 왼쪽 아이들러 축 끝 (pitch 축을 건너는 선)</td></tr>
+<tr><td>26 PWM / 27 DIR</td><td>MDD10A 채널 1 → roll 모터</td><td>PWM 20 kHz. PWM 선에 10 kΩ 풀다운 (리셋 중 떠 있지 않게)</td></tr>
+<tr><td>25 PWM / 32 DIR</td><td>MDD10A 채널 2 → pitch 모터</td><td>10 kΩ 풀다운</td></tr>
+<tr><td>34</td><td>비상정지 감지 (PC817 출력)</td><td>LOW = 모터 24 V 살아 있음. <b>외부 10 kΩ 풀업 필수</b> (34~39 번은 내부 풀업 없음)</td></tr>
+<tr><td>35 / 36</td><td>roll 리밋 오른쪽 / 왼쪽 (NC → GND)</td><td><b>외부 10 kΩ 풀업 필수</b>. 선이 끊기면 "닿음"으로 읽혀 안전 쪽</td></tr>
+<tr><td>39 / 4</td><td>pitch 리밋 뒤 / 앞 (양옆 스위치를 직렬로)</td><td>39 는 외부 풀업 필수</td></tr>
+<tr><td>16 / 17</td><td>가운데 홀센서 roll / pitch</td><td>LOW = 자석 있음</td></tr>
+<tr><td>23</td><td>잠금핀 보관 스위치 3개 직렬 → GND</td><td>LOW = 핀 3개 모두 보관함에 있음 (= 의자에서 빠짐)</td></tr>
+<tr><td>13</td><td>승강대 치움 스위치 → GND</td><td>LOW = 승강대 치움</td></tr>
+<tr><td>33 / 2</td><td>부저 (트랜지스터) / 보드 LED</td><td></td></tr>
+</table></div>
+<ul class="small">
+<li>방향 맞추기: 처음 켤 때 <code>main.cpp</code> 의 <code>POS_SIGN</code>, <code>MOTOR_INVERT</code>, <code>IMU_AX/IMU_SG</code> 를 확인. 틀리면 캘리 중 "방향 고장(F_DIR)"으로 바로 멈춥니다.</li>
+<li>리밋 스위치 하드웨어 보호(권장): 모터 선에 NC 리밋 스위치를 직렬로, 스위치에 쇼트키 다이오드(MBR1045)를 병렬로 → 끝에 닿으면 그쪽으로만 전기가 안 감 (프로그램이 고장 나도).</li>
+<li>전원: 24 V → 릴레이 접점 → 퓨즈(모터당 3 A 추정) → MDD10A. ESP32 는 별도 5 V (XL4015 강압) 라서 비상정지 때도 상태를 기록합니다.</li>
+</ul>
+
+<h2>4. 안전</h2>
+<div class="wrap"><table>
+<tr><th>일</th><th>반응</th><th>시험</th></tr>
+<tr><td>비상정지 버튼</td><td>릴레이가 모터 전원 차단 → 무게추는 웜기어로 그 자리에 멈춤 (의자는 기운 채 정지). 버튼 풀기 + 시작 버튼 + PC 에서 <code>reset</code> → 천천히 (0.5 °/s) 수평 복귀</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>비상정지 전에 이미 고장이었음</td><td>reset 해도 고장 상태 유지 (움직이지 않음)</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>잠금핀이 꽂혀 있음 / 승강대가 붙어 있음</td><td>모터 전혀 안 돎 (LOCKED). 캘리도 거부. 풀린 뒤에는 새로 캘리해야 ARM 가능</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>PC 프로그램이 죽음 (0.5 s 동안 신호 없음)</td><td>펌웨어가 스스로 0.5 °/s 로 수평 복귀</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>시뮬레이터만 멈춤 (0.3 s 동안 UDP 없음)</td><td>PC 다리 프로그램이 목표를 0 으로 천천히</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>PC 다리 프로그램 재시작</td><td>0.5 s 조용한 뒤에는 새 번호를 받아 줌</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>기울기 센서 고장</td><td>고장 → 무게추 위치만 보고 "수평 위치"로 반 속도 복귀</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>위치 센서 고장 / 튐</td><td>그 축 정지</td><td>코드만</td></tr>
+<tr><td>각도 초과 (roll 24°, pitch 19° 넘게 0.3 s)</td><td>고장 → 수평 위치로 복귀. 위치 기준이 없으면 각도를 보고 천천히 수평 쪽으로</td><td>코드만</td></tr>
+<tr><td>벨트 걸림 (명령해도 1.5 s 동안 3 mm 미만 이동)</td><td>그 축 정지, 고장</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>모터·센서 방향이 반대로 배선됨</td><td>캘리 첫 5 mm 안에 고장 (F_DIR)</td><td><span class="tag ok">통과</span></td></tr>
+<tr><td>리밋 스위치 닿음 / 선 끊김</td><td>그 방향 금지 + 고장. 둘 다 닿음 = 배선 문제로 보고 정지</td><td>코드만</td></tr>
+<tr><td>펌웨어 멈춤</td><td>1 s watchdog 재부팅 → 모터 끔, 처음부터</td><td>코드만</td></tr>
+<tr><td>탑승자가 몸을 크게 기울임</td><td>무게추가 천천히 따라가 각도 되돌림 (3 cm 기울임 → 약 20 s). <b>출렁임은 못 잡음</b> — 시험에서 최고 14° 까지 출렁 (댐퍼 없음 가정)</td><td><span class="tag warn">주의</span></td></tr>
+</table></div>
+<p class="small"><b>댐퍼 권장:</b> 무게추는 너무 느려서 2 초 주기 출렁임을 잡지 못합니다. <a href="weight-shift-2d.html">무게추 원리 페이지</a>처럼 축마다 댐퍼 하나를 달면 탑승자 움직임에 의한 흔들림이 크게 줄어듭니다 (실물 감쇠비를 재고 결정).</p>
+
+<h3>상태 (펌웨어)</h3>
+<svg viewBox="0 0 1000 300" role="img" aria-label="상태도">
+ <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--sub)"/></marker></defs>
+ <g font-size="13">
+ <rect class="bx" x="10" y="30" width="90" height="40" rx="8"/><text x="32" y="55">BOOT</text>
+ <rect class="bx" x="150" y="30" width="110" height="40" rx="8"/><text x="168" y="55">LOCKED</text>
+ <rect class="bx" x="310" y="30" width="90" height="40" rx="8"/><text x="338" y="55">IDLE</text>
+ <rect class="hi" x="450" y="30" width="90" height="40" rx="8"/><text x="478" y="55">CAL</text>
+ <rect class="hi" x="590" y="30" width="100" height="40" rx="8"/><text x="613" y="55">READY</text>
+ <rect class="hi" x="740" y="30" width="90" height="40" rx="8"/><text x="768" y="55">RUN</text>
+ <rect class="bx" x="660" y="140" width="110" height="40" rx="8"/><text x="678" y="165">RETURN</text>
+ <rect class="bx" x="300" y="230" width="140" height="40" rx="8" style="stroke:var(--bad)"/><text x="330" y="255">FAULT</text>
+ <rect class="bx" x="600" y="230" width="140" height="40" rx="8" style="stroke:var(--bad)"/><text x="630" y="255">ESTOP</text>
+ </g>
+ <g class="ln" marker-end="url(#ar)">
+ <path d="M100 50H150"/><path d="M260 50H310"/><path d="M400 50H450"/><path d="M540 50H590"/><path d="M690 50H740"/>
+ <path d="M785 70V160H770"/><path d="M660 160H640V70"/>
+ </g>
+ <g font-size="11" fill="var(--sub)">
+ <text x="105" y="25">1.5 s</text><text x="262" y="25">핀 빠짐</text><text x="262" y="88">+ 승강대 치움</text><text x="405" y="25">cal</text><text x="545" y="25">완료</text><text x="700" y="25">arm</text>
+ <text x="792" y="110">disarm / PC 0.5 s 무신호</text><text x="560" y="120">수평 도착</text>
+ <text x="150" y="110">핀 꽂힘 · 승강대 → 어디서든 LOCKED (모터 정지)</text>
+ <text x="150" y="128">LOCKED 에서만: zero (핀 꽂힌 = 0°, 1 s 평균 저장)</text>
+ <text x="40" y="215">센서 · 각도 · 걸림 · 리밋 · 캘리 실패</text>
+ <text x="470" y="215">모터 24 V 끊김 (어디서든)</text>
+ <text x="300" y="290">reset → IDLE (다시 캘리)</text><text x="600" y="290">reset → RETURN 또는 FAULT</text>
+ </g>
+</svg>
+
+<h2>5. 타는 순서</h2>
+<ol>
+<li>전원 켜기 → 보드 BOOT → 잠금핀이 꽂혀 있으면 LOCKED.</li>
+<li>(처음 한 번, 또는 센서를 다시 달았을 때) 핀이 꽂힌 상태에서 PC 에 <code>zero</code> — 지금 자세를 0° 로 1 초 평균해 저장.</li>
+<li>교육생 탑승 → 4점 벨트 → 잠금핀 3개를 뽑아 보관함에 → 승강대 치움 → IDLE.</li>
+<li><code>cal</code> (초기 캘리, 약 60~90 초): ① 처음이면 무게추가 각도를 보고 가운데 표시를 찾음 ② 수평이 되는 무게추 위치 찾기 ③ ±150 mm 옮겨 "1 mm 당 각도" 재기 ④ 수평으로 복귀 → READY. 숫자가 설계값의 0.5~1.8 배를 벗어나면 실패.</li>
+<li>시뮬레이터 켜고 <code>arm</code> → RUN. 끝나면 <code>disarm</code> → 수평 복귀 → READY.</li>
+<li>내릴 때: READY(수평)에서 잠금핀 꽂기 → 승강대 대기.</li>
+</ol>
+<p class="small">PC: <code>python control/chair_bridge.py --port COM5</code> (실물) 또는 <code>--sil</code> (보드 없이 모델로). 명령: zero, cal, arm, disarm, reset, status, quit. 기록: <code>control/out/bridge_log.csv</code>.</p>
+
+<h2>6. 컴퓨터 안 시험 (SIL)</h2>
+<p>실제 펌웨어 코드(<code>chair_core.c</code>)를 PC 에서 돌리고, 의자 물리 모델(진자 + 웜 모터 + 센서 잡음 · 장착 오차 0.8° · 모터 10 % 느림)과 PC 다리 프로그램을 연결해 시험했습니다. <code>python control/sil.py</code> → <b>30 / 30 통과</b>. 결과: <code>control/out/sil_results.json</code></p>
+<div class="wrap"><table>
+<tr><th>시험</th><th>결과</th></tr>
+<tr><td>계단 roll 10° / pitch 8°</td><td>90 % 도달 8.8 s / 9.5 s, 넘침 0.4° / 0.2°</td></tr>
+<tr><td>사인 roll 8° 0.02 Hz (느림)</td><td>크기 1.02 배, 지연 1.5 s — 잘 따라감</td></tr>
+<tr><td>사인 pitch 6° 0.05 Hz (빠름, 1.9 °/s 필요)</td><td>크기 0.6 배, 지연 6 s — 속도 한계 때문에 줄어듦 (예상대로)</td></tr>
+<tr><td>캘리 (80 kg / 105 kg / 55 kg)</td><td>"1 mm 당 각도" 오차 1 % 이내, 끝난 뒤 수평 ±0.15°. 처음(가운데 찾기 포함) 80~140 s, 두 번째부터 약 70 s</td></tr>
+<tr><td>나머지 (비상정지, watchdog, 잠금핀, 센서 고장, 걸림, 방향 반대, PC 재시작, zero 조건)</td><td>모두 통과 (위 안전 표)</td></tr>
+</table></div>
+<p><img src="../control/out/sil_step.png" alt="계단 응답"></p>
+<p><img src="../control/out/sil_sine.png" alt="사인 응답"></p>
+<p><img src="../control/out/sil_watchdog.png" alt="PC 신호 끊김"></p>
+<p><img src="../control/out/sil_estop.png" alt="비상정지"></p>
+<p><img src="../control/out/sil_lean.png" alt="탑승자 기울임"></p>
+<p class="small">PC 다리 프로그램 단독 점검: <code>python control/test_bridge.py</code> → 15 / 15 통과 (CRC, 속도·가속·각도 한계, deadman, 명령 순서). 펌웨어 컴파일: <code>python -m platformio run -d firmware/chair</code> 성공 (arduino-esp32 3.3.12, RAM 7.5 %, Flash 28.6 %).</p>
+
+<h2>7. 부품표 (새 제품, 2026-11-04 검색, 디바이스마트 가격은 부가세 포함)</h2>
+<div class="wrap"><table>
+<tr><th>부품</th><th>제품</th><th>수량</th><th>단가</th><th>합</th><th>링크</th></tr>
+<tr><td>보드</td><td>ESP32 DevKitC CP2102 WROOM-32U</td><td>1</td><td>15,510</td><td>15,510</td><td><a href="https://www.devicemart.co.kr/goods/view?no=15961278">디바이스마트</a> (WROOM-32D 9,900원은 재고 0 표시)</td></tr>
+<tr><td>모터 드라이버</td><td>Cytron MDD10A</td><td>1</td><td>39,930</td><td>39,930</td><td><a href="https://www.devicemart.co.kr/goods/view?no=1280280">디바이스마트</a> (재고 0 표시 — 확인)</td></tr>
+<tr><td>기울기 센서</td><td>Adafruit LSM6DSOX</td><td>1</td><td>23,870</td><td>23,870</td><td><a href="https://www.devicemart.co.kr/goods/view?no=15819051">디바이스마트</a></td></tr>
+<tr><td>무게추 위치</td><td>Adafruit AS5600</td><td>2</td><td>11,880</td><td>23,760</td><td><a href="https://www.devicemart.co.kr/goods/view?no=15818966">디바이스마트</a> (자석 포함 여부 확인)</td></tr>
+<tr><td>가운데 표시</td><td>A3144E 홀 센서 모듈 + 작은 네오디뮴 자석</td><td>2</td><td>3,080</td><td>6,160</td><td><a href="https://www.devicemart.co.kr/goods/view?no=1382728">디바이스마트</a></td></tr>
+<tr><td>리밋 스위치</td><td>SS-5GL2 롤러 레버 (VLT-LSW001)</td><td>6</td><td>990</td><td>5,940</td><td><a href="https://www.devicemart.co.kr/goods/view?no=15959788">디바이스마트</a></td></tr>
+<tr><td>잠금핀·승강대 스위치</td><td>같은 리밋 스위치</td><td>4</td><td>990</td><td>3,960</td><td>위와 같음</td></tr>
+<tr><td>비상정지</td><td>버섯 버튼 FIT0156</td><td>2</td><td>10,450</td><td>20,900</td><td><a href="https://www.devicemart.co.kr/goods/view?no=16057326">디바이스마트</a> (NC 접점인지 확인)</td></tr>
+<tr><td>전원 릴레이</td><td>RELAY-M1 24 V (자기유지용 + 모터 전원용)</td><td>2</td><td>5,500</td><td>11,000</td><td><a href="https://www.devicemart.co.kr/goods/view?no=1312117">디바이스마트</a> (접점 용량 확인)</td></tr>
+<tr><td>시작 버튼</td><td>패널 녹색 누름 버튼 (상시 열림)</td><td>1</td><td>약 3,000</td><td>3,000</td><td>추정가</td></tr>
+<tr><td>비상정지 감지</td><td>PC817 4채널 모듈</td><td>1</td><td>2,420</td><td>2,420</td><td><a href="https://www.devicemart.co.kr/goods/view?no=15960295">디바이스마트</a></td></tr>
+<tr><td>5 V 전원</td><td>XL4015 강압 모듈</td><td>1</td><td>3,190</td><td>3,190</td><td><a href="https://www.devicemart.co.kr/goods/view?no=15960597">디바이스마트</a></td></tr>
+<tr><td>리밋 보호 다이오드</td><td>MBR1045 (45 V 10 A)</td><td>4</td><td>1,440</td><td>5,760</td><td><a href="https://www.eleparts.co.kr/goods/view?no=18162892">엘레파츠</a> (부가세 별도 1,309 → 포함 추정)</td></tr>
+<tr><td>퓨즈</td><td>유리관 퓨즈 홀더 + 3 A 퓨즈</td><td>2</td><td>약 1,500</td><td>3,000</td><td>추정가</td></tr>
+<tr><td>선</td><td>차폐 4심 케이블 5 m, 저항·커넥터·만능기판</td><td>1식</td><td>약 25,000</td><td>25,000</td><td>추정가</td></tr>
+<tr><td colspan="4"><b>합계 (약)</b></td><td><b>약 19.3 만 원</b></td><td>24 V 전원 · 모터는 index.html 부품표에 이미 있음</td></tr>
+</table></div>
+<p class="small">index.html 부품표의 "컨트롤러 + IMU 5만 · BTS7960 2만 · 리밋 2만" 줄을 이 표로 바꾸면 약 +12 만 원. 가격은 바뀔 수 있고 재고 0 표시 상품은 주문 전에 확인.</p>
+
+<h2>8. 확인 안 된 것 / 결정할 것</h2>
+<ul>
+<li><b>모터 속도·토크 (가장 중요)</b>: 1/218 의 실제 rpm(25 는 550÷218×10 무부하 추정)과 정격 토크(필요 12.6~16.3 kgf·cm @ 31°)를 판매처에 문의하거나 재기. 기울기 속도 전체가 이 값에 비례.</li>
+<li>더 빨라야 하는지 (30T 풀리, 감속비 변경) — 사용자 결정.</li>
+<li>출렁임 감쇠비 0.03 은 가정. 실물에서 잠금핀을 빼고 툭 쳐서 재기 → 댐퍼 여부 결정.</li>
+<li>탑승자 자체 관성 5 / 4 kg·m² 는 가정 (주기 2.0 / 2.2 s 가 여기에 기대).</li>
+<li>센서 방향 상수 (POS_SIGN, MOTOR_INVERT, IMU 축) — 첫 전원 때 확인.</li>
+<li>잠금핀을 뽑을 때 무게추가 수평 위치가 아니면 의자가 확 기울고 출렁임 (시험 그림 시작 부분). 내릴 때는 READY(수평)에서만 핀을 꽂고, 다음 탑승자가 크게 다르면 핀을 천천히 뽑을 것.</li>
+<li>모터 전류는 측정 안 함 (퓨즈 3 A 는 추정). 걸림은 "움직임 없음"으로만 감지.</li>
+<li>LSM6DSOX 의 온도에 따른 자이로 치우침은 잠금 상태에서 다시 추정하지만, 가속도 치우침은 zero 때 값만 씀.</li>
+<li><code>docs/worm.html</code> 은 예전 안(1/28 + 리드 14 나사)을 추천하고 있음 — index.html(1/218 + 벨트)과 다름. 정리 필요.</li>
+</ul>
+</main>
+</body>
+</html>
