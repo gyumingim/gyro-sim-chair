@@ -260,7 +260,7 @@ col *= 0.85 + 0.3 * h2;
 float ang = h2 * 3.14159;
 float r = dot(p, float2(cos(ang), sin(ang))) / 6.0;
 float rw = fwidth(r);
-float rows = (0.5 + 0.5 * sin(r * 6.28318)) * saturate(1.0 - rw * 2.5);
+float rows = (0.5 + 0.5 * sin(r * 6.28318)) * saturate(1.0 - rw * 4.0);
 col *= 1.0 - 0.18 * rows;
 // hedges / tracks between fields (about 4 m)
 float2 e = min(fr, 1.0 - fr) * FS;

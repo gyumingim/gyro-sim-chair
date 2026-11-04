@@ -316,23 +316,25 @@ class Trainer:
 
     def _nk(self, josa="을"):
         """the 'next' key in the current input mode, with its particle."""
+        if not josa:
+            return "트리거" if self.mode == "rig" else "N"
         return ("트리거" + ("를" if josa == "을" else "나")) if self.mode == "rig" else ("N " + josa)
 
     def allow_reset(self):
         """R / T during a lesson: the first press asks, the second (within 4 s) ends the lesson and resets."""
-        if not self.L or self.phase in ("menu", "free", "idle", "debrief"):
+        if not self.L or self.phase in ("free", "idle", "debrief"):     # the F1 menu opened mid-lesson still asks
             if self.phase == "debrief":
                 self.L, self.phase, self.debrief = None, "free", None
             return True
-        if self.clock - getattr(self, "_rst_t", -1e9) < 4.0:
+        if time.monotonic() - getattr(self, "_rst_t", -1e9) < 4.0:
             self._rst_t = -1e9
             self.L, self.crash, self.debrief = None, None, None
             self.phase = "free"
             self._say("강의를 끝냈어요. 자유 비행이에요. F1 을 누르면 메뉴로 돌아가요.", force=True)
             return True
-        self._rst_t = self.clock
-        self.msg, self.msg_t = "한 번 더 누르면 강의를 끝내요", self.clock
-        self._say("한 번 더 누르면 강의를 끝내고 처음 자리로 돌아가요.", force=True)
+        self._rst_t = time.monotonic()
+        self.msg, self.msg_t = "한 번 더 누르면 강의를 끝내요", time.monotonic()
+        self._say("한 번 더 누르면 강의를 끝내고 자유 비행으로 새로 시작해요.", force=True)
         return False
 
     def _brief_pages(self):
@@ -376,12 +378,12 @@ class Trainer:
         elif self.phase == "practice":
             self._advance(skipped=True)
         elif self.phase == "solo":
-            if self.clock - getattr(self, "_skip_t", -1e9) < 4.0:
+            if time.monotonic() - getattr(self, "_skip_t", -1e9) < 4.0:      # wall time: the sim clock stops when paused
                 self._skip_t = -1e9
                 self._advance(skipped=True)
             else:
-                self._skip_t = self.clock
-                self.msg, self.msg_t = "건너뛰려면 한 번 더 (이 단계 0 점)", self.clock
+                self._skip_t = time.monotonic()
+                self.msg, self.msg_t = "건너뛰려면 한 번 더 (이 단계 0 점)", time.monotonic()
                 self._say("단독 점검 단계를 건너뛰려면 한 번 더 누르세요. 이 단계는 0 점이 돼요.", force=True)
         elif self.phase == "debrief":
             dbf = self.debrief or {}
@@ -421,7 +423,7 @@ class Trainer:
             self.reset_fn(d["mode"])
             L["vars"] = {}
         if ph == "demo":
-            self._say("시범 비행이에요. 제가 조종할 테니 스틱과 스로틀이 어떻게 움직이는지 보세요. 건너뛰려면 N.", force=True)
+            self._say("시범 비행이에요. 제가 조종할 테니 스틱과 스로틀이 어떻게 움직이는지 보세요. 건너뛰려면 %s." % self._nk(""), force=True)
             L["seg_t"] = 0.0
             L["seg_said"] = False
         elif ph == "practice":
@@ -725,7 +727,7 @@ class Trainer:
             self.log.append((round(self.clock, 1), "crash_state", json.dumps(self.crash["state"])))
             self.phase = "crash"
             self.want_pause = True
-            self._say("괜찮아요. %s. %s M 이나 N 을 누르면 다시 해요." % (c[0], c[1]), force=True)
+            self._say("괜찮아요. %s. %s M 이나 %s 누르면 다시 해요." % (c[0], c[1], self._nk()), force=True)
             return
         if "monitor" in L["d"]:
             L["d"]["monitor"](s, L["vars"], dt)
@@ -761,21 +763,21 @@ class Trainer:
                 return
         else:
             if L["held"] > 0.5 and st.hold >= 2:
-                self.msg, self.msg_t = "조건을 벗어나 타이머가 다시 시작돼요", self.clock
+                self.msg, self.msg_t = "조건을 벗어나 타이머가 다시 시작돼요", time.monotonic()
             L["held"] = 0.0
         if st.timeout and L["t_step"] > st.timeout:
             if self.phase == "solo":
                 self._advance(failed=True)
             elif not L["timeout_said"]:
                 L["timeout_said"] = True
-                self._set_coach(("어려우면 괜찮아요. 힌트: %s. N 을 누르면 넘어가요." % st.hint) if st.hint else "어려우면 N 을 눌러 넘어가도 돼요.", "fix")
+                self._set_coach(("어려우면 괜찮아요. 힌트: %s. %s 누르면 넘어가요." % (st.hint, self._nk())) if st.hint else "어려우면 %s 눌러 넘어가도 돼요." % self._nk(), "fix")
 
     # =================================================================================================================
     def public(self):
         L = self.L
         ph = self.phase
         coach = self.coach if self.clock - self.coach_t < 8 else ""
-        msg = self.msg if self.clock - self.msg_t < 3 else ""
+        msg = self.msg if time.monotonic() - self.msg_t < 3 else ""          # wall time: also shown while paused
         d = dict(on=ph != "idle", phase=ph, phase_ko=PHASE_KO.get(ph, ""), menu=ph == "menu", trainee=self.prof.cur["name"], mode=self.mode,
                  mode_auto=self.mode_force is None, beginner=self.beginner, assist=self.assist, slow=self.slow,
                  voice=bool(self.voice and self.voice.ok and self.voice.on), voice_ok=bool(self.voice and self.voice.ok), say_n=self.say_n,

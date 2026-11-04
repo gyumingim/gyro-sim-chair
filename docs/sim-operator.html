@@ -67,7 +67,7 @@ python server.py</pre>
 <li>기록: <code>sim/profiles/&lt;이름&gt;.json</code> (강의별 최고 점수, 통과 횟수, 최근 20 번 기록, 음성·쉬운 모드 설정). git 에 올라가지 않아요.</li>
 <li>처음 타는 사람: 0 번부터. 쉬운 모드는 ‘자동’(처음 두 번 시도만 켬)이 기본.</li>
 <li>멀미하면 <kbd>P</kbd>(멈춤). 의자도 그 자리에서 멈춰요.</li>
-<li>강의를 강제로 끝내려면 <kbd>F1</kbd> → 메뉴. <kbd>R</kbd> / <kbd>T</kbd> 는 강의 중에 두 번 눌러야 해요.</li>
+<li>강의를 끝내려면 <kbd>F2</kbd> (<kbd>F1</kbd> 메뉴는 닫으면 하던 강의로 돌아가요). 키보드 <kbd>R</kbd> / <kbd>T</kbd> 는 강의 중에 4 초 안에 두 번 눌러야 해요. 브라우저 화면의 다시 시작 버튼은 확인 없이 바로 리셋해요.</li>
 </ul>
 </div>
 
@@ -75,8 +75,8 @@ python server.py</pre>
 <div class="card">
 <table>
 <tr><th>증상</th><th>할 일</th></tr>
-<tr><td>훈련 화면이 “waiting for sim/server.py”</td><td>서버가 꺼졌어요. 다시 켜면 언리얼은 저절로 다시 붙어요(재시작 시험: 끊김 후 수 초 안에 메뉴로 돌아옴).</td></tr>
-<tr><td>교관 목소리가 안 나와요</td><td><kbd>Y</kbd> 로 켜져 있는지, 메뉴 → 설정 → 음량. Windows 한국어 음성 팩이 있는지.</td></tr>
+<tr><td>훈련 화면이 “waiting for sim/server.py”</td><td>서버가 꺼졌어요. 다시 켜면 돼요. 언리얼은 UDP 로 받으니 서버가 돌아오면 다시 받아요(추정). 브라우저 · 웹소켓 재접속은 soak 시험에서 확인.</td></tr>
+<tr><td>교관 목소리가 안 나와요</td><td><kbd>Y</kbd> 로 켜져 있는지, 메뉴 → 설정 → 목소리 크기. Windows 한국어 음성 팩이 있는지.</td></tr>
 <tr><td>조이스틱이 안 먹어요</td><td>서버를 켜기 전에 꽂기. <code>sim/controls.json</code> 축 번호 확인.</td></tr>
 <tr><td>VR 에서 화면이 기울어 보여요</td><td><kbd>F3</kbd> 정면 맞추기.</td></tr>
 <tr><td>화면이 끊겨요</td><td>언리얼 콘솔 <code>stat unit</code>. 이 PC 기준 GPU 약 3.8 ms (1080p), VR 두 눈 픽셀 수 기준 약 5.0 ms (구름 포함, 추정 — 실제 헤드셋 측정 아님).</td></tr>

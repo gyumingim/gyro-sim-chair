@@ -84,15 +84,17 @@ def render_panel(d, ver):
                 g.rounded_rectangle([22, y - 4, W - 22, y + 46], radius=8, fill=(30, 70, 50), outline=GREEN, width=2)
             g.text((40, y), ("▶ " if sel else "   ") + t, font=F(30, sel), fill=WHITE if sel else (200, 210, 220))
             y += 54
-        g.text((22, H - 44), ("스틱 앞뒤 = 고르기 · 트리거 = 선택 · 버튼 2 = 뒤로" if rig else "↑↓ = 고르기 · Enter = 선택 · Backspace = 뒤로"), font=F(24), fill=BLUE)
+        g.text((22, H - 44), ("스틱 앞뒤 = 고르기 · 트리거 = 선택 · 뒤로 버튼 = 뒤로" if rig else "↑↓ = 고르기 · Enter = 선택 · Backspace = 뒤로"), font=F(24), fill=BLUE)
     elif ph == "brief":
         y = para(g, 30, y + 20, d.get("text", ""), F(38, True), YELLOW, W - 60, 54)
+        if d.get("msg"):
+            g.text((22, H - 84), d["msg"], font=F(24, True), fill=ORANGE)
         g.text((22, H - 44), "%s = 다음 · Z = 다시 듣기 · F1 = 메뉴" % NK, font=F(26), fill=BLUE)
     elif ph == "demo":
         g.text((30, y + 10), "자동 조종이 보여 줘요 — 스틱과 스로틀을 보세요", font=F(26), fill=GREY)
         para(g, 30, y + 56, d.get("text", ""), F(38, True), (170, 210, 255), W - 60, 54)
         _bar(g, d.get("prog", 0), (120, 190, 255))
-        g.text((22, H - 80), "%s = 시범 건너뛰기" % NK, font=F(24), fill=BLUE)
+        g.text((22, H - 80), d.get("msg") or ("%s = 시범 건너뛰기" % NK), font=F(24), fill=ORANGE if d.get("msg") else BLUE)
     elif ph in ("practice", "solo", "free"):
         if ph == "free":
             para(g, 30, y + 20, "자유 비행 — 교관 없음. F1 = 메뉴", F(34, True), WHITE, W - 60, 50)
@@ -141,6 +143,8 @@ def render_panel(d, ver):
         c = d.get("crash") or {}
         g.text((30, 100), c.get("why", ""), font=F(46, True), fill=ORANGE)
         para(g, 30, 180, c.get("say", ""), F(34), WHITE, W - 60, 48)
+        if d.get("msg"):
+            g.text((22, H - 84), d["msg"], font=F(24, True), fill=ORANGE)
         g.text((22, H - 44), "M 또는 %s = 이 단계 다시 · F1 = 메뉴 · Z = 다시 듣기" % NK, font=F(26), fill=BLUE)
     path = os.path.join(OUT, "tut_panel_%d.png" % (ver % 4))
     im.save(path + ".tmp.png")

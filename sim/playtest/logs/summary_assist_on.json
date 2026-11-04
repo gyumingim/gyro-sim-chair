@@ -1,5 +1,5 @@
 {
- "made": "2026-11-04 23:19:32",
+ "made": "2026-11-04 23:52:25",
  "assist": "on",
  "bots": {
   "good": {
@@ -55,7 +55,7 @@
    "wrong_end": null,
    "praise": 0,
    "sim_min": 0.83,
-   "wall_s": 0.4,
+   "wall_s": 0.3,
    "fails": []
   },
   {
@@ -76,7 +76,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 1.33,
-   "wall_s": 0.7,
+   "wall_s": 1.3,
    "fails": []
   },
   {
@@ -97,7 +97,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.59,
-   "wall_s": 0.8,
+   "wall_s": 0.9,
    "fails": []
   },
   {
@@ -118,7 +118,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.78,
-   "wall_s": 0.8,
+   "wall_s": 0.7,
    "fails": []
   },
   {
@@ -139,7 +139,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 4.58,
-   "wall_s": 2.5,
+   "wall_s": 2.8,
    "fails": []
   },
   {
@@ -160,7 +160,7 @@
    "wrong_end": null,
    "praise": 12,
    "sim_min": 5.04,
-   "wall_s": 2.7,
+   "wall_s": 2.1,
    "fails": []
   },
   {
@@ -181,7 +181,7 @@
    "wrong_end": null,
    "praise": 4,
    "sim_min": 5.77,
-   "wall_s": 2.4,
+   "wall_s": 3.4,
    "fails": []
   },
   {
@@ -223,7 +223,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 5.41,
-   "wall_s": 2.3,
+   "wall_s": 2.4,
    "fails": []
   },
   {
@@ -244,7 +244,7 @@
    "wrong_end": null,
    "praise": 8,
    "sim_min": 6.74,
-   "wall_s": 3.2,
+   "wall_s": 2.6,
    "fails": [],
    "touchdown": {
     "vs": -149,
@@ -272,7 +272,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.04,
-   "wall_s": 0.5,
+   "wall_s": 0.4,
    "fails": []
   },
   {
@@ -335,7 +335,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.59,
-   "wall_s": 0.6,
+   "wall_s": 1.5,
    "fails": []
   },
   {
@@ -356,7 +356,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 1.88,
-   "wall_s": 0.7,
+   "wall_s": 1.0,
    "fails": []
   },
   {
@@ -377,7 +377,7 @@
    "wrong_end": null,
    "praise": 4,
    "sim_min": 5.81,
-   "wall_s": 2.9,
+   "wall_s": 2.4,
    "fails": []
   },
   {
@@ -398,7 +398,7 @@
    "wrong_end": null,
    "praise": 11,
    "sim_min": 5.37,
-   "wall_s": 2.2,
+   "wall_s": 3.2,
    "fails": []
   },
   {
@@ -421,7 +421,7 @@
    "wrong_end": null,
    "praise": 4,
    "sim_min": 7.36,
-   "wall_s": 3.7,
+   "wall_s": 3.0,
    "fails": []
   },
   {
@@ -484,7 +484,7 @@
    "wrong_end": null,
    "praise": 8,
    "sim_min": 6.8,
-   "wall_s": 3.3,
+   "wall_s": 3.6,
    "fails": [],
    "touchdown": {
     "vs": -131,
@@ -562,7 +562,7 @@
    },
    "praise": 3,
    "sim_min": 1.68,
-   "wall_s": 0.7,
+   "wall_s": 0.6,
    "fails": []
   },
   {
@@ -612,7 +612,7 @@
    },
    "praise": 2,
    "sim_min": 1.88,
-   "wall_s": 0.8,
+   "wall_s": 0.7,
    "fails": []
   },
   {
@@ -639,7 +639,7 @@
    },
    "praise": 4,
    "sim_min": 6.08,
-   "wall_s": 3.1,
+   "wall_s": 3.3,
    "fails": []
   },
   {
@@ -664,7 +664,7 @@
    },
    "praise": 12,
    "sim_min": 5.37,
-   "wall_s": 2.2,
+   "wall_s": 2.3,
    "fails": []
   },
   {
@@ -691,7 +691,7 @@
    },
    "praise": 4,
    "sim_min": 6.06,
-   "wall_s": 3.2,
+   "wall_s": 3.8,
    "fails": []
   },
   {
@@ -743,7 +743,7 @@
    },
    "praise": 2,
    "sim_min": 5.68,
-   "wall_s": 2.4,
+   "wall_s": 2.5,
    "fails": []
   },
   {
@@ -800,7 +800,7 @@
    },
    "praise": 2,
    "sim_min": 1.31,
-   "wall_s": 0.5,
+   "wall_s": 0.6,
    "fails": []
   }
  ]

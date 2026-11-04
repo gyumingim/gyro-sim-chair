@@ -27,3 +27,14 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 | T-7A Red Hawk 조종석 (가운데 스틱 훈련기, USAF) | https://www.aetc.af.mil/News/Photos/igphoto/2003361327 , https://www.eglin.af.mil/News/Photos/igphoto/2003706611/ |
 | F/A-18 조종석 (NASA Armstrong) | https://www.nasa.gov/image-detail/amf-afrc2018-0212-019 , https://www.nasa.gov/image-article/hd-display-mounted-rear-instrument-panel-sra/ |
 상용 시뮬레이터(DCS, MSFS)는 눈으로만 비교했고 자산은 전혀 쓰지 않았다. 위치·치수 근거는 우리 의자 모델(`index.html`)과 `hardware/` 의 조종 장치.
+
+## 강의 내용·교관 말 (sim/training/, 11-04)
+강의 순서와 요령은 아래 공개 자료를 참고해 **우리 말로 새로 쓴 것** (문장 복사 없음). 숫자는 시뮬레이터 F-16 (JSBSim) 에 맞춰 봇 시험으로 조정.
+| 참고 | 쓴 곳 | 출처 | 라이선스 |
+|---|---|---|---|
+| FAA Airplane Flying Handbook (FAA-H-8083-3C) | 강의 순서, 수평·선회·상승강하·장주·안정 접근·플레어 요령 | https://www.faa.gov/regulations_policies/handbooks_manuals/aviation/airplane_handbook | 미국 정부 저작물 (public domain) |
+| FAA Pilot's Handbook of Aeronautical Knowledge (FAA-H-8083-25C) | 계기 설명 (속도계·고도계·승강계·자세계), G·받음각 설명 | https://www.faa.gov/regulations_policies/handbooks_manuals/aviation/phak | public domain |
+| General Dynamics F-16 (Wikipedia) | 9 G 한계, 플래퍼론 | https://en.wikipedia.org/wiki/General_Dynamics_F-16_Fighting_Falcon | 사실만 인용 |
+| RKTU 청주 활주로 06R | 활주로 이름·방향 | 위 활주로 좌표 줄, 대한민국 항공정보간행물 (AIP, 링크 확인 안 함) | 사실만 |
+교관 음성: Windows 에 들어 있는 SAPI 한국어 음성 (Microsoft Heami) 으로 실행 중 읽음 — 음성 파일을 배포하지 않음.
+한글 화면 글자: 맑은 고딕으로 그린 그림만 (글꼴 파일 배포 안 함).

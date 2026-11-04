@@ -53,7 +53,7 @@ a{color:var(--acc)}
 <div class="card">
 <table>
 <tr><th>순서</th><th>무엇을</th><th>내가 할 일</th></tr>
-<tr><td>① 브리핑</td><td>이번에 배울 것을 교관이 2~4 장으로 설명</td><td>다 들으면 <kbd>N</kbd> (의자: 트리거)</td></tr>
+<tr><td>① 브리핑</td><td>이번에 배울 것을 교관이 3~6 장으로 설명</td><td>다 들으면 <kbd>N</kbd> (의자: 트리거)</td></tr>
 <tr><td>② 시범</td><td>자동 조종이 먼저 날아 보여 줌. 화면 속 스틱·스로틀이 저절로 움직여요</td><td>보기만. 건너뛰려면 <kbd>N</kbd></td></tr>
 <tr><td>③ 연습</td><td>단계별로 지시. 틀리면 교관이 바로 고쳐 줌 (“고도가 낮아요 — 살짝 당기세요”)</td><td>지시대로. 막히면 <kbd>Z</kbd> 다시 듣기</td></tr>
 <tr><td>④ 단독 점검</td><td>교관은 조용히 보고 점수만 매겨요</td><td>혼자 해 보기</td></tr>
@@ -85,13 +85,14 @@ a{color:var(--acc)}
 <table>
 <tr><th>키</th><th>하는 일</th></tr>
 <tr><td><kbd>N</kbd> / 트리거</td><td>다음 (브리핑 넘기기, 시범 건너뛰기). 단독 점검 중에는 <b>두 번</b> 눌러야 건너뛰어요(그 단계 0 점).</td></tr>
-<tr><td><kbd>M</kbd></td><td>다시 (결과 화면: 단독 점검 다시, 사고 뒤: 그 단계 다시)</td></tr>
+<tr><td><kbd>M</kbd></td><td>다시 (결과 화면: 단독 점검 다시, 사고 뒤: 다시 하기, 연습 중: 강의를 처음부터)</td></tr>
 <tr><td><kbd>Z</kbd></td><td>교관이 방금 한 말 다시 듣기</td></tr>
-<tr><td><kbd>Y</kbd></td><td>교관 음성 켜기 / 끄기 (꺼도 글씨는 계속 나와요). 음량·빠르기는 메뉴 → 설정</td></tr>
+<tr><td><kbd>Y</kbd></td><td>교관 음성 켜기 / 끄기 (꺼도 글씨는 계속 나와요). 목소리 크기 · 말 빠르기는 메뉴 → 설정</td></tr>
 <tr><td><kbd>L</kbd></td><td>초보자 설명 켜기 / 끄기 (HUD 와 화면의 한국어 이름표). 처음엔 켜져 있어요</td></tr>
 <tr><td><kbd>I</kbd></td><td>안내 방식 바꾸기: 자동 → 키보드 → 조종 장치. VR 헤드셋이나 조이스틱이 있으면 자동으로 조종 장치 말투(“오른손으로 스틱을…”)</td></tr>
 <tr><td><kbd>P</kbd></td><td>멈춤 / 계속</td></tr>
-<tr><td><kbd>F1</kbd></td><td>메뉴</td></tr>
+<tr><td><kbd>F1</kbd></td><td>메뉴 (닫으면 하던 강의로 돌아가요)</td></tr>
+<tr><td><kbd>F2</kbd></td><td>강의 끝내기</td></tr>
 <tr><td><kbd>0</kbd>~<kbd>9</kbd></td><td>강의 바로 시작 (10 번은 메뉴 → 강의 고르기)</td></tr>
 <tr><td><kbd>R</kbd> / <kbd>T</kbd></td><td>공중 / 활주로에서 새로 시작. 강의 중에는 <b>두 번</b> 눌러야 해요(실수로 강의가 끝나지 않게)</td></tr>
 <tr><td><kbd>V</kbd> · <kbd>K</kbd></td><td>조종석 ↔ 밖에서 보기 · 키 안내판</td></tr>
@@ -102,7 +103,7 @@ a{color:var(--acc)}
 <li><b>느린 시간</b>: 시간이 반 속도로 흘러요. 착륙처럼 바쁜 강의에 좋아요.</li>
 </ul>
 <h3>사고가 나면</h3>
-<p>땅에 세게 닿거나 활주로를 벗어나면 화면이 멈추고 교관이 <b>왜</b> 그렇게 됐는지 한 줄로 말해 줘요. <kbd>M</kbd> 이나 <kbd>N</kbd> 이면 그 단계부터 바로 다시 해요.</p>
+<p>땅에 세게 닿거나 활주로를 벗어나면 화면이 멈추고 교관이 <b>왜</b> 그렇게 됐는지 한 줄로 말해 줘요. <kbd>M</kbd> 이나 <kbd>N</kbd> 이면 바로 다시 해요. 공중 강의 연습 중이면 그 단계부터, 이륙 · 장주 · 착륙 강의와 단독 점검은 처음부터 다시예요.</p>
 </div>
 
 <h2>5. 화면 읽기</h2>
@@ -141,8 +142,9 @@ a{color:var(--acc)}
 <tr><td class="bad">OVER-G</td><td>9 G 를 넘었어요. 스틱을 풀어요.</td></tr>
 <tr><td class="bad">STALL</td><td>너무 느리거나 기수가 너무 들렸어요. 스틱을 밀고 스로틀을 올려요.</td></tr>
 <tr><td class="warn">GEAR</td><td>낮고 느리게 내려가는데 바퀴가 올라가 있어요. <kbd>G</kbd>.</td></tr>
+<tr><td class="bad">TERRAIN</td><td>땅(지형)에 부딪혔어요.</td></tr>
 </table>
-<p class="small">경고가 생기면 계기판 위 <b>WARNING</b> 등이 깜박이고 <b>MASTER CAUTION</b> 이 켜져요. 경고가 없어지면 꺼져요.</p>
+<p class="small">빨강 경고(PULL UP · OVER-G · STALL · TERRAIN)는 계기판 위 <b>WARNING</b> 등이 깜박이고, 모든 경고에 <b>MASTER CAUTION</b> 이 켜져요(GEAR 는 MASTER CAUTION 만). 경고가 없어지면 꺼져요.</p>
 <figure><img src="img/sim/warning.jpg" alt="GEAR 경고"><figcaption>바퀴를 올린 채 낮게 내려갈 때의 GEAR 경고.</figcaption></figure>
 </div>
 
@@ -169,7 +171,7 @@ F-16 숫자(접근 160 kt, 로테이션 150 kt, 기수 13° 꼬리 여유)는 �
 <h2>7. 자주 묻는 것</h2>
 <div class="card">
 <ul>
-<li><b>교관 말이 너무 빨라요</b> → 메뉴 → 설정 → 음성 빠르기. 또는 <kbd>Z</kbd> 로 다시 듣기, <kbd>P</kbd> 로 멈추고 읽기.</li>
+<li><b>교관 말이 너무 빨라요</b> → 메뉴 → 설정 → 말 빠르기. 또는 <kbd>Z</kbd> 로 다시 듣기, <kbd>P</kbd> 로 멈추고 읽기.</li>
 <li><b>자꾸 출렁거려요</b> → 키를 더 짧게, 그리고 2~3 초 기다리기. 설정에서 쉬운 모드를 켜도 돼요.</li>
 <li><b>어지러워요 (VR · 의자)</b> → <kbd>P</kbd> 로 바로 멈추고 쉬세요. 의자는 좌우 18°, 앞뒤 14° 까지만 움직여요.</li>
 <li><b>숫자가 뭔지 모르겠어요</b> → <kbd>L</kbd> 이 켜져 있는지 보세요. 2 번 강의 처음에 교관이 HUD 를 하나씩 설명해요.</li>
