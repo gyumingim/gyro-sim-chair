@@ -57,7 +57,7 @@ def check_controls(name, exp):
     out["pedal_ok"] = abs(out.get("PedalR", {}).get("dx", 0) - sc.PEDAL_CM * exp["rud"]) < 1 and abs(out.get("PedalL", {}).get("dx", 0) + sc.PEDAL_CM * exp["rud"]) < 1
     out["brake_ok"] = abs(out.get("PedalL", {}).get("rot", [0, 0])[1] + sc.TOE_DEG * exp["brk"]) < 2
     th = out.get("ThrottlePivot", {}).get("rot", [0, 0])[1]
-    out["throttle_ok"] = abs(th + sc.THR_TRAVEL * c.s.get("thr", 0)) < 3
+    out["throttle_ok"] = abs(th + sc.THR_SWING * (2 * c.s.get("thr", 0) - 1)) < 3
     tut = c.s.get("tut") or {}
     out["tutorial"] = dict(on=tut.get("on"), lesson=tut.get("lesson"), step=tut.get("step"), text=tut.get("text"), img=tut.get("img"),
                            panel_ver=c.tut_ver, panel_shown=c.panel_shown)
@@ -65,6 +65,44 @@ def check_controls(name, exp):
                       screens=sorted(c.screens))
     RESULT[name] = out
     log(name, json.dumps(out, ensure_ascii=False))
+
+
+def check_cockpit(name):
+    """our cockpit: needles follow the sim state (cockpit_gauges scales), ADI ball follows the attitude, gear handle
+    follows the gear command, gear lights follow the gear position."""
+    import cockpit_gauges as G
+    c = C()
+    s = c.s
+    out = dict(kts=round(s.get("kts", 0), 1), alt_ft=round(s.get("alt_m", 0) / 0.3048), vs_fpm=round(s.get("vs_fpm", 0)), gear=round(s.get("gear", 0), 2),
+               gear_cmd=s.get("gear_cmd"), found=dict(needles=sorted(c.needles), adi=bool(c.adi), gear_lights=bool(c.gear_lights),
+                                                      gear_handle="GearHandle" in c.pivots))
+    exp = dict(asi=G.asi_deg(s.get("kts", 0)), alt=G.alt_deg(s.get("alt_m", 0) / 0.3048), alt10k=G.alt10k_deg(s.get("alt_m", 0) / 0.3048),
+               vsi=G.vsi_deg(s.get("vs_fpm", 0)))
+    nd = {}
+    for n, a in c.needles.items():
+        r = a.root_component.get_editor_property("relative_rotation")
+        diff = (r.roll + exp[n] + 180) % 360 - 180
+        nd[n] = dict(roll=round(r.roll, 1), expected=round(-exp[n], 1), ok=abs(diff) < 4.0)
+    out["needles"] = nd
+    if c.adi:
+        r = c.adi.root_component.get_editor_property("relative_rotation")
+        ap = c.aircraft.get_actor_rotation()
+        e = unreal.MathLibrary.compose_rotators(unreal.Rotator(roll=0.0, pitch=-ap.pitch, yaw=0.0), unreal.Rotator(roll=ap.roll, pitch=0.0, yaw=0.0))
+        q1, q2 = r.quaternion(), e.quaternion()
+        dot = abs(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w)
+        out["adi"] = dict(rot=[round(r.roll, 1), round(r.pitch, 1), round(r.yaw, 1)], aircraft=[round(ap.roll, 1), round(ap.pitch, 1)],
+                          ok=dot > 0.995)
+    if "GearHandle" in c.pivots:
+        p = c.pivots["GearHandle"][0].root_component.get_editor_property("relative_rotation").pitch
+        down = (s.get("gear_cmd", 1) or 0) > 0.5
+        out["gear_handle"] = dict(pitch=round(p, 1), ok=(p > 10) if down else (p < -10))
+    if c.gear_lights:
+        hid = bool(c.gear_lights.get_editor_property("hidden"))
+        out["gear_lights"] = dict(hidden=hid, ok=hid == (s.get("gear", 0) <= 0.98))
+    out["ok"] = all(v["ok"] for v in nd.values()) and len(nd) == 4 and out.get("adi", {}).get("ok", False) and \
+        out.get("gear_handle", {}).get("ok", False) and out.get("gear_lights", {}).get("ok", False)
+    RESULT[name] = out
+    log(name, json.dumps(out))
 
 
 MOTION = dict(on=False, pts=[])
@@ -126,7 +164,7 @@ def c_ctrl():
 
 @at(9.3)
 def look_left():
-    C().look_tgt = [-30.0, -55.0]
+    C().look_tgt = [-42.0, -62.0]
     C().override = {"ail": 0.0, "elev": 0.0, "rud": 0.0, "brk_l": 0.0, "brk_r": 0.0, "thr": 0.8}
 
 @at(11)
@@ -134,14 +172,22 @@ def c_thr():
     check_controls("cockpit_throttle", dict(ail=0.0, elev=0.0, rud=0.0, brk=0.0)); shot("1b_cockpit_throttle_left")
 
 @at(11.3)
+def look_right():
+    C().look_tgt = [-30.0, 55.0]
+
+@at(12.6)
+def c_right():
+    shot("1c_cockpit_right_console")
+
+@at(12.8)
 def look_up():
     C().look_down = False
     C().look_tgt = [0.0, 0.0]
     C().override = {"ail": 0.0, "elev": 0.0, "rud": 0.0, "brk_l": 1.0, "brk_r": 1.0, "thr": 0.0}
 
-@at(12.8)
+@at(14.3)
 def c_tut():
-    check("runway_cockpit_tutorial"); shot("2_cockpit_tutorial")
+    check("runway_cockpit_tutorial"); check_cockpit("cockpit_gauges_runway"); shot("2_cockpit_tutorial")
 
 def key_state():
     c = C()
@@ -154,18 +200,18 @@ def key_state():
             hidden = bool(kp.get_editor_property("hidden"))
     return dict(found=bool(kp), tex=c.keys_tex, keys_on=c.keys_on, shown=c.keys_shown, hidden=hidden)
 
-@at(12.9)
+@at(14.4)
 def keys_before():
     k = key_state()
     k["ok"] = bool(k["found"] and k["tex"] and k["shown"] is True and k["hidden"] is False)
     RESULT["key_panel_visible"] = k
 
-@at(13.0)
+@at(14.5)
 def panel_off():
     C().panel_on = False                  # H key: tutorial panel off
     C().keys_on = False                   # K key: key guide panel off
 
-@at(13.6)
+@at(15.1)
 def panel_check():
     c = C()
     RESULT["panel_toggle"] = dict(panel_on=c.panel_on, panel_shown=c.panel_shown, ok=c.panel_shown is False)
@@ -175,74 +221,86 @@ def panel_check():
     c.panel_on = True
     c.keys_on = True
 
-@at(13.75)
+@at(15.25)
 def keys_back():
     k = key_state()
     k["ok"] = bool(k["shown"] is True and k["hidden"] is False)
     RESULT["key_panel_toggle_on"] = k
 
-@at(13.8)
+@at(15.3)
 def air():
     c = C()
     c.override = dict(NEUTRAL)
     c._send({"cmd": "tut", "op": "stop"})
     c._send({"cmd": "reset", "mode": "air"})
 
-@at(17)
+@at(18.5)
 def c_air():
-    check("air_cockpit_level"); shot("2b_cockpit_air_hud")
+    check("air_cockpit_level"); check_cockpit("cockpit_gauges_air"); shot("2b_cockpit_air_hud")
 
-@at(17.6)
+@at(19.1)
 def m0():
     motion_start()                       # after the screenshot hitch
 
-@at(19)
+@at(20.5)
 def m1():
     motion_stop("motion_interp_on"); C().no_interp = True; motion_start()
 
-@at(21)
+@at(22.5)
 def m2():
     motion_stop("motion_interp_off"); C().no_interp = False
 
-@at(21.5)
+@at(23)
 def bank():
     C().override = {"ail": 0.35, "elev": -0.15, "rud": 0.0}
 
-@at(23)
+@at(24.5)
 def unbank():
     C().override = {"ail": 0.0, "elev": -0.1, "rud": 0.0}
 
-@at(25)
+@at(26.5)
 def c_bank():
     check("air_cockpit_banked"); shot("3_cockpit_banked")
 
-@at(26)
+@at(26.7)
+def look_inst():
+    C().look_tgt = [-36.0, 0.0]
+
+@at(28.2)
+def c_inst():
+    check_cockpit("cockpit_gauges_banked"); shot("3b_cockpit_instruments_banked")
+
+@at(28.4)
+def look_fwd():
+    C().look_tgt = [0.0, 0.0]
+
+@at(29)
 def chase():
     C().view = "chase"; C().chase_yaw = None
 
-@at(29)
+@at(32)
 def c_chase():
     check("air_chase_banked"); shot("4_chase_banked")
 
-@at(30)
+@at(33)
 def lesson5():
     c = C()
     c.override = dict(NEUTRAL)
     c._send({"cmd": "tut", "op": "start", "lesson": 5})
 
-@at(36)
+@at(39)
 def c_rw():
     check("runway_chase"); shot("5_chase_runway")
 
-@at(37)
+@at(40)
 def cockpit_rw():
     C().view = "cockpit"
 
-@at(40)
+@at(43)
 def c_rw2():
     check("runway_cockpit_lesson5"); shot("6_cockpit_runway_lesson5")
 
-@at(41)
+@at(44)
 def finish():
     c = C()
     c.override = None
@@ -253,7 +311,7 @@ def finish():
         json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=RESULT), f, indent=1, ensure_ascii=False)
     log("done ->", OUT)
 
-@at(43)
+@at(46)
 def stop_pie():
     les.editor_request_end_play()
     log("PIE stopped")

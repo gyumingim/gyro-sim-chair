@@ -12,3 +12,4 @@ Content/ThirdParty/
 # your Cesium ion access token (never commit)
 Config/cesium_token.txt
 cesium-request-cache.sqlite*
+Art/Cockpit/preview/

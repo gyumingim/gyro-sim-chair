@@ -4,7 +4,7 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 
 | 자료 | 어디에 씀 | 출처 | 라이선스 | 받는 스크립트 |
 |---|---|---|---|---|
-| FlightGear F-16 기체·조종석 3D 모델과 텍스처 (commit `cc204ce03aa05500c4f9d904aff902efd5efaa90`) | 기체 겉모습, 조종석 안 (계기판·콘솔·사출좌석·HUD 틀), 스틱·스로틀·페달 | https://github.com/NikolaiVChr/f16 (저자: 저장소 `authors.txt`, `copyright.txt`) | **GPL-2.0-or-later**. 변환한 메시·텍스처도 GPL-2.0. 그래서 이 저장소에 올리지 않고 각자 받아서 변환한다. 남에게 배포하면 GPL 조건(원본 링크·라이선스 동봉)을 지킬 것 | `Scripts/fetch_f16_model.py` (사본 LICENSE·copyright·authors 를 `ThirdParty/f16_obj/` 에 같이 둠) |
+| FlightGear F-16 기체 3D 모델과 텍스처 (commit `cc204ce03aa05500c4f9d904aff902efd5efaa90`) | 기체 겉모습만 (추적 시점, 캐노피 유리, 바퀴). 조종석 안은 더 이상 안 씀 | https://github.com/NikolaiVChr/f16 (저자: 저장소 `authors.txt`, `copyright.txt`) | **GPL-2.0-or-later**. 변환한 메시·텍스처도 GPL-2.0. 그래서 이 저장소에 올리지 않고 각자 받아서 변환한다. 남에게 배포하면 GPL 조건(원본 링크·라이선스 동봉)을 지킬 것 | `Scripts/fetch_f16_model.py` (사본 LICENSE·copyright·authors 를 `ThirdParty/f16_obj/` 에 같이 둠) |
 | Poly Haven `concrete_pavement` (Charlotte Baglioni) | 활주로 콘크리트 | https://polyhaven.com/a/concrete_pavement | CC0 1.0 | `Scripts/fetch_textures.py` |
 | Poly Haven `asphalt_02` | 유도로 | https://polyhaven.com/a/asphalt_02 | CC0 1.0 | `Scripts/fetch_textures.py` |
 | Poly Haven `leafy_grass` | 활주로 옆 풀 | https://polyhaven.com/a/leafy_grass | CC0 1.0 | `Scripts/fetch_textures.py` |
@@ -16,3 +16,14 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 | 지오이드 높이 25.08 m (EGM2008) | 해발 ↔ 타원체 높이 | https://geographiclib.sourceforge.io/cgi-bin/GeoidEval?input=36.7154+127.4996 | — | 값만 |
 
 로그인 없이 못 받아서 **쓰지 않은** 후보 (사용자가 원하면): Sketchfab / Fab 의 CC-BY F-16·조종석 모델 (다운로드에 계정 필요).
+
+## 조종석 안 (우리가 만든 것 — git 에 들어 있음)
+`Art/Cockpit/` (FBX, PNG), `Content/Cockpit/` 는 `Scripts/cockpit/*.py` 가 **처음부터 생성**한 우리 형상·텍스처다 (남의 모델·텍스처를 복사·변환하지 않음).
+글자는 Windows 의 Bahnschrift 글꼴로 그린 그림만 들어간다 (글꼴 파일은 배포하지 않음). 도구: Blender 4.5 LTS (GPL, 도구로만 사용 — 만든 결과물은 우리 것), Pillow.
+
+배치·비율을 볼 때 참고한 **공개(public domain) 사진** — 미국 정부 기관 사진, 형태만 참고하고 이미지는 쓰지 않음:
+| 참고 | 출처 |
+|---|---|
+| T-7A Red Hawk 조종석 (가운데 스틱 훈련기, USAF) | https://www.aetc.af.mil/News/Photos/igphoto/2003361327 , https://www.eglin.af.mil/News/Photos/igphoto/2003706611/ |
+| F/A-18 조종석 (NASA Armstrong) | https://www.nasa.gov/image-detail/amf-afrc2018-0212-019 , https://www.nasa.gov/image-article/hd-display-mounted-rear-instrument-panel-sra/ |
+상용 시뮬레이터(DCS, MSFS)는 눈으로만 비교했고 자산은 전혀 쓰지 않았다. 위치·치수 근거는 우리 의자 모델(`index.html`)과 `hardware/` 의 조종 장치.

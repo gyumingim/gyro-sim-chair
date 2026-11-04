@@ -1,5 +1,7 @@
 """Builds /Game/Maps/FlightMap: Cesium globe at Cheongju Air Base (RKTU), photo-textured runways, sky, the FlightGear
-F-16 (exterior + cockpit) with moving stick / throttle / pedals, world-space HUD / MFD screens / tutorial panel.
+F-16 exterior (chase view) with OUR OWN cockpit inside (Art/Cockpit, made by Scripts/cockpit/build_cockpit.py with
+Blender: centre stick / left throttle / pedals at the physical rig's positions, live standby needles, gear handle),
+world-space HUD / MFD screens / tutorial panel.
 
 Before the first build (once per checkout, see unreal/README.md):
   powershell -ExecutionPolicy Bypass -File Scripts\\install_cesium.ps1    (Cesium for Unreal plugin, not in git)
@@ -15,8 +17,9 @@ Units cm. World X = north, Y = east, Z = up; origin = sim start point (sim/airfi
 coordinates (OpenStreetMap) and follow the Earth's curvature like JSBSim's ground (field elevation 191 ft).
 Third-party content is imported to /Game/ThirdParty (not in git - .gitignore); licenses in ATTRIBUTION.md.
 
-Actors with tags used by sim_client: Aircraft, AircraftPart, Gear, Canopy, StickPivot, ThrottlePivot, PedalL, PedalR,
-SimCamera (rig), SimView (camera), HUD (plane), MFD_L / MFD_R (screens), TutorPanel, CesiumGeoreference, CesiumGround.
+Actors with tags used by sim_client: Aircraft, AircraftPart, Gear, Canopy, Cockpit, StickPivot, ThrottlePivot, PedalL,
+PedalR, GearHandle, GearLights, Needle_asi / Needle_alt / Needle_alt10k / Needle_vsi, ADIBall, SimCamera (rig),
+SimView (camera), HUD (plane), MFD_L / MFD_R (screens), TutorPanel, KeyPanel, CesiumGeoreference, CesiumGround.
 """
 import json, math, os, sys
 import unreal
@@ -33,6 +36,8 @@ MAT_DIR = "/Game/Materials"
 MESH_DIR = "/Game/Meshes"
 TP = "/Game/ThirdParty"
 F16_SRC = os.path.join(PROJ, "ThirdParty", "f16_obj")
+CK_SRC = os.path.join(PROJ, "Art", "Cockpit")               # our cockpit (FBX + textures + manifest, in git)
+CK = "/Game/Cockpit"
 PH_SRC = os.path.join(PROJ, "ThirdParty", "polyhaven")
 log = lambda *a: unreal.log("[build_level] " + " ".join(str(x) for x in a))
 
@@ -666,6 +671,7 @@ if cloud_mat:
             vcc.set_editor_property(k, v)
         except Exception as e:
             log("cloud", k, e)
+EXPOSURE_EV, EXPOSURE_RANGE = 2.0, 1.5     # outside-view EV100 in this level's lighting (sun 10 lux; measured in PIE 11-04)
 pp = eas.spawn_actor_from_class(unreal.PostProcessVolume, V(0, 0, 0))
 pp.set_actor_label("PostProcess")
 pp.set_editor_property("unbound", True)
@@ -673,7 +679,13 @@ ps = pp.get_editor_property("settings")
 for k, v in (("override_motion_blur_amount", True), ("motion_blur_amount", 0.0), ("override_bloom_intensity", True), ("bloom_intensity", 0.35),
              ("override_auto_exposure_bias", True), ("auto_exposure_bias", 0.3), ("override_vignette_intensity", True), ("vignette_intensity", 0.2),
              ("override_lumen_final_gather_quality", True), ("lumen_final_gather_quality", 1.0),
-             ("override_lumen_scene_detail", True), ("lumen_scene_detail", 1.0)):
+             ("override_lumen_scene_detail", True), ("lumen_scene_detail", 1.0),
+             # exposure: narrow auto-exposure range around the outside-view value, so looking down into the cockpit
+             # does not blow out the sky; local exposure lifts the cockpit shadows instead
+             ("override_auto_exposure_min_brightness", True), ("auto_exposure_min_brightness", EXPOSURE_EV - EXPOSURE_RANGE),
+             ("override_auto_exposure_max_brightness", True), ("auto_exposure_max_brightness", EXPOSURE_EV + 0.5),
+             ("override_local_exposure_shadow_contrast_scale", True), ("local_exposure_shadow_contrast_scale", 0.75),
+             ("override_local_exposure_highlight_contrast_scale", True), ("local_exposure_highlight_contrast_scale", 0.85)):
     try:
         ps.set_editor_property(k, v)
     except Exception as e:
@@ -713,8 +725,12 @@ def _prep_obj(src, dst):
                 g.write(line)
 
 
+F16_KEEP = ("F16_Exterior", "F16_Glass", "F16_Gear")     # the FlightGear cockpit interior is replaced by ours
+
+
 def import_f16():
     man = json.load(open(os.path.join(F16_SRC, "manifest.json"), encoding="utf-8"))
+    man["parts"] = [p for p in man["parts"] if p["name"] in F16_KEEP]
     tmp = os.path.join(PROJ, "Intermediate", "f16_import")
     os.makedirs(tmp, exist_ok=True)
     try:   # legacy (FBX SDK) OBJ importer
@@ -798,20 +814,12 @@ else:
     log("ThirdParty/f16_obj missing - run Scripts/fetch_f16_model.py")
 if F16:
     ac("AC_F16_Exterior", F16.get("F16_Exterior"), None)
-    ac("AC_F16_Cockpit", F16.get("F16_Cockpit"), None, shadows=True)
     ac("AC_F16_Glass", F16.get("F16_Glass"), None, tags=("Canopy",), shadows=False)
     ac("AC_F16_Gear", F16.get("F16_Gear"), None, tags=("Gear",))
-    PV = MAN["pivots_ue_cm"]
-    for part, tag in (("F16_Stick", "StickPivot"), ("F16_Throttle", "ThrottlePivot"), ("F16_PedalL", "PedalL"), ("F16_PedalR", "PedalR")):
-        pv = ac(tag, None, None, tuple(PV[part]), tags=(tag,))
-        ac("AC_" + part, F16.get(part), None, parent=pv)
     log("tire bottom z", MAN.get("tire_bottom_z_ue_cm"), "(sim_client.GEAR_BOTTOM_CM)")
-    # MFD screens: the FG cockpit's two 'canvas' quads (x 493.6..496.2, y +-(10.5..21.2), z 57..67.6, tilted 13.8 deg)
-    for tag, y in (("MFD_L", -15.75), ("MFD_R", 15.75)):
-        n = V(-math.cos(math.radians(13.8)), 0.0, math.sin(math.radians(13.8)))
-        loc = V(494.9, y, 62.3) + n * 0.35
-        r = unreal.MathLibrary.make_rot_from_zx(n, V(0, 1, 0))
-        ac(tag, SHAPE["Plane"], MAT["mfd"], (loc.x, loc.y, loc.z), (r.roll, r.pitch, r.yaw), (0.095, 0.095, 1), tags=(tag,), shadows=False)
+# our cockpit (Scripts/cockpit/ue_cockpit.py, uses the helpers above): parts, pivots, needles, MFD screens
+_ckp = os.path.join(PROJ, "Scripts", "cockpit", "ue_cockpit.py")
+exec(compile(open(_ckp, encoding="utf-8").read(), _ckp, "exec"))
 log("aircraft done")
 
 # =====================================================================================================================

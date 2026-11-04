@@ -26,8 +26,8 @@ Started by init_unreal.py on editor start. In the editor Python console:  import
 """
 import ctypes, importlib, json, math, os, socket, time
 import unreal
-import geo, hud
-importlib.reload(geo); importlib.reload(hud)
+import geo, hud, cockpit_gauges as gauges
+importlib.reload(geo); importlib.reload(hud); importlib.reload(gauges)
 
 STATE_ADDR = ("127.0.0.1", 4220)
 CMD_ADDR = ("127.0.0.1", 4221)
@@ -56,7 +56,11 @@ VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
 RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
-STICK_ROLL, STICK_PITCH, THR_TRAVEL, PEDAL_CM, TOE_DEG = 12.0, 10.0, 80.0, 6.0, 15.0
+# our cockpit (Scripts/cockpit/layout.py) = the physical rig: centre stick +-20 deg both axes (hardware/stick TRAVEL),
+# throttle +-30 deg (0 = aft, 1 = forward, hardware/throttle SWING), rudder bar +-20 deg = pedals +-4.6 cm fore/aft,
+# toe brakes 15 deg, gear handle +-16 deg (down = handle down)
+STICK_ROLL, STICK_PITCH, THR_SWING, PEDAL_CM, TOE_DEG, GEAR_HANDLE_DEG = 20.0, 20.0, 30.0, 4.62, 15.0, 16.0
+NEEDLES = ("asi", "alt", "alt10k", "vsi")
 HUD_BRIGHT, MFD_BRIGHT = 2.0, 1.2
 CENTER = 3.0
 THR_RATE = 0.35
@@ -270,11 +274,17 @@ class SimClient:
         self.canopy = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
         self.gear_parts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Gear"))
         self.pivots = {}
-        for tag in ("StickPivot", "ThrottlePivot", "PedalL", "PedalR"):
+        for tag in ("StickPivot", "ThrottlePivot", "PedalL", "PedalR", "GearHandle"):
             a = self._find(tag)
             if a:
                 b = a.root_component.get_editor_property("relative_location")
                 self.pivots[tag] = (a, unreal.Vector(b.x, b.y, b.z))
+        self.needles = {n: self._find("Needle_" + n) for n in NEEDLES}
+        self.needles = {n: a for n, a in self.needles.items() if a}
+        self.adi = self._find("ADIBall")
+        self.gear_lights = self._find("GearLights")
+        self.gear_lit = None
+        self.gauge_vals = {}
         self.texts = {}
         self.panel = self._find("TutorPanel")
         self.key_panel = self._find("KeyPanel")
@@ -652,22 +662,49 @@ class SimClient:
         for n in self.disp:
             self.disp[n] += (float(src.get(n, s.get(n, 0.0)) or 0.0) - self.disp[n]) * k
         d, P = self.disp, self.pivots
-        # F-16 side stick on the right console (the real one moves only a few mm - shown +-STICK_ROLL / STICK_PITCH deg
-        # so the input is visible), throttle on the left console: FlightGear throttle.xml travel 80 deg, top forward = more.
+        # centre stick (+-STICK_ROLL / STICK_PITCH = the rig's +-20 deg), throttle on the left console swinging
+        # -THR_SWING (idle, aft) .. +THR_SWING (full, forward), pedals fore/aft + toe brakes, gear handle follows the command
         if "StickPivot" in P:
             P["StickPivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=STICK_ROLL * d["ail"], pitch=-STICK_PITCH * d["elev"], yaw=0.0), False, True)
         if "ThrottlePivot" in P:
-            P["ThrottlePivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=-THR_TRAVEL * d["thr"], yaw=0.0), False, True)
+            P["ThrottlePivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=-THR_SWING * (2.0 * d["thr"] - 1.0), yaw=0.0), False, True)
         for tag, sign, bk in (("PedalL", -1.0, "brk_l"), ("PedalR", 1.0, "brk_r")):
             if tag in P:
                 a, base = P[tag]
                 a.root_component.set_relative_location_and_rotation(base + unreal.Vector(PEDAL_CM * sign * d["rud"], 0, 0),
                                                                     unreal.Rotator(roll=0.0, pitch=-TOE_DEG * d[bk], yaw=0.0), False, True)
+        gv = self.gauge_vals
+        cmd = float(s.get("gear_cmd", self.ctrl.get("gear", 1.0)) or 0.0)
+        gv["gh"] = gv.get("gh", cmd) + (cmd - gv.get("gh", cmd)) * min(1.0, 8.0 * dt)
+        if "GearHandle" in P:
+            P["GearHandle"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=GEAR_HANDLE_DEG * (2.0 * gv["gh"] - 1.0), yaw=0.0), False, True)
         g = s.get("gear", 1.0) > 0.05
         if g != self.gear_shown:
             self.gear_shown = g
             for a in self.gear_parts:
                 a.set_actor_hidden_in_game(not g)
+        lit = s.get("gear", 0.0) > 0.98
+        if self.gear_lights and lit != self.gear_lit:
+            self.gear_lit = lit
+            self.gear_lights.set_actor_hidden_in_game(not lit)
+        self._gauges(dt)
+
+    def _gauges(self, dt):
+        """standby needles (cockpit_gauges scales, clockwise as seen by the pilot = negative roll of the needle actor
+        whose X points at the pilot) and the ADI ball (pitch first, then bank about the viewing axis)."""
+        s, gv = self.s, self.gauge_vals
+        k = min(1.0, 15.0 * dt)
+        ft = s.get("alt_m", 0.0) / 0.3048
+        tgt = dict(kts=s.get("kts", 0.0), ft=ft, vs=s.get("vs_fpm", 0.0))
+        for n, v in tgt.items():
+            gv[n] = v if n not in gv or abs(v - gv[n]) > (2000.0 if n == "ft" else 1e9) else gv[n] + (v - gv[n]) * k
+        ang = dict(asi=gauges.asi_deg(gv["kts"]), alt=gauges.alt_deg(gv["ft"]), alt10k=gauges.alt10k_deg(gv["ft"]), vsi=gauges.vsi_deg(gv["vs"]))
+        for n, a in self.needles.items():
+            a.set_actor_relative_rotation(unreal.Rotator(roll=-ang[n], pitch=0.0, yaw=0.0), False, True)
+        if self.adi and self.last_pose:
+            r = self.last_pose[1]
+            ball = unreal.MathLibrary.compose_rotators(unreal.Rotator(roll=0.0, pitch=-r.pitch, yaw=0.0), unreal.Rotator(roll=r.roll, pitch=0.0, yaw=0.0))
+            self.adi.set_actor_relative_rotation(ball, False, True)
 
     def _trace(self, now):
         """Height of the wheels above whatever is under the aircraft (Cesium terrain tiles have collision), 10 Hz.
