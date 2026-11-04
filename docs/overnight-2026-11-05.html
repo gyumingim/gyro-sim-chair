@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>밤샘 보고 11-05</title>
+<style>
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--bad:#d93a3a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.6}
+main{max-width:960px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:1.45rem;margin:0 0 6px}h2{font-size:1.12rem;margin:26px 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.concl{border:2px solid var(--acc)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:10px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px}.stat .v{font-size:1.2rem;font-weight:700}.stat .k{font-size:.8rem;color:var(--sub)}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{font-size:.8rem;color:var(--sub);background:var(--bg)}
+.small{font-size:.83rem;color:var(--sub)}
+code{font-size:.85em;background:var(--bg);padding:1px 4px;border-radius:4px}
+.tag{display:inline-block;font-size:.74rem;padding:0 7px;border-radius:9px;color:#fff}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}
+a{color:var(--acc)}
+li{margin:3px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>밤샘 작업 보고 — 2026-11-05 (의자 제어 · 조종기 펌웨어)</h1>
+<p class="small">작업 범위: <code>control/</code>, <code>firmware/</code>, <code>docs/chair-control.html</code>, <code>docs/controls-firmware.html</code>. 시뮬레이터·Unreal 쪽 파일은 건드리지 않음.</p>
+
+<div class="card concl">
+<b>결론</b>
+<ul>
+<li><b>의자는 계산상 pitch 1.1 °/s, roll 1.6 °/s 가 최대</b>입니다 (모터 25 rpm 추정). 시뮬레이터의 8 °/s 는 <b>5~7 배 빨라 실현 불가</b> → 권장 속도 pitch 0.95 · roll 1.3 °/s, 가속 0.48 · 0.6 °/s², 한계 ±14 · ±18°.</li>
+<li>의자 제어 프로그램(PC 다리 + ESP32 펌웨어)과 조종기 펌웨어(Pro Micro 하나로 스틱·스로틀·페달)를 만들었고, <b>둘 다 컴파일 성공</b>. 컴퓨터 안 시험 <b>30 / 30</b>, PC 쪽 점검 <b>15 / 15</b> 통과.</li>
+<li>별도 검토 에이전트가 지적한 진짜 버그 6개(캘리 중 각도 초과로 멈춤, PC 재시작 후 명령 무시 등)를 고치고 시험을 추가했습니다.</li>
+<li><b>실물에서는 아무것도 안 돌려 봤습니다.</b> 가장 먼저 필요한 것: 모터 실제 rpm·토크 확인, 부품 구매 결정.</li>
+</ul>
+</div>
+
+<h2>핵심 숫자 (모두 추정)</h2>
+<div class="stats">
+<div class="stat"><div class="v">4.2 cm/s</div><div class="k">무게추 속도</div></div>
+<div class="stat"><div class="v">1.1 / 1.6 °/s</div><div class="k">pitch / roll 최대 기울기 속도</div></div>
+<div class="stat"><div class="v">±15.8 / ±21°</div><div class="k">최대 각도 (80 kg)</div></div>
+<div class="stat"><div class="v">2.0 / 2.2 s</div><div class="k">출렁임 주기</div></div>
+<div class="stat"><div class="v">0.95 / 1.3 °/s</div><div class="k">권장 cue 속도</div></div>
+<div class="stat"><div class="v">60~140 s</div><div class="k">초기 캘리 시간</div></div>
+</div>
+<p>자세한 표·그림: <a href="chair-control.html">의자 제어</a> · <a href="controls-firmware.html">조종기 펌웨어</a></p>
+
+<h2>한 일</h2>
+<div class="wrap"><table>
+<tr><th>항목</th><th>파일</th><th>상태</th></tr>
+<tr><td>의자 물리 모델 (진자, 속도, 토크, 탑승자별)</td><td><code>control/chair_model.py</code> → <code>control/out/chair_model.json</code></td><td><span class="tag ok">완료</span> index.html 계산을 node 로 그대로 돌려 숫자 확인</td></tr>
+<tr><td>PC 다리 프로그램 (UDP 4210 → 시리얼, 안전 처리)</td><td><code>control/chair_bridge.py</code>, 점검 <code>control/test_bridge.py</code></td><td><span class="tag ok">15/15</span></td></tr>
+<tr><td>의자 펌웨어 핵심 (상태기계, 제어, 캘리, 안전) — 순수 C</td><td><code>firmware/chair/lib/chair_core/</code></td><td><span class="tag ok">완료</span></td></tr>
+<tr><td>의자 펌웨어 (ESP32 하드웨어 부분)</td><td><code>firmware/chair/src/main.cpp</code></td><td><span class="tag ok">컴파일</span> arduino-esp32 3.3.12</td></tr>
+<tr><td>컴퓨터 안 시험 (실제 펌웨어 코드 + 모델 + PC 다리)</td><td><code>control/sil.py</code> → <code>control/out/sil_*.png</code></td><td><span class="tag ok">30/30</span></td></tr>
+<tr><td>조종기 펌웨어 (USB 조이스틱 하나)</td><td><code>firmware/controls/</code></td><td><span class="tag ok">컴파일</span> Flash 61 %</td></tr>
+<tr><td>설명 페이지 2개 + 이 보고</td><td><code>docs/chair-control.html</code>, <code>docs/controls-firmware.html</code></td><td><span class="tag ok">완료</span></td></tr>
+<tr><td>국내 부품 가격 조사</td><td>두 페이지의 부품표</td><td><span class="tag ok">완료</span> 의자 전자부 약 19 만 원, 조종기 약 12 만 원</td></tr>
+</table></div>
+
+<h2>정한 것 (근거는 각 페이지)</h2>
+<ul>
+<li>의자 보드: <b>ESP32 DevKitC</b> (I2C 2개로 같은 주소 위치센서 2개), 드라이버 <b>Cytron MDD10A</b>, 기울기 센서 <b>LSM6DSOX</b>, 무게추 위치 <b>AS5600 (풀리 축 끝)</b>, 레일 가운데 표시 <b>홀센서</b>.</li>
+<li>비상정지는 <b>하드웨어 릴레이가 모터 전원을 직접 끊음</b>. 무게추는 웜기어로 그 자리에 멈춤 → 풀고 시작 버튼 + reset 하면 천천히 수평 복귀.</li>
+<li>잠금핀은 "보관함에 꽂혀 있음" 스위치(3개 직렬)로 감지 → 선이 끊겨도 "핀 꽂힘"으로 읽혀 안 움직임.</li>
+<li>"초기 캘리" = 탈 때마다: 수평 위치 찾기 + "1 mm 당 각도" 재기 → 탑승자 무게가 달라도 맞춤, 낼 수 있는 최대 각도를 PC 에 알림.</li>
+<li>조종기: <b>Pro Micro 하나 + TCA9548A 분배기</b> (서버가 조이스틱 1개만 읽어서). 버튼은 손잡이 안 PCF8574.</li>
+</ul>
+
+<h2>사용자 결정 · 구매가 필요한 것</h2>
+<ol>
+<li><b>모터 확인</b>: WGM40C-315724 1/218 의 실제 rpm 과 정격 토크 (필요 12.6 / 16.3 kgf·cm @ 31°) — 판매처 문의. 기울기 속도가 이 값에 그대로 비례.</li>
+<li><b>더 빨라야 하나?</b> 30T 풀리 (1.7 / 2.4 °/s, 토크 1.5 배) 또는 감속비 약 1/100 (2.5 / 3.5 °/s, 셀프락 확인 필요). 지금 속도도 "지속 가속 느낌" 용도로는 쓸 만함.</li>
+<li><b>댐퍼 달지</b>: 탑승자가 몸을 3 cm 기울이면 감쇠 없는 가정에서 최고 14° 까지 출렁임. 무게추로는 못 잡음.</li>
+<li><b>부품 구매</b>: 의자 전자부 약 19.3 만 원 (MDD10A·ESP32 일부 재고 0 표시 → 확인), 조종기 전자부 약 11.7 만 원 (AS5600 6개가 대부분).</li>
+<li><b>시뮬레이터 cue 변경</b> (sim 담당): 8 °/s → 0.95 / 1.3 °/s, 씻어내기(washout) 제안은 chair-control.html 1장에. 여기서는 안 고침.</li>
+</ol>
+
+<h2>확인 안 된 것</h2>
+<ul>
+<li>실물 동작 전부 (배선, 센서 방향, 모터 전류, I2C 선 길이 안정성).</li>
+<li>가정값: 모터 25 rpm(무부하), 감쇠비 0.03, 탑승자 자체 관성 5 / 4 kg·m², 레일 마찰 0.03, 두 축 서로 영향 없음.</li>
+<li>컴퓨터 안 시험은 펌웨어와 같은 식으로 만든 센서 모델을 씀 → 실제 장착 방향 오류는 못 잡음 (대신 캘리 첫 5 mm 에서 방향 검사).</li>
+<li>pygame 축 번호가 X,Y,Z,Rx,Ry,Rz = 0~5 인지 (처음 꽂고 확인).</li>
+<li>부품 가격·재고·자석 포함 여부·릴레이 접점 용량 (조사 에이전트가 페이지를 다 열지 못함).</li>
+<li><code>docs/worm.html</code> 이 예전 안(1/28 + 리드스크류)을 추천 중 — index.html 과 다름.</li>
+</ul>
+
+<h2>독립 검토 (다른 에이전트, 읽기 전용)</h2>
+<p class="small">물리 숫자는 검토자가 index.html 을 다시 돌려 <b>모두 일치</b> 확인. "8 °/s 불가" 주장도 맞음 (부하 시 더 느림).</p>
+<div class="wrap"><table>
+<tr><th>지적</th><th>처리</th></tr>
+<tr><td>가벼운 탑승자 + 낮은 무게중심이면 캘리(가운데 찾기) 중 각도 초과 고장 → 기운 채 못 움직임</td><td>고침: 한계+2° 에서 되돌아감, 상태 바뀔 때 타이머 초기화, 위치 기준 없을 때 각도로 수평 쪽 이동. 시험 추가 (55 kg) <span class="tag ok">통과</span></td></tr>
+<tr><td>PC 다리 프로그램 재시작 후 명령이 모두 버려짐 (번호가 0 부터)</td><td>고침: 0.5 s 조용하면 새 번호 받음. 시험 추가 <span class="tag ok">통과</span></td></tr>
+<tr><td>승강대만 붙은 LOCKED 에서도 zero 가 됨 (핀이 빠져 있으면 수평이 아님)</td><td>고침: 핀이 꽂혔을 때만, 1 초 평균. 시험 추가 <span class="tag ok">통과</span></td></tr>
+<tr><td>탑승자 무게별 pitch 쉴 때 기울기를 빠뜨림 (탑승자가 축 뒤 49 mm)</td><td>고침: 60 kg → −2.0°, 100 kg → +1.7°, 양쪽 최대 각도 따로 표시</td></tr>
+<tr><td>비상정지 reset 이 앞선 고장을 지움</td><td>고침: 고장 유지. 시험 추가 <span class="tag ok">통과</span></td></tr>
+<tr><td>조종기 첫 캘리 실패 시 EEPROM 쓰레기 값</td><td>고침: 기본값으로. 기준점 평균도 경계 문제 수정</td></tr>
+<tr><td>방향 반대 배선 감지 없음 · 자이로 치우침 · IMU/센서 경고에 너무 예민 · 명령 유실 가능 · 끝 각도에서 속도 여유 부족</td><td>모두 고침 (방향 검사 F_DIR, 잠금 중 자이로 치우침 추정, 3회 연속 실패 때만 고장, 권장 속도를 끝 각도 기준으로)</td></tr>
+<tr><td>34~39 번 핀 내부 풀업 없음, 출렁임 큼(댐퍼), 시뮬레이터가 브레이크 축 안 읽음</td><td>문서에 적음 (외부 풀업 필수, 댐퍼 권장, 서버 쪽 일)</td></tr>
+</table></div>
+
+<h2>내 커밋 (main, push 됨)</h2>
+<div class="wrap"><table>
+<tr><th>커밋</th><th>내용</th></tr>
+<tr><td><code>59baca8</code></td><td>의자 모델, PC 다리, 펌웨어 핵심, 컴퓨터 안 시험</td></tr>
+<tr><td><code>fcf7c06</code></td><td>ESP32 펌웨어 (컴파일)</td></tr>
+<tr><td><code>5181bd2</code></td><td>조종기 펌웨어 (컴파일)</td></tr>
+<tr><td><code>b9873c7</code></td><td>검토 지적 수정, 시험 30/30</td></tr>
+<tr><td><code>6c571a3</code></td><td>설명 페이지 2개</td></tr>
+<tr><td>(이 보고)</td><td>docs/overnight-2026-11-05.html</td></tr>
+</table></div>
+
+<h2>오늘 밤 시뮬레이터 · 조종석 쪽 커밋 (다른 에이전트, 내가 안 건드림)</h2>
+<div class="wrap"><table>
+<tr><th>커밋</th><th>시각</th><th>내용</th></tr>
+<tr><td><code>5d34e7f</code></td><td>11-04 21:45</td><td>sim: 훈련 엔진 (11과 커리큘럼, 브리핑·시범·연습·단독·디브리핑, 교관 코칭, 프로필), 시범 자동조종, 오프라인 플레이테스트 봇</td></tr>
+<tr><td><code>2613d4d</code></td><td>11-04 21:08</td><td>Unreal: 라이선스 깨끗한 자체 훈련기 조종석 (FlightGear 내부 대체)</td></tr>
+<tr><td><code>a4b0f30</code></td><td>11-04 19:57</td><td>Unreal: 기본 바닥 격자 (타일 스트리밍 없음), Play 마다 공중 시작</td></tr>
+<tr><td><code>99cce9c</code></td><td>11-04 19:43</td><td>Unreal: KeyPanel 액터로 FlightMap 다시 만듦</td></tr>
+<tr><td><code>ec4ef44</code></td><td>11-04 19:42</td><td>Unreal: 키 안내 패널 (K 로 켜고 끔)</td></tr>
+</table></div>
+<p class="small">이 보고를 쓴 시각(11-04 22:20) 기준. 그 뒤 커밋은 <code>git log --since="2026-11-04 18:00" -- sim unreal</code> 로 확인. 그쪽은 아직 커밋 안 한 변경(sim/server.py, tutorial.py 등)이 작업 폴더에 있었고, <code>sim/server.py</code> 의 Chair 는 여전히 8 °/s.</p>
+</main>
+</body>
+</html>
