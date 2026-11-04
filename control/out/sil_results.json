@@ -1,126 +1,168 @@
 {
- "created": "2026-11-04T21:54:21",
+ "created": "2026-11-04T22:12:16",
  "inputs": {
   "core": "firmware/chair/lib/chair_core/chair_core.c",
   "plant": "control/chair_model.py (80 kg rider unless noted, zeta 0.03, motor 10 % slower than assumed, IMU mount error 0.8/-0.5 deg)"
  },
  "step_cal": {
   "ok": true,
-  "time_s": 83.785,
-  "k_r": 0.0006754,
-  "k_p": 0.0004726,
+  "time_s": 80.945,
+  "k_r": 0.000675,
+  "k_p": 0.0004716,
   "max_r": [
-   -20.95,
-   19.8
+   -19.84,
+   20.89
   ],
   "max_p": [
-   -15.45,
-   15.46
+   -15.53,
+   15.32
   ],
   "true_k_r": 0.0006745197535338891,
   "true_k_p": 0.0004717412610258085,
-  "roll_after": -0.05,
-  "pitch_after": 0.0,
-  "true_roll": 0.08528094392784162,
-  "true_pitch": -0.062228413125064046,
+  "roll_after": 0.03,
+  "pitch_after": 0.01,
+  "true_roll": 0.1656112665833603,
+  "true_pitch": 0.03511775806294908,
   "saved": 1
  },
  "step": {
-  "t90_roll_s": 8.284999999999997,
-  "t90_pitch_s": 9.215000000000003,
-  "overshoot_roll_deg": 0.35756406975758814,
-  "overshoot_pitch_deg": 0.0865331162595453,
-  "final_roll": 0.10315431047258002,
-  "final_pitch": -0.09616392731460305
+  "t90_roll_s": 8.805000000000007,
+  "t90_pitch_s": 9.460000000000008,
+  "overshoot_roll_deg": 0.3919250587213927,
+  "overshoot_pitch_deg": 0.163410501522133,
+  "final_roll": 0.11377533383653213,
+  "final_pitch": -0.0214739146319408
  },
  "sine": {
   "roll_0p02Hz_8deg": {
-   "gain": 1.0243282065172252,
-   "lag_s": 1.511000562157893
+   "gain": 1.0241040939971708,
+   "lag_s": 1.5444332662604352
   },
   "pitch_0p05Hz_6deg": {
-   "gain": 0.6364063422331794,
-   "lag_s": 6.046316318254521
+   "gain": 0.5970212979839136,
+   "lag_s": 6.191406915140914
   }
  },
  "watchdog": {
   "before": [
-   12.199604654084826,
-   9.948956784439147
+   12.212178525702136,
+   10.101063516786336
   ],
   "after": [
-   0.12197285537113936,
-   -0.1340921450110678
+   0.12422664652754317,
+   -0.067119597759094
   ],
   "state": "READY"
  },
- "recal_time_s": 62.89999999999998,
+ "recal_time_s": 71.49000000000001,
  "heavy_cal": {
   "ok": true,
-  "time_s": 70.585,
-  "k_r": 0.0005289,
-  "k_p": 0.000376,
+  "time_s": 85.645,
+  "k_r": 0.0005272,
+  "k_p": 0.0003753,
   "max_r": [
-   -16.62,
-   15.82
+   -15.82,
+   16.52
   ],
   "max_p": [
-   -12.43,
-   12.38
+   -10.67,
+   14.07
   ],
   "true_k_r": 0.0005265987549518959,
   "true_k_p": 0.00037643378519290925,
-  "roll_after": 0.03,
+  "roll_after": -0.06,
   "pitch_after": 0.03,
-  "true_roll": -0.12421755756965451,
-  "true_pitch": 0.11425879127993938,
+  "true_roll": -0.02990215618410144,
+  "true_pitch": 0.1273033154670735,
   "saved": 1
  },
  "lean_cal": {
   "ok": true,
-  "time_s": 61.885000000000005,
-  "k_r": 0.0006746,
-  "k_p": 0.0004696,
+  "time_s": 68.545,
+  "k_r": 0.0006749,
+  "k_p": 0.0004717,
   "max_r": [
-   -20.9,
-   19.81
+   -19.87,
+   20.86
   ],
   "max_p": [
-   -15.35,
+   -15.48,
    15.37
   ],
   "true_k_r": 0.0006745197535338891,
   "true_k_p": 0.0004717412610258085,
-  "roll_after": -0.08,
-  "pitch_after": 0.0,
-  "true_roll": -0.05714255175227715,
-  "true_pitch": 0.0033977948114669696,
+  "roll_after": 0.06,
+  "pitch_after": 0.03,
+  "true_roll": 0.0953154659952035,
+  "true_pitch": 0.08146745977459499,
   "saved": 1
  },
  "lean": {
-  "peak_roll": 14.23345616118377,
-  "final_roll": 5.272414400979505
+  "peak_roll": 14.295641088641936,
+  "final_roll": 5.341197565735994
+ },
+ "light_cal": {
+  "ok": true,
+  "time_s": 142.645,
+  "k_r": 0.0008344,
+  "k_p": 0.0005704,
+  "max_r": [
+   -24.17,
+   25.13
+  ],
+  "max_p": [
+   -20.85,
+   15.98
+  ],
+  "true_k_r": 0.000833034914950761,
+  "true_k_p": 0.0005694006309148265,
+  "roll_after": 0.0,
+  "pitch_after": 0.02,
+  "true_roll": 0.07576783382599775,
+  "true_pitch": 0.040283830984404294,
+  "saved": 1
+ },
+ "dir_cal": {
+  "ok": false,
+  "time_s": 200.345,
+  "k_r": 0.0006745,
+  "k_p": 0.0004717,
+  "max_r": [
+   -18.0,
+   18.0
+  ],
+  "max_p": [
+   -14.0,
+   14.0
+  ],
+  "true_k_r": 0.0006745197535338891,
+  "true_k_p": 0.0004717412610258085,
+  "roll_after": 21.28,
+  "pitch_after": -0.07,
+  "true_roll": 21.405304361639445,
+  "true_pitch": -0.0052410383109418885,
+  "saved": 1
  },
  "checks": [
   {
    "name": "calibration completes",
    "ok": true,
-   "info": "84 s"
+   "info": "81 s"
   },
   {
    "name": "calibrated k within 10 % (roll)",
    "ok": true,
-   "info": "6.754e-04 vs 6.745e-04"
+   "info": "6.750e-04 vs 6.745e-04"
   },
   {
    "name": "calibrated k within 10 % (pitch)",
    "ok": true,
-   "info": "4.726e-04 vs 4.717e-04"
+   "info": "4.716e-04 vs 4.717e-04"
   },
   {
    "name": "level after calibration (true angle, includes IMU mount error removed by ZERO)",
    "ok": true,
-   "info": "roll 0.09 pitch -0.06"
+   "info": "roll 0.17 pitch 0.04"
   },
   {
    "name": "ARM -> RUN",
@@ -130,17 +172,17 @@
   {
    "name": "step 10 deg roll reaches 90 %",
    "ok": true,
-   "info": "8.284999999999997 s"
+   "info": "8.805000000000007 s"
   },
   {
    "name": "step 8 deg pitch reaches 90 %",
    "ok": true,
-   "info": "9.215000000000003 s"
+   "info": "9.460000000000008 s"
   },
   {
    "name": "step overshoot < 0.5 deg",
    "ok": true,
-   "info": "roll 0.36 pitch 0.09"
+   "info": "roll 0.39 pitch 0.16"
   },
   {
    "name": "sine roll 0.02 Hz 8 deg tracks (gain > 0.8)",
@@ -150,22 +192,22 @@
   {
    "name": "sine pitch 0.05 Hz 6 deg (rate 1.9 deg/s > limit -> attenuated, informative)",
    "ok": true,
-   "info": "gain 0.64 lag 6.0 s"
+   "info": "gain 0.60 lag 6.2 s"
   },
   {
    "name": "watchdog: no packets -> RETURN -> READY level",
    "ok": true,
-   "info": "12.2/9.9 -> 0.12/-0.13, READY"
+   "info": "12.2/10.1 -> 0.12/-0.07, READY"
   },
   {
    "name": "bridge deadman: sim UDP stops -> level while staying in RUN",
    "ok": true,
-   "info": "RUN roll 0.13"
+   "info": "RUN roll 0.12"
   },
   {
    "name": "e-stop: state ESTOP, weight does not move",
    "ok": true,
-   "info": "x 340.0 -> 340.0"
+   "info": "x 305.6 -> 305.6"
   },
   {
    "name": "e-stop released: still ESTOP until RESET",
@@ -195,7 +237,7 @@
   {
    "name": "IMU lost -> FAULT, weights back to the level position",
    "ok": true,
-   "info": "FAULT roll 0.16 pitch -0.06"
+   "info": "FAULT roll 0.19 pitch 0.04"
   },
   {
    "name": "RESET from FAULT -> IDLE (calibrate again)",
@@ -205,12 +247,12 @@
   {
    "name": "heavy rider (105 kg, CG 150 mm): calibration ok, k within 10 %",
    "ok": true,
-   "info": "k_r 5.289e-04/5.266e-04 k_p 3.760e-04/3.764e-04, max roll (-16.62, 15.82), max pitch (-12.43, 12.38)"
+   "info": "k_r 5.272e-04/5.266e-04 k_p 3.753e-04/3.764e-04, max roll (-15.82, 16.52), max pitch (-10.67, 14.07)"
   },
   {
    "name": "heavy rider: cue 20/15 clipped to achievable - 1 deg, no FAULT",
    "ok": true,
-   "info": "max roll 14.8 (achievable 15.8), pitch 11.6 (12.4)"
+   "info": "max roll 15.7 (achievable 16.5), pitch 13.3 (14.1)"
   },
   {
    "name": "stall (pitch jammed) -> FAULT STALL_P",
@@ -220,9 +262,39 @@
   {
    "name": "rider leans 3 cm: angle restored by trim within 0.5 deg",
    "ok": true,
-   "info": "roll 5.27, peak 14.2 (no damper)"
+   "info": "roll 5.34, peak 14.3 (no damper)"
+  },
+  {
+   "name": "bridge restart (seq from 1) accepted after silence",
+   "ok": true,
+   "info": "RETURN"
+  },
+  {
+   "name": "ZERO refused while pins are out (deck-only LOCKED)",
+   "ok": true,
+   "info": "saved 0"
+  },
+  {
+   "name": "ZERO accepted with pins in (averaged 1 s)",
+   "ok": true,
+   "info": "saved 1"
+  },
+  {
+   "name": "light rider (55 kg, CG 50 mm): homing turns back before over-angle, calibration ok",
+   "ok": true,
+   "info": "READY faults 0x0, peak roll 20.3 deg"
+  },
+  {
+   "name": "FAULT -> e-stop -> RESET returns to FAULT (no motion)",
+   "ok": true,
+   "info": "FAULT"
+  },
+  {
+   "name": "motor direction wrong -> FAULT F_DIR",
+   "ok": true,
+   "info": "FAULT 0x480"
   }
  ],
- "passed": 24,
- "total": 24
+ "passed": 30,
+ "total": 30
 }

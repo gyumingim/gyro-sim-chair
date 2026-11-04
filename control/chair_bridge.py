@@ -6,7 +6,7 @@
 
 Console commands (type + Enter): zero, cal, arm, disarm, reset, status, quit
   zero   = level reference of the IMU, only accepted while the lock pins are IN (chair mechanically at 0 deg)
-  cal    = 탑승 후 초기 캘리 (pins out, deck away): home weights (first time), level, measure deg per mm, ~45 s
+  cal    = 탑승 후 초기 캘리 (pins out, deck away): home weights (first time), level, measure deg per mm, ~60-90 s
   arm    = start following the sim (board must be READY)
   disarm = return slowly to level
 
@@ -84,8 +84,8 @@ class Config:
     udp_timeout_s: float = 0.3
     link_timeout_s: float = 1.0
     # from control/chair_model.py (WGM40C 1/218 + 20T, 80 kg rider; 추정 — re-run after measuring the real chair)
-    rate_deg_s: dict = field(default_factory=lambda: dict(roll=1.45, pitch=1.0))
-    accel_deg_s2: dict = field(default_factory=lambda: dict(roll=0.66, pitch=0.51))
+    rate_deg_s: dict = field(default_factory=lambda: dict(roll=1.3, pitch=0.95))   # 0.9 x achievable at the soft limit
+    accel_deg_s2: dict = field(default_factory=lambda: dict(roll=0.6, pitch=0.47))   # rate / pendulum period
     soft_limit_deg: dict = field(default_factory=lambda: dict(roll=18.0, pitch=14.0))
     lowpass_s: float = 0.5
     follow_gain: float = 2.0          # 1/s, how hard the shaped cue chases the filtered target
@@ -197,10 +197,10 @@ class Bridge:
             tgt = self.target if alive else dict(roll=0.0, pitch=0.0)     # deadman: level
             out = {k: self.ax[k].step(tgt[k], dt) for k in ("roll", "pitch")}
         lines = []
-        for w in self.pending:
+        pending, self.pending = self.pending, []          # swap: a word typed meanwhile is not lost
+        for w in pending:
             self.seq += 1
             lines.append(frame(f"K,{self.seq},{w}"))
-        self.pending.clear()
         self.seq += 1
         flags = 1
         lines.append(frame(f"C,{self.seq},{round(out['roll'] * 100)},{round(out['pitch'] * 100)},{flags}"))

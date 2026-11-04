@@ -65,7 +65,7 @@ static bool imu_read(float acc[3], float gyr[3]) {
   for (int i = 0; i < 3; i++) { g[i] = r[i] * 0.00875f; a[i] = r[3 + i] * 0.000061f; }
   for (int i = 0; i < 3; i++) { acc[i] = IMU_SG[i] * a[IMU_AX[i]]; gyr[i] = IMU_SG[i] * g[IMU_AX[i]]; }
   float n = sqrtf(acc[0] * acc[0] + acc[1] * acc[1] + acc[2] * acc[2]);
-  return n > 0.7f && n < 1.3f;                           // chair accelerations are small: anything else = bad data
+  return n > 0.5f && n < 1.5f;                           // chair accelerations are small: anything else = bad data
 }
 
 // ---------------- AS5600 multi-turn ----------------
@@ -75,7 +75,7 @@ static bool as5600_read(TwoWire *w, int *raw) {
   w->beginTransmission(0x36); w->write(0x0B);           // STATUS, RAW ANGLE H, L
   if (w->endTransmission(false) != 0 || w->requestFrom(0x36, 3) != 3) return false;
   uint8_t st = w->read(), hi = w->read(), lo = w->read();
-  if (!(st & 0x20) || (st & 0x18)) return false;         // magnet not detected / too weak / too strong
+  if (!(st & 0x20)) return false;                        // magnet not detected (MH/ML 'too strong/weak' only warn: common on cheap boards)
   *raw = ((hi & 0x0F) << 8) | lo;
   return true;
 }
@@ -166,7 +166,11 @@ void loop() {
   esp_task_wdt_reset();
 
   in.now_ms = millis();
-  in.imu_ok = imu_up && imu_read(in.acc, in.gyro);
+  // a few bad IMU samples (jolt, I2C glitch) reuse the last good one; 3 in a row -> imu_ok = 0 (core faults after 100 ms)
+  static float acc_last[3] = {0, 0, 1}, gyr_last[3] = {0, 0, 0};
+  static uint8_t imu_bad = 0;
+  if (imu_up && imu_read(in.acc, in.gyro)) { imu_bad = 0; memcpy(acc_last, in.acc, sizeof(acc_last)); memcpy(gyr_last, in.gyro, sizeof(gyr_last)); in.imu_ok = 1; }
+  else { if (imu_bad < 255) imu_bad++; memcpy(in.acc, acc_last, sizeof(acc_last)); memcpy(in.gyro, gyr_last, sizeof(gyr_last)); in.imu_ok = imu_bad < 3; }
   if (!in.imu_ok && in.now_ms - imu_retry > 1000) { imu_retry = in.now_ms; imu_up = imu_init(); }
   for (int i = 0; i < N_AX; i++) in.pos_ok[i] = enc_update(i, &in.pos_raw_mm[i]);
   in.estop_ok = debounce(0, digitalRead(P_ESTOP) == LOW ? 0 : 1) == 0;

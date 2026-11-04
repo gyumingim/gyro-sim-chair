@@ -35,6 +35,9 @@ PULLEY_MM_PER_REV = 100.0  # HTD5M 20T: 20 teeth x 5 mm
 RIDER_OWN_I = dict(pitch=5.0, roll=4.0)   # ASSUMED kg m^2: seated 80 kg body about its own CG (index.html uses a point mass)
 ZETA = 0.03               # ASSUMED damping ratio without a damper (pillow blocks + rider), 추정
 RIDER_KG, RIDER_CG_BELOW = 80.0, 0.100    # index.html defaults
+CAGE_SHIFT_M = -0.049                     # index.html: rider/cage body sits 49 mm behind the pitch axis
+# Frames: index.html uses x fwd, y LEFT. Everything returned here is in the FIRMWARE frame:
+#   roll + = right side down (roll weight + = toward the right), pitch + = nose up (pitch weight + = toward the rear).
 
 
 def extract_from_index():
@@ -124,8 +127,9 @@ class Plant:
 def axes(src=INDEX, rider_kg=RIDER_KG, rider_cg_below=RIDER_CG_BELOW):
     dM = (rider_kg - RIDER_KG) * rider_cg_below + RIDER_KG * (rider_cg_below - RIDER_CG_BELOW)
     dI = (rider_kg * rider_cg_below ** 2 - RIDER_KG * RIDER_CG_BELOW ** 2)
-    pitch = Axis("pitch", src["mp"], src["hp"], src["Mdp"] + dM, src["Mxp"], src["Ip"] + RIDER_OWN_I["pitch"] * rider_kg / RIDER_KG + dI, src["xmax"])
-    roll = Axis("roll", src["mr"], src["hr"], src["Mdr"] + dM, src["Myr"], src["Ir"] + RIDER_OWN_I["roll"] * rider_kg / RIDER_KG + dI, src["ymax"])
+    Mxp = src["Mxp"] + (rider_kg - RIDER_KG) * CAGE_SHIFT_M      # rider sits behind the pitch axis (index frame, + = fwd)
+    pitch = Axis("pitch", src["mp"], src["hp"], src["Mdp"] + dM, -Mxp, src["Ip"] + RIDER_OWN_I["pitch"] * rider_kg / RIDER_KG + dI, src["xmax"])
+    roll = Axis("roll", src["mr"], src["hr"], src["Mdr"] + dM, -src["Myr"], src["Ir"] + RIDER_OWN_I["roll"] * rider_kg / RIDER_KG + dI, src["ymax"])
     return pitch, roll
 
 
@@ -165,7 +169,7 @@ def torque_needed(ax, pulley_r_m=0.0159, tilt_deg=31.0, mu=0.03, a=0.1):
 def analyse():
     pitch, roll = axes()
     v = weight_speed()
-    res = dict(created=datetime.now().isoformat(timespec="seconds"),
+    res = dict(created=datetime.now().isoformat(timespec="seconds"), frame="firmware: roll + = right side down, pitch + = nose up",
                inputs=dict(index_numbers=INDEX, motor_rpm=MOTOR_RPM, pulley_mm_per_rev=PULLEY_MM_PER_REV,
                            rider_own_inertia=RIDER_OWN_I, zeta=ZETA, rider_kg=RIDER_KG, rider_cg_below_m=RIDER_CG_BELOW,
                            assumed=["motor rpm 25 (no-load estimate)", "rider own inertia", "damping ratio 0.03",
@@ -195,7 +199,8 @@ def analyse():
     sens = {}
     for kg, zc in ((60, 0.10), (80, 0.10), (100, 0.10), (80, 0.05), (80, 0.20)):
         p, r = axes(rider_kg=kg, rider_cg_below=zc)
-        sens[f"{kg}kg_cg{int(zc*1000)}mm"] = dict(pitch_max=p.eq_deg(p.xmax), roll_max=[r.eq_deg(r.xmax), r.eq_deg(-r.xmax)],
+        sens[f"{kg}kg_cg{int(zc*1000)}mm"] = dict(pitch_rest=p.eq_deg(0), pitch_max=[p.eq_deg(p.xmax), p.eq_deg(-p.xmax)],
+                                                 roll_rest=r.eq_deg(0), roll_max=[r.eq_deg(r.xmax), r.eq_deg(-r.xmax)],
                                                  pitch_rate=p.gain_deg_per_mm() * v * 1000, roll_rate=r.gain_deg_per_mm() * v * 1000,
                                                  pitch_T=p.period, roll_T=r.period)
     res["rider_sensitivity"] = sens
@@ -207,10 +212,12 @@ def analyse():
         opts.append(dict(option=label, weight_mm_s=vv * 1000, pitch_deg_s=pitch.gain_deg_per_mm() * vv * 1000,
                          roll_deg_s=roll.gain_deg_per_mm() * vv * 1000, shaft_torque_scale=mm / 100))
     res["speed_options"] = opts
-    pr, rr = res["axes"]["pitch"]["max_rate_deg_s_at_0"], res["axes"]["roll"]["max_rate_deg_s_at_0"]
+    # rate available at the edge of the cue range (pitch 14, roll 18 deg): cos^2 lowers it
+    pr = pitch.gain_deg_per_mm(14.0) * v * 1000
+    rr = roll.gain_deg_per_mm(18.0) * v * 1000
     res["cue_8deg_s_realistic"] = False
     res["recommended_cue"] = dict(
-        rate_deg_s=dict(pitch=round(0.9 * pr, 2), roll=round(0.9 * rr, 2)),
+        rate_deg_s=dict(pitch=round(0.9 * pr, 2), roll=round(0.9 * rr, 2), note="0.9 x achievable at the soft limit (pitch 14, roll 18 deg)"),
         accel_deg_s2=dict(pitch=round(0.9 * pr / pitch.period, 2), roll=round(0.9 * rr / roll.period, 2)),
         soft_limit_deg=dict(pitch=[-14.0, 14.0], roll=[-18.0, 18.0]),
         prefilter_lowpass_s=0.5,
@@ -258,7 +265,7 @@ def main():
     for o in res["speed_options"]:
         print(f"  {o['option']}: {o['weight_mm_s']:.0f} mm/s -> pitch {o['pitch_deg_s']:.1f}, roll {o['roll_deg_s']:.1f} deg/s (torque x{o['shaft_torque_scale']:.1f})")
     for k, s in res["rider_sensitivity"].items():
-        print(f"  rider {k}: pitch max {s['pitch_max']:.1f}, roll max {s['roll_max'][0]:+.1f}/{s['roll_max'][1]:+.1f}, rates {s['pitch_rate']:.2f}/{s['roll_rate']:.2f} deg/s, T {s['pitch_T']:.2f}/{s['roll_T']:.2f} s")
+        print(f"  rider {k}: pitch rest {s['pitch_rest']:+.1f} max {s['pitch_max'][0]:+.1f}/{s['pitch_max'][1]:+.1f}, roll max {s['roll_max'][0]:+.1f}/{s['roll_max'][1]:+.1f}, rates {s['pitch_rate']:.2f}/{s['roll_rate']:.2f} deg/s, T {s['pitch_T']:.2f}/{s['roll_T']:.2f} s")
 
 
 if __name__ == "__main__":

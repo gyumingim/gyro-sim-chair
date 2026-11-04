@@ -33,7 +33,8 @@ static const uint8_t P_CAL = 4, P_LED = 5, P_MUX_RST = 6;
 enum { A_ROLL, A_PITCH, A_THR, A_RUD, A_BRK_L, A_BRK_R, N_AXES };
 static const uint8_t AX_CH[N_AXES] = {0, 1, 2, 3, 4, 5};
 static const bool CENTERED[N_AXES] = {true, true, false, true, false, false};
-// output direction after calibration; flip one here if an axis comes out backwards (then re-flash, no re-cal needed)
+// output direction of the CENTRED axes (roll, pitch, rudder): flip one if it comes out backwards (re-flash, no re-cal).
+// Leave throttle / brakes at +1: their direction is fixed by the code (idle = +1, brake released = -1).
 static const int8_t SIGN[N_AXES] = {+1, +1, +1, +1, +1, +1};
 static const char *NAMES[N_AXES] = {"roll", "pitch", "thr", "rud", "brkL", "brkR"};
 
@@ -133,19 +134,29 @@ static int16_t axis_out(int i, float d) {         // signed delta from rest -> -
 
 // ---------------- calibration state ----------------
 static uint8_t cal_step = 0;          // 0 normal, 1 waiting at rest, 2 sweeping
-static long rest_sum[N_AXES]; static int rest_n;
+static long rest_sum[N_AXES];
 static int16_t sw_lo[N_AXES], sw_hi[N_AXES];
 static bool stream_raw = false;
 
 static void cal_start() { cal_step = 1; Serial.println(F("CAL 1: let go of everything (stick/pedals centred, throttle IDLE, brakes released), press CAL")); }
 static void cal_button() {
   if (cal_step == 1) {
-    rest_n = 0; for (int i = 0; i < N_AXES; i++) rest_sum[i] = 0;
+    // average around the first good sample (no 0/4095 wrap problem), count only good reads
+    int ref[N_AXES], n[N_AXES];
+    for (int i = 0; i < N_AXES; i++) { ref[i] = -1; n[i] = 0; rest_sum[i] = 0; }
     for (int k = 0; k < 32; k++) {
-      for (int i = 0; i < N_AXES; i++) { int r = read_as5600(AX_CH[i]); if (r >= 0) rest_sum[i] += delta_of(r, 2048); }
-      rest_n++; delay(5);
+      for (int i = 0; i < N_AXES; i++) {
+        int r = read_as5600(AX_CH[i]);
+        if (r < 0) continue;
+        if (ref[i] < 0) ref[i] = r;
+        rest_sum[i] += delta_of(r, ref[i]); n[i]++;
+      }
+      delay(5);
     }
-    for (int i = 0; i < N_AXES; i++) { cal.rest[i] = (int16_t)((rest_sum[i] / rest_n + 2048 + 4096) % 4096); sw_lo[i] = 0; sw_hi[i] = 0; }
+    for (int i = 0; i < N_AXES; i++) {
+      if (n[i] < 16) { Serial.print(F("  ! sensor not reading: ")); Serial.println(NAMES[i]); cal_step = 0; if (!cal_load()) cal_defaults(); return; }
+      cal.rest[i] = (int16_t)((ref[i] + rest_sum[i] / n[i] + 4096) % 4096); sw_lo[i] = 0; sw_hi[i] = 0;
+    }
     cal_step = 2;
     Serial.println(F("CAL 2: move every axis to both ends 2-3 times, then press CAL"));
   } else if (cal_step == 2) {
@@ -158,7 +169,7 @@ static void cal_button() {
       if (CENTERED[i] && (sw_hi[i] < 40 || sw_lo[i] > -40)) { ok = false; Serial.print(F("  ! not moved both ways: ")); Serial.println(NAMES[i]); }
     }
     if (ok) { for (int i = 0; i < N_AXES; i++) { cal.lo[i] = sw_lo[i]; cal.hi[i] = sw_hi[i]; } cal_save(); Serial.println(F("CAL saved")); }
-    else { cal_load(); Serial.println(F("CAL NOT saved (old values kept) - run again")); }
+    else { if (!cal_load()) cal_defaults(); Serial.println(F("CAL NOT saved (old values kept) - run again")); }
     cal_step = 0;
   }
 }

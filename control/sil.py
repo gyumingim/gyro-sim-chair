@@ -144,7 +144,7 @@ class Sil:
         for i, p in enumerate(self.pl):
             d = self.out.duty[i] if self.sw["estop_ok"] else 0.0
             mag = max(0.0, abs(d) - self.deadband) / (1 - self.deadband)
-            v_tgt = math.copysign(mag * self.v_full[i], d) / 1000
+            v_tgt = math.copysign(mag, d) * self.v_full[i] / 1000     # v_full < 0 models a motor wired backwards
             self.v[i] += (v_tgt - self.v[i]) * dt / 0.05
             if abs(self.v[i]) < 1e-6 and v_tgt == 0:
                 self.v[i] = 0.0
@@ -215,9 +215,9 @@ def boot_and_calibrate(h: Harness, results, tag):
     s = h.s
     h.run(2.0)
     assert s.state() == "LOCKED", s.state()
-    h.cmd("ZERO"); h.run(2.5)
+    h.cmd("ZERO"); h.run(4.0)                              # ZERO averages 1 s with the pins in
     s.set_switches(pins_stowed=True, deck_stowed=True)   # pins out into their holders, deck parked
-    h.run(3.0)
+    h.run(4.5)
     assert s.state() == "IDLE", s.state()
     t0 = s.t_ms / 1000
     h.cmd("CAL")
@@ -400,6 +400,43 @@ def main():
     res["lean"] = dict(peak_roll=pk, final_roll=h8.s.log[-1][1])
     check("rider leans 3 cm: angle restored by trim within 0.5 deg", abs(h8.s.log[-1][1] - 5.0) < 0.5, f"roll {h8.s.log[-1][1]:.2f}, peak {pk:.1f} (no damper)")
     plot_run(h8, os.path.join(OUT, "sil_lean.png"), "SIL: rider leans 3 cm at %.0f s, the trim loop moves the weight to hold 5 deg" % (t8 + 15), t_from=t8 - 2)
+
+    # 9. bridge restarted (seq starts again at 1) after a silence: the board must accept it
+    t9 = h8.s.t_ms / 1000
+    while h8.s.t_ms / 1000 < t9 + 1.0:
+        h8.s.step()
+    h8.b = Bridge(Config()); h8.next_send = h8.s.t_ms / 1000
+    h8.cmd("DISARM"); h8.run(t9 + 3)
+    check("bridge restart (seq from 1) accepted after silence", h8.s.state() in ("RETURN", "READY"), h8.s.state())
+
+    # 10. ZERO only with the lock pins in (deck-only LOCKED must refuse it)
+    h10 = Harness(Sil(seed=7)); h10.run(2.0)
+    h10.s.set_switches(pins_stowed=True)                     # pins out, deck still at the chair -> LOCKED
+    h10.cmd("ZERO"); h10.run(5.0)
+    check("ZERO refused while pins are out (deck-only LOCKED)", h10.s.saved == 0 and h10.s.state() == "LOCKED", f"saved {h10.s.saved}")
+    h10.s.set_switches(pins_stowed=False); h10.cmd("ZERO"); h10.run(8.0)
+    check("ZERO accepted with pins in (averaged 1 s)", h10.s.saved == 1, f"saved {h10.s.saved}")
+
+    # 11. light rider, low CG, homing first goes the wrong way: must turn at soft limit + 2 deg, not FAULT
+    h11 = Harness(Sil(rider_kg=55, rider_cg=0.05, start_x=(-0.008, 0.008), seed=9))
+    ok11 = boot_and_calibrate(h11, res, "light")
+    pk11 = max(abs(r[1]) for r in h11.s.log)
+    check("light rider (55 kg, CG 50 mm): homing turns back before over-angle, calibration ok", ok11 and h11.s.state() == "READY",
+          f"{h11.s.state()} faults {h11.s.out.faults:#x}, peak roll {pk11:.1f} deg")
+
+    # 12. a fault before an e-stop stays a fault after RESET
+    h7.s.set_switches(estop_ok=False); h7.run(h7.s.t_ms / 1000 + 1)
+    h7.s.set_switches(estop_ok=True); h7.cmd("RESET"); h7.run(h7.s.t_ms / 1000 + 1)
+    check("FAULT -> e-stop -> RESET returns to FAULT (no motion)", h7.s.state() == "FAULT", h7.s.state())
+
+    # 13. motor wired backwards -> direction fault during homing
+    s13 = Sil(seed=11, start_x=(0.10, 0.0)); s13.v_full[0] = -s13.v_full[0]
+    h13 = Harness(s13)
+    try:
+        boot_and_calibrate(h13, res, "dir")
+    except AssertionError:
+        pass
+    check("motor direction wrong -> FAULT F_DIR", h13.s.state() == "FAULT" and (h13.s.out.faults & 0x400), f"{h13.s.state()} {h13.s.out.faults:#x}")
 
     res["checks"] = checks
     res["passed"] = sum(c["ok"] for c in checks); res["total"] = len(checks)

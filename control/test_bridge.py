@@ -17,15 +17,15 @@ check("corrupted frame rejected", check_frame(frame("C,1,100,-200,1").replace("1
 
 # shaper limits
 c = Config()
-sh = AxisShaper(1.45, 0.66, 18.0, 0.5, 2.0)
+sh = AxisShaper(1.3, 0.6, 18.0, 0.5, 2.0)
 ys, dt = [], 0.02
 for i in range(3000):
     ys.append(sh.step(30.0 if i < 1500 else -30.0, dt))
 rates = [(b - a) / dt for a, b in zip(ys, ys[1:])]
 acc = [(b - a) / dt for a, b in zip(rates, rates[1:])]
 check("shaper soft limit 18", max(ys) <= 18.0 + 1e-9 and min(ys) >= -18.0 - 1e-9, f"{max(ys):.2f}/{min(ys):.2f}")
-check("shaper rate <= 1.45 deg/s", max(abs(r) for r in rates) <= 1.45 + 1e-6, f"{max(abs(r) for r in rates):.3f}")
-check("shaper accel <= 0.66 deg/s^2 (+15 % for the final snap onto the target)", max(abs(a) for a in acc[:1400]) <= 0.66 * 1.15, f"{max(abs(a) for a in acc[:1400]):.3f}")
+check("shaper rate <= 1.3 deg/s", max(abs(r) for r in rates) <= 1.3 + 1e-6, f"{max(abs(r) for r in rates):.3f}")
+check("shaper accel <= 0.6 deg/s^2 (+15 % for the final snap onto the target)", max(abs(a) for a in acc[:1400]) <= 0.6 * 1.15, f"{max(abs(a) for a in acc[:1400]):.3f}")
 sh2 = AxisShaper(1.45, 0.66, 18.0, 0.5, 2.0); ys2 = [sh2.step(5.0, dt) for _ in range(2000)]
 check("shaper settles on 5 deg without overshoot", abs(ys2[-1] - 5) < 0.01 and max(ys2) < 5.05, f"{ys2[-1]:.3f} max {max(ys2):.3f}")
 

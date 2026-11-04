@@ -36,8 +36,8 @@ CORE_API void core_default_params(core_params_t *p) {
   p->soft_margin_mm = 15.0f;
   p->k_design[AX_ROLL] = 18.61f / 27.59f / 1000.0f;   /* index.html m / Md, per mm */
   p->k_design[AX_PITCH] = 14.44f / 30.61f / 1000.0f;
-  p->rate_max_deg_s[AX_ROLL] = 1.45f;
-  p->rate_max_deg_s[AX_PITCH] = 1.0f;
+  p->rate_max_deg_s[AX_ROLL] = 1.3f;     /* 0.9 x achievable at 18 deg (chair_model.py) */
+  p->rate_max_deg_s[AX_PITCH] = 0.95f;  /* 0.9 x achievable at 14 deg */
   p->soft_lim_deg[AX_ROLL] = 18.0f;
   p->soft_lim_deg[AX_PITCH] = 14.0f;
   p->return_rate_deg_s = 0.5f;
@@ -51,7 +51,7 @@ CORE_API void core_default_params(core_params_t *p) {
   p->stall_mm = 3.0f;
   p->cal_step_mm = 150.0f;
   p->cal_settle_ms = 4000;
-  p->cal_avg_ms = 3000;
+  p->cal_avg_ms = 4400;              /* ~2 pendulum periods */
   p->cal_level_tol_deg = 0.3f;
   p->home_speed_frac = 0.5f;
   p->comp_tau_s = 0.5f;
@@ -103,7 +103,8 @@ CORE_API int core_rx_line(core_t *c, const char *line, uint32_t now_ms) {
   if (nt < 3) { c->pkts_bad++; return 0; }
   char kind = t[0][0];
   uint32_t seq = (uint32_t)strtoul(t[1], NULL, 10);
-  if (c->pkt_seen && !seq_newer(seq, c->seq_last)) { c->pkts_bad++; return 0; }  /* old / duplicate */
+  /* old / duplicate frames are dropped; after pc_timeout of silence any seq is accepted (bridge restarted) */
+  if (c->pkt_seen && !seq_newer(seq, c->seq_last) && now_ms - c->last_pkt_ms < c->P.pc_timeout_ms) { c->pkts_bad++; return 0; }
   if (kind == 'C') {
     if (nt < 5) { c->pkts_bad++; return 0; }
     long r = strtol(t[2], NULL, 10), pch = strtol(t[3], NULL, 10), fl = strtol(t[4], NULL, 10);
@@ -178,8 +179,10 @@ static void attitude(core_t *c, const core_inputs_t *in, float dt) {
   float r_acc = atan2f(fy, sqrtf(fx * fx + fz * fz)) * DEG;
   float p_acc = atan2f(fx, fz) * DEG;
   float pr = c->th[AX_PITCH] * RAD;
-  float r_rate = in->gyro[0] / cosf(pr);
-  float p_rate = -in->gyro[1];
+  if (c->state == ST_LOCKED && c->att_init)        /* pins in: the chair cannot rotate -> gyro output is bias */
+    for (int k = 0; k < 3; k++) c->gyro_bias[k] += (in->gyro[k] - c->gyro_bias[k]) * dt / 2.0f;
+  float r_rate = (in->gyro[0] - c->gyro_bias[0]) / cosf(pr);
+  float p_rate = -(in->gyro[1] - c->gyro_bias[1]);
   if (!c->att_init) {
     c->th[0] = r_acc - c->imu_zero[0]; c->th[1] = p_acc - c->imu_zero[1];
     c->th_lp[0] = c->th[0]; c->th_lp[1] = c->th[1];
@@ -199,6 +202,7 @@ static void attitude(core_t *c, const core_inputs_t *in, float dt) {
 static void enter(core_t *c, uint8_t s) {
   if (c->state == s) return;
   c->state = s;
+  c->over_ms = 0;
   for (int i = 0; i < N_AX; i++) { c->stall_t0[i] = 0; }
 }
 
@@ -238,11 +242,17 @@ static void cal_axis(core_t *c, int i, const core_inputs_t *in, core_outputs_t *
       k->th_sum += c->th[i]; k->cnt += 1.0f;
       if (in->now_ms - k->t_mark < 2500) return;
       k->dir = (k->th_sum / k->cnt) < -0.3f ? 1 : 0;   /* 0 = search negative first, 1 = positive */
-      k->n = 1; k->t_start = c->x[i];
+      k->n = 1; k->t_start = c->x[i]; k->prog = 0;
     }
     float v = P->home_speed_frac * P->v_max_mm_s[i] * (k->dir ? 1.0f : -1.0f);
-    if (!k->dir && in->lim_neg[i]) { k->dir = 1; k->found++; c->v_cmd[i] = 0; }
-    else if (k->dir && in->lim_pos[i]) { k->dir = 0; k->found++; c->v_cmd[i] = 0; }
+    /* turn back at an end switch, or when the chair tilts past soft limit + 2 deg (a light rider with a low CG can
+       reach the over-angle fault before the rail end) */
+    float alim = P->soft_lim_deg[i] + 2.0f;
+    int rev = (!k->dir && (in->lim_neg[i] || c->th[i] < -alim)) || (k->dir && (in->lim_pos[i] || c->th[i] > alim));
+    if (rev) { k->dir = !k->dir; k->found++; c->v_cmd[i] = 0; k->prog = 0; }
+    /* direction check: the encoder must move the way we drive (catches MOTOR_INVERT / POS_SIGN mistakes) */
+    k->prog += (c->x[i] - c->x_prev[i]) * (k->dir ? 1.0f : -1.0f);
+    if (k->prog < -5.0f) { c->faults |= F_DIR; k->step = CS_FAIL; stop_axis(c, i, o); return; }
     if (k->found >= 2) { k->step = CS_FAIL; stop_axis(c, i, o); return; }   /* both ends seen, no index */
     if (fabsf(c->x[i] - k->t_start) > 2.5f * P->travel_mm[i] + 50) { k->step = CS_FAIL; stop_axis(c, i, o); return; }
     drive_speed(c, i, in, o, v, dt);
@@ -331,9 +341,16 @@ CORE_API void core_step(core_t *c, const core_inputs_t *in, core_outputs_t *o) {
   if (!in->estop_ok && c->state != ST_ESTOP) enter(c, ST_ESTOP);
   if (c->state == ST_ESTOP) {
     if (in->estop_ok && reset) {
-      c->faults = 0;
-      if (c->cal_ok && interlock_ok) { c->th_ref[0] = c->th_lp[0]; c->th_ref[1] = c->th_lp[1]; enter(c, ST_RETURN); }
-      else enter(c, ST_IDLE);
+      uint32_t real = c->faults & ~(uint32_t)(F_TIMEOUT | F_INTERLOCK);
+      int sensors_ok = in->imu_ok && in->pos_ok[0] && in->pos_ok[1] && !(in->lim_pos[0] && in->lim_neg[0]) && !(in->lim_pos[1] && in->lim_neg[1]);
+      if (real || !sensors_ok) { enter(c, ST_FAULT); }   /* a fault before the e-stop stays a fault */
+      else {
+        c->faults = 0;
+        if (c->cal_ok && interlock_ok) { c->th_ref[0] = c->th_lp[0]; c->th_ref[1] = c->th_lp[1]; enter(c, ST_RETURN); }
+        else enter(c, ST_IDLE);
+      }
+      o->state = c->state; o->faults = c->faults;
+      return;
     }
     o->state = c->state; o->faults = c->faults; o->led = 2; o->buzzer = 0;
     for (int i = 0; i < N_AX; i++) stop_axis(c, i, o);
@@ -351,7 +368,11 @@ CORE_API void core_step(core_t *c, const core_inputs_t *in, core_outputs_t *o) {
     if (in->now_ms - c->imu_last_ok_ms > P->imu_timeout_ms) fault(c, F_IMU);
     if (pos_bad & 1) fault(c, F_POS_R);
     if (pos_bad & 2) fault(c, F_POS_P);
-    int over = fabsf(c->th[0]) > P->fault_angle_deg[0] || fabsf(c->th[1]) > P->fault_angle_deg[1];
+    int over = 0;
+    for (int i = 0; i < N_AX; i++) {
+      int homing = c->state == ST_CAL && c->cal[i].step == CS_HOME;
+      if (fabsf(c->th[i]) > P->fault_angle_deg[i] + (homing ? 4.0f : 0.0f)) over = 1;
+    }
     if (over) { if (!c->over_ms) c->over_ms = in->now_ms; else if (in->now_ms - c->over_ms > P->fault_angle_ms) fault(c, F_OVERANGLE); }
     else c->over_ms = 0;
     for (int i = 0; i < N_AX; i++) {
@@ -365,10 +386,23 @@ CORE_API void core_step(core_t *c, const core_inputs_t *in, core_outputs_t *o) {
     case ST_LOCKED:
       for (int i = 0; i < N_AX; i++) stop_axis(c, i, o);
       c->cal_ok = 0;                                  /* new rider -> calibrate again (home is kept) */
-      if (zero && in->imu_ok && c->att_init) {        /* pins in = mechanically level: this is 0 deg */
-        c->imu_zero[0] += c->th[0]; c->imu_zero[1] += c->th[1];
-        c->th[0] = c->th[1] = 0; c->th_lp[0] = c->th_lp[1] = 0;
-        o->save_nvs = 1;
+      /* ZERO: only with the lock pins IN (chair mechanically level), averaged over 1 s */
+      if (zero && in->imu_ok && c->att_init && !in->pins_stowed && !c->zero_pending) {
+        c->zero_pending = 1; c->zero_n = 0; c->zero_sum[0] = c->zero_sum[1] = 0;
+      }
+      if (c->zero_pending) {
+        if (!in->imu_ok || in->pins_stowed) c->zero_pending = 0;      /* aborted */
+        else {
+          c->zero_sum[0] += c->th[0]; c->zero_sum[1] += c->th[1];
+          if (++c->zero_n >= 200) {
+            for (int i = 0; i < N_AX; i++) {
+              float z = c->zero_sum[i] / c->zero_n;
+              c->imu_zero[i] += z; c->th[i] -= z; c->th_lp[i] -= z;
+            }
+            c->zero_pending = 0;
+            o->save_nvs = 1;
+          }
+        }
       }
       if (interlock_ok) enter(c, ST_IDLE);
       o->led = 1;
@@ -376,6 +410,7 @@ CORE_API void core_step(core_t *c, const core_inputs_t *in, core_outputs_t *o) {
 
     case ST_IDLE:
       for (int i = 0; i < N_AX; i++) stop_axis(c, i, o);
+      if (reset) c->faults = 0;                       /* clears the info bits (TIMEOUT, INTERLOCK) */
       if (cal && in->imu_ok && in->pos_ok[0] && in->pos_ok[1]) cal_begin(c);
       o->led = 0;
       break;
@@ -408,6 +443,7 @@ CORE_API void core_step(core_t *c, const core_inputs_t *in, core_outputs_t *o) {
     case ST_RETURN: {
       if (c->state == ST_READY && arm && c->pkt_seen && in->now_ms - c->last_pkt_ms < P->pc_timeout_ms) enter(c, ST_RUN);
       if (c->state == ST_READY && cal) { cal_begin(c); break; }
+      if (c->state == ST_READY && disarm) { for (int i = 0; i < N_AX; i++) stop_axis(c, i, o); enter(c, ST_IDLE); break; }
       if (c->state == ST_RUN && disarm) enter(c, ST_RETURN);
       if (c->state == ST_RUN && in->now_ms - c->last_pkt_ms > P->pc_timeout_ms) { c->faults |= F_TIMEOUT; enter(c, ST_RETURN); }
       int settled = 1;
@@ -442,7 +478,13 @@ CORE_API void core_step(core_t *c, const core_inputs_t *in, core_outputs_t *o) {
       /* bring the weights back to level by position only (no IMU trust), half speed; stop an axis whose sensor failed */
       for (int i = 0; i < N_AX; i++) {
         int pos_fail = (i == 0 ? (c->faults & (F_POS_R | F_STALL_R)) : (c->faults & (F_POS_P | F_STALL_P))) || !in->pos_ok[i];
-        if (pos_fail || !c->home_ok[i] || !interlock_ok) { stop_axis(c, i, o); continue; }
+        if (pos_fail || !interlock_ok) { stop_axis(c, i, o); continue; }
+        if (!c->home_ok[i]) {                         /* no position reference: creep toward level by the angle */
+          int imu_good = in->imu_ok && !(c->faults & F_IMU);
+          if (imu_good && fabsf(c->th[i]) > 2.0f) drive_speed(c, i, in, o, -signf(c->th[i]) * 0.25f * vmax[i], dt);
+          else drive_speed(c, i, in, o, 0.0f, dt);
+          continue;
+        }
         float home = c->cal_ok ? c->x0[i] : 0.0f;
         c->x_ref[i] = clampf(home, soft_lo(c, i), soft_hi(c, i));
         drive_axis(c, i, in, o, 0.5f * vmax[i], dt);

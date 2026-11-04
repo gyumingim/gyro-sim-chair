@@ -34,7 +34,8 @@ enum {
   F_IMU = 1 << 0, F_POS_R = 1 << 1, F_POS_P = 1 << 2, F_OVERANGLE = 1 << 3,
   F_STALL_R = 1 << 4, F_STALL_P = 1 << 5, F_LIMIT = 1 << 6, F_CAL = 1 << 7,
   F_TIMEOUT = 1 << 8, /* info only: PC packets stopped during RUN (-> RETURN, not FAULT) */
-  F_INTERLOCK = 1 << 9 /* info only: lock pin / deck switch opened while moving */
+  F_INTERLOCK = 1 << 9, /* info only: lock pin / deck switch opened while moving */
+  F_DIR = 1 << 10       /* motor / encoder direction mismatch (wiring or sign setting) */
 };
 
 /* calibration sub-steps (per axis) */
@@ -42,7 +43,7 @@ typedef enum { CS_NONE = 0, CS_HOME, CS_LEVEL, CS_KPLUS, CS_KMINUS, CS_BACK, CS_
 
 typedef struct {
   /* drive */
-  float v_full_mm_s[N_AX];    /* weight speed at duty 1.0 (measured: WGM40C 1/218 + 20T ~ 41.7 mm/s, ASSUMED) */
+  float v_full_mm_s[N_AX];    /* weight speed at duty 1.0 (WGM40C 1/218 + 20T: ~41.7 mm/s ASSUMED, measure on the chair) */
   float v_max_mm_s[N_AX];     /* speed limit used by the controller */
   float a_max_mm_s2[N_AX];    /* weight acceleration limit (~ v_max / pendulum period -> no residual swing) */
   float duty_min;             /* static friction feed-forward (0..1) */
@@ -105,7 +106,7 @@ typedef struct {
 } core_outputs_t;
 
 typedef struct {
-  float x0, k, th_sum, cnt, xp, thp, thn, t_start;
+  float x0, k, th_sum, cnt, xp, thp, thn, t_start, prog;
   uint32_t t_mark, n;
   uint8_t step, iter, dir, found;
 } cal_axis_t;
@@ -117,6 +118,9 @@ typedef struct {
   /* attitude */
   float th[N_AX], th_lp[N_AX], rate[N_AX];
   float imu_zero[N_AX];
+  float gyro_bias[3];          /* estimated while LOCKED (chair held still by the pins) */
+  float zero_sum[N_AX];
+  uint16_t zero_n;
   uint8_t att_init;
   uint32_t imu_last_ok_ms, over_ms;
   /* position */
