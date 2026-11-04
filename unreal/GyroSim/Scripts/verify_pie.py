@@ -174,9 +174,9 @@ def check_displays(name):
 def check_warning_logic():
     """synthetic states through SimClient._warnings (the real flights below show the lights too)."""
     c = C()
-    base = dict(c.s, paused=False, wow=False, agl_m=1800.0, vs_fpm=0.0, nz=1.0, alpha=3.0, kts=350.0, gear=0.0, crashed=False)
+    base = dict(c.s, paused=False, wow=False, agl_m=1800.0, alt_m=1830.0 + 10000, vs_fpm=0.0, nz=1.0, alpha=3.0, kts=350.0, gear=0.0, crashed=False)
     cases = dict(level=({}, []), stall=(dict(alpha=28.0), ["stall"]), slow=(dict(kts=105.0), ["stall"]), overg=(dict(nz=9.6), ["overg"]),
-                 pullup=(dict(agl_m=120.0, vs_fpm=-4000.0), ["pullup"]), gear=(dict(agl_m=200.0, kts=180.0, vs_fpm=-600.0), ["gear"]))
+                 pullup=(dict(agl_m=120.0, vs_fpm=-4000.0), ["pullup"]), gear=(dict(agl_m=200.0, alt_m=600.0, kts=180.0, vs_fpm=-600.0), ["gear"]))
     out = {}
     saved, rr, cr = c.s, c.radar_m, c.crashed
     try:
@@ -213,7 +213,7 @@ def c_menu():
     RESULT["menu_at_start"] = dict(phase=t.get("phase"), items=t.get("items"), paused=C().s.get("paused"), ok=t.get("phase") == "menu" and C().s.get("paused"))
     look(-24.0, 0.0, 50)
 
-@at(3.0)
+@at(3)
 def s_menu():
     shot("0_menu_training_display")
 
@@ -223,7 +223,7 @@ def l0():
     look(0.0, 0.0)
     SAY({"cmd": "tut", "op": "start", "lesson": 0})
 
-@at(4.0)
+@at(4)
 def l0_brief():
     t = TUT()
     RESULT["lesson_briefing"] = dict(phase=t.get("phase"), title=t.get("title"), text=t.get("text"), ok=t.get("phase") == "brief")
@@ -321,7 +321,7 @@ def c_debrief():
     RESULT["debrief"] = dict(phase=t.get("phase"), score=t.get("score"), ok=t.get("phase") == "debrief")
     look(-24.0, 0.0, 50)
 
-@at(18.0)
+@at(18)
 def s_debrief():
     shot("2c_debrief_training_display")
 
@@ -331,13 +331,13 @@ def l2():
     look(0.0, 0.0)
     SAY({"cmd": "tut", "op": "start", "lesson": 2})
 
-@at(19.0)
+@at(19)
 def l2_brief():
     for _ in range(int(TUT().get("n") or 4)):
         SAY({"cmd": "tut", "op": "next"})
     SAY({"cmd": "tut", "op": "next"})              # skip the demo
 
-@at(20.0)
+@at(20)
 def l2_tour_skip():
     SAY({"cmd": "tut", "op": "beginner", "on": False})   # expert: tour skipped -> the hold step with targets
     C().override = dict(NEUTRAL, elev=0.06)
@@ -350,7 +350,7 @@ def l2_kbd():
         break
     SAY({"cmd": "tut", "op": "beginner", "on": True})
 
-@at(23.0)
+@at(23)
 def s_kbd():
     t = TUT()
     RESULT["instruction_kbd"] = dict(mode=t.get("mode"), instr=t.get("instr"), phase=t.get("phase"), targets=len(t.get("targets") or []),
@@ -365,7 +365,7 @@ def s_kbd_disp():
     SAY({"cmd": "tut", "op": "mode"})          # auto(kbd) -> kbd forced
     SAY({"cmd": "tut", "op": "mode"})          # -> rig
 
-@at(26.0)
+@at(26)
 def s_rig_disp():
     t = TUT()
     RESULT["instruction_rig"] = dict(mode=t.get("mode"), instr=t.get("instr"), ok=t.get("mode") == "rig" and "손" in (t.get("instr") or ""))
@@ -378,7 +378,7 @@ def s_pfd():
     shot("3d_flight_display_closeup")
     look(-32.0, 18.0, 32)
 
-@at(29.0)
+@at(29)
 def s_session():
     shot("3e_chair_display_closeup")
     look(-36.0, 0.0, 34)
@@ -407,7 +407,7 @@ def s_hud_beginner():
     check_warning_logic()
 
 # ---- free flight: warnings for real (hard pull = over-G), motion smoothness, bank, chase, clouds -------------------
-@at(34.0)
+@at(34)
 def free():
     c = C()
     c.override = dict(NEUTRAL)
@@ -450,50 +450,56 @@ def c_inst():
     check_cockpit("cockpit_gauges_banked"); shot("4c_cockpit_instruments_banked")
 
 @at(46.4)
-def pull():
+def gear_up_approach():
+    """real warning: approach start (gear up, 180 kt), idle and a gentle descent -> below 190 kt sinking (F-16 gear warning) -> GEAR + master caution."""
     c = C()
     c.look_tgt = [-24.0, 0.0]
-    c.override = {"ail": 0.0, "elev": -1.0, "rud": 0.0}         # full pull at 350 kt -> over 9 G
+    SAY({"cmd": "reset", "mode": "approach"})
+    c.override = {"ail": 0.0, "elev": 0.04, "rud": 0.0, "gear": 0.0, "thr": 0.0}
 
-@at(48.8)
-def c_overg():
+@at(49.5)
+def hold_sink():
+    C().override = {"ail": 0.0, "elev": 0.04, "rud": 0.0, "gear": 0.0, "thr": 0.0}
+
+@at(56)
+def c_warn():
     c = C()
-    RESULT["warning_real_overg"] = dict(nz=round(c.s.get("nz", 0), 1), warnings=list(c.warnings), lights=light_state(),
-                                        ok=("overg" in c.warnings) and light_state().get("MC") is True)
-    shot("5_warning_overg_active")
+    RESULT["warning_real_gear"] = dict(agl_m=round(c.s.get("agl_m", 0)), kts=round(c.s.get("kts", 0)), warnings=list(c.warnings), lights=light_state(),
+                                       ok=("gear" in c.warnings) and light_state().get("MC") is True)
+    shot("5_warning_gear_active")
 
-@at(49.0)
+@at(56.3)
 def recover():
     C().override = dict(NEUTRAL)
     SAY({"cmd": "tut", "op": "free"})
 
-@at(51.0)
+@at(59)
 def c_clear():
     RESULT["warning_clears"] = dict(warnings=list(C().warnings), lights=light_state(), ok=not C().warnings and light_state().get("MC") is False)
     look(8.0, -35.0)
 
-@at(52.5)
+@at(60.5)
 def s_clouds():
     shot("6a_clouds_from_cockpit")
     look(0.0, 0.0)
     C().view = "chase"; C().chase_yaw = None
 
-@at(55.5)
+@at(63.5)
 def c_chase():
     check("air_chase"); shot("6b_chase_near_clouds")
     C().view = "cockpit"
     SAY({"cmd": "reset", "mode": "runway"})
 
-@at(59.5)
+@at(67.5)
 def c_rw():
     C().view = "chase"; C().chase_yaw = None
 
-@at(62.5)
+@at(70.5)
 def c_rw2():
     check("runway_chase"); shot("7_chase_runway")
     C().view = "cockpit"
 
-@at(64.5)
+@at(72.5)
 def finish():
     c = C()
     c.override = None
@@ -504,7 +510,7 @@ def finish():
         json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=RESULT), f, indent=1, ensure_ascii=False, default=str)
     log("done ->", OUT)
 
-@at(66.5)
+@at(74.5)
 def stop_pie():
     les.editor_request_end_play()
     log("PIE stopped")

@@ -14,7 +14,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
 #panel table{width:100%;border-collapse:collapse}#panel td{padding:1px 2px}
 #chair{display:flex;gap:8px;align-items:center;margin-top:6px}
 .k{color:#8fa3b8}
-#tut{position:absolute;left:50%;transform:translateX(-50%);bottom:44px;width:min(640px,90vw);background:#08101acc;color:#e8eef4;border:1px solid #3c8;border-radius:10px;padding:10px 14px;font-size:15px;line-height:1.5;display:none}
+#tut{position:absolute;left:10px;top:10px;width:min(560px,46vw);background:#08101add;color:#e8eef4;border:1px solid #3c8;border-radius:10px;padding:8px;font-size:14px;line-height:1.45;display:none}
+#tut img{width:100%;display:block;border-radius:6px}#tgts{margin-top:6px}#tgts div{display:flex;gap:8px;align-items:center;font-size:14px}
+#tgts .bar{flex:1;height:10px;background:#1c2733;border-radius:5px;position:relative}#tgts .band{position:absolute;top:0;bottom:0;background:#1d5f37}
+#tgts .mk{position:absolute;top:-3px;width:6px;height:16px;border-radius:2px}
+#hudline{position:absolute;left:50%;transform:translateX(-50%);bottom:56px;color:#7dff9a;font-size:20px;font-weight:700;text-shadow:0 0 6px #000,0 0 2px #000;white-space:nowrap}
 #tut h2{font-size:16px;margin:0 0 4px;color:#7fffa8}#tut .hint{color:#9cc4ea;font-size:13px}#tut .msg{color:#ffb070;font-size:13px}
 #tutbar{height:8px;background:#223;border-radius:4px;margin-top:6px}#tutbar div{height:100%;background:#3c8;border-radius:4px;width:0}
 #help{position:absolute;left:10px;bottom:10px;color:#dfe7efcc;font-size:12px;background:#0008;padding:6px 8px;border-radius:6px}
@@ -37,11 +41,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
   <table id="map" style="margin-top:4px"></table>
   <div style="margin-top:8px"><span class="k">비행 훈련 강의</span> (<a href="/docs/sim-tutorial.html" target="_blank" style="color:#8cf">설명서</a>)<br>
     <button onclick="tut('menu')">메뉴 (F1)</button><span id="lessons"></span><br>
-    <button onclick="tut('next')">다음 (N)</button><button onclick="tut('restart')">다시 (M)</button><button onclick="tut('stop')">끄기</button>
+    <button onclick="tut('next')">다음 (N)</button><button onclick="tut('retry')">다시 (M)</button><button onclick="tut('repeat')">다시 듣기 (Z)</button>
+    <button onclick="send({cmd:'voice',op:'toggle'})">음성 (Y)</button><button onclick="tut('beginner')">초보 설명 (L)</button><button onclick="tut('free')">자유 비행</button>
   </div>
 </div>
-<div id="tut"><h2 id="tutt"></h2><div id="tutx"></div><div class="hint" id="tuth"></div><div class="msg" id="tutm"></div><div id="tutbar"><div></div></div></div>
-<div id="help">키보드: ← → 좌우(roll) · ↑ ↓ 앞뒤(pitch, ↓ = 당기기) · A D 러더 · W S 스로틀 · B 브레이크 · G 바퀴 · V 시점 · P 일시정지 · 1~6 강의 · N 다음 · M 다시</div>
+<div id="tut"><img id="tutimg" alt=""><div id="tgts"></div></div><div id="hudline"></div>
+<div id="help">키보드: ← → 좌우(롤) · ↑ ↓ 앞뒤(↓ = 당기기) · A D 러더 · W S 스로틀 · B 브레이크 · G 바퀴 · V 시점 · P 멈춤 ·
+ F1 메뉴 (↑↓ Enter Backspace) · 0~9 강의 · N 다음 · M 다시 · Z 다시 듣기 · Y 음성 · L 초보 설명 · I 안내 방식</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ---------------- connection ----------------
@@ -84,11 +90,21 @@ function attitudeBasis(phi,th,psi){const d=Math.PI/180;const[cf,sf,ct,st,cp,sp]=
   return {f:t(fwd),r:t(right),u:t(down).negate()}}
 // ---------------- controls ----------------
 function tut(op,lesson){send({cmd:"tut",op,lesson})}
-document.getElementById("lessons").innerHTML=[1,2,3,4,5,6].map(i=>`<button onclick="tut('start',${i})">${i}</button>`).join("");
-function drawTut(){const T=S&&S.tut,box=document.getElementById("tut");if(!T||!T.on){box.style.display="none";return}box.style.display="block";
-  tutt.textContent=T.title+(T.menu?"":`  ${T.step}/${T.n}`)+(T.score!=null?`  ·  점수 ${T.score}`:"");tutx.innerText=T.text;tuth.textContent=T.hint||"";tutm.textContent=T.msg||"";
-  document.querySelector("#tutbar div").style.width=(T.menu?0:T.prog*100)+"%"}
-const keys={};addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="F1"){e.preventDefault();tut("menu")}if(/^Digit[1-6]$/.test(e.code))tut("start",+e.code.slice(5));if(e.code==="KeyN")tut("next");if(e.code==="KeyM")tut("restart");if(e.code==="KeyG")ctrl.gear=ctrl.gear?0:1;if(e.code==="KeyV")view.click();if(e.code==="KeyP")send({cmd:"pause"})});addEventListener("keyup",e=>keys[e.code]=false);
+document.getElementById("lessons").innerHTML=[0,1,2,3,4,5,6,7,8,9,10].map(i=>`<button onclick="tut('start',${i})">${i}</button>`).join("");
+let tutVer=-1;
+const NAME_KO={ALT:"고도",HDG:"방위",BANK:"경사",VS:"상승률",SPD:"속도",PITCH:"기수 각도",CTR:"중심선",THR:"스로틀",G:"G",AIL:"스틱 좌우",ELEV:"스틱 앞뒤",RUD:"페달",BRK:"브레이크"};
+function drawTut(){const T=S&&S.tut,box=document.getElementById("tut");if(!T||!T.on){box.style.display="none";hudline.textContent="";return}box.style.display="block";
+  if(T.ver!==tutVer&&T.img){tutVer=T.ver;tutimg.src="/out/"+T.img.split("/").pop()+"?v="+T.ver}
+  const col=["#4be07a","#ffbf3c","#ff5a46"];
+  tgts.innerHTML=(T.targets||[]).map(t=>{const tol=Math.max(1e-6,t.tol),k=50/(3*tol),d=Math.max(-3*tol,Math.min(3*tol,t.dev));
+    return `<div><b style="width:76px">${T.beginner?(NAME_KO[t.name]||t.name):t.name}</b><b style="width:70px;color:${col[t.st]}">${t.txt}</b>`+
+      `<span style="width:120px;color:#8fa3b8">${t.ttxt} ±${t.tol} ${t.unit}</span><span class="bar"><span class="band" style="left:${50-tol*k}%;width:${2*tol*k}%"></span>`+
+      `<span class="mk" style="left:calc(${50+d*k}% - 3px);background:${col[t.st]}"></span></span></div>`}).join("");
+  hudline.textContent=(["practice","solo","demo","brief","crash"].includes(T.phase))?(T.coach||T.instr||(T.phase!=="practice"?T.text:"")||""):""}
+const keys={};addEventListener("keydown",e=>{const T=S&&S.tut;if(T&&T.phase==="menu"){const op={ArrowUp:"up",ArrowDown:"down",Enter:"select",Space:"select",Backspace:"back",ArrowRight:"select",ArrowLeft:"back"}[e.code];
+    if(op){e.preventDefault();send({cmd:"menu",op});return}}
+  keys[e.code]=true;if(e.code==="F1"){e.preventDefault();tut("menu")}if(/^Digit[0-9]$/.test(e.code))tut("start",+e.code.slice(5));if(e.code==="KeyN"||e.code==="Enter")tut("next");if(e.code==="KeyM")tut("retry");
+  if(e.code==="KeyZ")tut("repeat");if(e.code==="KeyY")send({cmd:"voice",op:"toggle"});if(e.code==="KeyL")tut("beginner");if(e.code==="KeyI")tut("mode");if(e.code==="KeyG")ctrl.gear=ctrl.gear?0:1;if(e.code==="KeyV")view.click();if(e.code==="KeyP")send({cmd:"pause"})});addEventListener("keyup",e=>keys[e.code]=false);
 const ctrl={ail:0,elev:0,rud:0,thr:0,brk_l:0,brk_r:0,gear:0};
 const AXES=["ail","elev","rud","thr","brk_l","brk_r"],NAMES={ail:"좌우 (roll)",elev:"앞뒤 (pitch)",rud:"러더",thr:"스로틀",brk_l:"왼 브레이크",brk_r:"오른 브레이크"};
 let map=JSON.parse(localStorage.getItem("axisMap")||"{}");             // name -> "pad:axis:invert"

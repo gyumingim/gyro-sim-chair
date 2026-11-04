@@ -749,7 +749,8 @@ class SimClient:
             w.append("overg")
         if air and (s.get("alpha", 0) > 25 or (s.get("kts", 999) < 120 and (s.get("agl_m", 0) or 0) > 15)):
             w.append("stall")
-        if air and r is not None and r < 300 and s.get("kts", 999) < 200 and s.get("gear", 1) < 0.5 and s.get("vs_fpm", 0) < 0:
+        # F-16 landing gear warning: gear up, below 190 kt and 10,000 ft, descending faster than 250 fpm
+        if air and s.get("kts", 999) < 190 and s.get("alt_m", 1e9) / 0.3048 < 10000 and s.get("gear", 1) < 0.5 and s.get("vs_fpm", 0) < -250:
             w.append("gear")
         return w
 
