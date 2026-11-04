@@ -116,6 +116,8 @@ class Painter:
         w = r[2] * h / r[3]
         x0 = x if anchor == "l" else x - w / 2 if anchor == "c" else x - w
         k = self.k
+        if self.c is not None and self.k == 1.0:                 # HUD: keep callouts inside the HUD picture
+            x0 = max(4.0, min(RT_HUD - 4.0 - w, x0))
         self.c.draw_texture(self.lbl, V2(x0 * k, (y - h / 2) * k), V2(w * k, h * k), V2(r[0] / W, r[1] / H), V2(r[2] / W, r[3] / H), col,
                             unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
         return w
@@ -174,8 +176,8 @@ class Painter:
     def _hud(self, s, ex):
         C = RT_HUD / 2
         beg = ex.get("beginner")
-        lc = unreal.LinearColor(0.35, 1.0, 0.5, 0.95)
-        lh = 30
+        lc = unreal.LinearColor(0.5, 1.0, 0.6, 1.0)
+        lh = 34
         # boresight (gun cross) at body X
         b = self.proj((1, 0, 0))
         self.line((b[0] - 22, b[1]), (b[0] - 8, b[1]))
@@ -265,71 +267,75 @@ class Painter:
 
     def _title(self, en, ko_t, ko_d, ex, W):
         if ex.get("beginner"):
-            self.label(ko_t, 28, 34, 44, CYAN)
-            self.label(ko_d, 28, 76, 30, GREY)
-            return 104
-        self.text(en, 28, 34, 1.5, CYAN, center=False)
-        return 70
+            self.label(ko_t, 24, 34, 50, CYAN)
+            self.label(ko_d, 24, 82, 32, GREY)
+            return 108
+        self.text(en, 24, 36, 1.8, CYAN, center=False)
+        return 72
 
-    def _row(self, y, en, ko, val, col, ex, x0=28, x1=990, size=2.6, unit=""):
+    def _tile(self, x, y, w, h, en, ko, val, col, unit, size, ex):
+        """framed value tile: small label top-left (Korean in beginner mode), big value centred, unit bottom-right."""
+        self.box(x, y, w, h, unreal.LinearColor(0.12, 0.16, 0.2, 1.0), 2)
         if ex.get("beginner"):
-            self.label(ko, x0, y, 40, GREY)
+            self.label(ko, x + 14, y + 24, 34, GREY)
         else:
-            self.text(en, x0, y, 1.5, GREY, center=False)
-        self.text(val + ((" " + unit) if unit else ""), x1, y, size, col, center=True)
+            self.text(en, x + 14, y + 24, 1.25, GREY, center=False)
+        self.text(val, x + w / 2, y + h / 2 + 14, size, col)
+        if unit:
+            self.text(unit, x + w - 50, y + h - 22, 1.1, GREY)
 
     def _pfd(self, s, ex):
-        """flight data: big numbers with normal / caution / danger colours."""
+        """flight data: big tiles, colours = normal (green) / caution (amber) / danger (red)."""
         y = self._title("FLIGHT DATA", "pfd_t", "pfd_d", ex, 1024)
         ft, kts, vs = s["alt_m"] / 0.3048, s["kts"], s.get("vs_fpm", 0.0)
         air = not s.get("wow")
         aoa, g = s.get("alpha", 0.0), s.get("nz", 1.0)
-        spd_c = RED if (air and (aoa > 25 or (kts < 120 and air))) else AMBER if (air and kts < 160 and s.get("gear", 0) < 0.5) or kts > 650 else GREEN
-        rows = [("SPD", "r_spd", "%3.0f" % kts, spd_c, "KT"), ("ALT", "r_alt", "{:,.0f}".format(ft), GREEN, "FT")]
+        spd_c = RED if (air and (aoa > 25 or kts < 120)) else AMBER if (air and kts < 160 and s.get("gear", 0) < 0.5) or kts > 650 else GREEN
+        W2 = 488
+        self._tile(16, y, W2, 230, "SPD", "r_spd", "%3.0f" % kts, spd_c, "KT", 4.4, ex)
+        self._tile(520, y, W2, 230, "ALT", "r_alt", "{:,.0f}".format(ft), GREEN, "FT", 4.0, ex)
+        y += 246
+        vs_c = AMBER if abs(vs) > 4000 else GREEN
+        self._tile(16, y, W2, 180, "VS", "r_vs", ("%+.0f" % vs) if abs(vs) >= 50 else "0", vs_c, "FPM", 3.2, ex)
+        self._tile(520, y, W2, 180, "HDG", "r_hdg", "%03.0f" % (s["psi"] % 360), GREEN, "DEG", 3.2, ex)
+        y += 196
         r = ex.get("radar_m")
-        if r is not None and r / 0.3048 < 5000:
-            rr = r / 0.3048
-            rows.append(("AGL R", "r_agl", "{:,.0f}".format(rr), RED if (rr < 500 and vs < -1500) else AMBER if rr < 1000 and air else GREEN, "FT"))
-        rows += [("VS", "r_vs", "%+.0f" % vs, AMBER if abs(vs) > 4000 else GREEN, "FPM"), ("HDG", "r_hdg", "%03.0f" % (s["psi"] % 360), GREEN, "DEG")]
-        y += 40
-        for en, ko, val, col, unit in rows:
-            self._row(y, en, ko, val, col, ex, x1=640, size=2.4, unit=unit)
-            y += 96
-        # small grid: G / max G, AOA, Mach, throttle, gear, brake
+        rr = (r / 0.3048) if r is not None else None
+        if rr is not None and rr < 5000:
+            self._tile(16, y, W2, 150, "AGL  R", "r_agl", "{:,.0f}".format(rr), RED if (rr < 500 and vs < -1500 and air) else AMBER if (rr < 1000 and air) else GREEN,
+                       "FT", 2.8, ex)
+        else:
+            self._tile(16, y, W2, 150, "MACH", "r_mach", "%.2f" % s.get("mach", 0.0), GREEN, "", 2.8, ex)
         gm = ex.get("gmax", 1.0)
-        small = [("G", "r_g", "%.1f" % g, RED if g > 9 or g < -3 else AMBER if g > 7 else GREEN), ("MAX G", "r_gmax", "%.1f" % gm, RED if gm > 9 else AMBER if gm > 7 else GREEN),
-                 ("AOA", "r_aoa", ("%.1f" % aoa) if kts > 40 else "--", RED if aoa > 25 and air else AMBER if aoa > 15 and air else GREEN),
-                 ("MACH", "r_mach", "%.2f" % s.get("mach", 0.0), GREEN)]
-        x = 28
-        for i, (en, ko, val, col) in enumerate(small):
-            xx, yy = 28 + (i % 2) * 500, y + (i // 2) * 84
-            if ex.get("beginner"):
-                self.label(ko, xx, yy, 34, GREY)
-            else:
-                self.text(en, xx, yy, 1.2, GREY, center=False)
-            self.text(val, xx + 330, yy, 1.9, col)
-        y += 180
+        gcol = RED if g > 9 or g < -3 else AMBER if g > 7 else GREEN
+        self._tile(520, y, W2, 150, "G  (MAX %.1f)" % gm, "r_g", "%.1f" % g, gcol, "", 2.8, ex)
+        if ex.get("beginner"):
+            self.text("MAX %.1f" % gm, 520 + W2 - 90, y + 24, 1.2, RED if gm > 9 else AMBER if gm > 7 else GREY)
+        y += 166
         thr = s.get("thr", 0.0)
         if ex.get("beginner"):
-            self.label("r_thr", 28, y, 34, GREY)
+            self.label("r_thr", 24, y + 20, 34, GREY)
         else:
-            self.text("THR", 28, y, 1.2, GREY, center=False)
-        self.box(220, y - 18, 520, 36, GREY, 2)
-        self.fill(222, y - 16, 516 * max(0.0, min(1.0, thr)), 32, AMBER if thr > 0.95 else GREEN)
-        self.text("%3.0f %%%s" % (thr * 100, " AB" if thr > 0.95 else ""), 870, y, 1.5, AMBER if thr > 0.95 else GREEN)
-        y += 70
+            self.text("THR", 24, y + 20, 1.3, GREY, center=False)
+        self.box(200, y + 2, 560, 38, GREY, 2)
+        self.fill(202, y + 4, 556 * max(0.0, min(1.0, thr)), 34, AMBER if thr > 0.95 else GREEN)
+        self.text("%3.0f%%%s" % (thr * 100, " AB" if thr > 0.95 else ""), 890, y + 21, 2.0, AMBER if thr > 0.95 else GREEN)
+        y += 64
         gear = s.get("gear", 0.0)
         gtxt, gcol = ("DOWN", GREEN) if gear > 0.95 else ("UP", WHITE) if gear < 0.05 else ("TRANSIT", AMBER)
+        aoa_c = RED if aoa > 25 and air else AMBER if aoa > 15 and air else GREEN
         if ex.get("beginner"):
-            self.label("r_gear", 28, y, 34, GREY)
-            self.label("r_brk", 528, y, 34, GREY)
+            self.label("r_gear", 24, y + 20, 34, GREY)
+            self.label("r_aoa", 360, y + 20, 34, GREY)
+            self.label("r_brk", 700, y + 20, 34, GREY)
         else:
-            self.text("GEAR", 28, y, 1.2, GREY, center=False)
-            self.text("BRAKE", 528, y, 1.2, GREY, center=False)
-        self.text(gtxt, 330, y, 1.8, gcol)
+            for xx, t in ((24, "GEAR"), (360, "AOA"), (700, "BRAKE")):
+                self.text(t, xx, y + 20, 1.3, GREY, center=False)
+        self.text(gtxt, 250, y + 22, 2.0, gcol)
+        self.text(("%.1f" % aoa) if kts > 40 else "--", 590, y + 22, 2.0, aoa_c)
         bk = s.get("brk", 0.0) > 0.3
-        self.text("ON" if bk else "OFF", 860, y, 1.8, AMBER if bk else GREY)
-        self.last["MFD_L"] = dict(kts=round(kts), ft=round(ft), vs=round(vs), thr=round(thr * 100), gear=gtxt)
+        self.text("ON" if bk else "OFF", 930, y + 22, 2.0, AMBER if bk else GREY)
+        self.last["MFD_L"] = dict(kts=round(kts), ft=round(ft), vs=round(vs), thr=round(thr * 100), gear=gtxt, g=round(g, 1), gmax=round(gm, 1))
 
     def _train(self, s, ex):
         """training display: the server's lesson picture (Korean) + live target bars and the deviation trend."""
@@ -354,8 +360,8 @@ class Painter:
                 self.label("t_" + t["name"], 30, y, 36, WHITE)
             else:
                 self.text(t["name"], 30, y, 1.3, WHITE, center=False)
-            self.text("%s" % t.get("txt", ""), 330, y, 1.9, col)
-            self.text("TGT %s +-%g %s" % (t.get("ttxt", ""), t.get("tol", 0), t.get("unit", "")), 560, y, 1.05, GREY)
+            self.text("%s" % t.get("txt", ""), 330, y, 2.5, col)
+            self.text("%s +-%g %s" % (t.get("ttxt", ""), t.get("tol", 0), t.get("unit", "")), 565, y, 1.25, GREY)
             # deviation bar: centre = target, green band = tolerance, marker = now
             bx, bw = 700, 300
             tol = max(1e-6, float(t.get("tol", 1)))
@@ -389,32 +395,8 @@ class Painter:
         y = self._title("CHAIR / STATUS", "ses_t", "ses_d", ex, 1024)
         t = s.get("t", 0.0)
         beg = ex.get("beginner")
-        if beg:
-            self.label("r_time", 28, y + 30, 36, GREY)
-        else:
-            self.text("FLT TIME", 28, y + 30, 1.3, GREY, center=False)
-        self.text("%d:%02d" % (int(t) // 60, int(t) % 60), 700, y + 30, 2.0, WHITE)
-        y += 100
-        lim = s.get("chair_lim") or (18.0, 14.0)
-        rate = s.get("chair_rate") or (1.3, 0.95)
-        tgt = s.get("chair_tgt") or (0.0, 0.0)
-        for i, (en, ko, val, tv, L, rt) in enumerate((("CHAIR ROLL", "r_croll", s.get("chair_roll", 0.0), tgt[0], lim[0], rate[0]),
-                                                      ("CHAIR PITCH", "r_cpitch", s.get("chair_pitch", 0.0), tgt[1], lim[1], rate[1]))):
-            if beg:
-                self.label(ko, 28, y, 36, GREY)
-            else:
-                self.text(en, 28, y, 1.2, GREY, center=False)
-            near = abs(val) > 0.9 * L
-            self.text("%+.1f" % val, 900, y, 1.8, AMBER if near else GREEN)
-            bx, bw = 300, 480
-            self.box(bx, y - 14, bw, 28, GREY, 2)
-            k = bw / 2 / L
-            self.fill(bx + bw / 2 - 2, y - 14, 4, 28, GREY)
-            self.fill(bx + bw / 2 + max(-L, min(L, val)) * k - 6, y - 18, 12, 36, AMBER if near else GREEN)
-            self.fill(bx + bw / 2 + max(-L, min(L, tv)) * k - 2, y - 22, 4, 44, CYAN)
-            self.text("+-%g deg  %g deg/s" % (L, rt), bx + bw / 2, y + 34, 0.9, GREY)
-            y += 100
-        # status chips
+        self._tile(16, y, 480, 130, "FLT TIME", "r_time", "%d:%02d" % (int(t) // 60, int(t) % 60), WHITE, "", 3.0, ex)
+        # status chips (right of the time)
         chips = []
         if s.get("paused") and not (s.get("tut") or {}).get("menu"):
             chips.append(("PAUSED", "s_paused", AMBER))
@@ -426,29 +408,51 @@ class Painter:
             chips.append(("ASSIST", "s_assist", GREEN))
         if s.get("slow"):
             chips.append(("SLOW 0.5x", "s_slow", GREEN))
-        x = 28
-        for en, ko, col in chips:
+        cy = y + 22
+        for en, ko, col in chips[:3]:
             if beg:
-                x += self.label(ko, x, y, 34, col) + 30
+                self.label(ko, 520, cy, 34, col)
             else:
-                self.text(en, x, y, 1.3, col, center=False)
-                x += 220
-        y += 70
+                self.text(en, 520, cy, 1.4, col, center=False)
+            cy += 42
+        y += 146
+        lim = s.get("chair_lim") or (18.0, 14.0)
+        rate = s.get("chair_rate") or (1.3, 0.95)
+        tgt = s.get("chair_tgt") or (0.0, 0.0)
+        for en, ko, val, tv, L, rt in (("CHAIR ROLL", "r_croll", s.get("chair_roll", 0.0), tgt[0], lim[0], rate[0]),
+                                       ("CHAIR PITCH", "r_cpitch", s.get("chair_pitch", 0.0), tgt[1], lim[1], rate[1])):
+            self.box(16, y, 992, 150, unreal.LinearColor(0.12, 0.16, 0.2, 1.0), 2)
+            if beg:
+                self.label(ko, 30, y + 26, 36, GREY)
+            else:
+                self.text(en, 30, y + 26, 1.3, GREY, center=False)
+            near = abs(val) > 0.9 * L
+            self.text("%+.1f" % val, 880, y + 34, 2.6, AMBER if near else GREEN)
+            bx, bw, by = 40, 940, y + 92
+            self.box(bx, by - 16, bw, 32, GREY, 2)
+            k = bw / 2 / L
+            self.fill(bx + bw / 2 - 2, by - 16, 4, 32, GREY)
+            self.fill(bx + bw / 2 + max(-L, min(L, val)) * k - 8, by - 22, 16, 44, AMBER if near else GREEN)
+            self.fill(bx + bw / 2 + max(-L, min(L, tv)) * k - 2, by - 26, 4, 52, CYAN)
+            self.text("-%g" % L, bx + 26, by + 34, 1.0, GREY)
+            self.text("+%g" % L, bx + bw - 26, by + 34, 1.0, GREY)
+            self.text("max %g deg/s" % rt, bx + bw / 2, by + 34, 1.0, GREY)
+            y += 166
         # warnings
         act = ex.get("warnings") or []
         if beg:
-            self.label("r_warn", 28, y, 38, WHITE)
+            self.label("r_warn", 24, y + 20, 40, WHITE)
         else:
-            self.text("WARNINGS", 28, y, 1.3, WHITE, center=False)
-        y += 60
+            self.text("WARNINGS", 24, y + 20, 1.5, WHITE, center=False)
+        y += 50
         for key, (en, ko, col) in WARN_TXT.items():
             on = key in act
             c = col if on else unreal.LinearColor(0.16, 0.18, 0.2, 1.0)
             if on:
-                self.fill(20, y - 26, 984, 52, unreal.LinearColor(col.r * 0.25, col.g * 0.25, col.b * 0.25, 1.0))
+                self.fill(16, y - 4, 992, 54, unreal.LinearColor(col.r * 0.3, col.g * 0.3, col.b * 0.3, 1.0))
             if beg:
-                self.label(ko, 40, y, 34, c)
+                self.label(ko, 30, y + 23, 36, c)
             else:
-                self.text(en, 40, y, 1.4, c, center=False)
-            y += 60
+                self.text(en, 30, y + 23, 1.7, c, center=False)
+            y += 58
         self.last["MFD_R"] = dict(warnings=list(act), chair=[round(s.get("chair_roll", 0.0), 1), round(s.get("chair_pitch", 0.0), 1)])

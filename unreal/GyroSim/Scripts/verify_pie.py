@@ -1,7 +1,9 @@
 """Automated check, run when the editor starts with:  UnrealEditor.exe GyroSim.uproject -GyroSimVerify  (see init_unreal.py)
 or inside the open editor:  exec(open(r"<project>/Scripts/verify_pie.py").read())
-Starts PIE (monitor mode), checks: aircraft follows sim/server.py, roll/pitch sign convention, cockpit controls follow
-the control values, tutorial panel shows, key guide panel shows and toggles (K), interpolation smoothness (per-frame motion with / without interpolation).
+Starts PIE (monitor mode), checks: start menu, lesson flow (briefing -> practice -> debrief), cockpit controls follow
+the control values, standby needles / ADI / gear handle / gear lights, the displays show the state, warnings (synthetic
+states + a real over-G pull, master caution light), beginner labels on / off, keyboard vs rig instruction wording, key
+guide panel toggle (K), interpolation smoothness, chase view. Screenshots of all of it (incl. clouds).
 Screenshots + verify_result.json go to Saved/verify/. Needs sim/server.py running. Leaves the editor open.
 """
 import json, math, os, time
@@ -141,13 +143,97 @@ def at(t):
     return deco
 
 NEUTRAL = {"ail": 0.0, "elev": 0.0, "rud": 0.0, "brk_l": 0.0, "brk_r": 0.0}
+TUT = lambda: (C().s or {}).get("tut") or {}
+SAY = lambda m: C()._send(m)
+FOV = lambda v: unreal.SystemLibrary.execute_console_command(ues.get_game_world(), "fov %g" % v)
 
+
+def look(p, y, fov=0):
+    c = C()
+    c.look_down = False
+    c.look_tgt = [p, y]
+    FOV(fov)
+
+
+def check_displays(name):
+    """the displays show the state: flight data numbers = packet, training display phase / targets, warnings list."""
+    c = C()
+    s = c.s
+    last = c.painter.last if c.painter else {}
+    L = last.get("MFD_L") or {}
+    out = dict(last=last, kts=round(s["kts"]), ft=round(s["alt_m"] / 0.3048))
+    out["pfd_ok"] = bool(L) and abs(L.get("kts", -999) - s["kts"]) < 8 and abs(L.get("ft", -999) - s["alt_m"] / 0.3048) < 60
+    Cd = last.get("MFD_C") or {}
+    out["train_ok"] = Cd.get("phase") == TUT().get("phase")
+    out["disp_ms"] = round(c.disp_ms, 2)
+    out["ok"] = out["pfd_ok"] and out["train_ok"]
+    RESULT[name] = out
+    log(name, json.dumps(out, default=str)[:600])
+
+
+def check_warning_logic():
+    """synthetic states through SimClient._warnings (the real flights below show the lights too)."""
+    c = C()
+    base = dict(c.s, paused=False, wow=False, agl_m=1800.0, vs_fpm=0.0, nz=1.0, alpha=3.0, kts=350.0, gear=0.0, crashed=False)
+    cases = dict(level=({}, []), stall=(dict(alpha=28.0), ["stall"]), slow=(dict(kts=105.0), ["stall"]), overg=(dict(nz=9.6), ["overg"]),
+                 pullup=(dict(agl_m=120.0, vs_fpm=-4000.0), ["pullup"]), gear=(dict(agl_m=200.0, kts=180.0, vs_fpm=-600.0), ["gear"]))
+    out = {}
+    saved, rr, cr = c.s, c.radar_m, c.crashed
+    try:
+        for n, (chg, exp) in cases.items():
+            c.s = dict(base, **chg)
+            c.radar_m = c.s["agl_m"]
+            c.crashed = False
+            w = c._warnings()
+            out[n] = dict(got=w, expected=exp, ok=all(e in w for e in exp) and (bool(w) == bool(exp)))
+    finally:
+        c.s, c.radar_m, c.crashed = saved, rr, cr
+    out["ok"] = all(v["ok"] for v in out.values() if isinstance(v, dict))
+    RESULT["warning_logic"] = out
+    log("warning_logic", json.dumps(out))
+
+
+def light_state():
+    c = C()
+    return {k: (not bool(a.get_editor_property("hidden"))) for k, a in c.lights.items()}
+
+
+# ---- 0: menu at Play start ---------------------------------------------------------------------------------------
 @at(0)
-def lesson1():
+def menu_start():
     c = C()
     c.view, c.look_down = "cockpit", False
     c.override = dict(NEUTRAL)
-    c._send({"cmd": "tut", "op": "start", "lesson": 1})
+    SAY({"cmd": "tut", "op": "stop"})
+    SAY({"cmd": "tut", "op": "beginner", "on": True})
+
+@at(1.5)
+def c_menu():
+    t = TUT()
+    RESULT["menu_at_start"] = dict(phase=t.get("phase"), items=t.get("items"), paused=C().s.get("paused"), ok=t.get("phase") == "menu" and C().s.get("paused"))
+    look(-24.0, 0.0, 50)
+
+@at(3.0)
+def s_menu():
+    shot("0_menu_training_display")
+
+# ---- lesson 0 on the runway: briefing -> practice (controls) ---------------------------------------------------
+@at(3.2)
+def l0():
+    look(0.0, 0.0)
+    SAY({"cmd": "tut", "op": "start", "lesson": 0})
+
+@at(4.0)
+def l0_brief():
+    t = TUT()
+    RESULT["lesson_briefing"] = dict(phase=t.get("phase"), title=t.get("title"), text=t.get("text"), ok=t.get("phase") == "brief")
+    for _ in range(int(t.get("n") or 5)):
+        SAY({"cmd": "tut", "op": "next"})
+
+@at(5.5)
+def l0_practice():
+    t = TUT()
+    RESULT["lesson_practice_starts"] = dict(phase=t.get("phase"), instr=t.get("instr"), ok=t.get("phase") == "practice" and bool(t.get("instr")))
 
 @at(6)
 def deflect():
@@ -161,6 +247,7 @@ def look_down():
 @at(9)
 def c_ctrl():
     check_controls("cockpit_controls", dict(ail=0.7, elev=-0.6, rud=0.8, brk=1.0)); shot("1_cockpit_controls_lookdown")
+    RESULT["light_brake"] = dict(lights=light_state(), ok=light_state().get("BRAKE") is True)
 
 @at(9.3)
 def look_left():
@@ -187,7 +274,7 @@ def look_up():
 
 @at(14.3)
 def c_tut():
-    check("runway_cockpit_tutorial"); check_cockpit("cockpit_gauges_runway"); shot("2_cockpit_tutorial")
+    check("runway_cockpit_tutorial"); check_cockpit("cockpit_gauges_runway"); check_displays("displays_runway"); shot("2_cockpit_tutorial")
 
 def key_state():
     c = C()
@@ -208,18 +295,14 @@ def keys_before():
 
 @at(14.5)
 def panel_off():
-    C().panel_on = False                  # H key: tutorial panel off
-    C().keys_on = False                   # K key: key guide panel off
+    C().keys_on = False
 
 @at(15.1)
 def panel_check():
-    c = C()
-    RESULT["panel_toggle"] = dict(panel_on=c.panel_on, panel_shown=c.panel_shown, ok=c.panel_shown is False)
     k = key_state()
     k["ok"] = bool(k["shown"] is False and k["hidden"] is True)
     RESULT["key_panel_toggle_off"] = k
-    c.panel_on = True
-    c.keys_on = True
+    C().keys_on = True
 
 @at(15.25)
 def keys_back():
@@ -227,91 +310,201 @@ def keys_back():
     k["ok"] = bool(k["shown"] is True and k["hidden"] is False)
     RESULT["key_panel_toggle_on"] = k
 
-@at(15.3)
-def air():
+# ---- lesson 0 to the end with N -> debrief ------------------------------------------------------------------------
+@at(15.4)
+def l0_skip():
+    SAY({"cmd": "tut", "op": "end"})
+
+@at(16.6)
+def c_debrief():
+    t = TUT()
+    RESULT["debrief"] = dict(phase=t.get("phase"), score=t.get("score"), ok=t.get("phase") == "debrief")
+    look(-24.0, 0.0, 50)
+
+@at(18.0)
+def s_debrief():
+    shot("2c_debrief_training_display")
+
+# ---- lesson 2 (air): practice instruction in keyboard and rig wording, training display close-ups -----------------
+@at(18.2)
+def l2():
+    look(0.0, 0.0)
+    SAY({"cmd": "tut", "op": "start", "lesson": 2})
+
+@at(19.0)
+def l2_brief():
+    for _ in range(int(TUT().get("n") or 4)):
+        SAY({"cmd": "tut", "op": "next"})
+    SAY({"cmd": "tut", "op": "next"})              # skip the demo
+
+@at(20.0)
+def l2_tour_skip():
+    SAY({"cmd": "tut", "op": "beginner", "on": False})   # expert: tour skipped -> the hold step with targets
+    C().override = dict(NEUTRAL, elev=0.06)
+
+@at(21.5)
+def l2_kbd():
     c = C()
     c.override = dict(NEUTRAL)
-    c._send({"cmd": "tut", "op": "stop"})
-    c._send({"cmd": "reset", "mode": "air"})
+    while TUT().get("mode") != "kbd":
+        break
+    SAY({"cmd": "tut", "op": "beginner", "on": True})
 
-@at(18.5)
+@at(23.0)
+def s_kbd():
+    t = TUT()
+    RESULT["instruction_kbd"] = dict(mode=t.get("mode"), instr=t.get("instr"), phase=t.get("phase"), targets=len(t.get("targets") or []),
+                                     ok=t.get("phase") == "practice" and "키" in (t.get("instr") or ""))
+    check_displays("displays_practice")
+    shot("3a_hud_instruction_keyboard")
+    look(-24.0, 0.0, 50)
+
+@at(24.5)
+def s_kbd_disp():
+    shot("3b_training_display_keyboard")
+    SAY({"cmd": "tut", "op": "mode"})          # auto(kbd) -> kbd forced
+    SAY({"cmd": "tut", "op": "mode"})          # -> rig
+
+@at(26.0)
+def s_rig_disp():
+    t = TUT()
+    RESULT["instruction_rig"] = dict(mode=t.get("mode"), instr=t.get("instr"), ok=t.get("mode") == "rig" and "손" in (t.get("instr") or ""))
+    shot("3c_training_display_rig")
+    look(-32.0, -18.0, 32)
+
+@at(27.5)
+def s_pfd():
+    check_displays("displays_pfd")
+    shot("3d_flight_display_closeup")
+    look(-32.0, 18.0, 32)
+
+@at(29.0)
+def s_session():
+    shot("3e_chair_display_closeup")
+    look(-36.0, 0.0, 34)
+
+@at(30.5)
+def s_gauges():
+    check_cockpit("cockpit_gauges_air")
+    shot("3f_standby_gauges_beginner_labels")
+    SAY({"cmd": "tut", "op": "beginner", "on": False})
+
+@at(31.5)
+def s_expert():
+    RESULT["beginner_labels_off"] = dict(hidden=[bool(a.get_editor_property("hidden")) for a in C().beg_labels][:3], ok=all(bool(a.get_editor_property("hidden")) for a in C().beg_labels) and bool(C().beg_labels))
+    shot("3g_standby_gauges_expert")
+    look(0.0, 0.0)
+    SAY({"cmd": "tut", "op": "mode"})          # rig -> auto
+
+@at(32.5)
+def s_hud_expert():
+    shot("3h_hud_expert")
+    SAY({"cmd": "tut", "op": "beginner", "on": True})
+
+@at(33.5)
+def s_hud_beginner():
+    shot("3i_hud_beginner")
+    check_warning_logic()
+
+# ---- free flight: warnings for real (hard pull = over-G), motion smoothness, bank, chase, clouds -------------------
+@at(34.0)
+def free():
+    c = C()
+    c.override = dict(NEUTRAL)
+    SAY({"cmd": "tut", "op": "free"})
+
+@at(37)
 def c_air():
-    check("air_cockpit_level"); check_cockpit("cockpit_gauges_air"); shot("2b_cockpit_air_hud")
+    check("air_cockpit_level"); shot("4a_cockpit_air_hud")
 
-@at(19.1)
+@at(37.6)
 def m0():
-    motion_start()                       # after the screenshot hitch
+    motion_start()
 
-@at(20.5)
+@at(39)
 def m1():
     motion_stop("motion_interp_on"); C().no_interp = True; motion_start()
 
-@at(22.5)
+@at(41)
 def m2():
     motion_stop("motion_interp_off"); C().no_interp = False
 
-@at(23)
+@at(41.5)
 def bank():
     C().override = {"ail": 0.35, "elev": -0.15, "rud": 0.0}
 
-@at(24.5)
+@at(43)
 def unbank():
     C().override = {"ail": 0.0, "elev": -0.1, "rud": 0.0}
 
-@at(26.5)
+@at(44.5)
 def c_bank():
-    check("air_cockpit_banked"); shot("3_cockpit_banked")
+    check("air_cockpit_banked"); shot("4b_cockpit_banked")
 
-@at(26.7)
+@at(44.7)
 def look_inst():
     C().look_tgt = [-36.0, 0.0]
 
-@at(28.2)
+@at(46.2)
 def c_inst():
-    check_cockpit("cockpit_gauges_banked"); shot("3b_cockpit_instruments_banked")
+    check_cockpit("cockpit_gauges_banked"); shot("4c_cockpit_instruments_banked")
 
-@at(28.4)
-def look_fwd():
-    C().look_tgt = [0.0, 0.0]
+@at(46.4)
+def pull():
+    c = C()
+    c.look_tgt = [-24.0, 0.0]
+    c.override = {"ail": 0.0, "elev": -1.0, "rud": 0.0}         # full pull at 350 kt -> over 9 G
 
-@at(29)
-def chase():
+@at(48.8)
+def c_overg():
+    c = C()
+    RESULT["warning_real_overg"] = dict(nz=round(c.s.get("nz", 0), 1), warnings=list(c.warnings), lights=light_state(),
+                                        ok=("overg" in c.warnings) and light_state().get("MC") is True)
+    shot("5_warning_overg_active")
+
+@at(49.0)
+def recover():
+    C().override = dict(NEUTRAL)
+    SAY({"cmd": "tut", "op": "free"})
+
+@at(51.0)
+def c_clear():
+    RESULT["warning_clears"] = dict(warnings=list(C().warnings), lights=light_state(), ok=not C().warnings and light_state().get("MC") is False)
+    look(8.0, -35.0)
+
+@at(52.5)
+def s_clouds():
+    shot("6a_clouds_from_cockpit")
+    look(0.0, 0.0)
     C().view = "chase"; C().chase_yaw = None
 
-@at(32)
+@at(55.5)
 def c_chase():
-    check("air_chase_banked"); shot("4_chase_banked")
+    check("air_chase"); shot("6b_chase_near_clouds")
+    C().view = "cockpit"
+    SAY({"cmd": "reset", "mode": "runway"})
 
-@at(33)
-def lesson5():
-    c = C()
-    c.override = dict(NEUTRAL)
-    c._send({"cmd": "tut", "op": "start", "lesson": 5})
-
-@at(39)
+@at(59.5)
 def c_rw():
-    check("runway_chase"); shot("5_chase_runway")
+    C().view = "chase"; C().chase_yaw = None
 
-@at(40)
-def cockpit_rw():
+@at(62.5)
+def c_rw2():
+    check("runway_chase"); shot("7_chase_runway")
     C().view = "cockpit"
 
-@at(43)
-def c_rw2():
-    check("runway_cockpit_lesson5"); shot("6_cockpit_runway_lesson5")
-
-@at(44)
+@at(64.5)
 def finish():
     c = C()
     c.override = None
     c.view = "cockpit"
-    c._send({"cmd": "tut", "op": "stop"})
-    c._send({"cmd": "reset", "mode": "air"})
+    FOV(0)
+    SAY({"cmd": "tut", "op": "stop"})
     with open(os.path.join(OUT, "verify_result.json"), "w", encoding="utf-8") as f:
-        json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=RESULT), f, indent=1, ensure_ascii=False)
+        json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=RESULT), f, indent=1, ensure_ascii=False, default=str)
     log("done ->", OUT)
 
-@at(46)
+@at(66.5)
 def stop_pie():
     les.editor_request_end_play()
     log("PIE stopped")

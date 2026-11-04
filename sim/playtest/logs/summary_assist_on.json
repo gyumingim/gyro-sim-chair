@@ -1,5 +1,5 @@
 {
- "made": "2026-11-04 22:27:17",
+ "made": "2026-11-04 23:02:10",
  "assist": "on",
  "bots": {
   "good": {
@@ -76,7 +76,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 1.31,
-   "wall_s": 0.5,
+   "wall_s": 0.6,
    "fails": []
   },
   {
@@ -97,7 +97,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.49,
-   "wall_s": 1.0,
+   "wall_s": 1.2,
    "fails": []
   },
   {
@@ -118,7 +118,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.78,
-   "wall_s": 0.8,
+   "wall_s": 1.0,
    "fails": []
   },
   {
@@ -139,7 +139,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 4.58,
-   "wall_s": 1.7,
+   "wall_s": 1.9,
    "fails": []
   },
   {
@@ -160,7 +160,7 @@
    "wrong_end": null,
    "praise": 12,
    "sim_min": 5.04,
-   "wall_s": 2.6,
+   "wall_s": 2.7,
    "fails": []
   },
   {
@@ -181,7 +181,7 @@
    "wrong_end": null,
    "praise": 4,
    "sim_min": 5.77,
-   "wall_s": 2.3,
+   "wall_s": 2.4,
    "fails": []
   },
   {
@@ -223,7 +223,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 5.41,
-   "wall_s": 2.4,
+   "wall_s": 2.3,
    "fails": []
   },
   {
@@ -244,7 +244,7 @@
    "wrong_end": null,
    "praise": 8,
    "sim_min": 6.74,
-   "wall_s": 2.6,
+   "wall_s": 2.5,
    "fails": [],
    "touchdown": {
     "vs": -149,
@@ -314,7 +314,7 @@
    "wrong_end": null,
    "praise": 3,
    "sim_min": 1.84,
-   "wall_s": 0.8,
+   "wall_s": 0.7,
    "fails": []
   },
   {
@@ -335,7 +335,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.49,
-   "wall_s": 1.0,
+   "wall_s": 1.3,
    "fails": []
   },
   {
@@ -376,8 +376,8 @@
    "coach": 4,
    "wrong_end": null,
    "praise": 4,
-   "sim_min": 5.14,
-   "wall_s": 2.3,
+   "sim_min": 5.81,
+   "wall_s": 3.0,
    "fails": []
   },
   {
@@ -412,14 +412,16 @@
    "scores": [
     100
    ],
-   "crashes": 0,
-   "crash_why": [],
+   "crashes": 1,
+   "crash_why": [
+    "기체가 견디는 G 를 넘었어요"
+   ],
    "skips": 0,
    "coach": 5,
    "wrong_end": null,
    "praise": 4,
-   "sim_min": 6.22,
-   "wall_s": 2.8,
+   "sim_min": 7.36,
+   "wall_s": 3.6,
    "fails": []
   },
   {
@@ -440,7 +442,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 2.03,
-   "wall_s": 0.9,
+   "wall_s": 0.8,
    "fails": []
   },
   {
@@ -461,7 +463,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 5.56,
-   "wall_s": 2.2,
+   "wall_s": 2.4,
    "fails": []
   },
   {
@@ -482,7 +484,7 @@
    "wrong_end": null,
    "praise": 5,
    "sim_min": 6.81,
-   "wall_s": 2.5,
+   "wall_s": 2.6,
    "fails": [],
    "touchdown": {
     "vs": -78,
@@ -560,7 +562,7 @@
    },
    "praise": 3,
    "sim_min": 1.67,
-   "wall_s": 0.6,
+   "wall_s": 1.0,
    "fails": []
   },
   {
@@ -585,7 +587,7 @@
    },
    "praise": 2,
    "sim_min": 1.58,
-   "wall_s": 1.1,
+   "wall_s": 1.0,
    "fails": []
   },
   {
@@ -624,20 +626,20 @@
    "scores": [
     100
    ],
-   "crashes": 1,
+   "crashes": 2,
    "crash_why": [
     "기체가 견디는 G 를 넘었어요"
    ],
    "skips": 0,
    "coach": 2,
    "wrong_end": {
-    "self": 6,
+    "self": 10,
     "coach": 0,
     "time": 2
    },
-   "praise": 3,
-   "sim_min": 4.42,
-   "wall_s": 1.6,
+   "praise": 4,
+   "sim_min": 6.08,
+   "wall_s": 2.3,
    "fails": []
   },
   {
@@ -662,7 +664,7 @@
    },
    "praise": 12,
    "sim_min": 5.37,
-   "wall_s": 2.6,
+   "wall_s": 2.9,
    "fails": []
   },
   {
@@ -676,18 +678,20 @@
    "scores": [
     100
    ],
-   "crashes": 0,
-   "crash_why": [],
+   "crashes": 1,
+   "crash_why": [
+    "기체가 견디는 G 를 넘었어요"
+   ],
    "skips": 0,
    "coach": 5,
    "wrong_end": {
-    "self": 8,
+    "self": 7,
     "coach": 0,
-    "time": 0
+    "time": 1
    },
    "praise": 4,
-   "sim_min": 5.98,
-   "wall_s": 2.4,
+   "sim_min": 6.06,
+   "wall_s": 2.5,
    "fails": []
   },
   {
@@ -739,7 +743,7 @@
    },
    "praise": 2,
    "sim_min": 5.68,
-   "wall_s": 2.8,
+   "wall_s": 3.1,
    "fails": []
   },
   {
@@ -764,7 +768,7 @@
    },
    "praise": 6,
    "sim_min": 6.8,
-   "wall_s": 2.5,
+   "wall_s": 2.6,
    "fails": [],
    "touchdown": {
     "vs": -132,

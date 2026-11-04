@@ -144,8 +144,11 @@ def render_panel(d, ver):
     line = d.get("coach") or d.get("instr") or (d.get("text") if ph in ("brief", "demo", "crash") else "") or ""
     li = Image.new("RGB", (1024, 72), (0, 0, 0))
     gl = ImageDraw.Draw(li)
-    t = wrap(gl, line, F(32, True), 1000)[0] if line else ""
-    gl.text((512, 36), t, font=F(32, True), fill=(110, 255, 140), anchor="mm")
+    sz = 34
+    while line and sz > 20 and gl.textlength(line, font=F(sz, True)) > 1000:     # shrink to fit one line
+        sz -= 2
+    t = wrap(gl, line, F(sz, True), 1000)[0] if line else ""
+    gl.text((512, 36), t, font=F(sz, True), fill=(110, 255, 140), anchor="mm")
     lpath = os.path.join(OUT, "tut_line_%d.png" % (ver % 4))
     li.save(lpath + ".tmp.png")
     os.replace(lpath + ".tmp.png", lpath)

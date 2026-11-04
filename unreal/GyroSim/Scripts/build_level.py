@@ -661,10 +661,17 @@ except Exception:
 # clouds: our instance of the engine's volumetric cloud material, scattered cumulus around the training altitude
 # (bases CLOUD_BASE_KM ~ 3300 ft, tops up to ~ CLOUD_BASE_KM + CLOUD_TOP_KM): fly under, through and above them.
 # Parameters tuned from screenshots (README "구름"); sample counts per quality preset in sim_client.PRESETS.
-CLOUD_BASE_KM, CLOUD_TOP_KM = 1.0, 2.2
-CLOUD_PARAMS = dict(Cloud_GlobalCoverage=-0.12, Cloud_GlobalDensity=0.022, Layout_CloudGlobalScale=150.0)
+CLOUD_BASE_KM, CLOUD_TOP_KM = 1.0, 2.6
+# picked from 4 screenshot variants (11-04, variant C): defined cumulus, scattered, some below / some above 6000 ft
+CLOUD_PARAMS = dict(Cloud_GlobalCoverage=-0.22, Cloud_GlobalDensity=0.045, Layout_CloudGlobalScale=110.0)
+CLOUD_VECTORS = dict(Noise_Strength=(1.3, 0.15, 0.05, 2.5), Layout_CloudType=(1.0, 1.0, 1.0, 3.0))
 cloud_parent = unreal.load_asset("/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst")
 cloud_mat = instance("MI_Clouds", cloud_parent, CLOUD_PARAMS, None, None) if cloud_parent else None
+if cloud_mat:
+    for k, v in CLOUD_VECTORS.items():
+        MEL.set_material_instance_vector_parameter_value(cloud_mat, k, unreal.LinearColor(*v))
+    MEL.update_material_instance(cloud_mat)
+    EAL.save_loaded_asset(cloud_mat)
 if cloud_mat:
     vc = eas.spawn_actor_from_class(unreal.VolumetricCloud, V(0, 0, 0))
     vc.set_actor_label("VolumetricCloud")

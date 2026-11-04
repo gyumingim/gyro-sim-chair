@@ -16,11 +16,11 @@ FR = r"C:\Windows\Fonts\malgun.ttf"
 # key: (text, bold). Drawn white; hud.py tints them (green on the HUD, colours on the displays).
 LABELS = {
     # HUD callouts (beginner)
-    "hud_spd": ("속도 (kt)", True), "hud_alt": ("고도 (ft · 바다 기준)", True), "hud_agl": ("R = 땅까지 높이 (ft)", False),
-    "hud_g": ("G = 몸이 받는 무게 배수", False), "hud_aoa": ("받음각 (날개가 바람을 받는 각도)", False), "hud_mach": ("마하 = 소리 속도의 몇 배", False),
-    "hud_vs": ("상승률 (ft/분, + 올라감)", False), "hud_thr": ("스로틀 = 엔진 힘", False), "hud_gear": ("바퀴", False), "hud_brake": ("브레이크", False),
-    "hud_hdg": ("방위 = 향한 방향 (°)", True), "hud_ladder": ("기수 각도 사다리 (5° 마다)", False), "hud_fpm": ("○ 비행경로 = 실제로 가는 방향", False),
-    "hud_bore": ("— 기수 방향", False), "hud_horizon": ("수평선", False),
+    "hud_spd": ("속도 kt", True), "hud_alt": ("고도 ft", True), "hud_agl": ("R 땅까지 ft", True),
+    "hud_g": ("G 몸무게 배수", True), "hud_aoa": ("받음각", True), "hud_mach": ("마하", True),
+    "hud_vs": ("상승률 ft/분", True), "hud_thr": ("스로틀 = 엔진 힘", True), "hud_gear": ("바퀴", True), "hud_brake": ("브레이크", True),
+    "hud_hdg": ("방위", True), "hud_ladder": ("기수 각도 (5°)", True), "hud_fpm": ("○ 실제로 가는 방향", True),
+    "hud_bore": ("— 기수 방향", True), "hud_horizon": ("수평선", True),
     # display titles / one-line explanations
     "pfd_t": ("비행 정보", True), "pfd_d": ("지금 비행기 상태 · 초록 정상 / 노랑 주의 / 빨강 위험", False),
     "train_t": ("훈련 화면", True), "train_d": ("목표와 지금 값의 차이 · 초록 = 범위 안", False),

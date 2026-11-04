@@ -15,7 +15,7 @@ Step(text, check, hold, ...):
   duration  s: scored "fly for this long" task (completes after the time, score = time in tolerance)
   beginner  only in beginner mode (instrument tour)
 Numbers for the F-16 (JSBSim model): rotate ~150 kt to 10 deg pitch, final approach ~160 kt / ~13 deg AoA max,
-3 deg glide path (~800 fpm at 160 kt), pattern 1500 ft above the field. Sources: docs/sim-tutorial.html.
+3 deg glide path (~850 fpm at 160 kt), pattern 1500 ft above the field. Sources: docs/sim-tutorial.html.
 """
 import math
 
@@ -200,7 +200,7 @@ def l1_attitude():
     return dict(
         id=1, title="1. 자세와 조종 효과", short="기수와 기울기", mode="air",
         brief=["비행기는 스틱으로 두 가지를 바꿔요. 앞뒤는 기수 각도(피치), 좌우는 기울기(경사, 롤)예요.",
-               "F-16 은 컴퓨터가 도와줘서 스틱을 놓으면 그 자세를 그대로 유지해요. 그래서 작게 움직이고 놓는 게 요령이에요.",
+               "F-16 은 컴퓨터가 도와줘서 스틱을 놓으면 지금 가는 길과 기울기를 대체로 유지해요. 기울인 채로는 고도가 조금씩 떨어지니 살짝 당겨요. 작게 움직이고 놓는 게 요령이에요.",
                "HUD 의 가로줄 사다리가 기수 각도예요. 5 도마다 줄이 있어요. 자세계는 하늘과 땅의 기울기를 보여 줘요."],
         demo=[Seg("먼저 제가 보여 줄게요. 스틱을 살짝 당기면 기수가 올라가요. 지금 5 도.", lambda s, L: dict(pitch=5, bank=0, spd=350), 7),
               Seg("스틱을 살짝 밀면 다시 수평이에요.", lambda s, L: dict(pitch=1.5, bank=0, spd=350), 6),
@@ -214,13 +214,13 @@ def l1_attitude():
                  kbd="↑ 키를 톡 눌러 기수를 수평(1~2°)으로 돌리고 3 초", rig="스틱을 살짝 밀어 기수를 수평(1~2°)으로 돌리고 3 초",
                  targets=[PITCH(1.5, 1.5)], goal=lv, timeout=60),
             Step("오른쪽 경사 20°", lambda s, L: abs(s["phi"] - 20) < 5, 3,
-                 kbd="→ 키를 톡톡 눌러 오른쪽으로 20° 기울이고 손을 떼서 3 초", rig="오른손으로 스틱을 살짝 오른쪽으로 기울여 20°, 그리고 가운데로. 3 초",
+                 kbd="→ 키를 톡톡 눌러 오른쪽으로 20° 기울이고 손을 떼서 3 초", rig="오른손으로 스틱을 살짝 오른쪽으로 기울였다가, 비행기가 20° 가 되면 가운데로. 3 초",
                  targets=[BANK(20, 5)], goal=lambda s, L: dict(pitch=2, bank=20, spd=350), timeout=60),
             Step("날개 수평", lambda s, L: abs(s["phi"]) < 4, 3,
                  kbd="← 키를 톡톡 눌러 날개를 수평으로", rig="스틱을 살짝 왼쪽으로 기울여 날개를 수평으로",
                  targets=[BANK(0, 4)], goal=lv, timeout=60),
             Step("왼쪽 경사 20°", lambda s, L: abs(s["phi"] + 20) < 5, 3,
-                 kbd="← 키를 톡톡 눌러 왼쪽으로 20° 기울이고 손을 떼서 3 초", rig="스틱을 살짝 왼쪽으로 기울여 20°, 그리고 가운데로. 3 초",
+                 kbd="← 키를 톡톡 눌러 왼쪽으로 20° 기울이고 손을 떼서 3 초", rig="스틱을 살짝 왼쪽으로 기울였다가, 비행기가 20° 가 되면 가운데로. 3 초",
                  targets=[BANK(-20, 5)], goal=lambda s, L: dict(pitch=2, bank=-20, spd=350), timeout=60),
             Step("날개 수평", lambda s, L: abs(s["phi"]) < 4, 3,
                  kbd="→ 키를 톡톡 눌러 날개를 수평으로", rig="스틱을 살짝 오른쪽으로 기울여 날개를 수평으로",
@@ -243,7 +243,7 @@ def l2_level():
         id=2, title="2. 수평 직진", short="고도와 방위 지키기", mode="air",
         brief=["수평 직진은 모든 비행의 기본이에요. 고도와 방향을 그대로 지키는 거예요.",
                "요령: 눈은 바깥 수평선과 HUD 를 보고, 고도가 변하기 시작하면 아주 작게 고쳐요. 크게 움직이면 출렁거려요.",
-               "고도가 내려가면 살짝 당기고, 올라가면 살짝 밀어요. 방향이 틀어지면 반대쪽으로 아주 조금 기울였다가 다시 수평."],
+               "고도가 내려가면 살짝 당기고, 올라가면 살짝 밀어요. 방향이 틀어지면 목표 방향 쪽으로 몇 도만 기울였다가 다시 수평."],
         demo=[Seg("제가 먼저 수평으로 갈게요. HUD 오른쪽 고도 숫자와 아래 방위가 거의 안 변하죠.", lambda s, L: dict(alt=6000, hdg=0, spd=350), 10),
               Seg("자세계도 하늘과 땅의 경계가 가운데, 수평이에요.", lambda s, L: dict(alt=6000, hdg=0, spd=350), 6)],
         practice=[
@@ -268,7 +268,7 @@ def l3_power():
     return dict(
         id=3, title="3. 출력과 속도", short="스로틀로 속도 바꾸기", mode="air",
         brief=["스로틀은 속도를, 스틱은 고도를 맡아요. 속도를 줄이면 비행기가 내려가려 하니 기수를 조금 들어 고도를 지켜요.",
-               "F-16 은 컴퓨터가 자동으로 트림을 맞춰서 따로 트림 손잡이를 쓸 필요가 없어요. 원하는 자세에서 손을 놓으면 돼요.",
+               "순항 중 F-16 은 컴퓨터가 1G 를 지켜 줘서 속도를 바꿔도 트림을 거의 안 써요. 원하는 자세에서 손을 놓으면 돼요. (실제 기체는 바퀴를 내린 착륙 자세에서 트림을 조금 써요.)",
                "속도는 바로 안 바뀌어요. 스로틀을 움직이고 몇 초 기다리는 게 요령이에요."],
         demo=[Seg("스로틀을 줄여 300 kt 로 감속할게요. 기수가 조금 들리는 걸 보세요.", lambda s, L: dict(alt=6000, hdg=0, spd=300), 20),
               Seg("다시 350 kt 로. 스로틀을 앞으로.", lambda s, L: dict(alt=6000, hdg=0, spd=350), 16)],
@@ -291,11 +291,11 @@ def l3_power():
 
 
 def l4_climb():
-    lvl = lambda a, tol=150: (lambda s, L: abs(ft(s) - a) < tol and abs(s["vs_fpm"]) < 1000)
+    lvl = lambda a, tol=150: (lambda s, L: abs(ft(s) - a) < tol and abs(s["vs_fpm"]) < 600)
     return dict(
         id=4, title="4. 상승과 강하", short="고도 바꾸기", mode="air",
         brief=["올라가려면 스로틀을 올리고 기수를 들어요. 내려가려면 스로틀을 조금 줄이고 기수를 내려요.",
-               "목표 고도에 가까워지면 미리 기수를 풀어요. 상승률의 10 분의 1 만큼 일찍. 예: 3000 fpm 이면 300 ft 전부터.",
+               "목표 고도에 가까워지면 미리 기수를 풀어요. 상승률의 10 분의 1 만큼 일찍. 예: 2500 fpm 이면 250 ft 전부터.",
                "상승률(VS)은 HUD 고도 위의 숫자, 오른쪽 화면, 승강계에서 볼 수 있어요."],
         demo=[Seg("7000 ft 로 상승할게요. 기수 들고, 스로틀 앞으로.", lambda s, L: dict(alt=7000, hdg=0, spd=350, vs_max=2500), 26),
               Seg("목표 근처에서 기수를 풀어 수평. 6000 ft 로 내려갈게요.", lambda s, L: dict(alt=6000, hdg=0, spd=350, vs_max=2500), 26)],
@@ -324,7 +324,7 @@ def l5_turns():
         id=5, title="5. 선회", short="경사 30° 와 45°", mode="air",
         brief=["선회 = 기울이고 살짝 당기기. 기울이면 날개 힘이 옆으로 가서 고도가 떨어지려 해요. 그래서 살짝 당겨요.",
                "경사 30° 선회는 기본, 45° 는 급선회예요. 경사가 깊을수록 더 많이 당겨야 하고 G(몸이 눌리는 힘)가 커져요.",
-               "선회를 멈출 때는 목표 방향 10° 전부터 날개를 수평으로 돌려요."],
+               "선회를 멈출 때는 목표 방향 10° 쯤 전부터 (경사의 절반 정도) 날개를 수평으로 돌려요."],
         demo=[Seg("오른쪽으로 30° 기울이고 살짝 당겨요. 고도가 그대로죠.", lambda s, L: dict(alt=6000, bank=30, spd=350), 12),
               Seg("이제 풀어서 수평.", lambda s, L: dict(alt=6000, bank=0, spd=350), 6)],
         practice=[
@@ -337,7 +337,7 @@ def l5_turns():
                  rig="스틱을 왼쪽으로 30°, 살짝 당겨 고도 유지. 010 에서 오른쪽으로 풀어 000",
                  targets=[BANK(-30, 7, coach=False), A()], goal=lambda s, L: dict(alt=A0(L), hdg=0, bank_max=30, spd=350), timeout=150),
             Step("급선회: 오른쪽 45° 를 15 초", lambda s, L: abs(s["phi"] - 45) < 7 and abs(ft(s) - A0(L)) < 300, 15, "더 많이 당겨야 해요. G 가 1.4 정도",
-                 kbd="→ 로 45° 기울이고 ↓ 를 꾹 눌러 고도를 지키세요", rig="스틱을 오른쪽으로 45° 기울이고 더 당겨 고도를 지키세요",
+                 kbd="→ 로 비행기를 45° 까지 눕히고 손을 뗀 뒤, ↓ 를 꾹 눌러 고도를 지키세요", rig="스틱을 오른쪽으로 기울여 비행기를 45° 까지 눕히고, 스틱을 가운데로 돌린 뒤 당겨 고도를 지키세요",
                  targets=[BANK(45, 7), ALT(A0, 300)], goal=lambda s, L: dict(alt=A0(L), bank=45, spd=350), timeout=120),
             Step("날개 수평", lambda s, L: abs(s["phi"]) < 5, 2, kbd="← 로 날개를 수평으로", rig="스틱을 왼쪽으로 풀어 날개 수평",
                  targets=[BANK(0, 5)], goal=lambda s, L: dict(alt=A0(L), bank=0, spd=350), timeout=60),
@@ -397,13 +397,13 @@ def _takeoff_steps(solo=False):
              kbd="A D 로 가운데 선을 따라가세요. 150 kt 가 되면 당겨요",
              rig="두 발로 페달을 살짝씩 밟아 가운데 선을 따라가세요. 150 kt 가 되면 당겨요",
              targets=[CTR(8), SPD(150, 15, coach=False)], goal=G1, timeout=60),
-        Step("기수 들기 (로테이션) 10°", lambda s, L: s["theta"] > 8 or not s["wow"], 0.3, "13° 넘기면 꼬리가 땅에 닿아요",
+        Step("기수 들기 (로테이션) 10°", lambda s, L: s["theta"] > 8 or not s["wow"], 0.3, "150 kt 에서 기수 들기 시작, 10° 에서 멈춰요. 13° 를 넘기지 마세요 (꼬리 여유)",
              kbd="속도 150 kt — 지금 ↓ 키로 기수를 10° 까지 부드럽게 드세요",
              rig="속도 150 kt — 지금 오른손으로 스틱을 부드럽게 당겨 기수 10°",
-             targets=[PITCH(10, 2)], goal=lambda s, L: dict(thr=1.0, ground=True, rotate_kt=145, pitch=10), timeout=30),
+             targets=[PITCH(10, 2)], goal=lambda s, L: dict(thr=1.0, ground=True, rotate_kt=150, pitch=10), timeout=30),
         Step("이륙, 상승 중", lambda s, L: not s["wow"] and s["agl_m"] > 15 and s["vs_fpm"] > 0, 1,
              kbd="기수 10° 를 유지하세요. 곧 바퀴가 떠요", rig="스틱을 그대로 잡고 기수 10° 를 유지하세요",
-             targets=[PITCH(10, 3)], goal=lambda s, L: dict(thr=1.0, ground=True, rotate_kt=145, pitch=10), timeout=40),
+             targets=[PITCH(10, 3)], goal=lambda s, L: dict(thr=1.0, ground=True, rotate_kt=150, pitch=10), timeout=40),
         Step("바퀴 올리기", lambda s, L: s["gear"] < 0.1, 0.3, "300 kt 전에 올려야 해요",
              kbd="G 키로 바퀴를 올리세요", rig="G 키(또는 기어 손잡이)로 바퀴를 올리세요",
              targets=[PITCH(10, 4)], goal=lambda s, L: dict(thr=1.0, pitch=10, gear=0), timeout=25),
@@ -419,13 +419,13 @@ def l7_takeoff():
         brief=["청주 기지 활주로 06R 에서 이륙해요. 순서: 스로틀 최대 → 가운데 선 따라 활주 → 150 kt 에서 기수 10° → 이륙 → 바퀴 올리기 → 2000 ft.",
                "활주 중에는 스틱이 아니라 페달로 방향을 잡아요. 기수를 13° 넘게 들면 꼬리가 땅에 닿으니 조심.",
                "바퀴는 300 kt 를 넘기 전에 올려요. F-16 은 가속이 빨라서 금방이에요."],
-        demo=[Seg("제가 먼저 이륙할게요. 스로틀 최대, 페달로 가운데 선.", lambda s, L: dict(thr=1.0, ground=True, rotate_kt=145, pitch=10), 9),
-              Seg("150 kt, 기수를 10° 까지. 이륙!", lambda s, L: dict(thr=1.0, ground=True, rotate_kt=145, pitch=10, gear=1), 7),
+        demo=[Seg("제가 먼저 이륙할게요. 스로틀 최대, 페달로 가운데 선.", lambda s, L: dict(thr=1.0, ground=True, rotate_kt=150, pitch=10), 9),
+              Seg("150 kt, 기수를 10° 까지. 이륙!", lambda s, L: dict(thr=1.0, ground=True, rotate_kt=150, pitch=10, gear=1), 7),
               Seg("바퀴 올리고 2000 ft 까지 상승.", lambda s, L: dict(thr=0.85, pitch=10, gear=0), 10)],
         practice=_takeoff_steps(), solo=_takeoff_steps(True), key="CTR", monitor=_to_mon,
         penalties=lambda L: (25 if L.get("strike") else 0) + (15 if L.get("gear_fast") else 0) + int(max(0, L.get("lat", 0) - 8) * 2),
         penalty_text=lambda L: [t for c, t in ((L.get("strike"), "꼬리가 땅에 닿았어요 (기수 13° 넘음): 기수를 더 부드럽게, 10° 에서 멈추기"),
-                                               (L.get("gear_fast"), "바퀴를 늦게 올렸어요 (300 kt 넘음): 이륙하면 바로 G"),
+                                               (L.get("gear_fast"), "바퀴를 늦게 올렸어요 (300 kt 넘음): 고도계가 오르고 승강계가 + 이면 바로 G"),
                                                (L.get("lat", 0) > 8, "활주 중 중심선에서 %.0f m 벗어났어요: 페달을 일찍, 작게" % L.get("lat", 0))) if c])
 
 
@@ -437,7 +437,7 @@ def _pattern_steps(solo=False):
              kbd="방위 232, 고도 1700 ft, 250 kt 를 지키며 활주로 끝을 지나가세요",
              rig="스틱으로 방위 232, 고도 1700 ft 를 지키고 스로틀로 250 kt. 활주로 끝을 지나가세요",
              targets=[HDG(TH, 7), ALT(1700, 150), SPD(250, 20)], goal=lambda s, L: dict(alt=1700, hdg=TH, spd=250), timeout=None if not solo else 90),
-        Step("바퀴 내리기, 200 kt", lambda s, L: s["gear"] > 0.9 and s["kts"] < 215, 0.5, "바퀴는 250 kt 아래에서",
+        Step("바퀴 내리기, 200 kt", lambda s, L: s["gear"] > 0.9 and s["kts"] < 215, 0.5, "바퀴 한계는 300 kt. 장주에서는 여유 있게 250 kt 아래에서 내려요",
              kbd="G 키로 바퀴를 내리고 S 로 스로틀을 줄여 200 kt", rig="G 키(또는 기어 손잡이)로 바퀴를 내리고, 스로틀을 당겨 200 kt",
              targets=[SPD(200, 15), ALT(1700, 150)], goal=lambda s, L: dict(alt=1700, hdg=TH, spd=200, gear=1), timeout=60),
         Step("베이스 선회: 왼쪽으로 방위 142, 1200 ft", lambda s, L: abs(hdg_err(s["psi"], BASE)) < 10 and s.get("cross_m", -9e9) > -2200, 0.5,
@@ -460,7 +460,7 @@ def l8_pattern():
     return dict(
         id=8, title="8. 장주 비행", short="활주로 둘레 사각형", mode="downwind",
         brief=["장주는 착륙하려고 활주로 둘레를 도는 사각형 길이에요. 다운윈드 → 베이스 → 파이널 순서.",
-               "지금 활주로 왼쪽 3 km, 반대 방향(방위 232)으로 날고 있어요. 고도는 활주로 위 1500 ft(해수면 1700 ft), 250 kt.",
+               "지금 활주로에서 3 km 옆, 활주로를 왼쪽 창밖에 두고 반대 방향(방위 232)으로 날고 있어요. 고도는 활주로 위 1500 ft (HUD 고도 1700, R 1500), 250 kt. (훈련용으로 단순화한 왼쪽 장주예요.)",
                "활주로 끝을 지나면 바퀴를 내리고 왼쪽으로 돌아 베이스(142), 다시 왼쪽으로 돌아 파이널(052)에서 활주로에 정렬해요."],
         demo=[Seg("다운윈드를 따라 갈게요. 왼쪽 창밖 활주로를 보세요.", lambda s, L: dict(alt=1700, hdg=232.4, spd=250), 14),
               Seg("바퀴 내리고 감속.", lambda s, L: dict(alt=1700, hdg=232.4, spd=200, gear=1), 12)],
@@ -509,19 +509,20 @@ def _land_steps(solo=False):
     return [
         Step("바퀴 내리기", lambda s, L: s["gear"] > 0.9, 0.3, kbd="G 키로 바퀴를 내리세요", rig="G 키(또는 기어 손잡이)로 바퀴를 내리세요",
              goal=lambda s, L: dict(alt=1740, hdg=52.4, spd=175, gear=1), timeout=40),
-        Step("속도 160 kt", lambda s, L: s["kts"] < 168, 1, "기수는 조금 들린 채 (받음각 8~12°)",
+        Step("속도 160 kt", lambda s, L: s["kts"] < 168, 1, "기수는 조금 들린 채 (받음각 11~13°, 13° 넘지 않기)",
              kbd="S 키로 스로틀을 줄여 160 kt. 고도는 그대로", rig="왼손으로 스로틀을 조금 당겨 160 kt. 고도는 그대로",
              targets=[SPD(160, 8)], goal=lambda s, L: dict(alt=1740, hdg=52.4, spd=160, gear=1), timeout=60),
-        Step("3° 강하: 강하율 800 fpm, 활주로 가운데, R 300 ft 까지", lambda s, L: s["agl_m"] < 90, 0.2, "활주로 문턱이 화면 속 한 점에 머물게",
-             kbd="↑ ↓ 로 강하율 800 fpm, ← → 로 활주로 가운데. 속도는 W S 로 160 kt. R 300 까지",
-             rig="스틱을 조금씩 밀고 당겨 강하율 800 fpm, 좌우로 살짝 기울여 활주로 가운데로. 속도는 스로틀로 160 kt. R 300 까지",
+        Step("3° 강하: 강하율 약 850 fpm, 활주로 가운데, R 300 ft 까지", lambda s, L: s["agl_m"] < 90, 0.2, "조준점(문턱에서 300 m 앞)이 화면 속 한 점에 머물게",
+             kbd="↑ ↓ 로 HUD 의 작은 동그라미(비행경로)를 조준점(문턱에서 300 m 앞)에 올려 두세요. 강하율은 약 850 fpm. ← → 로 가운데, 속도는 W S 로 160 kt. R 300 까지",
+             rig="스틱으로 HUD 의 작은 동그라미(비행경로)를 조준점(문턱에서 300 m 앞)에 올려 두세요. 강하율은 약 850 fpm. 살짝 기울여 가운데로, 속도는 스로틀로 160 kt. R 300 까지",
              targets=[VS(-800, 200), CTR(20), SPD(160, 10)], goal=_glide, timeout=150),
-        Step("접지: R 50 에서 스로틀 0, 살짝 당기기", lambda s, L: s["wow"], 0.1, "강하율을 300 fpm 쯤으로 부드럽게 줄이기",
-             kbd="R 50 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 강하를 줄이며 내려앉으세요",
-             rig="R 50 에서 왼손으로 스로틀을 끝까지 당기고, 오른손으로 스틱을 살짝 당겨 강하를 줄이며 내려앉으세요",
+        Step("접지: R 50 부터 스로틀을 줄이고 살짝 당기기", lambda s, L: s["wow"], 0.1, "살짝만 당기기, 기수 13° 넘지 않기",
+             kbd="R 50 부터 S 로 스로틀을 줄여 접지 때 0. ↓ 키로 살짝만 당겨 강하를 300 fpm 쯤으로 줄이세요",
+             rig="R 50 부터 왼손으로 스로틀을 당겨 접지 때 0. 오른손으로 스틱을 살짝만 당겨 강하를 300 fpm 쯤으로 줄이세요",
              targets=[VS(-300, 250, coach=False), CTR(15)], goal=_glide, timeout=60),
         Step("정지", lambda s, L: s["kts"] < 5 and s["wow"], 0.5,
-             kbd="B 키로 브레이크를 걸어 멈추세요. A D 로 가운데 선", rig="양발 끝으로 페달 윗부분을 눌러 브레이크, 멈추세요. 페달로 가운데 선",
+             kbd="스로틀 0 을 확인하고 ↑ 를 살짝 눌러 앞바퀴를 내려놓으세요. 앞바퀴가 닿은 뒤 B 로 브레이크를 부드럽게, A D 로 가운데 선",
+             rig="스로틀 0 을 확인하고 스틱을 살짝 앞으로 해 앞바퀴를 내려놓으세요. 앞바퀴가 닿은 뒤 양발 끝으로 페달 윗부분을 부드럽게 눌러 브레이크, 페달로 가운데 선",
              targets=[CTR(15)], goal=lambda s, L: dict(thr=0.0, ground=True, brk=1.0, gear=1), timeout=60),
     ]
 
@@ -532,7 +533,8 @@ def l9_landing():
         if not td:
             return 100
         vs = abs(td["vs"])
-        p = 0 if vs < 400 else 15 if vs < 700 else 35 if vs < 1100 else 60
+        p = 0 if vs < 360 else 10 if vs < 600 else 35 if vs < 1100 else 60
+        p += 25 if td.get("theta", 0) > 13 else 0                          # tail strike on landing
         p += 0 if abs(td["e"]) < 10 else 10 if abs(td["e"]) < 22 else 25
         p += 0 if 0 < td["n"] < 900 else 10 if -50 < td["n"] < 1800 else 25
         return p
@@ -541,21 +543,25 @@ def l9_landing():
         td = L.get("td")
         if not td:
             return ["접지하지 못했어요"]
-        out = ["접지 강하율 %.0f fpm %s" % (abs(td["vs"]), "(부드러움)" if abs(td["vs"]) < 400 else "— R 50 에서 조금 더 일찍, 살짝 당기기"),
-               "중심선에서 %.0f m %s" % (abs(td["e"]), "" if abs(td["e"]) < 10 else "— 페달과 작은 경사로 일찍 맞추기"),
+        vs = abs(td["vs"])
+        out = ["접지 강하율 %.0f fpm %s" % (vs, "(부드러움)" if vs < 360 else "(단단함) — R 50 에서 조금 더 일찍, 살짝 당기기" if vs < 600 else
+                                          "(거친 착륙 — 실제라면 바퀴 점검 대상) — R 50 부터 살짝 당겨 강하를 줄이기"),
+               "중심선에서 %.0f m %s" % (abs(td["e"]), "" if abs(td["e"]) < 10 else "— 공중에서는 작은 경사로 일찍 맞추고, 땅에서는 페달로"),
                "문턱 뒤 %.0f m 에서 접지 %s" % (td["n"], "" if 0 < td["n"] < 900 else "— 조준점(문턱 300 m)을 화면 한 점에")]
+        if td.get("theta", 0) > 13:
+            out.append("접지 때 기수 %.1f° — 13° 넘으면 꼬리가 닿아요. 살짝만 당기기" % td["theta"])
         return out
 
     return dict(
         id=9, title="9. 접근과 착륙", short="3° 강하와 접지", mode="approach",
         brief=["활주로 06R 9 km 앞, 활주로 위 1550 ft, 180 kt 에서 시작해요. 3° 미끄럼길로 내려가요.",
-               "F-16 접근 속도는 160 kt 정도, 강하율 800 fpm. 활주로 문턱 숫자가 화면 속 한 점에 머물면 길이 맞는 거예요.",
+               "F-16 접근 속도는 160 kt 정도, 강하율 약 850 fpm (속도 × 5). HUD 의 작은 동그라미(비행경로)를 조준점(문턱에서 300 m 앞)에 올려 두면 길이 맞아요.",
                "착륙할 때 높이는 HUD 고도 아래의 R 숫자(땅에서 잰 높이)를 봐요. 큰 고도 숫자는 해수면 기준이라 땅에 닿아도 190 쯤이에요.",
-               "R 50 에서 스로틀을 끝까지 줄이고 살짝 당겨 강하를 줄여요(플레어). 땅에 닿으면 브레이크."],
+               "R 50 부터 스로틀을 줄여 접지 때 0, 스틱은 살짝만 당겨 강하를 300 fpm 쯤으로(플레어). 접지하면 앞바퀴를 내려놓고, 그다음 브레이크."],
         demo=[Seg("바퀴 내리고 160 kt 로 감속할게요.", lambda s, L: dict(alt=1740, hdg=52.4, spd=160, gear=1), 14),
-              Seg("이제 800 fpm 쯤으로 강하, 활주로 가운데로. 활주로 문턱이 화면 속 한 점에 머물러요.", _glide, until=lambda s, L: s["agl_m"] < 90),
+              Seg("이제 약 850 fpm 으로 강하, 활주로 가운데로. 비행경로 동그라미가 조준점에 머물러요.", _glide, until=lambda s, L: s["agl_m"] < 90),
               Seg("R 300. R 50 에서 스로틀을 끝까지 줄이고 살짝 당겨 강하를 줄여요.", _glide, until=lambda s, L: s["wow"]),
-              Seg("접지! 브레이크로 멈춰요.", lambda s, L: dict(thr=0.0, ground=True, brk=1.0, gear=1), until=lambda s, L: s["kts"] < 5)],
+              Seg("접지! 앞바퀴를 내려놓고, 그다음 브레이크로 멈춰요.", lambda s, L: dict(thr=0.0, ground=True, brk=1.0, gear=1), until=lambda s, L: s["kts"] < 5)],
         practice=_land_steps(), solo=_land_steps(True), key="VS", monitor=_land_mon, penalties=pen, penalty_text=ptxt)
 
 
@@ -586,7 +592,7 @@ def _roll_steps(solo=False):
         ]
     return [
         Step("2G 선회 (경사 60°) 를 5 초", two_g, 5, "경사 60° 에서 고도를 지키면 저절로 2G 쯤", enter=set_ref,
-             kbd="→ 로 60° 기울이고 ↓ 를 꾹 눌러 고도를 지키세요. G 가 2 쯤 돼요", rig="스틱을 오른쪽으로 60° 기울이고 당겨서 고도를 지키세요. G 가 2 쯤 돼요",
+             kbd="→ 로 비행기를 60° 까지 눕히고, ↓ 를 꾹 눌러 고도를 지키세요. G 가 2 쯤 돼요", rig="스틱을 오른쪽으로 기울여 비행기를 60° 까지 눕히고, 스틱을 가운데로 돌린 뒤 당겨서 고도를 지키세요. G 가 2 쯤 돼요",
              targets=[G(2, 0.8), BANK(60, 12, coach=False)], goal=turn, timeout=90),
         Step("롤 준비: 날개 수평, 기수 10°", nose, 0.5, "먼저 날개를 펴고, 그다음 기수를 들기",
              kbd="← 로 날개를 수평으로 펴고, ↓ 로 기수를 10° 드세요. W 로 스로틀 최대",

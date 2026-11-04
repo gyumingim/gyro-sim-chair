@@ -158,6 +158,8 @@ class Trainer:
             self._next()
         elif op in ("restart", "retry"):
             self._retry()
+        elif op == "end" and self.L and self.phase in ("practice", "solo", "demo"):   # tests / instructor: straight to the debrief
+            self._begin_phase("debrief")
 
     def _voice_cmd(self, op, m):
         v, st = self.voice, self.prof.cur["settings"]
@@ -613,15 +615,15 @@ class Trainer:
     def _check_crash(self, s):
         d = self.L["d"] if self.L else None
         vs, why, say = s.get("vs_fpm", 0.0), None, None
-        on_rwy = abs(s.get("cross_m", 0)) < 30 and -100 < s.get("along_m", 0) < 2800
+        on_rwy = abs(s.get("cross_m", 0)) < 24 and -100 < s.get("along_m", 0) < 2750      # 06R: 2744 x 45 m
         if s.get("wow") and vs < -1500:
             why, say = "너무 세게 땅에 닿았어요", "강하율 %.0f fpm 으로 땅에 닿았어요. 다음엔 R 50 (땅까지 50 ft) 에서 스틱을 살짝 당겨 강하를 300 fpm 아래로 줄여요." % -vs
         elif s.get("wow") and abs(s.get("phi", 0)) > 25:
             why, say = "날개가 땅에 닿았어요", "기운 채로 땅에 닿았어요. 접지 전에는 날개를 수평으로 맞춰요."
         elif s.get("wow") and s.get("kts", 0) > 50 and not on_rwy:
             why, say = "활주로 밖으로 나갔어요", "활주로를 벗어났어요. 활주 중에는 페달을 작게, 일찍 써서 가운데 선을 따라가요."
-        elif s.get("nz", 1.0) > 10.0 or s.get("nz", 1.0) < -4.0:
-            why, say = "기체가 견디는 G 를 넘었어요", "G 가 %.1f 까지 갔어요. 스틱을 부드럽게, 9G 아래로." % s["nz"]
+        elif s.get("nz", 1.0) > 10.0 or s.get("nz", 1.0) < -3.5:
+            why, say = "기체가 견디는 G 를 넘었어요", "G 가 %.1f 까지 갔어요. F-16 한계는 +9G, -3G 예요. 스틱을 부드럽게." % s["nz"]
         elif d and d["mode"] in ("air", "air_high") and s.get("agl_m", 999) < 300 and not s.get("wow"):
             why, say = "너무 낮게 내려왔어요", "땅에서 %d ft 까지 내려왔어요. 공중 연습은 안전 고도 1000 ft 위에서 해요. 기수를 조금씩만 내려요." % (s["agl_m"] / 0.3048)
         elif s.get("crashed"):
