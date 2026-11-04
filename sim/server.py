@@ -128,8 +128,8 @@ def handle_msg(m, src):
         reset(m.get("mode", "air"))
     elif m.get("cmd") == "tut":
         tutorial.command(m)
-    elif m.get("cmd") == "pause":
-        state["paused"] = not state["paused"]
+    elif m.get("cmd") == "pause":                    # toggle, or set with {"on": true/false} (Unreal Play start)
+        state["paused"] = bool(m["on"]) if "on" in m else not state["paused"]
     elif "ctrl" in m:
         if "rid" in m and m["rid"] != state["rid"]:
             return                                   # sent before the client saw the last reset (stale gear/throttle)

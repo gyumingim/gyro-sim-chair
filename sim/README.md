@@ -15,7 +15,7 @@ python sim/server.py          # → http://127.0.0.1:8780/
 - `web/index.html`: three.js 화면 + HUD, 조이스틱(Gamepad API, 축 매핑은 패널에서 고르고 브라우저에 저장) 또는 키보드.
   키보드: ← → 롤, ↑ ↓ 피치 (↓ = 당기기), A D 러더, W S 스로틀, B 브레이크, G 바퀴, V 시점, P 일시정지.
 - 언리얼 화면 (`unreal/README.md`): 같은 상태를 UDP JSON 127.0.0.1:4220 으로 60 Hz 전송 (실제 적용된 조종 입력 ail/elev/rud/thr/brk_l/brk_r, 바퀴 접지 wow,
-  강의 상태 tut 포함), UDP 4221 로 조종/명령 JSON 받음.
+  강의 상태 tut 포함), UDP 4221 로 조종/명령 JSON 받음 (`{"cmd":"pause"}` = 토글, `{"cmd":"pause","on":true|false}` = 지정 — 언리얼 Play 시작 때 씀).
 - `tutorial.py`: 초보 비행 강의 6 개 (조종 장치 · 수평 직진 · 선회 · 상승/강하 · 이륙 · 착륙 접근), 비행 상태로 조건 판정·점수.
   명령 `{"cmd":"tut","op":"menu|start|next|restart|stop","lesson":1..6}` (브라우저 버튼, 언리얼 F1/1~6/N/M/F2).
   한글 강의판을 `out/tut_panel_*.png` 로 그려 언리얼 조종석에 보여 줌 (PIL + 맑은 고딕). 최고 점수 `out/tutorial_scores.json`.

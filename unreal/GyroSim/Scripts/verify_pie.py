@@ -275,9 +275,10 @@ def tick(dt):
             return
         c = C()
         if T0[0] is None:
-            if ues.get_game_world() is not None and c and c.aircraft is not None and c.s is not None:
+            if ues.get_game_world() is not None and c and c.aircraft is not None and c.s is not None and c.startup_done:
                 T0[0] = now
-                log("PIE world up, client bound")
+                RESULT["startup"] = {k: v for k, v in c.start.items() if k != "dts"}
+                log("PIE world up, client bound, startup done", json.dumps(RESULT["startup"]))
             return
         if dt > 0.5:                     # editor hitch (shader compile, screenshot): shift the timeline, don't skip steps
             T0[0] += dt

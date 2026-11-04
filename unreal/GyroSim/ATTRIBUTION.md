@@ -8,7 +8,7 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 | Poly Haven `concrete_pavement` (Charlotte Baglioni) | 활주로 콘크리트 | https://polyhaven.com/a/concrete_pavement | CC0 1.0 | `Scripts/fetch_textures.py` |
 | Poly Haven `asphalt_02` | 유도로 | https://polyhaven.com/a/asphalt_02 | CC0 1.0 | `Scripts/fetch_textures.py` |
 | Poly Haven `leafy_grass` | 활주로 옆 풀 | https://polyhaven.com/a/leafy_grass | CC0 1.0 | `Scripts/fetch_textures.py` |
-| Sentinel-2 cloudless 2024 (EOX IT Services GmbH) | 토큰 없을 때 땅 위성사진 (실행 중 타일로 받음) | https://s2maps.eu , 타일 `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/...` | **CC BY-NC-SA 4.0** (비상업 사용만). 표기: "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2024)" | 실행 중 Cesium 이 받음 |
+| Sentinel-2 cloudless 2024 (EOX IT Services GmbH) | `photo` 모드일 때만 땅 위성사진 (실행 중 타일로 받음, 기본 격자 모드에선 안 씀) | https://s2maps.eu , 타일 `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/...` | **CC BY-NC-SA 4.0** (비상업 사용만). 표기: "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2024)" | 실행 중 Cesium 이 받음 |
 | Cesium for Unreal 2.31.0 (UE 5.8 빌드) | 지구·지형 표시 | https://github.com/CesiumGS/cesium-unreal | Apache-2.0 | `Scripts/install_cesium.ps1` |
 | Cesium World Terrain + Bing Maps Aerial (Cesium ion asset 1, 2) / Google Photorealistic 3D Tiles (2275207) | 토큰 있을 때 실제 지형·항공사진 | https://ion.cesium.com | Cesium ion 이용약관 (무료 계정, 화면에 출처 표시 — 켜 둠) | 실행 중 Cesium 이 받음 |
 | 활주로 좌표 RKTU 06R/24L, 06L/24R | 활주로 위치·방향 | OpenStreetMap (Overpass `aeroway=runway`) | ODbL (© OpenStreetMap 기여자) | 값만 `sim/airfield.py` 에 적음 |

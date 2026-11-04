@@ -39,6 +39,9 @@ Z_OFFSET_CM = GEAR_BOTTOM_CM - AGL_REST_M * 100.0
 INTERP_DELAY = 1 / 60 + 0.004      # s behind the newest packet
 MAX_EXTRAP = 0.05
 
+GROUND_MODES = ("grid", "photo", "terrain", "photoreal")
+STARTUP_MODE = "air"               # Play always starts here (fresh run, not wherever the server drifted to)
+STARTUP_MIN, STARTUP_MAX, STARTUP_FPS = 1.5, 15.0, 90.0
 TOKEN_FILE = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "cesium_token.txt")
 EOX_URL = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg"
 ION_TERRAIN, ION_BING, ION_PHOTOREAL = 1, 2, 2275207
@@ -251,7 +254,8 @@ class SimClient:
         self.radar_m = None           # height above whatever is under the aircraft (line trace), m
         self.crashed = False
         self.t_bind = 0.0
-        self.georef = self.tileset = None
+        self.georef = self.tileset = self.grid = None
+        self.start = dict(phase="done", dts=[])
 
     # ---------------------------------------------------------------------------------------------------------------
     def _find(self, tag):
@@ -300,6 +304,7 @@ class SimClient:
         self.hud_vis = None
         self.ladder_on = None
         self.max_tries = 40               # maximize the new PIE window over the next frames
+        self.start = dict(phase="reset", t0=time.perf_counter(), sent=-9.0, rid0=(self.s or {}).get("rid"), dts=[])
         self._setup_cesium()
         self.panel_mid = None
         self.panel_shown = None
@@ -330,68 +335,123 @@ class SimClient:
         self._set_view_target()
 
     @staticmethod
-    def read_token():
-        """(token, mode) from Config/cesium_token.txt: first non-comment line = Cesium ion access token, optional
-        line 'photoreal' = Google Photorealistic 3D Tiles instead of World Terrain + Bing."""
+    def read_ground_cfg():
+        """(token, mode) from Config/cesium_token.txt (not in git). Lines: '#' comment, a mode keyword
+        grid | photo | terrain | photoreal, anything else = Cesium ion access token.
+        No file / no token -> 'grid' (local grid ground, nothing streamed). Token -> 'terrain' unless a keyword says
+        otherwise. 'photo' = Sentinel-2 satellite photo on flat ground (no token needed, streamed)."""
         try:
             lines = [l.strip() for l in open(TOKEN_FILE, encoding="utf-8-sig") if l.strip() and not l.strip().startswith("#")]
         except OSError:
-            return None, None
-        if not lines:
-            return None, None
-        return lines[0], ("photoreal" if any(l.lower() == "photoreal" for l in lines[1:]) else "terrain")
+            lines = []
+        kws = [l.lower() for l in lines if l.lower() in GROUND_MODES]
+        token = next((l for l in lines if l.lower() not in GROUND_MODES), None)
+        mode = kws[-1] if kws else ("terrain" if token else "grid")
+        if mode in ("terrain", "photoreal") and not token:
+            mode = "grid"
+        return token, mode
+
+    read_token = read_ground_cfg
+
+    def _ground(self, mode, token=None):
+        """Switch the ground: grid mesh, or the Cesium tileset (photo / terrain / photoreal)."""
+        ts = self.tileset
+        if self.grid:
+            self.grid.set_actor_hidden_in_game(mode not in ("grid", "none"))
+        if not ts:
+            return
+        ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
+        eox, ion = ovs.get("CesiumUrlTemplateRasterOverlay"), ovs.get("CesiumIonRasterOverlay")
+        for o in (eox, ion):
+            if o:
+                o.remove_from_tileset()
+        if mode == "grid":                                # tileset off: no streaming at all
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
+            ts.set_editor_property("url", "")
+            ts.set_actor_hidden_in_game(True)
+            return
+        ts.set_actor_hidden_in_game(False)
+        if mode == "photo":
+            h = self.s.get("field_m", 58.2) if self.s else 58.2
+            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
+            if eox:
+                eox.add_to_tileset()
+        else:
+            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            ts.set_editor_property("ion_access_token", token)
+            ts.set_editor_property("ion_asset_id", ION_PHOTOREAL if mode == "photoreal" else ION_TERRAIN)
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_CESIUM_ION)
+            if ion and mode == "terrain":
+                ion.set_editor_property("ion_access_token", token)
+                ion.set_editor_property("ion_asset_id", ION_BING)
+                ion.add_to_tileset()
+        ts.refresh_tileset()
 
     def _setup_cesium(self):
         gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
-        self.georef, self.tileset = gr, ts
+        self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
+        token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
-            self.cesium_mode = "none"
-            return
-        token, mode = self.read_token()
-        ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
-        eox, ion = ovs.get("CesiumUrlTemplateRasterOverlay"), ovs.get("CesiumIonRasterOverlay")
+            mode = "grid" if self.grid else "none"
         try:
-            if token:
-                ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
-                if eox:
-                    eox.remove_from_tileset()
-                ts.set_editor_property("ion_access_token", token)
-                ts.set_editor_property("ion_asset_id", ION_PHOTOREAL if mode == "photoreal" else ION_TERRAIN)
-                ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_CESIUM_ION)
-                if ion and mode != "photoreal":
-                    ion.set_editor_property("ion_access_token", token)
-                    ion.set_editor_property("ion_asset_id", ION_BING)
-                    ion.add_to_tileset()
-                ts.refresh_tileset()
-                self.cesium_mode = mode
-            else:
-                if ion:
-                    ion.remove_from_tileset()
-                self.cesium_mode = "flat" if eox else "error"
+            self._ground(mode, token)
+            self.cesium_mode = mode
         except Exception as e:
-            _log("cesium setup failed", repr(e))
+            _log("ground setup failed", repr(e))
             self.cesium_mode = "error"
-        _log("cesium mode", self.cesium_mode, "token file", TOKEN_FILE, "found" if token else "missing", "overlays", sorted(ovs))
+        _log("ground mode", self.cesium_mode, "config", TOKEN_FILE, "token" if token else "no token")
 
     def _cesium_fallback(self, why):
-        """terrain mode failed -> ellipsoid at the field elevation + Sentinel-2 imagery (same as no token)."""
-        ts = self.tileset
-        _log("cesium fallback to flat:", why)
+        """terrain mode failed -> grid ground (tileset off)."""
+        _log("cesium fallback to grid:", why)
         try:
-            ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
-            if "CesiumIonRasterOverlay" in ovs:
-                ovs["CesiumIonRasterOverlay"].remove_from_tileset()
-            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
-            h = self.s.get("field_m", 58.2) if self.s else 58.2
-            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
-            if "CesiumUrlTemplateRasterOverlay" in ovs:
-                ovs["CesiumUrlTemplateRasterOverlay"].add_to_tileset()
-            ts.refresh_tileset()
+            self._ground("grid")
         except Exception as e:
             _log("fallback failed", repr(e))
-        self.cesium_mode = "flat"
+        self.cesium_mode = "grid"
         self.cesium_failed = why
         self.t_bind = time.perf_counter()          # show the HUD note again
+
+    # ---- Play start: fresh air start, paused until the scene renders at full rate ---------------------------------
+    def _startup(self, now, dt):
+        """On every new Play: reset the sim to the air start (the server keeps flying while Unreal is not playing),
+        keep it paused while shaders / textures settle, unpause when the frame rate is back (or after STARTUP_MAX s)."""
+        st = self.start
+        if st["phase"] == "done":
+            return
+        s = self.s
+        el = now - st["t0"]
+        st["dts"].append(dt)
+        if st["phase"] == "reset":
+            if el - st["sent"] > 1.0:                                  # (re)send until the server confirms
+                st["sent"] = el
+                self._send({"cmd": "reset", "mode": STARTUP_MODE})
+            if s and s.get("rid") != st["rid0"]:
+                st["phase"] = "pause"
+        if st["phase"] == "pause":
+            if s and s.get("paused"):
+                st["phase"], st["t_wait"] = "wait", el
+            elif el - st.get("p_sent", -9) > 0.5:
+                st["p_sent"] = el
+                self._send({"cmd": "pause", "on": True})
+        elif st["phase"] == "wait":
+            if s and not s.get("paused"):                              # someone else unpaused / reset (tutorial, script)
+                st["phase"] = "done"
+            else:
+                d = st["dts"][-30:]
+                fps = len(d) / sum(d) if d and sum(d) > 0 else 0.0
+                if (el > STARTUP_MIN and len(d) >= 30 and fps >= STARTUP_FPS) or el > STARTUP_MAX:
+                    self._send({"cmd": "pause", "on": False})
+                    st["phase"], st["ready_s"], st["ready_fps"] = "done", round(el, 2), round(fps, 1)
+        if st["phase"] == "done":
+            d = st["dts"]
+            st["min_fps_startup"] = round(1.0 / max(d), 1) if d else None
+            _log("startup done after %.1f s (fps %s, slowest frame %.0f ms)" % (el, st.get("ready_fps"), 1000 * max(d) if d else 0))
+
+    @property
+    def startup_done(self):
+        return self.start["phase"] == "done"
 
     def _set_view_target(self):
         pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
@@ -658,9 +718,10 @@ class SimClient:
             n = int(round(tut.get("prog", 0) * 10))
             ex["tut_line"] = "LESSON %d  STEP %d/%d  [%s%s]%s" % (tut.get("lesson", 0), tut.get("step", 0), tut.get("n", 0), "|" * n, "." * (10 - n),
                                                                 ("  SCORE %d" % tut["score"]) if tut.get("score") is not None else "")
-        if self.cesium_mode == "flat" and now - self.t_bind < 25:
-            ex["note"] = ("CESIUM TERRAIN FAILED (TOKEN?) - FLAT GROUND" if getattr(self, "cesium_failed", None)
-                          else "NO CESIUM TOKEN: FLAT GROUND + SATELLITE PHOTO  (unreal/README.md)")
+        if not self.startup_done:
+            ex["note"] = "LOADING - SIM PAUSED"
+        elif getattr(self, "cesium_failed", None) and now - self.t_bind < 25:
+            ex["note"] = "CESIUM TERRAIN FAILED (TOKEN?) - GRID GROUND"
         return ex
 
     def _mfd_extra(self):
@@ -671,7 +732,8 @@ class SimClient:
         for rw in s.get("runways") or RUNWAYS:
             rws.append(((rw[0] - lat) * ml, (rw[1] - lon) * mo, (rw[2] - lat) * ml, (rw[3] - lon) * mo))
         n, e = rws[0][0], rws[0][1]
-        line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "flat": "FLAT GROUND - NO CESIUM TOKEN",
+        line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "photo": "MAP: SATELLITE PHOTO (FLAT)",
+                "grid": "MAP: GRID (FLAT, 1 KM)",
                 "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
         return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 
@@ -766,6 +828,7 @@ class SimClient:
                     self.max_tries = 0
                     _log("PIE window maximized")
             self._check_hmd(now)
+            self._startup(now, dt)
             self._keyboard(dt)
             if self.s is not None:
                 self._place(dt, now)
@@ -793,7 +856,8 @@ class SimClient:
         return dict(bound=self.bound, rx=self.rx_n, age=round(time.perf_counter() - self.rx_t, 2), view=self.view, hmd=self.hmd,
                     preset=self.preset, world=self.world.get_name() if self.world else None, t=s.get("t"), alt_m=s.get("alt_m"),
                     interp_n=len(self.interp.buf), cesium=self.cesium_mode, hud_frames=self.hud_n, hud_ms=round(self.hud_ms, 2),
-                    radar_m=self.radar_m, crashed=self.crashed, panel_on=self.panel_on)
+                    radar_m=self.radar_m, crashed=self.crashed, panel_on=self.panel_on,
+                    startup={k: v for k, v in self.start.items() if k != "dts"})
 
 
 def recenter():

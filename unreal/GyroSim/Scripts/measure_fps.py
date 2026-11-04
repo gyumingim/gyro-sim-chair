@@ -62,7 +62,7 @@ def _tick(dt):
             _les.editor_request_begin_play()
             _st.update(phase="wait", t=now)
         elif ph == "wait":
-            if _ues.get_game_world() is not None and c and c.aircraft is not None and c.s is not None:
+            if _ues.get_game_world() is not None and c and c.aircraft is not None and c.s is not None and getattr(c, "startup_done", True):
                 c._send({"cmd": "reset", "mode": "air"})
                 _st.update(phase="setup", t=now)
         elif ph == "setup" and el > 3:

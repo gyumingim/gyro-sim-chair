@@ -227,6 +227,55 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
     return _finish(m)
 
 
+GRID_HLSL = """
+float2 pm = WP.xy / 100.0;
+float2 res = float2(0, 0);
+float sp[2] = {100.0, 1000.0};
+float hw[2] = {0.006, 0.004};
+[unroll] for (int i = 0; i < 2; i++) {
+    float2 g = pm / sp[i];
+    float2 fw = max(fwidth(g), 1e-6);
+    float2 d = abs(frac(g + 0.5) - 0.5);
+    float2 w = max(hw[i], fw);
+    float2 a = saturate((w - d) / fw) * (hw[i] / w);
+    float fade = saturate(1.6 - max(fw.x, fw.y) * 8.0);
+    res[i] = max(a.x, a.y) * fade;
+}
+return res;
+"""
+
+
+def grid_material():
+    """M_Grid: neutral green-grey ground with anti-aliased world grid lines - 100 m (light) and 1 km (strong).
+    Line width never drops below one pixel, its intensity is scaled down instead (energy conserving), and the lines
+    fade out before they get denser than a few pixels, so distant ground averages to a flat colour (no moire)."""
+    m = _new_material("M_Grid")
+    wp = _expr(m, unreal.MaterialExpressionWorldPosition, -1400, 0)
+    cu = _expr(m, unreal.MaterialExpressionCustom, -1100, 0)
+    cu.set_editor_property("code", GRID_HLSL)
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT2)
+    ci = unreal.CustomInput()
+    ci.set_editor_property("input_name", "WP")
+    cu.set_editor_property("inputs", [ci])
+    MEL.connect_material_expressions(wp, "", cu, "WP")
+    l1 = _expr(m, unreal.MaterialExpressionComponentMask, -850, -100, r=True, g=False, b=False, a=False)
+    l2 = _expr(m, unreal.MaterialExpressionComponentMask, -850, 100, r=False, g=True, b=False, a=False)
+    MEL.connect_material_expressions(cu, "", l1, "")
+    MEL.connect_material_expressions(cu, "", l2, "")
+    c1 = _expr(m, unreal.MaterialExpressionLinearInterpolate, -600, -100)
+    MEL.connect_material_expressions(_vparam(m, "Base", (0.075, 0.095, 0.07), -850, -300), "", c1, "A")
+    MEL.connect_material_expressions(_vparam(m, "Line", (0.20, 0.24, 0.19), -850, -200), "", c1, "B")
+    MEL.connect_material_expressions(l1, "", c1, "Alpha")
+    c2 = _expr(m, unreal.MaterialExpressionLinearInterpolate, -400, 0)
+    MEL.connect_material_expressions(c1, "", c2, "A")
+    MEL.connect_material_expressions(_vparam(m, "Major", (0.42, 0.46, 0.38), -850, 250), "", c2, "B")
+    MEL.connect_material_expressions(l2, "", c2, "Alpha")
+    MEL.connect_material_property(c2, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(_const(m, 0.95, -400, 200), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(_const(m, 0.1, -400, 280), "", unreal.MaterialProperty.MP_SPECULAR)
+    return _finish(m)
+
+
 def photo_master():
     """M_Photo: world-aligned photo texture (Poly Haven colour / normal / roughness), tile size param 'TileCm', large
     scale brightness variation so the tiling does not show from the air. Parameters: Diff, Nor, Rough, TileCm, Tint."""
@@ -352,6 +401,7 @@ MAT = dict(
     mfd=screen_material("M_MFDScreen"),
 )
 PHOTO = photo_master()
+MAT["grid"] = grid_material()
 for role, aid, tile, tint, desat in (("runway", "concrete_pavement", 180.0, (0.8, 0.82, 0.86), 0.75), ("taxiway", "asphalt_02", 400.0, (1, 1, 1), 0.3),
                                      ("grass", "leafy_grass", 250.0, (0.36, 0.5, 0.3), 0.2)):
     d = os.path.join(PH_SRC, aid)
@@ -460,7 +510,9 @@ if HAS_CESIUM:
     except Exception as e:
         log("tileset mobility", e)
     ts.set_georeference(gr)
-    ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
+    # off by default (no tile streaming, ground = grid). sim_client switches it on for the photo / terrain modes.
+    ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
+    ts.set_editor_property("url", "")
     # Cesium's frame is X east / Y south; this project's is X north / Y east -> yaw +90. Ellipsoid raised to the field.
     ts.set_actor_location_and_rotation(V(0, 0, (H_FIELD - AF.GEOID_N) * 100.0 - 30.0), unreal.Rotator(yaw=90.0), False, True)
     for k, v in (("maximum_screen_space_error", 8.0), ("show_credits_on_screen", True)):
@@ -482,15 +534,30 @@ if HAS_CESIUM:
         return c
     add_comp(ts, unreal.CesiumUrlTemplateRasterOverlay, dict(
         template_url="https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg",
-        maximum_level=15, material_layer_key="Overlay0"))
+        maximum_level=15, material_layer_key="Overlay0", auto_activate=False))
     add_comp(ts, unreal.CesiumIonRasterOverlay, dict(ion_asset_id=0, material_layer_key="Overlay1", auto_activate=False))   # asset 2 set at Play
     log("Cesium georeference + ground tileset placed, overlays",
         [c.get_class().get_name() for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)])
 else:
-    log("Cesium for Unreal not loaded - flat ground (run Scripts/install_cesium.ps1)")
-    dm = unreal.DynamicMesh()
-    GP.append_rectangle_xy(dm, gs_opts(), unreal.Transform(location=V(0, 0, AF.FIELD_M * 100.0 - 30)), 4.0e7, 4.0e7, 0, 0)
-    place("FlatGround", save_mesh(dm, "SM_FlatGround"), (0, 0, 0), MAT["ground"], shadows=False)
+    log("Cesium for Unreal not loaded - grid ground only (run Scripts/install_cesium.ps1 for real terrain)")
+
+# grid ground (default; local mesh, nothing streamed): 600 km square on the curved Earth at the field elevation
+# (= JSBSim's ground), 200 x 200 cells, dense in the middle (first cell ~30 m), so it reaches the horizon.
+GRID_R, GRID_N = 300000.0, 200
+dm = unreal.DynamicMesh()
+GP.append_rectangle_xy(dm, gs_opts(), unreal.Transform(), 2.0, 2.0, GRID_N, GRID_N)
+_, pts, _gaps = unreal.GeometryScript_MeshQueries.get_all_vertex_positions(dm, False)
+out = []
+for p in unreal.GeometryScript_List.convert_vector_list_to_array(pts):
+    n = GRID_R * math.copysign(p.x * p.x, p.x)
+    e = GRID_R * math.copysign(p.y * p.y, p.y)
+    lat, lon = AF.LAT0 + n / AF.M_LAT, AF.LON0 + e / AF.M_LON
+    out.append(V(*FRAME.world(lat, lon, H_FIELD - 0.3)))
+unreal.GeometryScript_MeshEdits.set_all_mesh_vertex_positions(dm, unreal.GeometryScript_List.convert_array_to_vector_list(out))
+grid = place("GridGround", save_mesh(dm, "SM_GridGround"), (0, 0, 0), MAT["grid"], shadows=False, tags=("GridGround",))
+grid.static_mesh_component.set_editor_property("affect_distance_field_lighting", False)
+grid.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)      # sim_client hides it in photo / terrain mode
+log("grid ground done")
 
 # ---- airfield: both RKTU runways on their real coordinates ----------------------------------------------------------
 STEP = 100.0          # m, curvature sampling along the runway
