@@ -20,7 +20,7 @@ slerp); at most 50 ms extrapolation when a packet is late.
 
 VR: VR Preview (Play dropdown) uses the HMD through OpenXR. The camera actor is put at the cockpit eye point with the
 aircraft attitude; the HMD pose is added by the camera component (lock to HMD), so head look works on top. HUD texts
-and the tutorial panel are world-space actors attached to the camera actor (visible in VR). F3 = recenter.
+the tutorial panel (H) and the key guide panel (K, right side) are world-space actors on the camera rig (visible in VR). F3 = recenter.
 
 Started by init_unreal.py on editor start. In the editor Python console:  import sim_client; sim_client.status()
 """
@@ -45,10 +45,11 @@ ION_TERRAIN, ION_BING, ION_PHOTOREAL = 1, 2, 2275207
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
 MFD_HZ = 5.0
+KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "key_panel.png"))
 
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
-          F1=0x70, F2=0x71, F3=0x72, F9=0x78, **{"K%d" % i: 0x30 + i for i in range(1, 7)})
+          K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, **{"K%d" % i: 0x30 + i for i in range(1, 7)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
 RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
@@ -237,6 +238,10 @@ class SimClient:
         self.gear_shown = None
         self.last_pose = None
         self.panel_on = True          # H: tutorial panel on/off
+        self.keys_on = True           # K: key guide panel on/off
+        self.keys_shown = None
+        self.keys_tex = False
+        self.key_panel = None
         self.painter = None
         self.screens = {}
         self.hud_t = self.mfd_t = self.trace_t = 0.0
@@ -268,6 +273,7 @@ class SimClient:
                 self.pivots[tag] = (a, unreal.Vector(b.x, b.y, b.z))
         self.texts = {}
         self.panel = self._find("TutorPanel")
+        self.key_panel = self._find("KeyPanel")
         self.painter = None
         self.screens = {}
         try:
@@ -302,13 +308,25 @@ class SimClient:
                 self.panel_mid = self.panel.static_mesh_component.create_and_set_material_instance_dynamic(0)
             except Exception as e:
                 _log("panel material", e)
+        self.keys_shown = None
+        self.keys_tex = False
+        if self.key_panel:                              # key guide (sim/key_panel.png, made by sim/key_panel.py)
+            try:
+                tex = unreal.RenderingLibrary.import_file_as_texture2d(world, KEY_PNG) if os.path.exists(KEY_PNG) else None
+                if tex:
+                    self.key_panel.static_mesh_component.create_and_set_material_instance_dynamic(0).set_texture_parameter_value("Tex", tex)
+                    self.keys_tex = True
+                else:
+                    _log("key panel image missing", KEY_PNG)
+            except Exception as e:
+                _log("key panel", repr(e))
         self.txt_cache.clear()
         self.tut_ver = -1
         self.gear_shown = None
         self.interp.reset()
         self.preset = None
         _log("game world", world.get_name(), "aircraft", bool(self.aircraft), "camera", bool(self.camera),
-             "pivots", sorted(self.pivots), "screens", sorted(self.screens), "panel", bool(self.panel_mid), "cesium", self.cesium_mode)
+             "pivots", sorted(self.pivots), "screens", sorted(self.screens), "panel", bool(self.panel_mid), "keys", self.keys_tex, "cesium", self.cesium_mode)
         self._set_view_target()
 
     @staticmethod
@@ -474,6 +492,8 @@ class SimClient:
             self.chase_yaw = None
         if kb.pressed("H"):
             self.panel_on = not self.panel_on
+        if kb.pressed("K"):
+            self.keys_on = not self.keys_on
         if kb.pressed("U"):
             self.hud = not self.hud
             self.hud_t = 0.0
@@ -709,6 +729,11 @@ class SimClient:
             return
         self.txt_t = now
         # tutorial panel (Korean text rendered to PNG by sim/tutorial.py), H toggles
+        if self.key_panel:                                      # key guide panel, K toggles
+            ks = self.keys_on and self.keys_tex
+            if self.keys_shown != ks:
+                self.keys_shown = ks
+                self.key_panel.set_actor_hidden_in_game(not ks)
         tut = (s or {}).get("tut") or {}
         show = bool(tut.get("on")) and bool(tut.get("img")) and self.panel_on
         if self.panel:

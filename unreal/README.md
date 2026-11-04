@@ -39,6 +39,7 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 | C / Q E | (모니터) 아래 보기 / 왼쪽·오른쪽 보기 |
 | P | 일시정지 |
 | **H** | 강의판 켜기/끄기 (왼쪽 아래 작은 판) |
+| **K** | 키 안내판 켜기/끄기 (오른쪽 아래 작은 판, 처음엔 켜짐. 그림 = `sim/key_panel.png`, 고치면 `python sim/key_panel.py`) |
 | **U** | HUD 켜기/끄기 |
 | F1, 1~6, N, M, F2 | 강의 메뉴, 강의 시작, 다음 단계, 다시, 강의 끄기 |
 | F3 / F9 / F11 | VR 정면 다시 맞추기 / VR 스테레오 켜기·끄기 / 전체 화면 |
@@ -67,7 +68,7 @@ sim/server.py (JSBSim 120 Hz) ─ UDP 4220, 60 Hz 상태 JSON → 언리얼 (Con
 - **화질 설정** (`sim_client.apply_preset`): 모니터 = Lumen·VSM·TSR·볼류메트릭 구름, VR = Lumen 끔·TAA 등 (헤드셋 켜지면 자동).
 
 ## 점검 도구 (server.py 켠 상태에서)
-- `UnrealEditor.exe GyroSim.uproject -GyroSimVerify` : 45 초 뒤 Play → 위치·자세 부호, 조종 장치 각도, 강의판·H 토글, HUD 그림 수, 보간 매끄러움 →
+- `UnrealEditor.exe GyroSim.uproject -GyroSimVerify` : 45 초 뒤 Play → 위치·자세 부호, 조종 장치 각도, 강의판·H 토글, 키 안내판·K 토글, HUD 그림 수, 보간 매끄러움 →
   스크린샷·`verify_result.json` 을 `Saved/verify/` 에 저장 → Play 종료.
 - `Scripts/measure_fps.py` : GPU 시간 측정 → `Saved/verify/fps_<이름>.json`. `Scripts/keyboard_test.py` : 키 입력 경로 점검.
 

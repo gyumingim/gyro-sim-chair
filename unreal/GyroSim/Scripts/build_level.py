@@ -784,6 +784,12 @@ prot = unreal.MathLibrary.make_rot_from_zx(V(*EYE) - PANEL_LOC, V(0, 1, 0))
 panel = place("TutorPanel", SHAPE["Plane"], (PANEL_LOC.x, PANEL_LOC.y, PANEL_LOC.z), MAT["panel"], rot=(prot.roll, prot.pitch, prot.yaw),
               scale=(0.26, 0.13, 1), movable=True, shadows=False, tags=("TutorPanel", "Overlay"))
 attach(panel, cam)
+# key guide panel (sim/key_panel.png, loaded by sim_client): mirror of the tutorial panel, lower right. K toggles it.
+KEYS_LOC = V(PANEL_LOC.x, -PANEL_LOC.y, PANEL_LOC.z)
+krot = unreal.MathLibrary.make_rot_from_zx(V(*EYE) - KEYS_LOC, V(0, 1, 0))
+keys = place("KeyPanel", SHAPE["Plane"], (KEYS_LOC.x, KEYS_LOC.y, KEYS_LOC.z), MAT["panel"], rot=(krot.roll, krot.pitch, krot.yaw),
+             scale=(0.26, 0.13, 1), movable=True, shadows=False, tags=("KeyPanel", "Overlay"))
+attach(keys, cam)
 log("camera + overlays done")
 
 ws = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world().get_world_settings()

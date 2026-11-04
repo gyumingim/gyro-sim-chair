@@ -20,6 +20,7 @@ python sim/server.py          # → http://127.0.0.1:8780/
   명령 `{"cmd":"tut","op":"menu|start|next|restart|stop","lesson":1..6}` (브라우저 버튼, 언리얼 F1/1~6/N/M/F2).
   한글 강의판을 `out/tut_panel_*.png` 로 그려 언리얼 조종석에 보여 줌 (PIL + 맑은 고딕). 최고 점수 `out/tutorial_scores.json`.
   착륙 강의용 시작 모드 `approach` (활주로 9 km 앞, 1550 ft, 180 kt). 설명서: `docs/sim-tutorial.html` (= http://127.0.0.1:8780/docs/sim-tutorial.html).
+- `key_panel.py`: 언리얼 조종석 오른쪽 키 안내판 그림 `key_panel.png` 를 만듦 (한 번, git 에 있음). 키를 바꾸면 다시 실행.
 - 조이스틱: pygame (`pip install pygame`), 축 매핑은 `controls.json`. 꽂혀 있으면 그 축은 브라우저/언리얼 입력보다 우선.
   언리얼 창이 앞에 있어도 동작 (SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1).
 

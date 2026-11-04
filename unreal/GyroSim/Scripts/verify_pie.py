@@ -1,7 +1,7 @@
 """Automated check, run when the editor starts with:  UnrealEditor.exe GyroSim.uproject -GyroSimVerify  (see init_unreal.py)
 or inside the open editor:  exec(open(r"<project>/Scripts/verify_pie.py").read())
 Starts PIE (monitor mode), checks: aircraft follows sim/server.py, roll/pitch sign convention, cockpit controls follow
-the control values, tutorial panel shows, interpolation smoothness (per-frame motion with / without interpolation).
+the control values, tutorial panel shows, key guide panel shows and toggles (K), interpolation smoothness (per-frame motion with / without interpolation).
 Screenshots + verify_result.json go to Saved/verify/. Needs sim/server.py running. Leaves the editor open.
 """
 import json, math, os, time
@@ -143,15 +143,43 @@ def look_up():
 def c_tut():
     check("runway_cockpit_tutorial"); shot("2_cockpit_tutorial")
 
+def key_state():
+    c = C()
+    kp = c.key_panel
+    hidden = None
+    if kp:
+        try:
+            hidden = bool(kp.is_hidden())
+        except Exception:
+            hidden = bool(kp.get_editor_property("hidden"))
+    return dict(found=bool(kp), tex=c.keys_tex, keys_on=c.keys_on, shown=c.keys_shown, hidden=hidden)
+
+@at(12.9)
+def keys_before():
+    k = key_state()
+    k["ok"] = bool(k["found"] and k["tex"] and k["shown"] is True and k["hidden"] is False)
+    RESULT["key_panel_visible"] = k
+
 @at(13.0)
 def panel_off():
     C().panel_on = False                  # H key: tutorial panel off
+    C().keys_on = False                   # K key: key guide panel off
 
 @at(13.6)
 def panel_check():
     c = C()
     RESULT["panel_toggle"] = dict(panel_on=c.panel_on, panel_shown=c.panel_shown, ok=c.panel_shown is False)
+    k = key_state()
+    k["ok"] = bool(k["shown"] is False and k["hidden"] is True)
+    RESULT["key_panel_toggle_off"] = k
     c.panel_on = True
+    c.keys_on = True
+
+@at(13.75)
+def keys_back():
+    k = key_state()
+    k["ok"] = bool(k["shown"] is True and k["hidden"] is False)
+    RESULT["key_panel_toggle_on"] = k
 
 @at(13.8)
 def air():
