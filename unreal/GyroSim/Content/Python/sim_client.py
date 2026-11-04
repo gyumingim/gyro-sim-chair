@@ -577,9 +577,9 @@ class SimClient:
         if kb.pressed("G"):
             c["gear"] = 0.0 if c["gear"] else 1.0
         if kb.pressed("R"):
-            self._send({"cmd": "reset", "mode": "air"})
+            self._send({"cmd": "reset", "mode": "air", "user": True})
         if kb.pressed("T"):
-            self._send({"cmd": "reset", "mode": "runway"})
+            self._send({"cmd": "reset", "mode": "runway", "user": True})
         if kb.pressed("P"):
             self._send({"cmd": "pause"})
         if kb.pressed("V"):

@@ -85,6 +85,8 @@ def handle_msg(m, src):
     with _lock:
         cmd = m.get("cmd")
         if cmd == "reset":
+            if m.get("user") and not trainer.allow_reset():   # R / T key during a lesson: ask once (no lost lesson by a stray key)
+                return
             reset(m.get("mode", "air"))
         elif cmd in ("tut", "menu", "voice"):
             trainer.command(m)

@@ -1,5 +1,5 @@
 {
- "made": "2026-11-04 23:01:18",
+ "made": "2026-11-04 23:18:39",
  "assist": "off",
  "bots": {
   "good": {
@@ -54,7 +54,7 @@
    "coach": 0,
    "wrong_end": null,
    "praise": 0,
-   "sim_min": 0.72,
+   "sim_min": 0.83,
    "wall_s": 0.3,
    "fails": []
   },
@@ -75,7 +75,7 @@
    "coach": 0,
    "wrong_end": null,
    "praise": 2,
-   "sim_min": 1.31,
+   "sim_min": 1.33,
    "wall_s": 0.5,
    "fails": []
   },
@@ -96,8 +96,8 @@
    "coach": 0,
    "wrong_end": null,
    "praise": 1,
-   "sim_min": 1.49,
-   "wall_s": 1.3,
+   "sim_min": 1.59,
+   "wall_s": 1.2,
    "fails": []
   },
   {
@@ -118,7 +118,7 @@
    "wrong_end": null,
    "praise": 1,
    "sim_min": 1.78,
-   "wall_s": 0.7,
+   "wall_s": 0.9,
    "fails": []
   },
   {
@@ -232,10 +232,10 @@
    "assist": "off",
    "passed": true,
    "first_try": true,
-   "best": 99,
+   "best": 98,
    "tries": 1,
    "scores": [
-    99
+    98
    ],
    "crashes": 0,
    "crash_why": [],
@@ -292,7 +292,7 @@
    "coach": 0,
    "wrong_end": null,
    "praise": 0,
-   "sim_min": 0.77,
+   "sim_min": 0.88,
    "wall_s": 0.3,
    "fails": []
   },
@@ -313,7 +313,7 @@
    "coach": 2,
    "wrong_end": null,
    "praise": 3,
-   "sim_min": 1.84,
+   "sim_min": 1.86,
    "wall_s": 0.7,
    "fails": []
   },
@@ -334,7 +334,7 @@
    "coach": 0,
    "wrong_end": null,
    "praise": 1,
-   "sim_min": 1.49,
+   "sim_min": 1.59,
    "wall_s": 0.6,
    "fails": []
   },
@@ -421,7 +421,7 @@
    "wrong_end": null,
    "praise": 4,
    "sim_min": 7.36,
-   "wall_s": 2.9,
+   "wall_s": 3.0,
    "fails": []
   },
   {
@@ -463,7 +463,7 @@
    "wrong_end": null,
    "praise": 2,
    "sim_min": 5.56,
-   "wall_s": 3.0,
+   "wall_s": 2.9,
    "fails": []
   },
   {
@@ -472,24 +472,24 @@
    "assist": "off",
    "passed": true,
    "first_try": true,
-   "best": 94,
+   "best": 97,
    "tries": 1,
    "scores": [
-    94
+    97
    ],
    "crashes": 0,
    "crash_why": [],
    "skips": 0,
-   "coach": 5,
+   "coach": 1,
    "wrong_end": null,
-   "praise": 5,
-   "sim_min": 6.81,
+   "praise": 8,
+   "sim_min": 6.8,
    "wall_s": 3.3,
    "fails": [],
    "touchdown": {
-    "vs": -78,
+    "vs": -131,
     "e": 5,
-    "n": 568,
+    "n": 564,
     "theta": 13,
     "kts": 146
    }
@@ -536,7 +536,7 @@
     "time": 0
    },
    "praise": 0,
-   "sim_min": 0.74,
+   "sim_min": 0.85,
    "wall_s": 0.3,
    "fails": []
   },
@@ -561,7 +561,7 @@
     "time": 4
    },
    "praise": 3,
-   "sim_min": 1.66,
+   "sim_min": 1.68,
    "wall_s": 0.6,
    "fails": []
   },
@@ -571,10 +571,10 @@
    "assist": "off",
    "passed": true,
    "first_try": true,
-   "best": 100,
+   "best": 99,
    "tries": 1,
    "scores": [
-    100
+    99
    ],
    "crashes": 0,
    "crash_why": [],
@@ -586,8 +586,8 @@
     "time": 1
    },
    "praise": 2,
-   "sim_min": 1.58,
-   "wall_s": 0.6,
+   "sim_min": 1.82,
+   "wall_s": 0.7,
    "fails": []
   },
   {
@@ -639,7 +639,7 @@
    },
    "praise": 4,
    "sim_min": 6.08,
-   "wall_s": 3.2,
+   "wall_s": 3.1,
    "fails": []
   },
   {
@@ -664,7 +664,7 @@
    },
    "praise": 12,
    "sim_min": 5.29,
-   "wall_s": 2.3,
+   "wall_s": 2.1,
    "fails": []
   },
   {
@@ -716,7 +716,7 @@
    },
    "praise": 1,
    "sim_min": 2.39,
-   "wall_s": 0.9,
+   "wall_s": 1.0,
    "fails": []
   },
   {
@@ -750,28 +750,28 @@
    "assist": "off",
    "passed": true,
    "first_try": true,
-   "best": 93,
+   "best": 81,
    "tries": 1,
    "scores": [
-    93
+    81
    ],
    "crashes": 0,
    "crash_why": [],
    "skips": 0,
-   "coach": 5,
+   "coach": 7,
    "wrong_end": {
-    "self": 15,
-    "coach": 0,
-    "time": 5
+    "self": 17,
+    "coach": 1,
+    "time": 6
    },
-   "praise": 6,
-   "sim_min": 6.8,
-   "wall_s": 2.5,
+   "praise": 5,
+   "sim_min": 6.81,
+   "wall_s": 3.7,
    "fails": [],
    "touchdown": {
-    "vs": -132,
+    "vs": -135,
     "e": -10,
-    "n": 775,
+    "n": 786,
     "theta": 12,
     "kts": 141
    }
@@ -798,7 +798,7 @@
    },
    "praise": 2,
    "sim_min": 1.31,
-   "wall_s": 0.5,
+   "wall_s": 0.6,
    "fails": []
   }
  ]

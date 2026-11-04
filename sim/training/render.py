@@ -67,6 +67,8 @@ def render_panel(d, ver):
     right = "%s · %s%s" % (d.get("trainee", ""), "조종 장치" if d.get("mode") == "rig" else "키보드", "" if d.get("voice") else " · 음성 꺼짐")
     g.text((W - 22, 30), right, font=F(20), fill=GREY, anchor="ra")
     y = 76
+    rig = d.get("mode") == "rig"
+    NK = "트리거" if rig else "N"
     if ph == "menu":
         y = 84
         items = d.get("items") or []
@@ -82,15 +84,15 @@ def render_panel(d, ver):
                 g.rounded_rectangle([22, y - 4, W - 22, y + 46], radius=8, fill=(30, 70, 50), outline=GREEN, width=2)
             g.text((40, y), ("▶ " if sel else "   ") + t, font=F(30, sel), fill=WHITE if sel else (200, 210, 220))
             y += 54
-        g.text((22, H - 44), "↑↓ 또는 스틱 앞뒤 = 고르기 · Enter / 트리거 = 선택 · Backspace = 뒤로", font=F(24), fill=BLUE)
+        g.text((22, H - 44), ("스틱 앞뒤 = 고르기 · 트리거 = 선택 · 버튼 2 = 뒤로" if rig else "↑↓ = 고르기 · Enter = 선택 · Backspace = 뒤로"), font=F(24), fill=BLUE)
     elif ph == "brief":
         y = para(g, 30, y + 20, d.get("text", ""), F(38, True), YELLOW, W - 60, 54)
-        g.text((22, H - 44), "N / 트리거 = 다음 · Z = 다시 듣기 · F1 = 메뉴", font=F(26), fill=BLUE)
+        g.text((22, H - 44), "%s = 다음 · Z = 다시 듣기 · F1 = 메뉴" % NK, font=F(26), fill=BLUE)
     elif ph == "demo":
         g.text((30, y + 10), "자동 조종이 보여 줘요 — 스틱과 스로틀을 보세요", font=F(26), fill=GREY)
         para(g, 30, y + 56, d.get("text", ""), F(38, True), (170, 210, 255), W - 60, 54)
         _bar(g, d.get("prog", 0), (120, 190, 255))
-        g.text((22, H - 80), "N = 시범 건너뛰기", font=F(24), fill=BLUE)
+        g.text((22, H - 80), "%s = 시범 건너뛰기" % NK, font=F(24), fill=BLUE)
     elif ph in ("practice", "solo", "free"):
         if ph == "free":
             para(g, 30, y + 20, "자유 비행 — 교관 없음. F1 = 메뉴", F(34, True), WHITE, W - 60, 50)
@@ -106,15 +108,15 @@ def render_panel(d, ver):
                 para(g, 30, max(y, 296), "교관: " + d["coach"], F(29, True), col, W - 60, 38, 2)
             if d.get("targets"):
                 g.text((W - 26, 392), "목표와 차이 ↓", font=F(20), fill=GREY, anchor="ra")
-            if d.get("hint") and ph == "practice":
-                g.text((22, H - 100), "힌트: " + wrap(g, d["hint"], F(23), W - 120)[0], font=F(23), fill=BLUE)
-            if d.get("msg"):
-                g.text((W - 22, H - 100), d["msg"], font=F(23), fill=ORANGE, anchor="ra")
+            if d.get("msg"):                    # a short notice takes the hint row for 3 s (never both: they overlapped)
+                g.text((22, H - 100), d["msg"], font=F(23, True), fill=ORANGE)
+            elif d.get("hint") and ph == "practice":
+                g.text((22, H - 100), "힌트: " + wrap(g, d["hint"], F(23), W - 60)[0], font=F(23), fill=BLUE)
             if ph == "solo":
                 g.text((22, H - 70), "단독 점검 — 교관은 조용히 봐요 · 점수 %s" % (d.get("live_score") if d.get("live_score") is not None else "-"),
                        font=F(23), fill=(255, 200, 90))
             else:
-                g.text((22, H - 70), "N = 건너뛰기 · Z = 다시 듣기 · P = 멈춤 · F1 = 메뉴", font=F(23), fill=BLUE)
+                g.text((22, H - 70), "%s = 건너뛰기 · Z = 다시 듣기 · P = 멈춤 · F1 = 메뉴" % NK, font=F(23), fill=BLUE)
             _bar(g, d.get("prog", 0), (60, 200, 110))
     elif ph == "debrief":
         db = d.get("debrief") or {}
@@ -130,13 +132,16 @@ def render_panel(d, ver):
             y = para(g, 30, y, "－ " + t, F(25), ORANGE, W - 60 if not db.get("graph") else 560, 33, 2)
         if db.get("graph"):
             _graph(g, 610, 190, 390, 300, db)
-        nxt = ("N = 다음 강의 · M = 단독 점검 다시 · F1 = 메뉴" if ok else "N / M = 단독 점검 다시 · F1 = 메뉴 · Z = 다시 듣기")
+        if not db.get("pass_score"):            # lesson without a solo check (0. orientation)
+            nxt = "%s = 다음 강의 · M = 이 강의 다시 · F1 = 메뉴" % NK
+        else:
+            nxt = ("%s = 다음 강의 · M = 단독 점검 다시 · F1 = 메뉴" % NK) if ok else ("%s / M = 단독 점검 다시 · F1 = 메뉴 · Z = 다시 듣기" % NK)
         g.text((22, H - 44), nxt, font=F(26), fill=BLUE)
     elif ph == "crash":
         c = d.get("crash") or {}
         g.text((30, 100), c.get("why", ""), font=F(46, True), fill=ORANGE)
         para(g, 30, 180, c.get("say", ""), F(34), WHITE, W - 60, 48)
-        g.text((22, H - 44), "M 또는 N = 이 단계 다시 · F1 = 메뉴 · Z = 다시 듣기", font=F(26), fill=BLUE)
+        g.text((22, H - 44), "M 또는 %s = 이 단계 다시 · F1 = 메뉴 · Z = 다시 듣기" % NK, font=F(26), fill=BLUE)
     path = os.path.join(OUT, "tut_panel_%d.png" % (ver % 4))
     im.save(path + ".tmp.png")
     os.replace(path + ".tmp.png", path)

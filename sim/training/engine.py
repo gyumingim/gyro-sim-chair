@@ -314,13 +314,34 @@ class Trainer:
         self.reset_fn("air")
         self._say("자유 비행이에요. 교관은 쉬어요. F1 을 누르면 메뉴로 돌아가요.", force=True)
 
+    def _nk(self, josa="을"):
+        """the 'next' key in the current input mode, with its particle."""
+        return ("트리거" + ("를" if josa == "을" else "나")) if self.mode == "rig" else ("N " + josa)
+
+    def allow_reset(self):
+        """R / T during a lesson: the first press asks, the second (within 4 s) ends the lesson and resets."""
+        if not self.L or self.phase in ("menu", "free", "idle", "debrief"):
+            if self.phase == "debrief":
+                self.L, self.phase, self.debrief = None, "free", None
+            return True
+        if self.clock - getattr(self, "_rst_t", -1e9) < 4.0:
+            self._rst_t = -1e9
+            self.L, self.crash, self.debrief = None, None, None
+            self.phase = "free"
+            self._say("강의를 끝냈어요. 자유 비행이에요. F1 을 누르면 메뉴로 돌아가요.", force=True)
+            return True
+        self._rst_t = self.clock
+        self.msg, self.msg_t = "한 번 더 누르면 강의를 끝내요", self.clock
+        self._say("한 번 더 누르면 강의를 끝내고 처음 자리로 돌아가요.", force=True)
+        return False
+
     def _brief_pages(self):
         d = self.L["d"]
         pages = list(d["brief"])
         a = self._assist_on()
         pages.append(("이번에는 쉬운 모드가 켜져 있어요. 비행기가 너무 많이 기울거나 들리지 않게 컴퓨터가 잡아 줘요. " if a else "")
                      + ("시범 비행 다음에 연습, 그다음 혼자 하는 단독 점검이에요. " if d["solo"] else "연습만 하면 돼요. ")
-                     + "준비되면 N 이나 트리거를 누르세요.")
+                     + "준비되면 %s 누르세요." % self._nk())
         return pages
 
     def _enter_brief_page(self):
@@ -355,7 +376,13 @@ class Trainer:
         elif self.phase == "practice":
             self._advance(skipped=True)
         elif self.phase == "solo":
-            self._advance(skipped=True)
+            if self.clock - getattr(self, "_skip_t", -1e9) < 4.0:
+                self._skip_t = -1e9
+                self._advance(skipped=True)
+            else:
+                self._skip_t = self.clock
+                self.msg, self.msg_t = "건너뛰려면 한 번 더 (이 단계 0 점)", self.clock
+                self._say("단독 점검 단계를 건너뛰려면 한 번 더 누르세요. 이 단계는 0 점이 돼요.", force=True)
         elif self.phase == "debrief":
             dbf = self.debrief or {}
             if dbf.get("passed") and L["i"] + 1 < len(LS.LESSONS):
@@ -442,7 +469,8 @@ class Trainer:
         sc = 0 if not done else (60 + 40 * intol) if st.targets else 100
         L["tasks"].append(dict(text=st.text, done=done, skipped=skipped, failed=failed, intol=round(100 * intol), score=round(sc),
                                maxdev={k: round(v, 1) for k, v in t.get("maxdev", {}).items()}, t=round(L["t_step"], 1),
-                               names=[x.name for x in st.targets], tols={x.name: x.tol for x in st.targets}))
+                               names=[x.name for x in st.targets], tols={x.name: x.tol for x in st.targets},
+                               units={x.name: {"FT": "ft", "DEG": "°", "FPM": "fpm", "KT": "kt", "M": "m", "%": "%", "G": "G"}.get(x.unit, "") for x in st.targets}))
         L["task"] = None
 
     def _track_task(self, st, dt, all_ok):
@@ -475,16 +503,16 @@ class Trainer:
             good, fix = [], []
             for t in tasks:
                 if not t["done"]:
-                    fix.append("'%s' 를 %s" % (t["text"], "건너뛰었어요 (-점수)" if t["skipped"] else "시간 안에 못 했어요. 연습에서 다시 해 봐요"))
+                    fix.append("'%s' 단계는 %s" % (t["text"], "건너뛰었어요 (-점수)" if t["skipped"] else "시간 안에 못 했어요. 연습에서 다시 해 봐요"))
                     continue
                 for n in t["names"]:
                     ko = LS.NAME_KO.get(n, n)
                     md = t["maxdev"].get(n)
                     if t["intol"] >= 80:
-                        good.append("%s: %s 을 잘 지켰어요 (범위 안 %d%%)" % (t["text"], ko, t["intol"]))
+                        good.append("%s: %s%s 잘 지켰어요 (범위 안 %d%%)" % (t["text"], ko, _obj(ko), t["intol"]))
                         break
                     elif md is not None and md > t["tols"][n]:
-                        fix.append("%s: %s 이 최대 %s 벗어났어요 (허용 %s). 작게, 일찍 고치기" % (t["text"], ko, _fmt(md), _fmt(t["tols"][n])))
+                        fix.append("%s: %s%s 최대 %s %s 벗어났어요 (허용 ±%s). 작게, 일찍 고치기" % (t["text"], ko, _subj(ko), _fmt(md), t.get("units", {}).get(n, ""), _fmt(t["tols"][n])))
             if "penalty_text" in d:
                 fix += d["penalty_text"](L["vars"])
             if not fix:
@@ -501,7 +529,7 @@ class Trainer:
         tol = next((x.tol for st in d["solo"] for x in st.targets if x.name == key), None)
         self.debrief = dict(score=score, grade=grade(score), passed=passed, pass_score=d["pass_score"], good=good[:4], fix=fix[:4], tasks=tasks,
                             key=key, key_ko=LS.NAME_KO.get(key, key), tol=tol, graph=graph[-300:], assist=self._assist_on())
-        nxt = ("N 을 누르면 다음 강의로 가요." if L["i"] + 1 < len(LS.LESSONS) else "모든 강의를 마쳤어요!") if passed else "N 이나 M 으로 단독 점검을 다시 해요."
+        nxt = ("%s 누르면 다음 강의로 가요." % self._nk() if L["i"] + 1 < len(LS.LESSONS) else "모든 강의를 마쳤어요!") if passed else "%s M 으로 단독 점검을 다시 해요." % self._nk("이나")
         say = ("통과! " if passed else "아쉬워요, 이번엔 통과 점수 %d 에 못 미쳤어요. " % d["pass_score"]) + ("점수 %d 점, %s 등급. " % (score, grade(score)) if d["solo"] else "")
         if good:
             say += "잘한 점: " + good[0] + ". "
@@ -809,6 +837,21 @@ class Trainer:
                 return
             if ver > self._img_ver:
                 self._img, self._line, self._img_ver = p, l, ver
+
+
+def _has_batchim(w):
+    c = (w or " ").strip()[-1:]
+    if "가" <= c <= "힣":
+        return (ord(c) - 0xAC00) % 28 != 0
+    return c in "LMNRlmnr0136789"          # G, ALT, ... read in Korean: rough rule for letters / digits
+
+
+def _obj(w):
+    return "을" if _has_batchim(w) else "를"
+
+
+def _subj(w):
+    return "이" if _has_batchim(w) else "가"
 
 
 def _fmt(v):
