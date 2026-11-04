@@ -39,7 +39,7 @@ Z_OFFSET_CM = GEAR_BOTTOM_CM - AGL_REST_M * 100.0
 INTERP_DELAY = 1 / 60 + 0.004      # s behind the newest packet
 MAX_EXTRAP = 0.05
 
-GROUND_MODES = ("grid", "photo", "terrain", "photoreal")
+GROUND_MODES = ("grid", "fields", "photo", "terrain", "photoreal")
 STARTUP_MODE = "air"               # Play always starts here (fresh run, not wherever the server drifted to)
 STARTUP_MIN, STARTUP_MAX, STARTUP_FPS = 1.5, 15.0, 90.0
 TOKEN_FILE = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "cesium_token.txt")
@@ -380,7 +380,13 @@ class SimClient:
         """Switch the ground: grid mesh, or the Cesium tileset (photo / terrain / photoreal)."""
         ts = self.tileset
         if self.grid:
-            self.grid.set_actor_hidden_in_game(mode not in ("grid", "none"))
+            self.grid.set_actor_hidden_in_game(mode not in ("grid", "fields", "none"))
+            # 'fields' = the same ground mesh with the procedural countryside material (optional look; default = grid)
+            mat = unreal.load_asset("/Game/Materials/M_Countryside" if mode == "fields" else "/Game/Materials/M_Grid")
+            if mat:
+                self.grid.static_mesh_component.set_material(0, mat)
+            if mode == "fields":
+                mode = "grid"                             # no streaming: the tileset stays off
         if not ts:
             return
         ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
@@ -416,7 +422,7 @@ class SimClient:
         self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
         token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
-            mode = "grid" if self.grid else "none"
+            mode = (mode if mode == "fields" else "grid") if self.grid else "none"
         try:
             self._ground(mode, token)
             self.cesium_mode = mode
@@ -846,7 +852,7 @@ class SimClient:
             rws.append(((rw[0] - lat) * ml, (rw[1] - lon) * mo, (rw[2] - lat) * ml, (rw[3] - lon) * mo))
         n, e = rws[0][0], rws[0][1]
         line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "photo": "MAP: SATELLITE PHOTO (FLAT)",
-                "grid": "MAP: GRID (FLAT, 1 KM)",
+                "grid": "MAP: GRID (FLAT, 1 KM)", "fields": "MAP: FIELDS (FLAT, DRAWN)",
                 "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
         return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 

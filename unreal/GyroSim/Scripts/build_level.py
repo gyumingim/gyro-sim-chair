@@ -233,6 +233,55 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
 
 
 GRID_HLSL = """
+float2 pm = WP.xy / 100.0;
+float2 res = float2(0, 0);
+float sp[2] = {100.0, 1000.0};
+float hw[2] = {0.006, 0.004};
+[unroll] for (int i = 0; i < 2; i++) {
+    float2 g = pm / sp[i];
+    float2 fw = max(fwidth(g), 1e-6);
+    float2 d = abs(frac(g + 0.5) - 0.5);
+    float2 w = max(hw[i], fw);
+    float2 a = saturate((w - d) / fw) * (hw[i] / w);
+    float fade = saturate(1.6 - max(fw.x, fw.y) * 8.0);
+    res[i] = max(a.x, a.y) * fade;
+}
+return res;
+"""
+
+
+def grid_material():
+    """M_Grid: neutral green-grey ground with anti-aliased world grid lines - 100 m (light) and 1 km (strong).
+    Line width never drops below one pixel, its intensity is scaled down instead (energy conserving), and the lines
+    fade out before they get denser than a few pixels, so distant ground averages to a flat colour (no moire)."""
+    m = _new_material("M_Grid")
+    wp = _expr(m, unreal.MaterialExpressionWorldPosition, -1400, 0)
+    cu = _expr(m, unreal.MaterialExpressionCustom, -1100, 0)
+    cu.set_editor_property("code", GRID_HLSL)
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT2)
+    ci = unreal.CustomInput()
+    ci.set_editor_property("input_name", "WP")
+    cu.set_editor_property("inputs", [ci])
+    MEL.connect_material_expressions(wp, "", cu, "WP")
+    l1 = _expr(m, unreal.MaterialExpressionComponentMask, -850, -100, r=True, g=False, b=False, a=False)
+    l2 = _expr(m, unreal.MaterialExpressionComponentMask, -850, 100, r=False, g=True, b=False, a=False)
+    MEL.connect_material_expressions(cu, "", l1, "")
+    MEL.connect_material_expressions(cu, "", l2, "")
+    c1 = _expr(m, unreal.MaterialExpressionLinearInterpolate, -600, -100)
+    MEL.connect_material_expressions(_vparam(m, "Base", (0.075, 0.095, 0.07), -850, -300), "", c1, "A")
+    MEL.connect_material_expressions(_vparam(m, "Line", (0.20, 0.24, 0.19), -850, -200), "", c1, "B")
+    MEL.connect_material_expressions(l1, "", c1, "Alpha")
+    c2 = _expr(m, unreal.MaterialExpressionLinearInterpolate, -400, 0)
+    MEL.connect_material_expressions(c1, "", c2, "A")
+    MEL.connect_material_expressions(_vparam(m, "Major", (0.42, 0.46, 0.38), -850, 250), "", c2, "B")
+    MEL.connect_material_expressions(l2, "", c2, "Alpha")
+    MEL.connect_material_property(c2, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(_const(m, 0.95, -400, 200), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(_const(m, 0.1, -400, 280), "", unreal.MaterialProperty.MP_SPECULAR)
+    return _finish(m)
+
+
+COUNTRY_HLSL = """
 // countryside from the air (no texture, nothing streamed): irregular fields with crop rows and hedges, forest
 // patches, large-scale brightness variation. Every detail fades out by its pixel footprint (fwidth) -> no moire.
 float2 p = WP.xy / 100.0;                                  // metres
@@ -277,14 +326,14 @@ return col;
 """
 
 
-def grid_material():
-    """M_Grid (name kept, the ground mesh is still 'GridGround'): procedural countryside - irregular fields, crop rows,
-    hedges, forest and villages - computed from the world position (no texture). Replaced the debug grid look
-    (review 2026-11-04: 'grid ground at altitude' was the worst visual problem)."""
-    m = _new_material("M_Grid")
+def country_material():
+    """M_Countryside: optional ground look (Config/cesium_token.txt line 'fields'): procedural countryside - irregular
+    fields, crop rows, hedges, forest and villages - from the world position (no texture). sim_client puts it on the
+    GridGround mesh instead of M_Grid. The default stays the grid (user's choice: '그냥 격자 맵으로')."""
+    m = _new_material("M_Countryside")
     wp = _expr(m, unreal.MaterialExpressionWorldPosition, -1400, 0)
     cu = _expr(m, unreal.MaterialExpressionCustom, -1100, 0)
-    cu.set_editor_property("code", GRID_HLSL)
+    cu.set_editor_property("code", COUNTRY_HLSL)
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ci = unreal.CustomInput()
     ci.set_editor_property("input_name", "WP")
@@ -422,6 +471,7 @@ MAT = dict(
 )
 PHOTO = photo_master()
 MAT["grid"] = grid_material()
+MAT["country"] = country_material()            # optional ground look (ground mode "fields")
 for role, aid, tile, tint, desat in (("runway", "concrete_pavement", 180.0, (0.8, 0.82, 0.86), 0.75), ("taxiway", "asphalt_02", 400.0, (1, 1, 1), 0.3),
                                      ("grass", "leafy_grass", 250.0, (0.36, 0.5, 0.3), 0.2)):
     d = os.path.join(PH_SRC, aid)
