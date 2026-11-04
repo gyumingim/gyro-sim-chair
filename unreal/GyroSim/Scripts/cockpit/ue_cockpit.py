@@ -200,7 +200,7 @@ def ck_label():
     return _finish(m)
 
 
-CK_FILL_LOC, CK_FILL_CD = (452.0, 0.0, 92.0), 0.6     # cockpit fill light (cd): lifts the shadowed interior a little
+CK_FILL_LOC, CK_FILL_CD = (452.0, 0.0, 92.0), 1.6     # cockpit fill light (cd): lifts the shadowed interior a little
 
 
 def ck_import_mesh(fbx, dest):

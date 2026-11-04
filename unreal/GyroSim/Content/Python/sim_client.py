@@ -247,7 +247,7 @@ class SimClient:
         self.gear_shown = None
         self.last_pose = None
         self.panel_on = True          # H: tutorial panel on/off
-        self.keys_on = True           # K: key guide panel on/off
+        self.keys_on = False          # K: key guide panel on/off in flight (always shown in the menu; review: it cluttered the view)
         self.keys_shown = None
         self.keys_tex = False
         self.key_panel = None
@@ -910,8 +910,8 @@ class SimClient:
             return
         self.txt_t = now
         # tutorial panel (Korean text rendered to PNG by sim/tutorial.py), H toggles
-        if self.key_panel:                                      # key guide panel, K toggles
-            ks = self.keys_on and self.keys_tex
+        if self.key_panel:                                      # key guide panel: shown in the menu, K toggles it in flight
+            ks = (self.keys_on or bool(((s or {}).get("tut") or {}).get("menu"))) and self.keys_tex
             if self.keys_shown != ks:
                 self.keys_shown = ks
                 self.key_panel.set_actor_hidden_in_game(not ks)

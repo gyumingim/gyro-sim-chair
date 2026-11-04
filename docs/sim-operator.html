@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시뮬레이터 운영 안내</title>
+<style>
+:root{--bg:#f5f5f2;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b;--key:#ececec}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a;--key:#2c2c31}}
+:root[data-theme="dark"]{--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a;--key:#2c2c31}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.6}
+main{max-width:980px;margin:0 auto;padding:22px 16px 48px}
+h1{font-size:1.45rem;margin:0 0 6px}
+h2{font-size:1.12rem;margin:28px 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:0 0 12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--sub);font-weight:600}
+code,pre{font:.86rem ui-monospace,Consolas,monospace}
+pre{background:var(--key);padding:8px 10px;border-radius:8px;overflow-x:auto;margin:6px 0}
+kbd{display:inline-block;min-width:1.6em;padding:0 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--key);font:600 .85rem ui-monospace,Consolas,monospace;text-align:center}
+.small{font-size:.86rem;color:var(--sub)}
+ol,ul{margin:4px 0 4px 20px;padding:0}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>시뮬레이터 운영 안내</h1>
+<p>시뮬레이터를 켜고 훈련생을 앉히는 사람을 위한 글이에요. 훈련생용 설명서는 <a href="sim-tutorial.html">비행 훈련 설명서</a>.</p>
+
+<h2>1. 켜기 (순서대로)</h2>
+<div class="card">
+<ol>
+<li><b>비행 서버</b>: <code>sim</code> 폴더에서
+<pre>set PYTHONIOENCODING=utf-8
+python server.py</pre>
+비행 계산(JSBSim F-16, 120 Hz), 교관(강의 · 음성), 의자 명령을 맡아요. 브라우저 화면 <a href="http://127.0.0.1:8780/">http://127.0.0.1:8780/</a>.</li>
+<li><b>언리얼</b>: <code>unreal/GyroSim/GyroSim.uproject</code> 열기 → <b>Play</b>. VR 은 Play 옆 ▾ → <b>VR Preview</b> (헤드셋을 먼저 켜 두기).</li>
+<li>화면 가운데 훈련 화면에 메뉴가 뜨면 준비 끝. 훈련생 이름은 메뉴 → 훈련생 에서 고르거나 새로 만들어요.</li>
+</ol>
+<p class="small">필요한 것: Python 3 + <code>pip install jsbsim websockets pygame pillow psutil</code>, Unreal Engine 5.8. 교관 음성은 Windows 한국어 음성(Heami)을 써요. 없으면 글씨만 나와요.</p>
+</div>
+
+<h2>2. 입력 장치</h2>
+<div class="card">
+<table>
+<tr><th>장치</th><th>설정</th></tr>
+<tr><td>키보드</td><td>그대로. 언리얼 창이 앞에 있어야 해요.</td></tr>
+<tr><td>조이스틱 · 스로틀 · 페달 (USB)</td><td><code>sim/controls.json</code> 의 축 번호. 꽂혀 있으면 키보드보다 우선. 버튼: <code>"buttons"</code> 항목 (기본 0 = 선택/다음, 1 = 뒤로, 2 = 다시 듣기, 3 = 메뉴).</td></tr>
+<tr><td>교관 말투</td><td>자동: VR 헤드셋이나 조이스틱이 있으면 “오른손으로 스틱을…”, 아니면 “↓ 키를…”. 훈련생이 <kbd>I</kbd> 로 바꿀 수 있어요.</td></tr>
+</table>
+</div>
+
+<h2>3. 의자</h2>
+<div class="card">
+<p>서버가 기체 자세와 가속에서 의자 명령을 만들어 UDP <code>127.0.0.1:4210</code> 으로 보내요(<code>{"roll":..,"pitch":..}</code>, 도).
+한계는 실제 의자 값: <b>좌우 ±18°, 앞뒤 ±14°</b>, 최대 속도 좌우 1.3 °/s · 앞뒤 0.95 °/s, 가속 0.6 / 0.48 °/s², 0.5 s 저역 통과.
+오른쪽 화면(의자 · 경고)에 지금 각도와 한계가 보여요.</p>
+<p class="small">의자 제어기 쪽(<code>control/</code>, <code>firmware/</code>)은 다른 문서에서 다뤄요.</p>
+</div>
+
+<h2>4. 훈련생 관리</h2>
+<div class="card">
+<ul>
+<li>기록: <code>sim/profiles/&lt;이름&gt;.json</code> (강의별 최고 점수, 통과 횟수, 최근 20 번 기록, 음성·쉬운 모드 설정). git 에 올라가지 않아요.</li>
+<li>처음 타는 사람: 0 번부터. 쉬운 모드는 ‘자동’(처음 두 번 시도만 켬)이 기본.</li>
+<li>멀미하면 <kbd>P</kbd>(멈춤). 의자도 그 자리에서 멈춰요.</li>
+<li>강의를 강제로 끝내려면 <kbd>F1</kbd> → 메뉴. <kbd>R</kbd> / <kbd>T</kbd> 는 강의 중에 두 번 눌러야 해요.</li>
+</ul>
+</div>
+
+<h2>5. 문제가 생기면</h2>
+<div class="card">
+<table>
+<tr><th>증상</th><th>할 일</th></tr>
+<tr><td>훈련 화면이 “waiting for sim/server.py”</td><td>서버가 꺼졌어요. 다시 켜면 언리얼은 저절로 다시 붙어요(재시작 시험: 끊김 후 수 초 안에 메뉴로 돌아옴).</td></tr>
+<tr><td>교관 목소리가 안 나와요</td><td><kbd>Y</kbd> 로 켜져 있는지, 메뉴 → 설정 → 음량. Windows 한국어 음성 팩이 있는지.</td></tr>
+<tr><td>조이스틱이 안 먹어요</td><td>서버를 켜기 전에 꽂기. <code>sim/controls.json</code> 축 번호 확인.</td></tr>
+<tr><td>VR 에서 화면이 기울어 보여요</td><td><kbd>F3</kbd> 정면 맞추기.</td></tr>
+<tr><td>화면이 끊겨요</td><td>언리얼 콘솔 <code>stat unit</code>. 이 PC 기준 GPU 약 3.8 ms (1080p), VR 두 눈 픽셀 수 기준 약 5.0 ms (구름 포함, 추정 — 실제 헤드셋 측정 아님).</td></tr>
+</table>
+</div>
+
+<h2>6. 점검 (개발자)</h2>
+<div class="card">
+<table>
+<tr><td><code>python sim/playtest/run.py --assist both</code></td><td>학생 봇 3 종(잘함 · 서툼 · 반대로 함) × 강의 11 개, 오프라인 (몇 분)</td></tr>
+<tr><td><code>python sim/test_live.py</code></td><td>켜진 서버로 메뉴 → 강의 → 시범 → 연습 → 교정 → 메뉴</td></tr>
+<tr><td><code>python sim/playtest/soak.py --minutes 60</code></td><td>1 시간 연속: 강의 순환, 중간에 서버 재시작 · 재접속, 메모리 · 패킷 속도</td></tr>
+<tr><td>언리얼 <code>-GyroSimVerify</code> 또는 <code>Scripts/verify_pie.py</code></td><td>Play 자동 점검 30 개 + 스크린숏 (<code>Saved/verify/</code>)</td></tr>
+<tr><td><code>Scripts/measure_fps.py</code></td><td>GPU 시간 (구름 끔: <code>GYROSIM_FPS_NOCLOUDS=1</code>)</td></tr>
+</table>
+</div>
+<p class="small">만든 날: 2026-11-04.</p>
+</main>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
- "made": "2026-11-04 22:40:35",
+ "made": "2026-11-04 23:28:50",
  "frame": "UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)",
  "pivots": {
   "ADIBall": {
@@ -198,10 +198,9 @@
    "slots": [
     "CK_Paint",
     "CK_Frame",
-    "CK_Black",
-    "CK_Mirror",
     "CK_AntiGlare",
     "CK_Rubber",
+    "CK_Black",
     "CK_HUDExit",
     "CK_HUDFrame",
     "CK_Panel",
@@ -219,7 +218,7 @@
     "CK_Webbing",
     "CK_Chrome"
    ],
-   "tris": 23526
+   "tris": 23166
   },
   "ck_glass": {
    "fbx": "ck_glass.fbx",

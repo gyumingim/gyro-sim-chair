@@ -154,9 +154,9 @@ def panel_pt(u, v, off=0.0):
 
 
 # HUD: combiner frame on the glare shield, tilted back (top toward the pilot)
-HUD_X, HUD_Z0, HUD_Z1, HUD_W, HUD_TILT = 500.5, 77.6, 95.0, 22.0, 18.0
+HUD_X, HUD_Z0, HUD_Z1, HUD_W, HUD_TILT = 500.5, 77.6, 108.0, 22.0, 18.0   # combiner top ~ +8 deg: the symbology (-20..+8 deg) sits on the glass
 BOW_X = None                           # no forward windscreen bow (F-16 / T-7 style one-piece canopy: nothing in the forward view)
-MIRRORS = [(472.0, 1), (472.0, -1)]    # small rear-view mirrors on stalks at the canopy sill (x, side)
+MIRRORS = []                          # rear-view mirrors removed (review 11-04: read as stray paddles on the sill)
 REAR_ARCH_X = 372.0
 
 # ---- displays / instruments on the main panel (u = y, v = z) -------------------------------------------------------

@@ -1,0 +1,53 @@
+{
+ "made": "2026-11-04 23:41:30",
+ "minutes": 0.5,
+ "cycles": [
+  {
+   "cycle": 1,
+   "t": "23:41:31",
+   "lessons_ok": 1,
+   "lessons_bad": [],
+   "extras": {
+    "pause_toggles": true,
+    "reset_needs_two": true,
+    "menu_nav": true,
+    "repeat": true
+   }
+  }
+ ],
+ "samples": [
+  {
+   "t": "23:42:02",
+   "rss_mb": 79.2,
+   "hz": 57.9,
+   "tracebacks": 0
+  }
+ ],
+ "lessons": [
+  {
+   "t": "23:42:00",
+   "lesson": 0,
+   "demo_s": 0.0,
+   "after_demo": "practice",
+   "end_phase": "debrief",
+   "img": "C:/Users/a3162/Desktop/gyro-sim-chair/sim/out/tut_panel_0.png",
+   "ver": 296
+  }
+ ],
+ "restart": null,
+ "problems": [],
+ "summary": {
+  "cycles": 1,
+  "lessons": 1,
+  "bad": 0,
+  "extras_ok": true,
+  "crashes": 0,
+  "rss_first": 79.2,
+  "rss_last": 79.2,
+  "rss_max": 79.2,
+  "hz_min": 57.9,
+  "tracebacks": 0,
+  "restart_ok": null
+ },
+ "finished": "2026-11-04 23:42:08"
+}

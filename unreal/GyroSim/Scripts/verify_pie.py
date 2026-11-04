@@ -289,26 +289,26 @@ def key_state():
 
 @at(14.4)
 def keys_before():
-    k = key_state()
-    k["ok"] = bool(k["found"] and k["tex"] and k["shown"] is True and k["hidden"] is False)
-    RESULT["key_panel_visible"] = k
+    k = key_state()                                   # default in flight: hidden (shown in the menu only)
+    k["ok"] = bool(k["found"] and k["tex"] and k["shown"] is False and k["hidden"] is True)
+    RESULT["key_panel_default_hidden"] = k
 
 @at(14.5)
-def panel_off():
-    C().keys_on = False
+def panel_on():
+    C().keys_on = True                                # = K
 
 @at(15.1)
 def panel_check():
     k = key_state()
-    k["ok"] = bool(k["shown"] is False and k["hidden"] is True)
-    RESULT["key_panel_toggle_off"] = k
-    C().keys_on = True
+    k["ok"] = bool(k["shown"] is True and k["hidden"] is False)
+    RESULT["key_panel_toggle_on"] = k
+    C().keys_on = False
 
 @at(15.25)
 def keys_back():
     k = key_state()
-    k["ok"] = bool(k["shown"] is True and k["hidden"] is False)
-    RESULT["key_panel_toggle_on"] = k
+    k["ok"] = bool(k["shown"] is False and k["hidden"] is True)
+    RESULT["key_panel_toggle_off"] = k
 
 # ---- lesson 0 to the end with N -> debrief ------------------------------------------------------------------------
 @at(15.4)

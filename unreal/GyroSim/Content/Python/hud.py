@@ -267,11 +267,11 @@ class Painter:
 
     def _title(self, en, ko_t, ko_d, ex, W):
         if ex.get("beginner"):
-            self.label(ko_t, 24, 34, 50, CYAN)
-            self.label(ko_d, 24, 82, 32, GREY)
-            return 108
-        self.text(en, 24, 36, 1.8, CYAN, center=False)
-        return 72
+            self.label(ko_t, 28, 56, 50, CYAN)          # 20 px lower than before: the bezel covered the top (review)
+            self.label(ko_d, 28, 100, 32, GREY)
+            return 124
+        self.text(en, 28, 54, 1.8, CYAN, center=False)
+        return 88
 
     def _tile(self, x, y, w, h, en, ko, val, col, unit, size, ex):
         """framed value tile: small label top-left (Korean in beginner mode), big value centred, unit bottom-right."""
@@ -301,7 +301,10 @@ class Painter:
         y += 196
         r = ex.get("radar_m")
         rr = (r / 0.3048) if r is not None else None
-        if rr is not None and rr < 5000:
+        if ex.get("beginner") and (rr is None or rr >= 5000):       # beginner: height above the ground instead of Mach
+            self._tile(16, y, W2, 150, "AGL  R", "r_agl", "", GREEN, "", 2.8, ex)
+            self.label("v_high", 16 + W2 / 2, y + 88, 52, GREEN, "c")
+        elif rr is not None and rr < 5000:
             self._tile(16, y, W2, 150, "AGL  R", "r_agl", "{:,.0f}".format(rr), RED if (rr < 500 and vs < -1500 and air) else AMBER if (rr < 1000 and air) else GREEN,
                        "FT", 2.8, ex)
         else:
@@ -331,10 +334,16 @@ class Painter:
         else:
             for xx, t in ((24, "GEAR"), (360, "AOA"), (700, "BRAKE")):
                 self.text(t, xx, y + 20, 1.3, GREY, center=False)
-        self.text(gtxt, 250, y + 22, 2.0, gcol)
-        self.text(("%.1f" % aoa) if kts > 40 else "--", 590, y + 22, 2.0, aoa_c)
+        if ex.get("beginner"):
+            self.label({"DOWN": "v_down", "UP": "v_up"}.get(gtxt, "v_transit"), 150, y + 22, 44, gcol)
+        else:
+            self.text(gtxt, 250, y + 22, 2.0, gcol)
+        self.text(("%.1f" % aoa) if kts > 40 else "--", 640 if ex.get("beginner") else 590, y + 22, 2.0, aoa_c)
         bk = s.get("brk", 0.0) > 0.3
-        self.text("ON" if bk else "OFF", 930, y + 22, 2.0, AMBER if bk else GREY)
+        if ex.get("beginner"):
+            self.label("v_on" if bk else "v_off", 880, y + 22, 44, AMBER if bk else GREY)
+        else:
+            self.text("ON" if bk else "OFF", 930, y + 22, 2.0, AMBER if bk else GREY)
         self.last["MFD_L"] = dict(kts=round(kts), ft=round(ft), vs=round(vs), thr=round(thr * 100), gear=gtxt, g=round(g, 1), gmax=round(gm, 1))
 
     def _train(self, s, ex):
@@ -361,7 +370,7 @@ class Painter:
             else:
                 self.text(t["name"], 30, y, 1.3, WHITE, center=False)
             self.text("%s" % t.get("txt", ""), 330, y, 2.5, col)
-            self.text("%s +-%g %s" % (t.get("ttxt", ""), t.get("tol", 0), t.get("unit", "")), 565, y, 1.25, GREY)
+            self.text("%s ±%g %s" % (t.get("ttxt", ""), t.get("tol", 0), t.get("unit", "")), 565, y, 1.25, GREY)
             # deviation bar: centre = target, green band = tolerance, marker = now
             bx, bw = 700, 300
             tol = max(1e-6, float(t.get("tol", 1)))
@@ -436,7 +445,11 @@ class Painter:
             self.fill(bx + bw / 2 + max(-L, min(L, tv)) * k - 2, by - 26, 4, 52, CYAN)
             self.text("-%g" % L, bx + 26, by + 34, 1.0, GREY)
             self.text("+%g" % L, bx + bw - 26, by + 34, 1.0, GREY)
-            self.text("max %g deg/s" % rt, bx + bw / 2, by + 34, 1.0, GREY)
+            if beg:
+                w = self.label("r_rate", bx + bw / 2 - 40, by + 34, 26, GREY, "c")
+                self.text("%g" % rt, bx + bw / 2 - 40 + w / 2 + 34, by + 34, 1.0, GREY)
+            else:
+                self.text("max %g deg/s" % rt, bx + bw / 2, by + 34, 1.0, GREY)
             y += 166
         # warnings
         act = ex.get("warnings") or []

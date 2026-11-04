@@ -5,7 +5,7 @@ The editor caps PIE at 120 fps, so the useful number is the GPU frame time (star
 log). The PIE viewport is small, so r.ScreenPercentage is raised to render ~1920x1080 pixels ("1080p") and, for the VR
 estimate, ~2 x 1832x1920 pixels (Quest 2 class headset, both eyes) with the VR preset. Pixel-count scaling is an
 estimate of VR cost, not a headset measurement. Writes Saved/verify/fps_<label>.json. Needs sim/server.py running.
-GYROSIM_FPS_LABEL env var = label (default 'run').
+GYROSIM_FPS_LABEL env var = label (default 'run'), GYROSIM_FPS_NOCLOUDS=1 hides the volumetric clouds (A/B).
 """
 import json, math, os, re, time
 import unreal
@@ -64,6 +64,9 @@ def _tick(dt):
         elif ph == "wait":
             if _ues.get_game_world() is not None and c and c.aircraft is not None and c.s is not None and getattr(c, "startup_done", True):
                 c._send({"cmd": "reset", "mode": "air"})
+                if os.environ.get("GYROSIM_FPS_NOCLOUDS"):        # A/B: volumetric clouds hidden
+                    for a in unreal.GameplayStatics.get_all_actors_of_class(_ues.get_game_world(), unreal.VolumetricCloud):
+                        a.set_actor_hidden_in_game(True)
                 _st.update(phase="setup", t=now)
         elif ph == "setup" and el > 3:
             name, px, preset, view = _PHASES[_st["i"]]

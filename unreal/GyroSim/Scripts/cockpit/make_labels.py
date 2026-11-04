@@ -29,8 +29,10 @@ LABELS = {
     "r_spd": ("속도", True), "r_alt": ("고도", True), "r_agl": ("땅까지", True), "r_vs": ("상승률", True), "r_hdg": ("방위", True),
     "r_g": ("G", True), "r_gmax": ("최대 G", True), "r_aoa": ("받음각", True), "r_mach": ("마하", True), "r_thr": ("스로틀", True),
     "r_gear": ("바퀴", True), "r_brk": ("브레이크", True), "r_time": ("비행 시간", True), "r_croll": ("의자 좌우", True), "r_cpitch": ("의자 앞뒤", True),
-    "r_lim": ("한계", False), "r_rate": ("속도 한계", False), "r_warn": ("경고", True), "r_score": ("점수", True), "r_intol": ("범위 안", True),
-    "r_trend": ("최근 30 초 차이", False), "r_tgt": ("목표", False),
+    "r_lim": ("한계", False), "r_rate": ("최대 움직임 속도 °/초", False), "r_warn": ("경고", True), "r_score": ("점수", True), "r_intol": ("범위 안", True),
+    "r_trend": ("최근 30 초 · 가운데 초록 = 범위 안", False),
+    "v_down": ("내려감", True), "v_up": ("올라감", True), "v_transit": ("움직이는 중", True), "v_on": ("걸림", True), "v_off": ("풀림", True),
+    "v_high": ("5000 ft 넘음", True), "r_tgt": ("목표", False),
     # target names
     "t_ALT": ("고도", True), "t_HDG": ("방위", True), "t_BANK": ("경사", True), "t_VS": ("상승률", True), "t_SPD": ("속도", True),
     "t_PITCH": ("기수 각도", True), "t_CTR": ("중심선", True), "t_THR": ("스로틀", True), "t_G": ("G", True), "t_AIL": ("스틱 좌우", True),

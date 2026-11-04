@@ -233,51 +233,66 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
 
 
 GRID_HLSL = """
-float2 pm = WP.xy / 100.0;
-float2 res = float2(0, 0);
-float sp[2] = {100.0, 1000.0};
-float hw[2] = {0.006, 0.004};
-[unroll] for (int i = 0; i < 2; i++) {
-    float2 g = pm / sp[i];
-    float2 fw = max(fwidth(g), 1e-6);
-    float2 d = abs(frac(g + 0.5) - 0.5);
-    float2 w = max(hw[i], fw);
-    float2 a = saturate((w - d) / fw) * (hw[i] / w);
-    float fade = saturate(1.6 - max(fw.x, fw.y) * 8.0);
-    res[i] = max(a.x, a.y) * fade;
+// countryside from the air (no texture, nothing streamed): irregular fields with crop rows and hedges, forest
+// patches, large-scale brightness variation. Every detail fades out by its pixel footprint (fwidth) -> no moire.
+float2 p = WP.xy / 100.0;                                  // metres
+float nz[3];
+float scl[3] = {1.0 / 700.0, 1.0 / 2600.0, 1.0 / 9000.0};
+[unroll] for (int k = 0; k < 3; k++) {
+    float2 x = p * scl[k] + k * 13.7;
+    float2 i = floor(x); float2 f = frac(x); f = f * f * (3.0 - 2.0 * f);
+    float a = frac(sin(dot(i, float2(127.1, 311.7))) * 43758.5453);
+    float b = frac(sin(dot(i + float2(1, 0), float2(127.1, 311.7))) * 43758.5453);
+    float c = frac(sin(dot(i + float2(0, 1), float2(127.1, 311.7))) * 43758.5453);
+    float d = frac(sin(dot(i + float2(1, 1), float2(127.1, 311.7))) * 43758.5453);
+    nz[k] = lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
 }
-return res;
+float FS = 380.0;                                           // field size, m
+float2 q = p / FS + (float2(nz[0], nz[1]) - 0.5) * 0.9;
+float2 cell = floor(q);
+float2 fr = frac(q);
+float h = frac(sin(dot(cell, float2(41.3, 289.1))) * 43758.5453);
+float h2 = frac(sin(dot(cell, float2(17.9, 93.7))) * 24634.6345);
+float3 col = h < 0.30 ? float3(0.075, 0.115, 0.035) : h < 0.50 ? float3(0.115, 0.125, 0.045) : h < 0.65 ? float3(0.135, 0.115, 0.065)
+           : h < 0.82 ? float3(0.055, 0.085, 0.030) : float3(0.095, 0.085, 0.060);
+col *= 0.85 + 0.3 * h2;
+// crop rows inside a field (6 m period, direction per field)
+float ang = h2 * 3.14159;
+float r = dot(p, float2(cos(ang), sin(ang))) / 6.0;
+float rw = fwidth(r);
+float rows = (0.5 + 0.5 * sin(r * 6.28318)) * saturate(1.0 - rw * 2.5);
+col *= 1.0 - 0.18 * rows;
+// hedges / tracks between fields (about 4 m)
+float2 e = min(fr, 1.0 - fr) * FS;
+float2 ew = max(fwidth(q) * FS, 1e-3);
+float edge = max(saturate((4.0 - e.x) / ew.x), saturate((4.0 - e.y) / ew.y)) * saturate(4.0 / max(ew.x, ew.y));
+col = lerp(col, float3(0.045, 0.06, 0.03), edge * 0.8);
+// forest and hills (dark), villages (light grey), large brightness variation
+float forest = smoothstep(0.58, 0.66, nz[2] * 0.7 + nz[1] * 0.3);
+col = lerp(col, float3(0.03, 0.05, 0.022), forest);
+float town = smoothstep(0.86, 0.9, h * (0.6 + 0.4 * nz[1])) * (1.0 - forest);
+col = lerp(col, float3(0.16, 0.15, 0.14), town * 0.8);
+col *= 0.8 + 0.4 * nz[1];
+return col;
 """
 
 
 def grid_material():
-    """M_Grid: neutral green-grey ground with anti-aliased world grid lines - 100 m (light) and 1 km (strong).
-    Line width never drops below one pixel, its intensity is scaled down instead (energy conserving), and the lines
-    fade out before they get denser than a few pixels, so distant ground averages to a flat colour (no moire)."""
+    """M_Grid (name kept, the ground mesh is still 'GridGround'): procedural countryside - irregular fields, crop rows,
+    hedges, forest and villages - computed from the world position (no texture). Replaced the debug grid look
+    (review 2026-11-04: 'grid ground at altitude' was the worst visual problem)."""
     m = _new_material("M_Grid")
     wp = _expr(m, unreal.MaterialExpressionWorldPosition, -1400, 0)
     cu = _expr(m, unreal.MaterialExpressionCustom, -1100, 0)
     cu.set_editor_property("code", GRID_HLSL)
-    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT2)
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ci = unreal.CustomInput()
     ci.set_editor_property("input_name", "WP")
     cu.set_editor_property("inputs", [ci])
     MEL.connect_material_expressions(wp, "", cu, "WP")
-    l1 = _expr(m, unreal.MaterialExpressionComponentMask, -850, -100, r=True, g=False, b=False, a=False)
-    l2 = _expr(m, unreal.MaterialExpressionComponentMask, -850, 100, r=False, g=True, b=False, a=False)
-    MEL.connect_material_expressions(cu, "", l1, "")
-    MEL.connect_material_expressions(cu, "", l2, "")
-    c1 = _expr(m, unreal.MaterialExpressionLinearInterpolate, -600, -100)
-    MEL.connect_material_expressions(_vparam(m, "Base", (0.075, 0.095, 0.07), -850, -300), "", c1, "A")
-    MEL.connect_material_expressions(_vparam(m, "Line", (0.20, 0.24, 0.19), -850, -200), "", c1, "B")
-    MEL.connect_material_expressions(l1, "", c1, "Alpha")
-    c2 = _expr(m, unreal.MaterialExpressionLinearInterpolate, -400, 0)
-    MEL.connect_material_expressions(c1, "", c2, "A")
-    MEL.connect_material_expressions(_vparam(m, "Major", (0.42, 0.46, 0.38), -850, 250), "", c2, "B")
-    MEL.connect_material_expressions(l2, "", c2, "Alpha")
-    MEL.connect_material_property(c2, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    MEL.connect_material_property(_const(m, 0.95, -400, 200), "", unreal.MaterialProperty.MP_ROUGHNESS)
-    MEL.connect_material_property(_const(m, 0.1, -400, 280), "", unreal.MaterialProperty.MP_SPECULAR)
+    MEL.connect_material_property(cu, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(_const(m, 0.92, -400, 200), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(_const(m, 0.15, -400, 280), "", unreal.MaterialProperty.MP_SPECULAR)
     return _finish(m)
 
 
@@ -679,7 +694,7 @@ if cloud_mat:
     vcc.set_editor_property("material", cloud_mat)
     vcc.set_editor_property("layer_bottom_altitude", CLOUD_BASE_KM + AF.FIELD_M / 1000.0)
     vcc.set_editor_property("layer_height", CLOUD_TOP_KM)
-    for k, v in (("view_sample_count_scale", 0.7), ("shadow_view_sample_count_scale", 0.5), ("sky_light_cloud_bottom_occlusion", 0.6),
+    for k, v in (("view_sample_count_scale", 1.2), ("shadow_view_sample_count_scale", 0.8), ("sky_light_cloud_bottom_occlusion", 0.6),
                  ("shadow_tracing_distance", 15.0), ("stop_tracing_transmittance_threshold", 0.005)):
         try:
             vcc.set_editor_property(k, v)

@@ -546,7 +546,7 @@ def build_glareshield():
     W = L.HUD_W + 1.6
     for sgn in (1, -1):
         o = base + V((0, sgn * W / 2, 0))
-        P.add(bm_box(1.3, 0.8, hh, 0.3, 2, c=(0, 0, hh / 2)), "CK_HUDFrame", frame=(tuple(o), tuple(fwd), (0, 1, 0), tuple(up)))
+        P.add(bm_box(0.9, 0.55, hh, 0.2, 2, c=(0, 0, hh / 2)), "CK_HUDFrame", frame=(tuple(o), tuple(fwd), (0, 1, 0), tuple(up)))
         P.add(bm_box(2.4, 1.6, 1.6, 0.4, 2, c=(0.2, -sgn * 0.0, 0.8)), "CK_HUDFrame", frame=(tuple(o), tuple(fwd), (0, 1, 0), tuple(up)))
     gl = bm_box(0.5, W - 0.8, hh - 1.0, 0.25, 2, c=(-0.2, 0, (hh - 1.0) / 2 + 0.9))
     part("ck_glass").add(gl, "CK_HUDGlass", frame=(tuple(base), tuple(fwd), (0, 1, 0), tuple(up)))
