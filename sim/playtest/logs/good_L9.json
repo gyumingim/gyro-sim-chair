@@ -1,0 +1,614 @@
+{
+ "bot": "good",
+ "lesson": 9,
+ "title": "9. 접근과 착륙",
+ "sim_min": 10.7,
+ "results": [
+  {
+   "score": 56,
+   "passed": false,
+   "tasks": [
+    {
+     "text": "바퀴 내리기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {},
+     "t": 4.8,
+     "names": [],
+     "tols": {}
+    },
+    {
+     "text": "속도 160 kt",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "SPD": 8.0
+     },
+     "t": 2.0,
+     "names": [
+      "SPD"
+     ],
+     "tols": {
+      "SPD": 8
+     }
+    },
+    {
+     "text": "3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 91,
+     "score": 96,
+     "maxdev": {
+      "VS": 741.3,
+      "CTR": 3.6,
+      "SPD": 6.3
+     },
+     "t": 90.9,
+     "names": [
+      "VS",
+      "CTR",
+      "SPD"
+     ],
+     "tols": {
+      "VS": 200,
+      "CTR": 20,
+      "SPD": 10
+     }
+    },
+    {
+     "text": "접지: 50 ft 에서 스로틀 0, 살짝 당기기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 60,
+     "score": 84,
+     "maxdev": {
+      "VS": 484.3,
+      "CTR": 4.6
+     },
+     "t": 35.2,
+     "names": [
+      "VS",
+      "CTR"
+     ],
+     "tols": {
+      "VS": 250,
+      "CTR": 15
+     }
+    },
+    {
+     "text": "정지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "CTR": 1.5
+     },
+     "t": 17.7,
+     "names": [
+      "CTR"
+     ],
+     "tols": {
+      "CTR": 15
+     }
+    }
+   ],
+   "good": [
+    "속도 160 kt: 속도 을 잘 지켰어요 (범위 안 100%)",
+    "3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지: 상승률 을 잘 지켰어요 (범위 안 91%)",
+    "정지: 중심선 을 잘 지켰어요 (범위 안 100%)"
+   ],
+   "fix": [
+    "접지: 50 ft 에서 스로틀 0, 살짝 당기기: 상승률 이 최대 484 벗어났어요 (허용 250). 작게, 일찍 고치기",
+    "접지 강하율 400 fpm — 50 ft 에서 조금 더 일찍, 살짝 당기기",
+    "중심선에서 2 m ",
+    "문턱 뒤 1968 m 에서 접지 — 조준점(문턱 300 m)을 화면 한 점에"
+   ]
+  },
+  {
+   "score": 56,
+   "passed": false,
+   "tasks": [
+    {
+     "text": "바퀴 내리기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {},
+     "t": 4.8,
+     "names": [],
+     "tols": {}
+    },
+    {
+     "text": "속도 160 kt",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "SPD": 8.0
+     },
+     "t": 3.6,
+     "names": [
+      "SPD"
+     ],
+     "tols": {
+      "SPD": 8
+     }
+    },
+    {
+     "text": "3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 87,
+     "score": 95,
+     "maxdev": {
+      "VS": 689.9,
+      "CTR": 5.9,
+      "SPD": 6.0
+     },
+     "t": 90.7,
+     "names": [
+      "VS",
+      "CTR",
+      "SPD"
+     ],
+     "tols": {
+      "VS": 200,
+      "CTR": 20,
+      "SPD": 10
+     }
+    },
+    {
+     "text": "접지: 50 ft 에서 스로틀 0, 살짝 당기기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 69,
+     "score": 87,
+     "maxdev": {
+      "VS": 506.6,
+      "CTR": 2.9
+     },
+     "t": 35.4,
+     "names": [
+      "VS",
+      "CTR"
+     ],
+     "tols": {
+      "VS": 250,
+      "CTR": 15
+     }
+    },
+    {
+     "text": "정지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "CTR": 3.5
+     },
+     "t": 17.5,
+     "names": [
+      "CTR"
+     ],
+     "tols": {
+      "CTR": 15
+     }
+    }
+   ],
+   "good": [
+    "속도 160 kt: 속도 을 잘 지켰어요 (범위 안 100%)",
+    "3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지: 상승률 을 잘 지켰어요 (범위 안 87%)",
+    "정지: 중심선 을 잘 지켰어요 (범위 안 100%)"
+   ],
+   "fix": [
+    "접지: 50 ft 에서 스로틀 0, 살짝 당기기: 상승률 이 최대 507 벗어났어요 (허용 250). 작게, 일찍 고치기",
+    "접지 강하율 430 fpm — 50 ft 에서 조금 더 일찍, 살짝 당기기",
+    "중심선에서 2 m ",
+    "문턱 뒤 2111 m 에서 접지 — 조준점(문턱 300 m)을 화면 한 점에"
+   ]
+  },
+  {
+   "score": 56,
+   "passed": false,
+   "tasks": [
+    {
+     "text": "바퀴 내리기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {},
+     "t": 4.8,
+     "names": [],
+     "tols": {}
+    },
+    {
+     "text": "속도 160 kt",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "SPD": 8.0
+     },
+     "t": 3.7,
+     "names": [
+      "SPD"
+     ],
+     "tols": {
+      "SPD": 8
+     }
+    },
+    {
+     "text": "3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 85,
+     "score": 94,
+     "maxdev": {
+      "VS": 787.0,
+      "CTR": 6.1,
+      "SPD": 6.1
+     },
+     "t": 90.4,
+     "names": [
+      "VS",
+      "CTR",
+      "SPD"
+     ],
+     "tols": {
+      "VS": 200,
+      "CTR": 20,
+      "SPD": 10
+     }
+    },
+    {
+     "text": "접지: 50 ft 에서 스로틀 0, 살짝 당기기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 64,
+     "score": 86,
+     "maxdev": {
+      "VS": 584.3,
+      "CTR": 2.3
+     },
+     "t": 34.6,
+     "names": [
+      "VS",
+      "CTR"
+     ],
+     "tols": {
+      "VS": 250,
+      "CTR": 15
+     }
+    },
+    {
+     "text": "정지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "CTR": 3.2
+     },
+     "t": 17.9,
+     "names": [
+      "CTR"
+     ],
+     "tols": {
+      "CTR": 15
+     }
+    }
+   ],
+   "good": [
+    "속도 160 kt: 속도 을 잘 지켰어요 (범위 안 100%)",
+    "3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지: 상승률 을 잘 지켰어요 (범위 안 85%)",
+    "정지: 중심선 을 잘 지켰어요 (범위 안 100%)"
+   ],
+   "fix": [
+    "접지: 50 ft 에서 스로틀 0, 살짝 당기기: 상승률 이 최대 584 벗어났어요 (허용 250). 작게, 일찍 고치기",
+    "접지 강하율 401 fpm — 50 ft 에서 조금 더 일찍, 살짝 당기기",
+    "중심선에서 1 m ",
+    "문턱 뒤 2044 m 에서 접지 — 조준점(문턱 300 m)을 화면 한 점에"
+   ]
+  }
+ ],
+ "phases": [
+  [
+   0.0,
+   "brief"
+  ],
+  [
+   3.2,
+   "demo"
+  ],
+  [
+   33.2,
+   "practice"
+  ],
+  [
+   185.0,
+   "solo"
+  ],
+  [
+   335.5,
+   "debrief"
+  ],
+  [
+   336.5,
+   "solo"
+  ],
+  [
+   488.5,
+   "debrief"
+  ],
+  [
+   489.5,
+   "solo"
+  ],
+  [
+   640.9,
+   "debrief"
+  ]
+ ],
+ "said": [
+  {
+   "t": 0.0,
+   "phase": "menu",
+   "text": "안녕하세요, bot_good 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "활주로 06R 9 km 앞, 활주로 위 1550 ft, 180 kt 에서 시작해요. 3° 미끄럼길로 내려가요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "F-16 접근 속도는 160 kt 정도, 강하율 800 fpm. 활주로 문턱 숫자가 화면 속 한 점에 머물면 길이 맞는 거예요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "50 ft 에서 스로틀을 끝까지 줄이고 살짝 당겨 강하를 줄여요(플레어). 땅에 닿으면 브레이크."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "시범 비행 다음에 연습, 그다음 혼자 하는 단독 점검이에요. 준비되면 N 이나 트리거를 누르세요."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "시범 비행이에요. 제가 조종할 테니 스틱과 스로틀이 어떻게 움직이는지 보세요. 건너뛰려면 N."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "바퀴 내리고 160 kt 로 감속할게요."
+  },
+  {
+   "t": 14.0,
+   "phase": "demo",
+   "text": "이제 800 fpm 으로 강하, 활주로 가운데로."
+  },
+  {
+   "t": 30.0,
+   "phase": "demo",
+   "text": "시범 끝. 이제 직접 해 볼게요."
+  },
+  {
+   "t": 30.0,
+   "phase": "practice",
+   "text": "이제 직접 해 봐요. 제가 옆에서 알려 줄게요."
+  },
+  {
+   "t": 30.0,
+   "phase": "practice",
+   "text": "G 키로 바퀴를 내리세요"
+  },
+  {
+   "t": 34.8,
+   "phase": "practice",
+   "text": "S 키로 스로틀을 줄여 160 kt"
+  },
+  {
+   "t": 38.2,
+   "phase": "practice",
+   "text": "좋아요!"
+  },
+  {
+   "t": 38.2,
+   "phase": "practice",
+   "text": "↑ ↓ 로 강하율 800 fpm, ← → 와 A D 로 활주로 가운데. 속도는 W S 로 160 kt"
+  },
+  {
+   "t": 44.2,
+   "phase": "practice",
+   "text": "강하율이 너무 커요 — ↓ 키를 살짝 눌러 기수를 드세요"
+  },
+  {
+   "t": 54.6,
+   "phase": "practice",
+   "text": "강하가 느려요 — ↑ 키를 톡 눌러 기수를 조금 내리세요"
+  },
+  {
+   "t": 69.7,
+   "phase": "practice",
+   "text": "좋아요, 그대로 유지하세요"
+  },
+  {
+   "t": 84.7,
+   "phase": "practice",
+   "text": "좋아요, 그대로 유지하세요"
+  },
+  {
+   "t": 99.7,
+   "phase": "practice",
+   "text": "좋아요, 그대로 유지하세요"
+  },
+  {
+   "t": 114.7,
+   "phase": "practice",
+   "text": "좋아요, 그대로 유지하세요"
+  },
+  {
+   "t": 129.2,
+   "phase": "practice",
+   "text": "50 ft 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 내려앉으세요"
+  },
+  {
+   "t": 156.2,
+   "phase": "practice",
+   "text": "좋아요, 그대로 유지하세요"
+  },
+  {
+   "t": 164.4,
+   "phase": "practice",
+   "text": "B 키로 브레이크를 걸어 멈추세요"
+  },
+  {
+   "t": 179.4,
+   "phase": "practice",
+   "text": "좋아요, 그대로 유지하세요"
+  },
+  {
+   "t": 181.8,
+   "phase": "practice",
+   "text": "연습 끝! 잘했어요."
+  },
+  {
+   "t": 181.8,
+   "phase": "solo",
+   "text": "단독 점검이에요. 이번엔 혼자 해 보세요. 저는 조용히 볼게요."
+  },
+  {
+   "t": 181.8,
+   "phase": "solo",
+   "text": "G 키로 바퀴를 내리세요"
+  },
+  {
+   "t": 186.6,
+   "phase": "solo",
+   "text": "S 키로 스로틀을 줄여 160 kt"
+  },
+  {
+   "t": 188.6,
+   "phase": "solo",
+   "text": "↑ ↓ 로 강하율 800 fpm, ← → 와 A D 로 활주로 가운데. 속도는 W S 로 160 kt"
+  },
+  {
+   "t": 279.5,
+   "phase": "solo",
+   "text": "50 ft 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 내려앉으세요"
+  },
+  {
+   "t": 314.7,
+   "phase": "solo",
+   "text": "B 키로 브레이크를 걸어 멈추세요"
+  },
+  {
+   "t": 332.3,
+   "phase": "debrief",
+   "text": "아쉬워요, 이번엔 통과 점수 70 에 못 미쳤어요. 점수 56 점, D 등급. 잘한 점: 속도 160 kt: 속도 을 잘 지켰어요 (범위 안 100%). 고칠 점: 접지: 50 ft 에서 스로틀 0, 살짝 당기기: 상승률 이 최대 484 벗어났어요 (허용 250). 작게, 일찍 고치기. N 이나 M 으로 단독 점검을 다시 해요."
+  },
+  {
+   "t": 332.3,
+   "phase": "solo",
+   "text": "단독 점검이에요. 이번엔 혼자 해 보세요. 저는 조용히 볼게요."
+  },
+  {
+   "t": 332.4,
+   "phase": "solo",
+   "text": "G 키로 바퀴를 내리세요"
+  },
+  {
+   "t": 337.1,
+   "phase": "solo",
+   "text": "S 키로 스로틀을 줄여 160 kt"
+  },
+  {
+   "t": 340.8,
+   "phase": "solo",
+   "text": "↑ ↓ 로 강하율 800 fpm, ← → 와 A D 로 활주로 가운데. 속도는 W S 로 160 kt"
+  },
+  {
+   "t": 431.4,
+   "phase": "solo",
+   "text": "50 ft 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 내려앉으세요"
+  },
+  {
+   "t": 466.8,
+   "phase": "solo",
+   "text": "B 키로 브레이크를 걸어 멈추세요"
+  },
+  {
+   "t": 484.3,
+   "phase": "debrief",
+   "text": "아쉬워요, 이번엔 통과 점수 70 에 못 미쳤어요. 점수 56 점, D 등급. 잘한 점: 속도 160 kt: 속도 을 잘 지켰어요 (범위 안 100%). 고칠 점: 접지: 50 ft 에서 스로틀 0, 살짝 당기기: 상승률 이 최대 507 벗어났어요 (허용 250). 작게, 일찍 고치기. N 이나 M 으로 단독 점검을 다시 해요."
+  },
+  {
+   "t": 484.3,
+   "phase": "solo",
+   "text": "단독 점검이에요. 이번엔 혼자 해 보세요. 저는 조용히 볼게요."
+  },
+  {
+   "t": 484.3,
+   "phase": "solo",
+   "text": "G 키로 바퀴를 내리세요"
+  },
+  {
+   "t": 489.1,
+   "phase": "solo",
+   "text": "S 키로 스로틀을 줄여 160 kt"
+  },
+  {
+   "t": 492.8,
+   "phase": "solo",
+   "text": "↑ ↓ 로 강하율 800 fpm, ← → 와 A D 로 활주로 가운데. 속도는 W S 로 160 kt"
+  },
+  {
+   "t": 583.2,
+   "phase": "solo",
+   "text": "50 ft 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 내려앉으세요"
+  },
+  {
+   "t": 617.8,
+   "phase": "solo",
+   "text": "B 키로 브레이크를 걸어 멈추세요"
+  },
+  {
+   "t": 635.7,
+   "phase": "debrief",
+   "text": "아쉬워요, 이번엔 통과 점수 70 에 못 미쳤어요. 점수 56 점, D 등급. 잘한 점: 속도 160 kt: 속도 을 잘 지켰어요 (범위 안 100%). 고칠 점: 접지: 50 ft 에서 스로틀 0, 살짝 당기기: 상승률 이 최대 584 벗어났어요 (허용 250). 작게, 일찍 고치기. N 이나 M 으로 단독 점검을 다시 해요."
+  }
+ ],
+ "passed": false,
+ "best": 56,
+ "coach_fix": 2,
+ "praise": 7,
+ "crashes": 0,
+ "wall_s": 4.6
+}

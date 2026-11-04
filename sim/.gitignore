@@ -1,2 +1,5 @@
 out/
 __pycache__/
+profiles/
+playtest/_profiles/
+playtest/_profiles_test/
