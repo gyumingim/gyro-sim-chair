@@ -1,0 +1,228 @@
+{
+ "created": "2026-11-04T21:54:21",
+ "inputs": {
+  "core": "firmware/chair/lib/chair_core/chair_core.c",
+  "plant": "control/chair_model.py (80 kg rider unless noted, zeta 0.03, motor 10 % slower than assumed, IMU mount error 0.8/-0.5 deg)"
+ },
+ "step_cal": {
+  "ok": true,
+  "time_s": 83.785,
+  "k_r": 0.0006754,
+  "k_p": 0.0004726,
+  "max_r": [
+   -20.95,
+   19.8
+  ],
+  "max_p": [
+   -15.45,
+   15.46
+  ],
+  "true_k_r": 0.0006745197535338891,
+  "true_k_p": 0.0004717412610258085,
+  "roll_after": -0.05,
+  "pitch_after": 0.0,
+  "true_roll": 0.08528094392784162,
+  "true_pitch": -0.062228413125064046,
+  "saved": 1
+ },
+ "step": {
+  "t90_roll_s": 8.284999999999997,
+  "t90_pitch_s": 9.215000000000003,
+  "overshoot_roll_deg": 0.35756406975758814,
+  "overshoot_pitch_deg": 0.0865331162595453,
+  "final_roll": 0.10315431047258002,
+  "final_pitch": -0.09616392731460305
+ },
+ "sine": {
+  "roll_0p02Hz_8deg": {
+   "gain": 1.0243282065172252,
+   "lag_s": 1.511000562157893
+  },
+  "pitch_0p05Hz_6deg": {
+   "gain": 0.6364063422331794,
+   "lag_s": 6.046316318254521
+  }
+ },
+ "watchdog": {
+  "before": [
+   12.199604654084826,
+   9.948956784439147
+  ],
+  "after": [
+   0.12197285537113936,
+   -0.1340921450110678
+  ],
+  "state": "READY"
+ },
+ "recal_time_s": 62.89999999999998,
+ "heavy_cal": {
+  "ok": true,
+  "time_s": 70.585,
+  "k_r": 0.0005289,
+  "k_p": 0.000376,
+  "max_r": [
+   -16.62,
+   15.82
+  ],
+  "max_p": [
+   -12.43,
+   12.38
+  ],
+  "true_k_r": 0.0005265987549518959,
+  "true_k_p": 0.00037643378519290925,
+  "roll_after": 0.03,
+  "pitch_after": 0.03,
+  "true_roll": -0.12421755756965451,
+  "true_pitch": 0.11425879127993938,
+  "saved": 1
+ },
+ "lean_cal": {
+  "ok": true,
+  "time_s": 61.885000000000005,
+  "k_r": 0.0006746,
+  "k_p": 0.0004696,
+  "max_r": [
+   -20.9,
+   19.81
+  ],
+  "max_p": [
+   -15.35,
+   15.37
+  ],
+  "true_k_r": 0.0006745197535338891,
+  "true_k_p": 0.0004717412610258085,
+  "roll_after": -0.08,
+  "pitch_after": 0.0,
+  "true_roll": -0.05714255175227715,
+  "true_pitch": 0.0033977948114669696,
+  "saved": 1
+ },
+ "lean": {
+  "peak_roll": 14.23345616118377,
+  "final_roll": 5.272414400979505
+ },
+ "checks": [
+  {
+   "name": "calibration completes",
+   "ok": true,
+   "info": "84 s"
+  },
+  {
+   "name": "calibrated k within 10 % (roll)",
+   "ok": true,
+   "info": "6.754e-04 vs 6.745e-04"
+  },
+  {
+   "name": "calibrated k within 10 % (pitch)",
+   "ok": true,
+   "info": "4.726e-04 vs 4.717e-04"
+  },
+  {
+   "name": "level after calibration (true angle, includes IMU mount error removed by ZERO)",
+   "ok": true,
+   "info": "roll 0.09 pitch -0.06"
+  },
+  {
+   "name": "ARM -> RUN",
+   "ok": true,
+   "info": "RUN"
+  },
+  {
+   "name": "step 10 deg roll reaches 90 %",
+   "ok": true,
+   "info": "8.284999999999997 s"
+  },
+  {
+   "name": "step 8 deg pitch reaches 90 %",
+   "ok": true,
+   "info": "9.215000000000003 s"
+  },
+  {
+   "name": "step overshoot < 0.5 deg",
+   "ok": true,
+   "info": "roll 0.36 pitch 0.09"
+  },
+  {
+   "name": "sine roll 0.02 Hz 8 deg tracks (gain > 0.8)",
+   "ok": true,
+   "info": "gain 1.02 lag 1.5 s"
+  },
+  {
+   "name": "sine pitch 0.05 Hz 6 deg (rate 1.9 deg/s > limit -> attenuated, informative)",
+   "ok": true,
+   "info": "gain 0.64 lag 6.0 s"
+  },
+  {
+   "name": "watchdog: no packets -> RETURN -> READY level",
+   "ok": true,
+   "info": "12.2/9.9 -> 0.12/-0.13, READY"
+  },
+  {
+   "name": "bridge deadman: sim UDP stops -> level while staying in RUN",
+   "ok": true,
+   "info": "RUN roll 0.13"
+  },
+  {
+   "name": "e-stop: state ESTOP, weight does not move",
+   "ok": true,
+   "info": "x 340.0 -> 340.0"
+  },
+  {
+   "name": "e-stop released: still ESTOP until RESET",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "name": "RESET after e-stop -> RETURN -> READY level",
+   "ok": true,
+   "info": "READY roll -0.17"
+  },
+  {
+   "name": "deck switch open -> LOCKED, no weight motion",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "name": "CAL refused while LOCKED",
+   "ok": true,
+   "info": ""
+  },
+  {
+   "name": "after LOCKED, ARM refused until a new calibration (new rider)",
+   "ok": true,
+   "info": "IDLE"
+  },
+  {
+   "name": "IMU lost -> FAULT, weights back to the level position",
+   "ok": true,
+   "info": "FAULT roll 0.16 pitch -0.06"
+  },
+  {
+   "name": "RESET from FAULT -> IDLE (calibrate again)",
+   "ok": true,
+   "info": "IDLE"
+  },
+  {
+   "name": "heavy rider (105 kg, CG 150 mm): calibration ok, k within 10 %",
+   "ok": true,
+   "info": "k_r 5.289e-04/5.266e-04 k_p 3.760e-04/3.764e-04, max roll (-16.62, 15.82), max pitch (-12.43, 12.38)"
+  },
+  {
+   "name": "heavy rider: cue 20/15 clipped to achievable - 1 deg, no FAULT",
+   "ok": true,
+   "info": "max roll 14.8 (achievable 15.8), pitch 11.6 (12.4)"
+  },
+  {
+   "name": "stall (pitch jammed) -> FAULT STALL_P",
+   "ok": true,
+   "info": "FAULT faults 0x20"
+  },
+  {
+   "name": "rider leans 3 cm: angle restored by trim within 0.5 deg",
+   "ok": true,
+   "info": "roll 5.27, peak 14.2 (no damper)"
+  }
+ ],
+ "passed": 24,
+ "total": 24
+}

@@ -1,0 +1,221 @@
+{
+ "created": "2026-11-04T21:43:53",
+ "inputs": {
+  "index_numbers": {
+   "mp": 14.437720000000002,
+   "hp": 0.12491474554153978,
+   "mr": 18.612507,
+   "hr": 0.15586262874206036,
+   "Mdp": 30.61095256733042,
+   "Mxp": 0.002776707089543379,
+   "Mdr": 27.593680298830417,
+   "Myr": -0.3007000000000004,
+   "Ip": 25.453742429578394,
+   "Ir": 29.055434477700704,
+   "xmax": 0.6,
+   "ymax": 0.565,
+   "restP": 0.005197276902396364,
+   "restR": -0.6243516183666191,
+   "maxP": [
+    15.80586117337556,
+    -15.796237335499113
+   ],
+   "maxR": [
+    20.3148920302889,
+    -21.40525822317404
+   ],
+   "Tp": 1.8292908624135318,
+   "Tr": 2.0585159555015564
+  },
+  "motor_rpm": 25.0,
+  "pulley_mm_per_rev": 100.0,
+  "rider_own_inertia": {
+   "pitch": 5.0,
+   "roll": 4.0
+  },
+  "zeta": 0.03,
+  "rider_kg": 80.0,
+  "rider_cg_below_m": 0.1,
+  "assumed": [
+   "motor rpm 25 (no-load estimate)",
+   "rider own inertia",
+   "damping ratio 0.03",
+   "axes independent (roll/pitch coupling ignored)",
+   "belt has no slip/stretch"
+  ]
+ },
+ "weight_speed_mm_s": 41.666666666666664,
+ "axes": {
+  "pitch": {
+   "m_kg": 14.44,
+   "Md_kgm": 30.61,
+   "I_kgm2": 30.45,
+   "period_s": 2.0008169061085956,
+   "wn_rad_s": 3.140309984385229,
+   "zeta": 0.03,
+   "gain_deg_per_mm": 0.027028783278958142,
+   "gain_mm_per_deg": 36.99759584733132,
+   "max_tilt_deg": [
+    15.808739438818735,
+    -15.799034839716136
+   ],
+   "max_rate_deg_s_at_0": 1.1261993032899225,
+   "max_rate_deg_s_at_max": 1.0426167582030361,
+   "time_centre_to_end_s": 14.4,
+   "time_0_to_10deg_s": 8.96604245897969,
+   "residual_swing_deg_velocity_step": 0.4744179676811502,
+   "residual_swing_deg_ramped": 0.01549001547017248,
+   "recommended_weight_accel_mm_s2": 20.824827368989244,
+   "belt_pull_N_at_31deg": 78.04513657514396,
+   "shaft_torque_Nm_20T": 1.240917671544789,
+   "shaft_torque_kgfcm_20T": 12.649517548876544
+  },
+  "roll": {
+   "m_kg": 18.61,
+   "Md_kgm": 27.59,
+   "I_kgm2": 33.06,
+   "period_s": 2.195942373445486,
+   "wn_rad_s": 2.861270579391898,
+   "zeta": 0.03,
+   "gain_deg_per_mm": 0.03864713507569634,
+   "gain_mm_per_deg": 25.87513920608466,
+   "max_tilt_deg": [
+    20.31479343593552,
+    -21.405305435547394
+   ],
+   "max_rate_deg_s_at_0": 1.6102972948206806,
+   "max_rate_deg_s_at_max": 1.4162042600502396,
+   "time_centre_to_end_s": 13.559999999999999,
+   "time_0_to_10deg_s": 6.661658976137409,
+   "residual_swing_deg_velocity_step": 0.22009915000475022,
+   "residual_swing_deg_ramped": 0.00847058166200032,
+   "recommended_weight_accel_mm_s2": 18.974389843068,
+   "belt_pull_N_at_31deg": 100.58310191574994,
+   "shaft_torque_Nm_20T": 1.599271320460424,
+   "shaft_torque_kgfcm_20T": 16.302459943531336
+  }
+ },
+ "rider_sensitivity": {
+  "60kg_cg100mm": {
+   "pitch_max": 16.853084946305035,
+   "roll_max": [
+    21.75883671420176,
+    -22.910849445080814
+   ],
+   "pitch_rate": 1.2049269721672329,
+   "roll_rate": 1.736150932555787,
+   "pitch_T": 2.0196933462117728,
+   "roll_T": 2.2383763443707245
+  },
+  "80kg_cg100mm": {
+   "pitch_max": 15.808739438818735,
+   "roll_max": [
+    20.31479343593552,
+    -21.405305435547394
+   ],
+   "pitch_rate": 1.1261993032899225,
+   "roll_rate": 1.6102972948206806,
+   "pitch_T": 2.0008169061085956,
+   "roll_T": 2.195942373445486
+  },
+  "100kg_cg100mm": {
+   "pitch_max": 14.883508202300243,
+   "roll_max": [
+    19.04377780341249,
+    -20.07770820654762
+   ],
+   "pitch_rate": 1.0571285088532512,
+   "roll_rate": 1.5014566530619322,
+   "pitch_T": 1.9841079935526416,
+   "roll_T": 2.158572109888565
+  },
+  "80kg_cg50mm": {
+   "pitch_max": 18.04027969621926,
+   "roll_max": [
+    23.411548004619227,
+    -24.630121201200314
+   ],
+   "pitch_rate": 1.295488939259847,
+   "roll_rate": 1.88334473777459,
+   "pitch_T": 2.1246876578782556,
+   "roll_T": 2.353182727448263
+  },
+  "80kg_cg200mm": {
+   "pitch_max": 12.651495480845536,
+   "roll_max": [
+    16.01291384767137,
+    -16.90336212216774
+   ],
+   "pitch_rate": 0.8928505742995215,
+   "roll_rate": 1.2483310582776783,
+   "pitch_T": 1.8503894805296874,
+   "roll_T": 2.0023995375402914
+  }
+ },
+ "speed_options": [
+  {
+   "option": "현재: 1/218 + 20T",
+   "weight_mm_s": 41.666666666666664,
+   "pitch_deg_s": 1.1261993032899225,
+   "roll_deg_s": 1.6102972948206806,
+   "shaft_torque_scale": 1.0
+  },
+  {
+   "option": "1/218 + 30T 풀리",
+   "weight_mm_s": 62.5,
+   "pitch_deg_s": 1.6892989549348838,
+   "roll_deg_s": 2.4154459422310213,
+   "shaft_torque_scale": 1.5
+  },
+  {
+   "option": "감속비 약 1/100 + 20T (추정 55 rpm)",
+   "weight_mm_s": 91.66666666666667,
+   "pitch_deg_s": 2.47763846723783,
+   "roll_deg_s": 3.5426540486054976,
+   "shaft_torque_scale": 1.0
+  },
+  {
+   "option": "감속비 약 1/100 + 30T",
+   "weight_mm_s": 137.5,
+   "pitch_deg_s": 3.7164577008567448,
+   "roll_deg_s": 5.313981072908247,
+   "shaft_torque_scale": 1.5
+  },
+  {
+   "option": "1/28 + 20T (약 196 rpm)",
+   "weight_mm_s": 326.6666666666667,
+   "pitch_deg_s": 8.829402537792992,
+   "roll_deg_s": 12.624730791394137,
+   "shaft_torque_scale": 1.0
+  }
+ ],
+ "cue_8deg_s_realistic": false,
+ "recommended_cue": {
+  "rate_deg_s": {
+   "pitch": 1.01,
+   "roll": 1.45
+  },
+  "accel_deg_s2": {
+   "pitch": 0.51,
+   "roll": 0.66
+  },
+  "soft_limit_deg": {
+   "pitch": [
+    -14.0,
+    14.0
+   ],
+   "roll": [
+    -18.0,
+    18.0
+   ]
+  },
+  "prefilter_lowpass_s": 0.5,
+  "washout_proposal": {
+   "note": "for sim/server.py Chair (not edited here): tilt coordination + attitude hint with washout",
+   "pitch": "LP(1.0 s)[57.3*0.8*ax_g] + 0.2*HP(15 s)[theta]",
+   "roll": "LP(1.0 s)[57.3*0.8*ay_g] + 0.25*HP(15 s)[phi]",
+   "rate_limit": "as rate_deg_s above, not 8 deg/s"
+  }
+ },
+ "png": "control/out/chair_open_loop.png"
+}
