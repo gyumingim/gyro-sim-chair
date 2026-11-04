@@ -1,0 +1,271 @@
+{
+ "bot": "good",
+ "lesson": 10,
+ "assist": "on",
+ "title": "10. G 와 기본 곡예 (선택)",
+ "sim_min": 1.04,
+ "results": [
+  {
+   "score": 98,
+   "passed": true,
+   "assist": false,
+   "tasks": [
+    {
+     "text": "2G 선회 5 초",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 91,
+     "score": 96,
+     "maxdev": {
+      "G": 1.6,
+      "BANK": 7.7
+     },
+     "t": 7.7,
+     "names": [
+      "G",
+      "BANK"
+     ],
+     "tols": {
+      "G": 0.8,
+      "BANK": 12
+     }
+    },
+    {
+     "text": "롤 준비: 날개 수평, 기수 10°",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "PITCH": 3.0,
+      "BANK": 4.0
+     },
+     "t": 2.5,
+     "names": [
+      "PITCH",
+      "BANK"
+     ],
+     "tols": {
+      "PITCH": 3,
+      "BANK": 10
+     }
+    },
+    {
+     "text": "에일러론 롤",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {},
+     "t": 2.6,
+     "names": [],
+     "tols": {}
+    },
+    {
+     "text": "수평 회복",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 93,
+     "score": 97,
+     "maxdev": {
+      "BANK": 5.5,
+      "PITCH": 1.5
+     },
+     "t": 5.3,
+     "names": [
+      "BANK",
+      "PITCH"
+     ],
+     "tols": {
+      "BANK": 5,
+      "PITCH": 4
+     }
+    }
+   ],
+   "good": [
+    "2G 선회 5 초: G 을 잘 지켰어요 (범위 안 91%)",
+    "롤 준비: 날개 수평, 기수 10°: 기수 각도 을 잘 지켰어요 (범위 안 100%)",
+    "수평 회복: 경사 을 잘 지켰어요 (범위 안 93%)",
+    "모든 점검을 깔끔하게 끝냈어요"
+   ],
+   "fix": [],
+   "vars": {
+    "alt0": 12000.0,
+    "hdg0": 0,
+    "roll_acc": 356.20515823595923
+   }
+  }
+ ],
+ "phases": [
+  [
+   0.0,
+   "brief"
+  ],
+  [
+   4.0,
+   "demo"
+  ],
+  [
+   26.2,
+   "practice"
+  ],
+  [
+   43.2,
+   "solo"
+  ],
+  [
+   61.3,
+   "debrief"
+  ]
+ ],
+ "said": [
+  {
+   "t": 0.0,
+   "phase": "menu",
+   "text": "안녕하세요, bot_clumsy 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "G 는 몸이 눌리는 무게의 배수예요. 2G 면 몸무게가 두 배예요. F-16 은 9G 까지 견디지만 사람은 훈련이 필요해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "의자는 G 를 그대로 만들 수 없어요. 화면의 G 숫자로 느낌을 대신해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "에일러론 롤은 스틱을 옆으로 끝까지 기울여 한 바퀴 도는 기동이에요. 시작 전에 날개를 펴고 기수를 10° 들어요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "이 강의는 경사 60° 와 한 바퀴 롤을 해야 해서 쉬운 모드(자세 보조)가 꺼져 있어요. 12000 ft 라 고도는 넉넉해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "시범 비행 다음에 연습, 그다음 혼자 하는 단독 점검이에요. 준비되면 N 이나 트리거를 누르세요."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "시범 비행이에요. 제가 조종할 테니 스틱과 스로틀이 어떻게 움직이는지 보세요. 건너뛰려면 N."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "경사 60° 로 기울이고 당겨 고도를 지키면 2G. 몸무게가 두 배예요. F-16 은 9G 까지, 넘으면 안 돼요."
+  },
+  {
+   "t": 12.0,
+   "phase": "demo",
+   "text": "날개를 펴고, 기수 10°."
+  },
+  {
+   "t": 13.6,
+   "phase": "demo",
+   "text": "스틱을 오른쪽 끝까지. 한 바퀴!"
+  },
+  {
+   "t": 16.2,
+   "phase": "demo",
+   "text": "손을 떼고 수평으로."
+  },
+  {
+   "t": 22.2,
+   "phase": "demo",
+   "text": "시범 끝. 이제 직접 해 볼게요."
+  },
+  {
+   "t": 22.2,
+   "phase": "practice",
+   "text": "이제 직접 해 봐요. 제가 옆에서 알려 줄게요."
+  },
+  {
+   "t": 22.2,
+   "phase": "practice",
+   "text": "→ 로 60° 기울이고 ↓ 를 꾹 눌러 고도를 지키세요. G 가 2 쯤 돼요"
+  },
+  {
+   "t": 24.2,
+   "phase": "practice",
+   "text": "반대 방향이에요 — ↓ 키를 조금 더 눌러 당기세요"
+  },
+  {
+   "t": 29.7,
+   "phase": "practice",
+   "text": "좋아요!"
+  },
+  {
+   "t": 29.8,
+   "phase": "practice",
+   "text": "← 로 날개를 수평으로 펴고, ↓ 로 기수를 10° 드세요. W 로 스로틀 최대"
+  },
+  {
+   "t": 32.2,
+   "phase": "practice",
+   "text": "→ 를 끝까지 누르고 있어 한 바퀴 도세요. ↑ ↓ 는 누르지 마세요. 한 바퀴 돌면 손을 떼요"
+  },
+  {
+   "t": 34.9,
+   "phase": "practice",
+   "text": "날개 수평, 기수 수평"
+  },
+  {
+   "t": 39.2,
+   "phase": "practice",
+   "text": "연습 끝! 잘했어요."
+  },
+  {
+   "t": 39.2,
+   "phase": "solo",
+   "text": "단독 점검이에요. 이번엔 혼자 해 보세요. 저는 조용히 볼게요."
+  },
+  {
+   "t": 39.2,
+   "phase": "solo",
+   "text": "경사 60°, 2G 선회 5 초"
+  },
+  {
+   "t": 46.9,
+   "phase": "solo",
+   "text": "날개 수평, 기수 10°"
+  },
+  {
+   "t": 49.4,
+   "phase": "solo",
+   "text": "에일러론 롤 한 바퀴"
+  },
+  {
+   "t": 52.0,
+   "phase": "solo",
+   "text": "날개 수평, 기수 수평"
+  },
+  {
+   "t": 57.3,
+   "phase": "debrief",
+   "text": "통과! 점수 98 점, A 등급. 잘한 점: 2G 선회 5 초: G 을 잘 지켰어요 (범위 안 91%). 모든 강의를 마쳤어요!"
+  }
+ ],
+ "passed": true,
+ "best": 98,
+ "first_try": true,
+ "practice_skips": [],
+ "wrong_end": {
+  "self": 0,
+  "coach": 0,
+  "time": 0
+ },
+ "coach_fix": 1,
+ "praise": 1,
+ "crashes": 0,
+ "crash_why": [],
+ "wall_s": 0.4
+}

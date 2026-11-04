@@ -72,7 +72,7 @@ PITCH = lambda tgt, tol=2, **k: T("PITCH", "DEG", lambda s, L: s["theta"], tgt, 
 CTR = lambda tol=8, **k: T("CTR", "M", lambda s, L: s.get("cross_m", 0.0), 0.0, tol, fmt="%+.0f", **k)
 THR = lambda tgt, tol, **k: T("THR", "%", lambda s, L: s["thr"] * 100, tgt, tol, **k)
 G = lambda tgt, tol, **k: T("G", "G", lambda s, L: s.get("nz", 1.0), tgt, tol, fmt="%.1f", **k)
-CTL = lambda name, key, tgt: T(name, "", lambda s, L, k=key: s.get(k, 0.0), tgt, 0.4, coach=False, fmt="%+.2f")
+CTL = lambda name, key, tgt, tol=0.4: T(name, "", lambda s, L, k=key: s.get(k, 0.0), tgt, tol, coach=False, fmt="%+.2f")
 
 # what to do to raise / lower a value: (keyboard, rig)
 INC = {"ALT": ("↓ 키를 살짝 눌러 기수를 드세요", "오른손으로 스틱을 살짝 몸 쪽으로 당기세요"),
@@ -83,7 +83,7 @@ INC = {"ALT": ("↓ 키를 살짝 눌러 기수를 드세요", "오른손으로 
        "BANK": ("→ 키를 톡 누르세요", "오른손으로 스틱을 살짝 오른쪽으로 기울이세요"),
        "SPD": ("W 키로 스로틀을 조금 올리세요", "왼손으로 스로틀을 조금 앞으로 미세요"),
        "THR": ("W 키로 스로틀을 올리세요", "왼손으로 스로틀을 앞으로 미세요"),
-       "CTR": ("D 키로 오른쪽 페달을 톡 누르세요", "오른발로 오른쪽 페달을 살짝 밟으세요")}
+       "CTR": ("오른쪽으로 살짝: 땅에서는 D 키(페달), 공중에서는 → 키를 톡", "오른쪽으로 살짝: 땅에서는 오른발 페달, 공중에서는 스틱을 오른쪽으로 살짝")}
 DEC = {"ALT": ("↑ 키를 톡 눌러 기수를 조금 내리세요", "오른손으로 스틱을 살짝 앞으로 미세요"),
        "VS": ("↑ 키를 톡 눌러 기수를 조금 내리세요", "오른손으로 스틱을 살짝 앞으로 미세요"),
        "PITCH": ("↑ 키를 톡 눌러 기수를 조금 내리세요", "오른손으로 스틱을 살짝 앞으로 미세요"),
@@ -92,7 +92,7 @@ DEC = {"ALT": ("↑ 키를 톡 눌러 기수를 조금 내리세요", "오른손
        "BANK": ("← 키를 톡 누르세요", "오른손으로 스틱을 살짝 왼쪽으로 기울이세요"),
        "SPD": ("S 키로 스로틀을 조금 줄이세요", "왼손으로 스로틀을 조금 당기세요"),
        "THR": ("S 키로 스로틀을 줄이세요", "왼손으로 스로틀을 당기세요"),
-       "CTR": ("A 키로 왼쪽 페달을 톡 누르세요", "왼발로 왼쪽 페달을 살짝 밟으세요")}
+       "CTR": ("왼쪽으로 살짝: 땅에서는 A 키(페달), 공중에서는 ← 키를 톡", "왼쪽으로 살짝: 땅에서는 왼발 페달, 공중에서는 스틱을 왼쪽으로 살짝")}
 NAME_KO = {"ALT": "고도", "HDG": "방위", "BANK": "경사", "VS": "상승률", "SPD": "속도", "PITCH": "기수 각도", "CTR": "중심선", "THR": "스로틀",
            "G": "G", "AIL": "스틱 좌우", "ELEV": "스틱 앞뒤", "RUD": "페달", "BRK": "브레이크"}
 
@@ -157,19 +157,19 @@ def l0_orientation():
                "이번 강의에서는 비행기를 세워 둔 채 조종 장치와 계기를 하나씩 익혀요. 시험은 없어요."],
         practice=[
             Step("조종 장치 위치", hold=5,
-                 kbd="키보드로 조종해요. 화살표는 스틱, A D 는 페달, W S 는 스로틀, B 는 브레이크예요.",
-                 rig="오른손은 가운데 스틱, 왼손은 왼쪽 스로틀, 두 발은 페달 위에 올려 두세요."),
+                 kbd="키보드로 조종해요. 화살표는 스틱(↓ 가 당기기), A D 는 페달, W S 는 스로틀, B 는 브레이크, G 는 바퀴예요.",
+                 rig="오른손은 가운데 스틱, 왼손은 왼쪽 스로틀, 두 발은 페달 위에 올려 두세요. 페달 윗부분을 발끝으로 누르면 브레이크예요."),
             tour("계기판 둘러보기", lambda s, L: "계기판 가운데 큰 화면은 훈련 화면이에요. 지금 할 일과 목표, 점수가 여기 나와요."),
             tour("계기판 둘러보기", lambda s, L: "왼쪽 화면은 비행 정보, 오른쪽 화면은 의자 움직임과 경고예요."),
             tour("계기판 둘러보기", lambda s, L: "가운데 아래 둥근 계기는 자세계예요. 위는 하늘, 아래는 땅, 비행기가 얼마나 기울었는지 보여 줘요."),
             tour("계기판 둘러보기", lambda s, L: "자세계 왼쪽 아래는 속도계, 오른쪽 아래는 고도계, 맨 아래는 승강계예요."),
-            Step("스틱 오른쪽 = 오른쪽으로 기울기", lambda s, L: s["ail"] > 0.6, 0.3, "스틱이 천천히 오른쪽으로 기웁니다",
+            Step("스틱 오른쪽 = 오른쪽으로 기울기", lambda s, L: s["ail"] > 0.6, 0.3, "화면 속 스틱도 같이 오른쪽으로 기울어요",
                  kbd="→ 키를 누르고 있어 스틱을 오른쪽으로 기울이세요", rig="오른손으로 스틱을 오른쪽으로 끝까지 기울이세요",
                  targets=[CTL("AIL", "ail", 1.0)], goal=c("ail", 1.0)),
             Step("스틱 왼쪽 = 왼쪽으로 기울기", lambda s, L: s["ail"] < -0.6,
                  kbd="← 키를 누르고 있어 스틱을 왼쪽으로 기울이세요", rig="오른손으로 스틱을 왼쪽으로 끝까지 기울이세요",
                  targets=[CTL("AIL", "ail", -1.0)], goal=c("ail", -1.0)),
-            Step("스틱 당기기 = 기수 올림", lambda s, L: s["elev"] < -0.6, 0.3, "↓ = 당기기, ↑ = 밀기 (실제 조종간과 같음)",
+            Step("스틱 당기기 = 기수 올림", lambda s, L: s["elev"] < -0.6, 0.3, "키보드: ↓ = 당기기, ↑ = 밀기 (비행기 조종간과 같은 방향)",
                  kbd="↓ 키를 누르고 있어 스틱을 당기세요. 기수가 올라가는 방향이에요", rig="오른손으로 스틱을 몸 쪽으로 끝까지 당기세요",
                  targets=[CTL("ELEV", "elev", -1.0)], goal=c("elev", -1.0)),
             Step("스틱 밀기 = 기수 내림", lambda s, L: s["elev"] > 0.6,
@@ -184,10 +184,10 @@ def l0_orientation():
                  targets=[CTL("BRK", "brk", 1.0)], goal=c("brk", 1.0)),
             Step("스로틀 올리기 = 엔진 출력", lambda s, L: s["thr"] > 0.3, 0.3, "브레이크를 잡고 있어야 앞으로 안 굴러가요",
                  kbd="B 로 브레이크를 잡은 채 W 키로 스로틀을 30% 이상 올리세요",
-                 rig="브레이크를 밟은 채 왼손으로 스로틀을 조금 앞으로 미세요. 30% 이상", targets=[CTL("THR", "thr", 0.5)],
+                 rig="브레이크를 밟은 채 왼손으로 스로틀을 조금 앞으로 미세요. 30% 이상", targets=[CTL("THR", "thr", 0.65, 0.35)],
                  goal=lambda s, L: dict(ctrl={"thr": 0.5, "brk": 1.0})),
             Step("스로틀 내리기", lambda s, L: s["thr"] < 0.03,
-                 kbd="S 키로 스로틀을 0% 까지 내리세요", rig="왼손으로 스로틀을 몸 쪽으로 끝까지 당기세요", targets=[CTL("THR", "thr", 0.0)],
+                 kbd="S 키로 스로틀을 0% 까지 내리세요", rig="왼손으로 스로틀을 몸 쪽으로 끝까지 당기세요", targets=[CTL("THR", "thr", 0.0, 0.03)],
                  goal=lambda s, L: dict(ctrl={"thr": 0.0, "brk": 1.0})),
             Step("바퀴 손잡이", lambda s, L: True, 4,
                  kbd="G 키는 바퀴를 올리고 내려요. 땅에서는 누르지 마세요. 계기판 왼쪽 흰 손잡이가 같이 움직여요.",
@@ -208,19 +208,19 @@ def l1_attitude():
               Seg("반대로 기울여 수평으로 돌아와요.", lambda s, L: dict(pitch=1.5, bank=0, spd=350), 6)],
         practice=[
             Step("기수 5° 들기", lambda s, L: abs(s["theta"] - 5) < 1.5, 3, "HUD 사다리의 5 줄에 맞추기",
-                 kbd="↓ 키를 살짝 눌러 기수를 5° 까지 들고, 손을 떼서 유지하세요", rig="오른손으로 스틱을 살짝 당겨 기수 5°, 그리고 힘을 빼서 유지하세요",
+                 kbd="↓ 키를 살짝 눌러 기수를 5° 까지 들고, 손을 떼서 3 초 유지하세요", rig="오른손으로 스틱을 살짝 당겨 기수 5°, 그리고 힘을 빼서 3 초 유지하세요",
                  targets=[PITCH(5, 1.5)], goal=lambda s, L: dict(pitch=5, bank=0, spd=350), timeout=60),
             Step("기수 수평으로", lambda s, L: abs(s["theta"] - 1.5) < 1.5, 3,
-                 kbd="↑ 키를 톡 눌러 기수를 수평(1~2°)으로 돌리세요", rig="스틱을 살짝 밀어 기수를 수평(1~2°)으로 돌리세요",
+                 kbd="↑ 키를 톡 눌러 기수를 수평(1~2°)으로 돌리고 3 초", rig="스틱을 살짝 밀어 기수를 수평(1~2°)으로 돌리고 3 초",
                  targets=[PITCH(1.5, 1.5)], goal=lv, timeout=60),
             Step("오른쪽 경사 20°", lambda s, L: abs(s["phi"] - 20) < 5, 3,
-                 kbd="→ 키를 톡톡 눌러 오른쪽으로 20° 기울이고 손을 떼세요", rig="오른손으로 스틱을 살짝 오른쪽으로 기울여 20°, 그리고 가운데로",
+                 kbd="→ 키를 톡톡 눌러 오른쪽으로 20° 기울이고 손을 떼서 3 초", rig="오른손으로 스틱을 살짝 오른쪽으로 기울여 20°, 그리고 가운데로. 3 초",
                  targets=[BANK(20, 5)], goal=lambda s, L: dict(pitch=2, bank=20, spd=350), timeout=60),
             Step("날개 수평", lambda s, L: abs(s["phi"]) < 4, 3,
                  kbd="← 키를 톡톡 눌러 날개를 수평으로", rig="스틱을 살짝 왼쪽으로 기울여 날개를 수평으로",
                  targets=[BANK(0, 4)], goal=lv, timeout=60),
             Step("왼쪽 경사 20°", lambda s, L: abs(s["phi"] + 20) < 5, 3,
-                 kbd="← 키를 톡톡 눌러 왼쪽으로 20° 기울이세요", rig="스틱을 살짝 왼쪽으로 기울여 20°",
+                 kbd="← 키를 톡톡 눌러 왼쪽으로 20° 기울이고 손을 떼서 3 초", rig="스틱을 살짝 왼쪽으로 기울여 20°, 그리고 가운데로. 3 초",
                  targets=[BANK(-20, 5)], goal=lambda s, L: dict(pitch=2, bank=-20, spd=350), timeout=60),
             Step("날개 수평", lambda s, L: abs(s["phi"]) < 4, 3,
                  kbd="→ 키를 톡톡 눌러 날개를 수평으로", rig="스틱을 살짝 오른쪽으로 기울여 날개를 수평으로",
@@ -319,7 +319,7 @@ def l4_climb():
 
 def l5_turns():
     A = lambda tol=200: ALT(A0, tol)
-    roll_out = lambda h: (lambda s, L: abs(hdg_err(s["psi"], h)) < 5 and abs(s["phi"]) < 5 and abs(ft(s) - A0(L)) < 300)
+    roll_out = lambda h: (lambda s, L: abs(hdg_err(s["psi"], h)) < 5 and abs(s["phi"]) < 5 and abs(ft(s) - A0(L)) < 200)
     return dict(
         id=5, title="5. 선회", short="경사 30° 와 45°", mode="air",
         brief=["선회 = 기울이고 살짝 당기기. 기울이면 날개 힘이 옆으로 가서 고도가 떨어지려 해요. 그래서 살짝 당겨요.",
@@ -472,26 +472,56 @@ def _land_mon(s, L, dt):
         L["td"] = dict(vs=s["vs_fpm"], e=s.get("cross_m", 0), n=s.get("along_m", 0), theta=s["theta"], kts=s["kts"])
 
 
+AIM_M = 300.0                     # aim point: 300 m past the threshold
+TAN3 = math.tan(math.radians(3.0))
+WHEEL_FT = 5.0                    # agl at the CG with the wheels on the ground (JSBSim F-16)
+
+
+def wheel_ft(s):
+    return agl_ft(s) - WHEEL_FT
+
+
+def _glide_vs(s):
+    """vertical speed for the 3 deg path to the aim point (+ a gentle correction back onto it), then the flare:
+    from ~80 ft the sink rate eases off smoothly with height (about 850 -> 200 fpm at touchdown), no sudden pull.
+    The height is looked ahead 1 s, because the nose (and the sink rate) needs a moment to follow the stick."""
+    nom = s["kts"] * 101.27 * TAN3                                        # 3 deg at this speed (~850 fpm at 160 kt)
+    h_path = max(0.0, AIM_M - s.get("along_m", 0.0)) * TAN3 / FT
+    vs = -nom - max(-200.0, min(200.0, 3.0 * (wheel_ft(s) - h_path)))
+    h_ahead = max(0.0, wheel_ft(s) + s["vs_fpm"] / 60.0 * 1.0)
+    return max(vs, -(150.0 + 9.0 * h_ahead))
+
+
+def _land_lat(s, lim=15.0):
+    return 52.4 + max(-lim, min(lim, -0.04 * s.get("cross_m", 0)))
+
+
+def _glide(s, L):
+    g = dict(vs=_glide_vs(s), hdg=_land_lat(s), gear=1)
+    if wheel_ft(s) < 50:
+        g["thr"] = 0.0                                                    # 50 ft: throttle to idle
+    else:
+        g["spd"] = 160
+    return g
+
+
 def _land_steps(solo=False):
-    glide = lambda s, L: dict(vs=-800 if s["agl_m"] > 25 else -250, hdg=52.4 + max(-15, min(15, -0.04 * s.get("cross_m", 0))), spd=160, gear=1)
     return [
         Step("바퀴 내리기", lambda s, L: s["gear"] > 0.9, 0.3, kbd="G 키로 바퀴를 내리세요", rig="G 키(또는 기어 손잡이)로 바퀴를 내리세요",
              goal=lambda s, L: dict(alt=1740, hdg=52.4, spd=175, gear=1), timeout=40),
-        Step("속도 160 kt", lambda s, L: s["kts"] < 168, 1, "기수는 약간 위 (받음각 8~12°)",
-             kbd="S 키로 스로틀을 줄여 160 kt", rig="왼손으로 스로틀을 조금 당겨 160 kt",
+        Step("속도 160 kt", lambda s, L: s["kts"] < 168, 1, "기수는 조금 들린 채 (받음각 8~12°)",
+             kbd="S 키로 스로틀을 줄여 160 kt. 고도는 그대로", rig="왼손으로 스로틀을 조금 당겨 160 kt. 고도는 그대로",
              targets=[SPD(160, 8)], goal=lambda s, L: dict(alt=1740, hdg=52.4, spd=160, gear=1), timeout=60),
-        Step("3° 강하: 강하율 800 fpm, 정렬 유지, 300 ft 까지", lambda s, L: s["agl_m"] < 90, 0.2, "활주로 문턱이 화면 속 한 점에 머물게",
-             kbd="↑ ↓ 로 강하율 800 fpm, ← → 와 A D 로 활주로 가운데. 속도는 W S 로 160 kt",
-             rig="스틱을 조금씩 밀고 당겨 강하율 800 fpm, 활주로 가운데로. 속도는 스로틀로 160 kt",
-             targets=[VS(-800, 200), CTR(20), SPD(160, 10)], goal=glide, timeout=150),
-        Step("접지: 50 ft 에서 스로틀 0, 살짝 당기기", lambda s, L: s["wow"], 0.1, "강하율 300 fpm 아래로 부드럽게",
-             kbd="50 ft 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 내려앉으세요",
-             rig="50 ft 에서 왼손으로 스로틀을 끝까지 당기고, 오른손으로 스틱을 살짝 당겨 내려앉으세요",
-             targets=[VS(-300, 250, coach=False), CTR(15)], goal=lambda s, L: dict(glide(s, L), thr=0.0 if s["agl_m"] < 15 else None) if False else
-             dict(vs=-800 if s["agl_m"] > 25 else -200, hdg=52.4 + max(-10, min(10, -0.04 * s.get("cross_m", 0))), gear=1,
-                  **({"thr": 0.0} if s["agl_m"] < 12 else {"spd": 155})), timeout=60),
+        Step("3° 강하: 강하율 800 fpm, 활주로 가운데, R 300 ft 까지", lambda s, L: s["agl_m"] < 90, 0.2, "활주로 문턱이 화면 속 한 점에 머물게",
+             kbd="↑ ↓ 로 강하율 800 fpm, ← → 로 활주로 가운데. 속도는 W S 로 160 kt. R 300 까지",
+             rig="스틱을 조금씩 밀고 당겨 강하율 800 fpm, 좌우로 살짝 기울여 활주로 가운데로. 속도는 스로틀로 160 kt. R 300 까지",
+             targets=[VS(-800, 200), CTR(20), SPD(160, 10)], goal=_glide, timeout=150),
+        Step("접지: R 50 에서 스로틀 0, 살짝 당기기", lambda s, L: s["wow"], 0.1, "강하율을 300 fpm 쯤으로 부드럽게 줄이기",
+             kbd="R 50 에서 S 로 스로틀 0, ↓ 키로 살짝 당겨 강하를 줄이며 내려앉으세요",
+             rig="R 50 에서 왼손으로 스로틀을 끝까지 당기고, 오른손으로 스틱을 살짝 당겨 강하를 줄이며 내려앉으세요",
+             targets=[VS(-300, 250, coach=False), CTR(15)], goal=_glide, timeout=60),
         Step("정지", lambda s, L: s["kts"] < 5 and s["wow"], 0.5,
-             kbd="B 키로 브레이크를 걸어 멈추세요", rig="양발 끝으로 페달 윗부분을 눌러 브레이크, 멈추세요",
+             kbd="B 키로 브레이크를 걸어 멈추세요. A D 로 가운데 선", rig="양발 끝으로 페달 윗부분을 눌러 브레이크, 멈추세요. 페달로 가운데 선",
              targets=[CTR(15)], goal=lambda s, L: dict(thr=0.0, ground=True, brk=1.0, gear=1), timeout=60),
     ]
 
@@ -511,7 +541,7 @@ def l9_landing():
         td = L.get("td")
         if not td:
             return ["접지하지 못했어요"]
-        out = ["접지 강하율 %.0f fpm %s" % (abs(td["vs"]), "(부드러움)" if abs(td["vs"]) < 400 else "— 50 ft 에서 조금 더 일찍, 살짝 당기기"),
+        out = ["접지 강하율 %.0f fpm %s" % (abs(td["vs"]), "(부드러움)" if abs(td["vs"]) < 400 else "— R 50 에서 조금 더 일찍, 살짝 당기기"),
                "중심선에서 %.0f m %s" % (abs(td["e"]), "" if abs(td["e"]) < 10 else "— 페달과 작은 경사로 일찍 맞추기"),
                "문턱 뒤 %.0f m 에서 접지 %s" % (td["n"], "" if 0 < td["n"] < 900 else "— 조준점(문턱 300 m)을 화면 한 점에")]
         return out
@@ -520,47 +550,74 @@ def l9_landing():
         id=9, title="9. 접근과 착륙", short="3° 강하와 접지", mode="approach",
         brief=["활주로 06R 9 km 앞, 활주로 위 1550 ft, 180 kt 에서 시작해요. 3° 미끄럼길로 내려가요.",
                "F-16 접근 속도는 160 kt 정도, 강하율 800 fpm. 활주로 문턱 숫자가 화면 속 한 점에 머물면 길이 맞는 거예요.",
-               "50 ft 에서 스로틀을 끝까지 줄이고 살짝 당겨 강하를 줄여요(플레어). 땅에 닿으면 브레이크."],
+               "착륙할 때 높이는 HUD 고도 아래의 R 숫자(땅에서 잰 높이)를 봐요. 큰 고도 숫자는 해수면 기준이라 땅에 닿아도 190 쯤이에요.",
+               "R 50 에서 스로틀을 끝까지 줄이고 살짝 당겨 강하를 줄여요(플레어). 땅에 닿으면 브레이크."],
         demo=[Seg("바퀴 내리고 160 kt 로 감속할게요.", lambda s, L: dict(alt=1740, hdg=52.4, spd=160, gear=1), 14),
-              Seg("이제 800 fpm 으로 강하, 활주로 가운데로.",
-                  lambda s, L: dict(vs=-800, hdg=52.4 + max(-15, min(15, -0.04 * s.get("cross_m", 0))), spd=160, gear=1), 16)],
+              Seg("이제 800 fpm 쯤으로 강하, 활주로 가운데로. 활주로 문턱이 화면 속 한 점에 머물러요.", _glide, until=lambda s, L: s["agl_m"] < 90),
+              Seg("R 300. R 50 에서 스로틀을 끝까지 줄이고 살짝 당겨 강하를 줄여요.", _glide, until=lambda s, L: s["wow"]),
+              Seg("접지! 브레이크로 멈춰요.", lambda s, L: dict(thr=0.0, ground=True, brk=1.0, gear=1), until=lambda s, L: s["kts"] < 5)],
         practice=_land_steps(), solo=_land_steps(True), key="VS", monitor=_land_mon, penalties=pen, penalty_text=ptxt)
 
 
+def _roll_mon(s, L, dt):
+    """counts the roll angle of the aileron roll: only fast rolling (> 45 deg/s) counts, so levelling the wings
+    before the roll or small corrections do not."""
+    p = s.get("p_dps", 0.0)
+    if abs(p) > 45:
+        L["roll_acc"] = L.get("roll_acc", 0.0) + p * dt
+
+
+def _roll_steps(solo=False):
+    turn = lambda s, L: dict(alt=A0(L) if "alt0" in L else 12000, bank=60, spd=350)
+    two_g = lambda s, L: abs(s.get("nz", 1) - 2) < 0.8 and abs(s["phi"] - 60) < 12
+    nose = lambda s, L: s["theta"] > 8 and abs(s["phi"]) < 10
+    level = lambda s, L: abs(s["phi"]) < 5 and abs(s["theta"]) < 5
+    roll_go = lambda s, L: dict(ctrl={"ail": 1.0, "elev": 0.0})
+    if solo:
+        return [
+            Step("2G 선회 5 초", two_g, 5, enter=set_ref, kbd="경사 60°, 2G 선회 5 초", rig="경사 60°, 2G 선회 5 초",
+                 targets=[G(2, 0.8), BANK(60, 12, coach=False)], goal=turn, timeout=90),
+            Step("롤 준비: 날개 수평, 기수 10°", nose, 0.5, kbd="날개 수평, 기수 10°", rig="날개 수평, 기수 10°",
+                 targets=[PITCH(10, 3), BANK(0, 10)], goal=lambda s, L: dict(pitch=11, bank=0, thr=1.0), timeout=40),
+            Step("에일러론 롤", lambda s, L: abs(L.get("roll_acc", 0)) > 340, 0.1, enter=lambda s, L: L.update(roll_acc=0.0), monitor=_roll_mon,
+                 kbd="에일러론 롤 한 바퀴", rig="에일러론 롤 한 바퀴", goal=roll_go, timeout=30),
+            Step("수평 회복", level, 3, kbd="날개 수평, 기수 수평", rig="날개 수평, 기수 수평", targets=[BANK(0, 5), PITCH(1.5, 4)],
+                 goal=lambda s, L: dict(pitch=1.5, bank=0, spd=380), timeout=40),
+        ]
+    return [
+        Step("2G 선회 (경사 60°) 를 5 초", two_g, 5, "경사 60° 에서 고도를 지키면 저절로 2G 쯤", enter=set_ref,
+             kbd="→ 로 60° 기울이고 ↓ 를 꾹 눌러 고도를 지키세요. G 가 2 쯤 돼요", rig="스틱을 오른쪽으로 60° 기울이고 당겨서 고도를 지키세요. G 가 2 쯤 돼요",
+             targets=[G(2, 0.8), BANK(60, 12, coach=False)], goal=turn, timeout=90),
+        Step("롤 준비: 날개 수평, 기수 10°", nose, 0.5, "먼저 날개를 펴고, 그다음 기수를 들기",
+             kbd="← 로 날개를 수평으로 펴고, ↓ 로 기수를 10° 드세요. W 로 스로틀 최대",
+             rig="스틱을 왼쪽으로 기울여 날개를 수평으로, 그다음 당겨 기수 10°. 스로틀 최대",
+             targets=[PITCH(10, 3), BANK(0, 10)], goal=lambda s, L: dict(pitch=11, bank=0, thr=1.0), timeout=40),
+        Step("에일러론 롤 한 바퀴", lambda s, L: abs(L.get("roll_acc", 0)) > 340, 0.1, "스틱 앞뒤는 가운데, 옆으로만 끝까지",
+             enter=lambda s, L: L.update(roll_acc=0.0), monitor=_roll_mon,
+             kbd="→ 를 끝까지 누르고 있어 한 바퀴 도세요. ↑ ↓ 는 누르지 마세요. 한 바퀴 돌면 손을 떼요",
+             rig="스틱을 오른쪽 끝까지 기울여 한 바퀴. 앞뒤로는 움직이지 마세요. 한 바퀴 돌면 가운데로",
+             goal=roll_go, timeout=30),
+        Step("수평 회복", level, 2, kbd="날개 수평, 기수 수평", rig="날개 수평, 기수 수평",
+             targets=[BANK(0, 5), PITCH(1.5, 4)], goal=lambda s, L: dict(pitch=1.5, bank=0, spd=380), timeout=40),
+    ]
+
+
 def l10_g():
-    def roll_mon(s, L, dt):
-        L["roll_acc"] = L.get("roll_acc", 0.0) + s.get("p_dps", 0.0) * dt
     return dict(
         id=10, title="10. G 와 기본 곡예 (선택)", short="2G 선회, 에일러론 롤", mode="air_high",
-        brief=["G 는 몸이 눌리는 무게의 배수예요. 4G 면 몸무게가 네 배. F-16 은 9G 까지 견디지만 사람은 훈련이 필요해요.",
+        assist=False,                                   # 60 deg bank and a full roll: the stability assist (45 deg limit) stays off here
+        brief=["G 는 몸이 눌리는 무게의 배수예요. 2G 면 몸무게가 두 배예요. F-16 은 9G 까지 견디지만 사람은 훈련이 필요해요.",
                "의자는 G 를 그대로 만들 수 없어요. 화면의 G 숫자로 느낌을 대신해요.",
-               "에일러론 롤은 스틱을 옆으로 끝까지 밀어 한 바퀴 도는 기동이에요. 시작 전에 기수를 10° 들어요."],
-        demo=[Seg("경사 60° 로 기울이고 당겨 고도를 지키면 2G. 몸무게가 두 배예요. F-16 은 9G 까지, 넘으면 안 돼요.", lambda s, L: dict(alt=A0(L) if "alt0" in L else 12000, bank=60, spd=350), 10),
-              Seg("수평으로 풀고, 기수 10°.", lambda s, L: dict(pitch=10, bank=0, spd=380, thr=1.0), 6),
-              Seg("스틱을 오른쪽 끝까지. 한 바퀴!", lambda s, L: dict(ctrl={"ail": 1.0, "elev": 0.0}), 2.4),
-              Seg("수평으로.", lambda s, L: dict(alt=12000, bank=0, spd=380), 6)],
-        practice=[
-            Step("2G 선회 (경사 60°) 를 5 초", lambda s, L: abs(s.get("nz", 1) - 2) < 0.8 and abs(s["phi"] - 60) < 12, 5, "경사 60° 에서 고도를 지키면 저절로 2G", enter=set_ref,
-                 kbd="→ 로 60° 기울이고 ↓ 를 꾹 눌러 고도를 지키세요. G 가 2 가 돼요", rig="스틱을 오른쪽으로 60° 기울이고 당겨서 고도를 지키세요. G 가 2 가 돼요",
-                 targets=[G(2, 0.8), BANK(60, 12, coach=False)], goal=lambda s, L: dict(alt=A0(L) if "alt0" in L else 12000, bank=60, spd=350), timeout=90),
-            Step("에일러론 롤 한 바퀴", lambda s, L: abs(L.get("roll_acc", 0)) > 340, 0.1, "기수를 10° 든 다음 스틱을 옆으로 끝까지",
-                 enter=lambda s, L: L.update(roll_acc=0.0), monitor=roll_mon,
-                 kbd="↓ 로 기수 10° 를 들고, → 를 끝까지 눌러 한 바퀴 돈 다음 손을 떼세요",
-                 rig="스틱을 당겨 기수 10°, 그다음 스틱을 오른쪽 끝까지 밀어 한 바퀴, 그리고 가운데로",
-                 goal=lambda s, L: dict(ctrl={"ail": 1.0, "elev": 0.0}) if s["theta"] > 8 or abs(L.get("roll_acc", 0)) > 20 else dict(pitch=10, bank=0, thr=1.0),
-                 timeout=60),
-            Step("수평 회복", lambda s, L: abs(s["phi"]) < 5 and abs(s["theta"]) < 5, 2, kbd="날개 수평, 기수 수평", rig="날개 수평, 기수 수평",
-                 targets=[BANK(0, 5), PITCH(1.5, 4)], goal=lambda s, L: dict(alt=12000, bank=0, spd=380), timeout=40),
-        ],
-        solo=[
-            Step("2G 선회 5 초", lambda s, L: abs(s.get("nz", 1) - 2) < 0.8 and abs(s["phi"] - 60) < 12, 5, enter=set_ref, kbd="경사 60°, 2G 선회 5 초", targets=[G(2, 0.8), BANK(60, 12, coach=False)],
-                 goal=lambda s, L: dict(alt=A0(L) if "alt0" in L else 12000, bank=60, spd=350), timeout=90),
-            Step("에일러론 롤", lambda s, L: abs(L.get("roll_acc", 0)) > 340, 0.1, enter=lambda s, L: L.update(roll_acc=0.0), monitor=roll_mon,
-                 kbd="에일러론 롤 한 바퀴", goal=lambda s, L: dict(ctrl={"ail": 1.0, "elev": 0.0}) if s["theta"] > 8 or abs(L.get("roll_acc", 0)) > 20 else dict(pitch=10, bank=0, thr=1.0),
-                 timeout=60),
-            Step("수평 회복", lambda s, L: abs(s["phi"]) < 5 and abs(s["theta"]) < 5, 3, kbd="수평 회복", targets=[BANK(0, 5), PITCH(1.5, 4)],
-                 goal=lambda s, L: dict(alt=12000, bank=0, spd=380), timeout=40),
-        ], key="G")
+               "에일러론 롤은 스틱을 옆으로 끝까지 기울여 한 바퀴 도는 기동이에요. 시작 전에 날개를 펴고 기수를 10° 들어요.",
+               "이 강의는 경사 60° 와 한 바퀴 롤을 해야 해서 쉬운 모드(자세 보조)가 꺼져 있어요. 12000 ft 라 고도는 넉넉해요."],
+        demo=[Seg("경사 60° 로 기울이고 당겨 고도를 지키면 2G. 몸무게가 두 배예요. F-16 은 9G 까지, 넘으면 안 돼요.",
+                  lambda s, L: dict(alt=12000, bank=60, spd=350), 12),
+              Seg("날개를 펴고, 기수 10°.", lambda s, L: dict(pitch=11, bank=0, thr=1.0),
+                  until=lambda s, L: L.update(roll_acc=0.0) or (s["theta"] > 8 and abs(s["phi"]) < 10)),
+              Seg("스틱을 오른쪽 끝까지. 한 바퀴!", lambda s, L: dict(ctrl={"ail": 1.0, "elev": 0.0}), 5,
+                  until=lambda s, L: _roll_mon(s, L, 1 / 60.0) or abs(L.get("roll_acc", 0)) > 330),
+              Seg("손을 떼고 수평으로.", lambda s, L: dict(pitch=1.5, bank=0, spd=380), 6)],
+        practice=_roll_steps(), solo=_roll_steps(True), key="G")
 
 
 LESSONS = [l0_orientation, l1_attitude, l2_level, l3_power, l4_climb, l5_turns, l6_combined, l7_takeoff, l8_pattern, l9_landing, l10_g]

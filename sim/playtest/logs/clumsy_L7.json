@@ -1,0 +1,315 @@
+{
+ "bot": "clumsy",
+ "lesson": 7,
+ "assist": "off",
+ "title": "7. 이륙",
+ "sim_min": 2.05,
+ "results": [
+  {
+   "score": 97,
+   "passed": true,
+   "assist": false,
+   "tasks": [
+    {
+     "text": "스로틀 최대",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "THR": 0.0
+     },
+     "t": 0.8,
+     "names": [
+      "THR"
+     ],
+     "tols": {
+      "THR": 5
+     }
+    },
+    {
+     "text": "활주: 가운데 선, 150 kt 까지",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "CTR": 0.8,
+      "SPD": 14.8
+     },
+     "t": 6.2,
+     "names": [
+      "CTR",
+      "SPD"
+     ],
+     "tols": {
+      "CTR": 8,
+      "SPD": 15
+     }
+    },
+    {
+     "text": "기수 들기 (로테이션) 10°",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "PITCH": 1.9
+     },
+     "t": 1.8,
+     "names": [
+      "PITCH"
+     ],
+     "tols": {
+      "PITCH": 2
+     }
+    },
+    {
+     "text": "이륙, 상승 중",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 74,
+     "score": 89,
+     "maxdev": {
+      "PITCH": 5.3
+     },
+     "t": 3.5,
+     "names": [
+      "PITCH"
+     ],
+     "tols": {
+      "PITCH": 3
+     }
+    },
+    {
+     "text": "바퀴 올리기",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 83,
+     "score": 93,
+     "maxdev": {
+      "PITCH": 4.5
+     },
+     "t": 0.3,
+     "names": [
+      "PITCH"
+     ],
+     "tols": {
+      "PITCH": 4
+     }
+    },
+    {
+     "text": "2000 ft 까지 상승, 300 kt",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "ALT": 149.2,
+      "SPD": 6.8
+     },
+     "t": 33.6,
+     "names": [
+      "ALT",
+      "SPD"
+     ],
+     "tols": {
+      "ALT": 150,
+      "SPD": 50
+     }
+    }
+   ],
+   "good": [
+    "스로틀 최대: 스로틀 을 잘 지켰어요 (범위 안 100%)",
+    "활주: 가운데 선, 150 kt 까지: 중심선 을 잘 지켰어요 (범위 안 100%)",
+    "기수 들기 (로테이션) 10°: 기수 각도 을 잘 지켰어요 (범위 안 100%)",
+    "바퀴 올리기: 기수 각도 을 잘 지켰어요 (범위 안 83%)"
+   ],
+   "fix": [
+    "이륙, 상승 중: 기수 각도 이 최대 5.3 벗어났어요 (허용 3.0). 작게, 일찍 고치기"
+   ],
+   "vars": {
+    "lat": 4.779183620098763
+   }
+  }
+ ],
+ "phases": [
+  [
+   0.0,
+   "brief"
+  ],
+  [
+   3.2,
+   "demo"
+  ],
+  [
+   29.2,
+   "practice"
+  ],
+  [
+   75.4,
+   "solo"
+  ],
+  [
+   121.7,
+   "debrief"
+  ]
+ ],
+ "said": [
+  {
+   "t": 0.0,
+   "phase": "menu",
+   "text": "안녕하세요, bot_clumsy 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "청주 기지 활주로 06R 에서 이륙해요. 순서: 스로틀 최대 → 가운데 선 따라 활주 → 150 kt 에서 기수 10° → 이륙 → 바퀴 올리기 → 2000 ft."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "활주 중에는 스틱이 아니라 페달로 방향을 잡아요. 기수를 13° 넘게 들면 꼬리가 땅에 닿으니 조심."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "바퀴는 300 kt 를 넘기 전에 올려요. F-16 은 가속이 빨라서 금방이에요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "시범 비행 다음에 연습, 그다음 혼자 하는 단독 점검이에요. 준비되면 N 이나 트리거를 누르세요."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "시범 비행이에요. 제가 조종할 테니 스틱과 스로틀이 어떻게 움직이는지 보세요. 건너뛰려면 N."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "제가 먼저 이륙할게요. 스로틀 최대, 페달로 가운데 선."
+  },
+  {
+   "t": 9.0,
+   "phase": "demo",
+   "text": "150 kt, 기수를 10° 까지. 이륙!"
+  },
+  {
+   "t": 16.0,
+   "phase": "demo",
+   "text": "바퀴 올리고 2000 ft 까지 상승."
+  },
+  {
+   "t": 26.0,
+   "phase": "demo",
+   "text": "시범 끝. 이제 직접 해 볼게요."
+  },
+  {
+   "t": 26.0,
+   "phase": "practice",
+   "text": "이제 직접 해 봐요. 제가 옆에서 알려 줄게요."
+  },
+  {
+   "t": 26.0,
+   "phase": "practice",
+   "text": "W 키를 누르고 있어 스로틀을 끝까지 올리세요"
+  },
+  {
+   "t": 26.3,
+   "phase": "practice",
+   "text": "A D 로 가운데 선을 따라가세요. 150 kt 가 되면 당겨요"
+  },
+  {
+   "t": 32.7,
+   "phase": "practice",
+   "text": "속도 150 kt — 지금 ↓ 키로 기수를 10° 까지 부드럽게 드세요"
+  },
+  {
+   "t": 35.3,
+   "phase": "practice",
+   "text": "기수 10° 를 유지하세요. 곧 바퀴가 떠요"
+  },
+  {
+   "t": 38.0,
+   "phase": "practice",
+   "text": "좋아요!"
+  },
+  {
+   "t": 38.0,
+   "phase": "practice",
+   "text": "G 키로 바퀴를 올리세요"
+  },
+  {
+   "t": 38.3,
+   "phase": "practice",
+   "text": "기수 10° 로 2000 ft 까지. S 로 스로틀을 줄여 속도 300 kt 근처"
+  },
+  {
+   "t": 72.2,
+   "phase": "practice",
+   "text": "연습 끝! 잘했어요."
+  },
+  {
+   "t": 72.2,
+   "phase": "solo",
+   "text": "단독 점검이에요. 이번엔 혼자 해 보세요. 저는 조용히 볼게요."
+  },
+  {
+   "t": 72.3,
+   "phase": "solo",
+   "text": "W 키를 누르고 있어 스로틀을 끝까지 올리세요"
+  },
+  {
+   "t": 73.1,
+   "phase": "solo",
+   "text": "A D 로 가운데 선을 따라가세요. 150 kt 가 되면 당겨요"
+  },
+  {
+   "t": 79.3,
+   "phase": "solo",
+   "text": "속도 150 kt — 지금 ↓ 키로 기수를 10° 까지 부드럽게 드세요"
+  },
+  {
+   "t": 81.1,
+   "phase": "solo",
+   "text": "기수 10° 를 유지하세요. 곧 바퀴가 떠요"
+  },
+  {
+   "t": 84.6,
+   "phase": "solo",
+   "text": "G 키로 바퀴를 올리세요"
+  },
+  {
+   "t": 84.9,
+   "phase": "solo",
+   "text": "기수 10° 로 2000 ft 까지. S 로 스로틀을 줄여 속도 300 kt 근처"
+  },
+  {
+   "t": 118.5,
+   "phase": "debrief",
+   "text": "통과! 점수 97 점, A 등급. 잘한 점: 스로틀 최대: 스로틀 을 잘 지켰어요 (범위 안 100%). 고칠 점: 이륙, 상승 중: 기수 각도 이 최대 5.3 벗어났어요 (허용 3.0). 작게, 일찍 고치기. N 을 누르면 다음 강의로 가요."
+  }
+ ],
+ "passed": true,
+ "best": 97,
+ "first_try": true,
+ "practice_skips": [],
+ "wrong_end": {
+  "self": 0,
+  "coach": 0,
+  "time": 0
+ },
+ "coach_fix": 0,
+ "praise": 1,
+ "crashes": 0,
+ "crash_why": [],
+ "wall_s": 0.8
+}

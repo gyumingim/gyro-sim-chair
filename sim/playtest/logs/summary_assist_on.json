@@ -1,0 +1,803 @@
+{
+ "made": "2026-11-04 22:27:17",
+ "assist": "on",
+ "bots": {
+  "good": {
+   "delay": 0.15,
+   "noise": 0.005,
+   "tau": 0.6,
+   "gain": 0.8,
+   "roll": 0.8,
+   "rate": 4.0,
+   "wrong": 0.0,
+   "drift": 0.0
+  },
+  "sloppy": {
+   "delay": 0.35,
+   "noise": 0.025,
+   "tau": 0.8,
+   "gain": 1.3,
+   "roll": 0.6,
+   "rate": 2.0,
+   "wrong": 0.0,
+   "drift": 0.02
+  },
+  "wrong": {
+   "delay": 0.25,
+   "noise": 0.012,
+   "tau": 0.7,
+   "gain": 0.9,
+   "roll": 0.7,
+   "rate": 3.0,
+   "wrong": 2.5,
+   "drift": 0.0
+  }
+ },
+ "seed": 1,
+ "sim_patch": false,
+ "lesson_assist_flag": "applied by the harness (requested engine change)",
+ "runs": [
+  {
+   "bot": "good",
+   "lesson": 0,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 0,
+   "sim_min": 0.72,
+   "wall_s": 0.3,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 1,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 2,
+   "sim_min": 1.31,
+   "wall_s": 0.5,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 2,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 1.49,
+   "wall_s": 1.0,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 3,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 1.78,
+   "wall_s": 0.8,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 4,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 5,
+   "wrong_end": null,
+   "praise": 2,
+   "sim_min": 4.58,
+   "wall_s": 1.7,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 5,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 95,
+   "tries": 1,
+   "scores": [
+    95
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 12,
+   "sim_min": 5.04,
+   "wall_s": 2.6,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 6,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 5,
+   "wrong_end": null,
+   "praise": 4,
+   "sim_min": 5.77,
+   "wall_s": 2.3,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 7,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 93,
+   "tries": 1,
+   "scores": [
+    93
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 2.04,
+   "wall_s": 0.8,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 8,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 9,
+   "wrong_end": null,
+   "praise": 2,
+   "sim_min": 5.41,
+   "wall_s": 2.4,
+   "fails": []
+  },
+  {
+   "bot": "good",
+   "lesson": 9,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 99,
+   "tries": 1,
+   "scores": [
+    99
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": null,
+   "praise": 8,
+   "sim_min": 6.74,
+   "wall_s": 2.6,
+   "fails": [],
+   "touchdown": {
+    "vs": -149,
+    "e": 1,
+    "n": 608,
+    "theta": 12,
+    "kts": 142
+   }
+  },
+  {
+   "bot": "good",
+   "lesson": 10,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 98,
+   "tries": 1,
+   "scores": [
+    98
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 1.04,
+   "wall_s": 0.4,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 0,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 0,
+   "sim_min": 0.77,
+   "wall_s": 0.3,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 1,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 2,
+   "wrong_end": null,
+   "praise": 3,
+   "sim_min": 1.84,
+   "wall_s": 0.8,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 2,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 1.49,
+   "wall_s": 1.0,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 3,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": null,
+   "praise": 2,
+   "sim_min": 1.88,
+   "wall_s": 0.8,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 4,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 4,
+   "wrong_end": null,
+   "praise": 4,
+   "sim_min": 5.14,
+   "wall_s": 2.3,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 5,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 2,
+   "wrong_end": null,
+   "praise": 11,
+   "sim_min": 5.37,
+   "wall_s": 2.2,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 6,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 5,
+   "wrong_end": null,
+   "praise": 4,
+   "sim_min": 6.22,
+   "wall_s": 2.8,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 7,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 2.03,
+   "wall_s": 0.9,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 8,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 9,
+   "wrong_end": null,
+   "praise": 2,
+   "sim_min": 5.56,
+   "wall_s": 2.2,
+   "fails": []
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 9,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 5,
+   "wrong_end": null,
+   "praise": 5,
+   "sim_min": 6.81,
+   "wall_s": 2.5,
+   "fails": [],
+   "touchdown": {
+    "vs": -78,
+    "e": 5,
+    "n": 568,
+    "theta": 13,
+    "kts": 146
+   }
+  },
+  {
+   "bot": "sloppy",
+   "lesson": 10,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 96,
+   "tries": 1,
+   "scores": [
+    96
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 4,
+   "wrong_end": null,
+   "praise": 1,
+   "sim_min": 1.78,
+   "wall_s": 0.7,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 0,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": {
+    "self": 0,
+    "coach": 0,
+    "time": 0
+   },
+   "praise": 0,
+   "sim_min": 0.74,
+   "wall_s": 0.3,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 1,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 99,
+   "tries": 1,
+   "scores": [
+    99
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": {
+    "self": 17,
+    "coach": 0,
+    "time": 3
+   },
+   "praise": 3,
+   "sim_min": 1.67,
+   "wall_s": 0.6,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 2,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": {
+    "self": 2,
+    "coach": 1,
+    "time": 1
+   },
+   "praise": 2,
+   "sim_min": 1.58,
+   "wall_s": 1.1,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 3,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 1,
+   "wrong_end": {
+    "self": 2,
+    "coach": 0,
+    "time": 6
+   },
+   "praise": 2,
+   "sim_min": 1.88,
+   "wall_s": 0.8,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 4,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 1,
+   "crash_why": [
+    "기체가 견디는 G 를 넘었어요"
+   ],
+   "skips": 0,
+   "coach": 2,
+   "wrong_end": {
+    "self": 6,
+    "coach": 0,
+    "time": 2
+   },
+   "praise": 3,
+   "sim_min": 4.42,
+   "wall_s": 1.6,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 5,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 94,
+   "tries": 1,
+   "scores": [
+    94
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 0,
+   "wrong_end": {
+    "self": 9,
+    "coach": 0,
+    "time": 3
+   },
+   "praise": 12,
+   "sim_min": 5.37,
+   "wall_s": 2.6,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 6,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 5,
+   "wrong_end": {
+    "self": 8,
+    "coach": 0,
+    "time": 0
+   },
+   "praise": 4,
+   "sim_min": 5.98,
+   "wall_s": 2.4,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 7,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 89,
+   "tries": 1,
+   "scores": [
+    89
+   ],
+   "crashes": 1,
+   "crash_why": [
+    "너무 세게 땅에 닿았어요"
+   ],
+   "skips": 0,
+   "coach": 2,
+   "wrong_end": {
+    "self": 12,
+    "coach": 2,
+    "time": 10
+   },
+   "praise": 1,
+   "sim_min": 2.39,
+   "wall_s": 0.9,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 8,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 100,
+   "tries": 1,
+   "scores": [
+    100
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 9,
+   "wrong_end": {
+    "self": 12,
+    "coach": 0,
+    "time": 4
+   },
+   "praise": 2,
+   "sim_min": 5.68,
+   "wall_s": 2.8,
+   "fails": []
+  },
+  {
+   "bot": "wrong",
+   "lesson": 9,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 93,
+   "tries": 1,
+   "scores": [
+    93
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 5,
+   "wrong_end": {
+    "self": 15,
+    "coach": 0,
+    "time": 5
+   },
+   "praise": 6,
+   "sim_min": 6.8,
+   "wall_s": 2.5,
+   "fails": [],
+   "touchdown": {
+    "vs": -132,
+    "e": -10,
+    "n": 775,
+    "theta": 12,
+    "kts": 141
+   }
+  },
+  {
+   "bot": "wrong",
+   "lesson": 10,
+   "assist": "on",
+   "passed": true,
+   "first_try": true,
+   "best": 98,
+   "tries": 1,
+   "scores": [
+    98
+   ],
+   "crashes": 0,
+   "crash_why": [],
+   "skips": 0,
+   "coach": 3,
+   "wrong_end": {
+    "self": 8,
+    "coach": 3,
+    "time": 1
+   },
+   "praise": 2,
+   "sim_min": 1.31,
+   "wall_s": 0.5,
+   "fails": []
+  }
+ ]
+}

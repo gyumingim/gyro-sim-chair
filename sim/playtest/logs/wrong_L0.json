@@ -1,17 +1,20 @@
 {
  "bot": "wrong",
  "lesson": 0,
+ "assist": "off",
  "title": "0. 오리엔테이션",
- "sim_min": 0.72,
+ "sim_min": 0.74,
  "results": [
   {
    "score": 100,
    "passed": true,
+   "assist": false,
    "tasks": [],
    "good": [
     "조종 장치와 계기를 모두 익혔어요."
    ],
-   "fix": []
+   "fix": [],
+   "vars": {}
   }
  ],
  "phases": [
@@ -24,7 +27,7 @@
    "practice"
   ],
   [
-   42.0,
+   43.5,
    "debrief"
   ]
  ],
@@ -32,7 +35,7 @@
   {
    "t": 0.0,
    "phase": "menu",
-   "text": "안녕하세요, bot_good 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
+   "text": "안녕하세요, bot_clumsy 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
   },
   {
    "t": 0.0,
@@ -67,7 +70,7 @@
   {
    "t": 0.0,
    "phase": "practice",
-   "text": "키보드로 조종해요. 화살표는 스틱, A D 는 페달, W S 는 스로틀, B 는 브레이크예요."
+   "text": "키보드로 조종해요. 화살표는 스틱(↓ 가 당기기), A D 는 페달, W S 는 스로틀, B 는 브레이크, G 는 바퀴예요."
   },
   {
    "t": 5.0,
@@ -95,60 +98,68 @@
    "text": "→ 키를 누르고 있어 스틱을 오른쪽으로 기울이세요"
   },
   {
-   "t": 29.6,
+   "t": 29.8,
    "phase": "practice",
    "text": "← 키를 누르고 있어 스틱을 왼쪽으로 기울이세요"
   },
   {
-   "t": 30.2,
+   "t": 30.9,
    "phase": "practice",
    "text": "↓ 키를 누르고 있어 스틱을 당기세요. 기수가 올라가는 방향이에요"
   },
   {
-   "t": 30.7,
+   "t": 31.6,
    "phase": "practice",
    "text": "↑ 키를 누르고 있어 스틱을 미세요. 기수가 내려가는 방향이에요"
   },
   {
-   "t": 31.3,
+   "t": 32.7,
    "phase": "practice",
    "text": "A 키로 왼쪽 페달을 밟으세요"
   },
   {
-   "t": 31.8,
+   "t": 33.3,
    "phase": "practice",
    "text": "D 키로 오른쪽 페달을 밟으세요"
   },
   {
-   "t": 32.4,
+   "t": 33.8,
    "phase": "practice",
    "text": "B 키를 누르고 있어 브레이크를 거세요"
   },
   {
-   "t": 32.9,
+   "t": 34.4,
    "phase": "practice",
    "text": "B 로 브레이크를 잡은 채 W 키로 스로틀을 30% 이상 올리세요"
   },
   {
-   "t": 33.5,
+   "t": 34.9,
    "phase": "practice",
    "text": "S 키로 스로틀을 0% 까지 내리세요"
   },
   {
-   "t": 34.0,
+   "t": 35.5,
    "phase": "practice",
    "text": "G 키는 바퀴를 올리고 내려요. 땅에서는 누르지 마세요. 계기판 왼쪽 흰 손잡이가 같이 움직여요."
   },
   {
-   "t": 38.0,
+   "t": 39.5,
    "phase": "debrief",
    "text": "통과! 잘한 점: 조종 장치와 계기를 모두 익혔어요.. N 을 누르면 다음 강의로 가요."
   }
  ],
  "passed": true,
  "best": 100,
+ "first_try": true,
+ "practice_skips": [],
+ "wrong_end": {
+  "self": 0,
+  "coach": 0,
+  "time": 0
+ },
  "coach_fix": 0,
  "praise": 0,
  "crashes": 0,
+ "crash_why": [],
  "wall_s": 0.3
 }

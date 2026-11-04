@@ -11,9 +11,12 @@ from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0, rwy_point
 
 DT = 1 / 120
 START = dict(lat=LAT0, lon=LON0, alt_ft=6000, kts=350, hdg=0.0, rwy_hdg=RWY["hdg"])
-CHAIR_LIM = (20.0, 15.0)                  # Chair.update clamps: roll +-20, pitch +-15 deg
+CHAIR_LIM = (18.0, 14.0)                  # roll, pitch limits (deg) = control/chair_model.py recommendation (chair_bridge enforces the same)
+CHAIR_RATE = (1.3, 0.95)                  # deg/s  (physical chair can do ~1.61 / 1.13, estimate)
+CHAIR_ACC = (0.6, 0.48)                   # deg/s^2
+CHAIR_LP = 0.5                            # s, low-pass on the cue target
 MODES = ("air", "runway", "approach", "downwind", "air_high")
-# beginner stability assist: bank / pitch limits, gentle wing leveller when the stick is centred, half-speed sim
+# beginner stability assist: bank / pitch limits (rolls back only from beyond the limit); half-speed sim is a separate option
 ASSIST_BANK, ASSIST_PITCH_UP, ASSIST_PITCH_DN = 45.0, 20.0, -15.0
 
 
@@ -63,16 +66,31 @@ def new_fdm(mode="air"):
 
 
 class Chair:
-    """Very small motion cue: tilt toward the aircraft attitude (scaled) + sustained accelerations, rate-limited."""
+    """Motion cue for the weight-shift chair: tilt toward the aircraft attitude (scaled) + sustained accelerations,
+    low-passed (CHAIR_LP), then followed with the chair's real rate / acceleration limits (CHAIR_RATE / CHAIR_ACC)
+    inside CHAIR_LIM (values from control/chair_model.py, docs/chair-control.html)."""
     def __init__(self):
         self.roll = self.pitch = 0.0
+        self.vr = self.vp = 0.0
+        self.tr = self.tp = 0.0
+
+    @staticmethod
+    def _follow(x, v, tgt, rate, acc, dt):
+        # accelerate toward the speed that stops exactly at the target, within rate / accel limits
+        want = max(-rate, min(rate, math.copysign(math.sqrt(2 * acc * abs(tgt - x)), tgt - x)))
+        v += max(-acc * dt, min(acc * dt, want - v))
+        return x + v * dt, v
 
     def update(self, phi_deg, theta_deg, ax_g, ay_g, dt):
         tgt_r = max(-CHAIR_LIM[0], min(CHAIR_LIM[0], 0.35 * phi_deg + 25 * ay_g))
         tgt_p = max(-CHAIR_LIM[1], min(CHAIR_LIM[1], 0.30 * theta_deg + 20 * ax_g))
-        rate = 8 * dt                                   # <= 8 deg/s, the weight-shift chair is slow anyway
-        self.roll += max(-rate, min(rate, tgt_r - self.roll))
-        self.pitch += max(-rate, min(rate, tgt_p - self.pitch))
+        k = min(1.0, dt / CHAIR_LP)
+        self.tr += (tgt_r - self.tr) * k
+        self.tp += (tgt_p - self.tp) * k
+        self.roll, self.vr = self._follow(self.roll, self.vr, self.tr, CHAIR_RATE[0], CHAIR_ACC[0], dt)
+        self.pitch, self.vp = self._follow(self.pitch, self.vp, self.tp, CHAIR_RATE[1], CHAIR_ACC[1], dt)
+        self.roll = max(-CHAIR_LIM[0], min(CHAIR_LIM[0], self.roll))
+        self.pitch = max(-CHAIR_LIM[1], min(CHAIR_LIM[1], self.pitch))
         return self.roll, self.pitch
 
 
@@ -97,8 +115,8 @@ class Sim:
             phi, th = math.degrees(f["attitude/phi-rad"]), math.degrees(f["attitude/theta-rad"])
             on_ground = any(f["gear/unit[%d]/WOW" % i] > 0.5 for i in range(3))
             if not on_ground:
-                if abs(c["ail"]) < 0.05:                          # stick centred: roll the wings level gently
-                    c["ail"] = max(-0.15, min(0.15, -0.012 * phi))
+                if abs(c["ail"]) < 0.05 and abs(phi) > ASSIST_BANK:   # stick centred beyond the limit: roll back to it
+                    c["ail"] = max(-0.15, min(0.15, -0.012 * (phi - math.copysign(ASSIST_BANK, phi))))
                 if phi > ASSIST_BANK and c["ail"] > 0 or phi < -ASSIST_BANK and c["ail"] < 0:
                     c["ail"] = -0.01 * (phi - math.copysign(ASSIST_BANK, phi))
                 if th > ASSIST_PITCH_UP and c["elev"] < 0:
@@ -134,7 +152,7 @@ class Sim:
                     t=f.get_sim_time(), lat=f["position/lat-geod-deg"], lon=f["position/long-gc-deg"], alt_m=f["position/h-sl-ft"] * 0.3048,
                     agl_m=f["position/h-agl-ft"] * 0.3048, phi=phi, theta=th, psi=psi, kts=f["velocities/vc-kts"], mach=f["velocities/mach"],
                     vs_fpm=f["velocities/h-dot-fps"] * 60, alpha=f["aero/alpha-deg"], nz=-f["accelerations/n-pilot-z-norm"],
-                    thr=f["fcs/throttle-cmd-norm"], gear=f["gear/gear-pos-norm"], ax=ax, ay=ay, chair_roll=cr, chair_pitch=cp,
+                    thr=f["fcs/throttle-cmd-norm"], gear=f["gear/gear-pos-norm"], ax=ax, ay=ay, chair_roll=cr, chair_pitch=cp, chair_tgt=[round(self.chair.tr, 2), round(self.chair.tp, 2)], chair_rate=CHAIR_RATE,
                     lat0=START["lat"], lon0=START["lon"], field_m=FIELD_FT * 0.3048, geoid_n=GEOID_N,
                     rwy_hdg=RWY["hdg"], beta=f["aero/beta-deg"], gamma=math.degrees(f["flight-path/gamma-rad"]),
                     p_dps=math.degrees(f["velocities/p-rad_sec"]), q_dps=math.degrees(f["velocities/q-rad_sec"]),

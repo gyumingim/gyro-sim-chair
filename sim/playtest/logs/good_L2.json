@@ -1,12 +1,14 @@
 {
  "bot": "good",
  "lesson": 2,
+ "assist": "off",
  "title": "2. 수평 직진",
  "sim_min": 1.49,
  "results": [
   {
    "score": 100,
    "passed": true,
+   "assist": false,
    "tasks": [
     {
      "text": "고도 ±100 ft, 방위 ±5° 로 30 초 비행",
@@ -16,7 +18,7 @@
      "intol": 100,
      "score": 100,
      "maxdev": {
-      "ALT": 14.8,
+      "ALT": 2.9,
       "HDG": 0.1
      },
      "t": 30.0,
@@ -34,7 +36,11 @@
     "고도 ±100 ft, 방위 ±5° 로 30 초 비행: 고도 을 잘 지켰어요 (범위 안 100%)",
     "모든 점검을 깔끔하게 끝냈어요"
    ],
-   "fix": []
+   "fix": [],
+   "vars": {
+    "alt0": 6000.0,
+    "hdg0": 0
+   }
   }
  ],
  "phases": [
@@ -63,7 +69,7 @@
   {
    "t": 0.0,
    "phase": "menu",
-   "text": "안녕하세요, bot_good 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
+   "text": "안녕하세요, bot_clumsy 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
   },
   {
    "t": 0.0,
@@ -163,8 +169,16 @@
  ],
  "passed": true,
  "best": 100,
+ "first_try": true,
+ "practice_skips": [],
+ "wrong_end": {
+  "self": 0,
+  "coach": 0,
+  "time": 0
+ },
  "coach_fix": 0,
  "praise": 1,
  "crashes": 0,
+ "crash_why": [],
  "wall_s": 0.6
 }

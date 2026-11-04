@@ -1,0 +1,282 @@
+{
+ "bot": "wrong",
+ "lesson": 1,
+ "assist": "on",
+ "title": "1. 자세와 조종 효과",
+ "sim_min": 1.67,
+ "results": [
+  {
+   "score": 99,
+   "passed": true,
+   "assist": true,
+   "tasks": [
+    {
+     "text": "기수 5° 를 5 초",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "PITCH": 1.5
+     },
+     "t": 9.5,
+     "names": [
+      "PITCH"
+     ],
+     "tols": {
+      "PITCH": 1.5
+     }
+    },
+    {
+     "text": "오른쪽 경사 20° 를 5 초",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "BANK": 4.8
+     },
+     "t": 7.8,
+     "names": [
+      "BANK"
+     ],
+     "tols": {
+      "BANK": 5
+     }
+    },
+    {
+     "text": "왼쪽 경사 20° 를 5 초",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 92,
+     "score": 97,
+     "maxdev": {
+      "BANK": 7.9
+     },
+     "t": 7.6,
+     "names": [
+      "BANK"
+     ],
+     "tols": {
+      "BANK": 5
+     }
+    },
+    {
+     "text": "수평 자세 5 초",
+     "done": true,
+     "skipped": false,
+     "failed": false,
+     "intol": 100,
+     "score": 100,
+     "maxdev": {
+      "BANK": 3.8,
+      "PITCH": 0.8
+     },
+     "t": 7.5,
+     "names": [
+      "BANK",
+      "PITCH"
+     ],
+     "tols": {
+      "BANK": 4,
+      "PITCH": 2
+     }
+    }
+   ],
+   "good": [
+    "기수 5° 를 5 초: 기수 각도 을 잘 지켰어요 (범위 안 100%)",
+    "오른쪽 경사 20° 를 5 초: 경사 을 잘 지켰어요 (범위 안 100%)",
+    "왼쪽 경사 20° 를 5 초: 경사 을 잘 지켰어요 (범위 안 92%)",
+    "수평 자세 5 초: 경사 을 잘 지켰어요 (범위 안 100%)"
+   ],
+   "fix": [],
+   "vars": {}
+  }
+ ],
+ "phases": [
+  [
+   0.0,
+   "brief"
+  ],
+  [
+   3.2,
+   "demo"
+  ],
+  [
+   29.3,
+   "practice"
+  ],
+  [
+   66.9,
+   "solo"
+  ],
+  [
+   99.2,
+   "debrief"
+  ]
+ ],
+ "said": [
+  {
+   "t": 0.0,
+   "phase": "menu",
+   "text": "안녕하세요, bot_clumsy 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "비행기는 스틱으로 두 가지를 바꿔요. 앞뒤는 기수 각도(피치), 좌우는 기울기(경사, 롤)예요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "F-16 은 컴퓨터가 도와줘서 스틱을 놓으면 그 자세를 그대로 유지해요. 그래서 작게 움직이고 놓는 게 요령이에요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "HUD 의 가로줄 사다리가 기수 각도예요. 5 도마다 줄이 있어요. 자세계는 하늘과 땅의 기울기를 보여 줘요."
+  },
+  {
+   "t": 0.0,
+   "phase": "brief",
+   "text": "이번에는 쉬운 모드가 켜져 있어요. 비행기가 너무 많이 기울거나 들리지 않게 컴퓨터가 잡아 줘요. 시범 비행 다음에 연습, 그다음 혼자 하는 단독 점검이에요. 준비되면 N 이나 트리거를 누르세요."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "시범 비행이에요. 제가 조종할 테니 스틱과 스로틀이 어떻게 움직이는지 보세요. 건너뛰려면 N."
+  },
+  {
+   "t": 0.0,
+   "phase": "demo",
+   "text": "먼저 제가 보여 줄게요. 스틱을 살짝 당기면 기수가 올라가요. 지금 5 도."
+  },
+  {
+   "t": 7.0,
+   "phase": "demo",
+   "text": "스틱을 살짝 밀면 다시 수평이에요."
+  },
+  {
+   "t": 13.1,
+   "phase": "demo",
+   "text": "스틱을 오른쪽으로 기울이면 오른쪽으로 기울어요. 경사 20 도."
+  },
+  {
+   "t": 20.1,
+   "phase": "demo",
+   "text": "반대로 기울여 수평으로 돌아와요."
+  },
+  {
+   "t": 26.1,
+   "phase": "demo",
+   "text": "시범 끝. 이제 직접 해 볼게요."
+  },
+  {
+   "t": 26.1,
+   "phase": "practice",
+   "text": "이제 직접 해 봐요. 제가 옆에서 알려 줄게요."
+  },
+  {
+   "t": 26.1,
+   "phase": "practice",
+   "text": "↓ 키를 살짝 눌러 기수를 5° 까지 들고, 손을 떼서 3 초 유지하세요"
+  },
+  {
+   "t": 33.0,
+   "phase": "practice",
+   "text": "좋아요!"
+  },
+  {
+   "t": 33.1,
+   "phase": "practice",
+   "text": "↑ 키를 톡 눌러 기수를 수평(1~2°)으로 돌리고 3 초"
+  },
+  {
+   "t": 40.1,
+   "phase": "practice",
+   "text": "→ 키를 톡톡 눌러 오른쪽으로 20° 기울이고 손을 떼서 3 초"
+  },
+  {
+   "t": 45.7,
+   "phase": "practice",
+   "text": "좋아요!"
+  },
+  {
+   "t": 45.7,
+   "phase": "practice",
+   "text": "← 키를 톡톡 눌러 날개를 수평으로"
+  },
+  {
+   "t": 48.8,
+   "phase": "practice",
+   "text": "반대 방향이에요 — ← 키를 톡 누르세요"
+  },
+  {
+   "t": 51.9,
+   "phase": "practice",
+   "text": "← 키를 톡톡 눌러 왼쪽으로 20° 기울이고 손을 떼서 3 초"
+  },
+  {
+   "t": 57.5,
+   "phase": "practice",
+   "text": "→ 키를 톡톡 눌러 날개를 수평으로"
+  },
+  {
+   "t": 63.7,
+   "phase": "practice",
+   "text": "좋아요!"
+  },
+  {
+   "t": 63.7,
+   "phase": "practice",
+   "text": "연습 끝! 잘했어요."
+  },
+  {
+   "t": 63.7,
+   "phase": "solo",
+   "text": "단독 점검이에요. 이번엔 혼자 해 보세요. 저는 조용히 볼게요."
+  },
+  {
+   "t": 63.7,
+   "phase": "solo",
+   "text": "기수 5° 를 만들어 5 초 유지"
+  },
+  {
+   "t": 73.2,
+   "phase": "solo",
+   "text": "오른쪽 경사 20° 를 5 초 유지"
+  },
+  {
+   "t": 80.9,
+   "phase": "solo",
+   "text": "왼쪽 경사 20° 를 5 초 유지"
+  },
+  {
+   "t": 88.6,
+   "phase": "solo",
+   "text": "날개 수평, 기수 수평으로 5 초"
+  },
+  {
+   "t": 96.0,
+   "phase": "debrief",
+   "text": "통과! 점수 99 점, A 등급. 잘한 점: 기수 5° 를 5 초: 기수 각도 을 잘 지켰어요 (범위 안 100%). N 을 누르면 다음 강의로 가요."
+  }
+ ],
+ "passed": true,
+ "best": 99,
+ "first_try": true,
+ "practice_skips": [],
+ "wrong_end": {
+  "self": 17,
+  "coach": 0,
+  "time": 3
+ },
+ "coach_fix": 1,
+ "praise": 3,
+ "crashes": 0,
+ "crash_why": [],
+ "wall_s": 0.6
+}

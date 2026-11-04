@@ -326,6 +326,8 @@ class Trainer:
         self._say(p, force=True)
 
     def _assist_on(self):
+        if self.L and not self.L["d"].get("assist", True):      # lesson turns the easy mode off (G / aerobatics)
+            return False
         if self.assist_set == "on":
             return True
         if self.assist_set == "off" or not self.L:
@@ -573,6 +575,25 @@ class Trainer:
         return all_ok, worst
 
     def _coach_step(self, st, all_ok, worst):
+        # wrong direction: deviation beyond tolerance and growing fast -> say so at once (short cooldown, any band)
+        L = self.L
+        prev = L.setdefault("_dev_hist", {})
+        if self.phase == "practice" and L["t_step"] > 1.0 and self.clock - self.coach_t > 2.0:
+            for t, x in zip(st.targets, self.targets):
+                if not t.coach:
+                    continue
+                ad = abs(x["dev"])
+                p = prev.get(x["name"])
+                if p is not None and ad > t.tol and ad - p[1] > 0.5 * t.tol and self.clock - p[0] <= 1.05:
+                    how = (LS.INC if x["dev"] < 0 else LS.DEC).get(x["name"])
+                    if how:
+                        self._set_coach("반대 방향이에요 — %s" % (how[1] if self.mode == "rig" else how[0]), "fix")
+                        prev.clear()
+                        break
+        for x in self.targets:
+            p = prev.get(x["name"])
+            if p is None or self.clock - p[0] >= 1.0:
+                prev[x["name"]] = (self.clock, abs(x["dev"]))
         if all_ok:
             self.ok_since = self.ok_since if self.ok_since is not None else self.clock
         else:
@@ -594,7 +615,7 @@ class Trainer:
         vs, why, say = s.get("vs_fpm", 0.0), None, None
         on_rwy = abs(s.get("cross_m", 0)) < 30 and -100 < s.get("along_m", 0) < 2800
         if s.get("wow") and vs < -1500:
-            why, say = "너무 세게 땅에 닿았어요", "강하율 %.0f fpm 으로 땅에 닿았어요. 다음엔 50 ft 에서 스틱을 살짝 당겨 강하를 300 fpm 아래로 줄여요." % -vs
+            why, say = "너무 세게 땅에 닿았어요", "강하율 %.0f fpm 으로 땅에 닿았어요. 다음엔 R 50 (땅까지 50 ft) 에서 스틱을 살짝 당겨 강하를 300 fpm 아래로 줄여요." % -vs
         elif s.get("wow") and abs(s.get("phi", 0)) > 25:
             why, say = "날개가 땅에 닿았어요", "기운 채로 땅에 닿았어요. 접지 전에는 날개를 수평으로 맞춰요."
         elif s.get("wow") and s.get("kts", 0) > 50 and not on_rwy:
