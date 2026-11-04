@@ -1,5 +1,5 @@
-"""Fighter-style HUD and the two MFD pages, drawn with UCanvas into render targets (sim_client.py puts them on the
-world-space HUD plane and the MFD screens, so they work on the monitor and in VR).
+"""Fighter-style HUD and the three cockpit displays, drawn with UCanvas into render targets (sim_client.py puts them on
+the world-space HUD plane and the display planes, so they work on the monitor and in VR).
 
 HUD plane geometry (must match Scripts/build_level.py): plane HUD_D cm ahead of the eye, perpendicular to body X,
 square, +-HUD_HALF deg around elevation HUD_EL0. A body-frame direction (x fwd, y right, z up) lands on pixel
@@ -7,23 +7,39 @@ square, +-HUD_HALF deg around elevation HUD_EL0. A body-frame direction (x fwd, 
 so the horizon / pitch ladder and the flight path marker are conformal (line up with the outside world) at the eye
 point. The ladder is a static atlas (draw_ladder) that the HUD material (build_level.LADDER_HLSL) looks up per pixel
 from roll / pitch every frame; this Python canvas only redraws text, tapes and the FPM (HUD_HZ).
+
+Displays (cockpit v2, every element live): MFD_C training (lesson panel picture from the server + live target bars +
+30 s deviation trend), MFD_L flight data, MFD_R chair / session / warnings. Beginner mode adds Korean labels: pictures
+from the label atlas (Art/Cockpit/tex/T_CkLabels.png, Scripts/cockpit/make_labels.py) because the canvas font has no
+Hangul. Render targets have mips (no shimmer at VR distance).
 """
-import math
+import json, math, os
 import unreal
 
 HUD_D, HUD_HALF, HUD_EL0 = 2000.0, 14.0, -6.0
-RT_HUD, RT_MFD = 1024, 512
+RT_HUD = 1024
+DISP = {"MFD_C": (1280, 800), "MFD_L": (1024, 1024), "MFD_R": (1024, 1024)}     # logical drawing size (coordinates below)
+DISP_SCALE = 0.75          # physical render target = logical x this (no mips: Canvas does not rebuild them; the display
+                           # material supersamples 3 x 3 instead - no shimmer at VR / monitor distance)
 LAD_W, LAD_H, LAD_AZ = 1024, 8192, 16.0     # pitch ladder atlas: x = azimuth -16..16 deg, y = elevation +90..-90 deg
 GREEN = unreal.LinearColor(0.25, 1.0, 0.35, 1.0)
 DIM = unreal.LinearColor(0.12, 0.55, 0.18, 1.0)
 AMBER = unreal.LinearColor(1.0, 0.75, 0.15, 1.0)
 RED = unreal.LinearColor(1.0, 0.2, 0.15, 1.0)
 WHITE = unreal.LinearColor(0.9, 0.95, 1.0, 1.0)
+GREY = unreal.LinearColor(0.45, 0.5, 0.55, 1.0)
+CYAN = unreal.LinearColor(0.45, 0.8, 1.0, 1.0)
+DARK = unreal.LinearColor(0.02, 0.03, 0.035, 1.0)
 CLEAR = unreal.LinearColor(0, 0, 0, 0)
+ST_COL = (GREEN, AMBER, RED)
 V2 = unreal.Vector2D
 RL = unreal.RenderingLibrary
 _T = math.tan(math.radians(HUD_HALF))
 _T0 = math.tan(math.radians(HUD_EL0))
+PROJ = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
+LBL_DIR = os.path.join(PROJ, "Art", "Cockpit", "tex")
+WARN_TXT = {"pullup": ("PULL UP", "w_pullup", RED), "terrain": ("TERRAIN", "w_terrain", RED), "overg": ("OVER-G", "w_overg", RED),
+            "stall": ("STALL", "w_stall", RED), "gear": ("GEAR", "w_gear", AMBER)}
 
 
 def level_to_body(v, phi, th):
@@ -34,17 +50,31 @@ def level_to_body(v, phi, th):
     return x1, y * cp - z1 * sp, y * sp + z1 * cp
 
 
+def _rt(world, w, h, clear):
+    return RL.create_render_target2d(world, int(w * DISP_SCALE), int(h * DISP_SCALE), unreal.TextureRenderTargetFormat.RTF_RGBA8, clear)
+
+
 class Painter:
     def __init__(self, world):
         self.world = world
         self.font = unreal.load_asset("/Engine/EngineFonts/RobotoDistanceField")
         self.rt_hud = RL.create_render_target2d(world, RT_HUD, RT_HUD, unreal.TextureRenderTargetFormat.RTF_RGBA8, CLEAR)
-        self.rt_mfd = [RL.create_render_target2d(world, RT_MFD, RT_MFD, unreal.TextureRenderTargetFormat.RTF_RGBA8, unreal.LinearColor(0, 0, 0, 1))
-                       for _ in range(2)]
+        self.rt_disp = {k: _rt(world, w, h, unreal.LinearColor(0, 0, 0, 1)) for k, (w, h) in DISP.items()}
         self.rt_ladder = RL.create_render_target2d(world, LAD_W, LAD_H, unreal.TextureRenderTargetFormat.RTF_RGBA8, CLEAR)
         self.c = None
         self.ts = 1.0
-        self.draw_ladder()                     # text scale (HUD 1.6, MFD 1.0)
+        self.k = 1.0                         # logical -> physical pixel scale of the current target
+        self.white = unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture")
+        self.lbl, self.lbl_rects, self.lbl_size = None, {}, (1, 1)
+        try:
+            j = json.load(open(os.path.join(LBL_DIR, "labels.json"), encoding="utf-8"))
+            self.lbl_rects, self.lbl_size = j["rects"], tuple(j["size"])
+            self.lbl = RL.import_file_as_texture2d(world, os.path.join(LBL_DIR, "T_CkLabels.png"))
+        except Exception as e:
+            unreal.log("[hud] label atlas missing: %r" % (e,))
+        self.draw_ladder()
+        self.hist = []                       # (t, dev / tol) of the first training target, ~5 Hz, last 30 s
+        self.last = {}                       # last values drawn per display (verify)
 
     # ---- primitives -------------------------------------------------------------------------------------------------
     def _begin(self, rt, clear):
@@ -56,19 +86,44 @@ class Painter:
         self.c = None
 
     def line(self, a, b, col=GREEN, w=4.0):
-        self.c.draw_line(V2(a[0], a[1]), V2(b[0], b[1]), w, col)
+        k = self.k
+        self.c.draw_line(V2(a[0] * k, a[1] * k), V2(b[0] * k, b[1] * k), max(1.0, w * k), col)
 
     def text(self, s, x, y, size=1.0, col=GREEN, center=True, vcenter=True):
-        k = size * self.ts
-        self.c.draw_text(self.font, s, V2(x, y), V2(k, k), col, 0.0, CLEAR, V2(0, 0), center, vcenter, False, col)
+        k = size * self.ts * self.k
+        self.c.draw_text(self.font, s, V2(x * self.k, y * self.k), V2(k, k), col, 0.0, CLEAR, V2(0, 0), center, vcenter, False, col)
 
     def box(self, x, y, w, h, col=GREEN, t=3.5):
-        self.c.draw_box(V2(x, y), V2(w, h), t, col)
+        k = self.k
+        self.c.draw_box(V2(x * k, y * k), V2(w * k, h * k), max(1.0, t * k), col)
+
+    def fill(self, x, y, w, h, col):
+        if w > 0 and h > 0:
+            k = self.k
+            self.c.draw_texture(self.white, V2(x * k, y * k), V2(w * k, h * k), V2(0, 0), V2(1, 1), col, unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
 
     def circle(self, x, y, r, col=GREEN, n=16, w=4.0):
         p = [(x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n)) for i in range(n + 1)]
         for i in range(n):
             self.line(p[i], p[i + 1], col, w)
+
+    def label(self, key, x, y, h, col=WHITE, anchor="l"):
+        """Korean label picture from the atlas, height h px; anchor l / c / r at (x, y = vertical centre). Returns width."""
+        r = self.lbl_rects.get(key)
+        if not r or self.lbl is None:
+            return 0
+        W, H = self.lbl_size
+        w = r[2] * h / r[3]
+        x0 = x if anchor == "l" else x - w / 2 if anchor == "c" else x - w
+        k = self.k
+        self.c.draw_texture(self.lbl, V2(x0 * k, (y - h / 2) * k), V2(w * k, h * k), V2(r[0] / W, r[1] / H), V2(r[2] / W, r[3] / H), col,
+                            unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
+        return w
+
+    def image(self, tex, x, y, w, h, col=WHITE):
+        if tex is not None:
+            k = self.k
+            self.c.draw_texture(tex, V2(x * k, y * k), V2(w * k, h * k), V2(0, 0), V2(1, 1), col, unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
 
     @staticmethod
     def proj(v):
@@ -83,6 +138,7 @@ class Painter:
     def draw_ladder(self):
         self._begin(self.rt_ladder, CLEAR)
         self.ts = 1.6
+        self.k = 1.0
         X = lambda az: (az + LAD_AZ) / (2 * LAD_AZ) * LAD_W
         Y = lambda el: (90.0 - el) / 180.0 * LAD_H
         try:
@@ -106,9 +162,10 @@ class Painter:
 
     # ---- HUD --------------------------------------------------------------------------------------------------------
     def draw_hud(self, s, extra):
-        """s = sim packet, extra = dict(radar_m, warn, tut_line, note, src)."""
+        """s = sim packet, extra = dict(radar_m, warn, line_tex, note, beginner)."""
         self._begin(self.rt_hud, CLEAR)
         self.ts = 1.6
+        self.k = 1.0
         try:
             self._hud(s, extra)
         finally:
@@ -116,6 +173,9 @@ class Painter:
 
     def _hud(self, s, ex):
         C = RT_HUD / 2
+        beg = ex.get("beginner")
+        lc = unreal.LinearColor(0.35, 1.0, 0.5, 0.95)
+        lh = 30
         # boresight (gun cross) at body X
         b = self.proj((1, 0, 0))
         self.line((b[0] - 22, b[1]), (b[0] - 8, b[1]))
@@ -130,9 +190,14 @@ class Painter:
             self.line((fx - 28, fy), (fx - 11, fy))
             self.line((fx + 11, fy), (fx + 28, fy))
             self.line((fx, fy - 11), (fx, fy - 24))
+            if beg:
+                self.label("hud_fpm", fx + 36, fy + 26, lh * 0.85, lc)
+        if beg:
+            self.label("hud_bore", b[0] + 30, b[1] - 18, lh * 0.85, lc)
+            self.label("hud_ladder", C + 150, 150, lh * 0.85, lc)
         # heading tape (bottom)
         hdg = s["psi"] % 360
-        y0, px_deg = 880, 13.0
+        y0, px_deg = 860, 13.0
         self.line((C, y0 - 30), (C - 9, y0 - 44))
         self.line((C, y0 - 30), (C + 9, y0 - 44))
         for d in range(int(hdg) - 20, int(hdg) + 21):
@@ -146,6 +211,8 @@ class Painter:
                 self.text("%02d" % ((d % 360) // 10), x, y0 + 22, 0.75)
         self.box(C - 50, y0 + 44, 100, 50)
         self.text("%03.0f" % hdg, C, y0 + 69, 0.95)
+        if beg:
+            self.label("hud_hdg", C + 62, y0 + 69, lh, lc)
         # airspeed (left) / altitude (right) boxes
         ya, xl, xr = 470, 262, 762                  # boxes ~ +-7 deg from the centre
         self.box(xl - 85, ya - 32, 170, 64)
@@ -163,78 +230,225 @@ class Painter:
         r = ex.get("radar_m")
         if r is not None:
             self.text("R {:,.0f}".format(r / 0.3048), xr, ya + 64, 0.9, AMBER if r < 150 and vs < -500 else GREEN)
-        # throttle / gear / brake (lower left)
-        thr = s.get("thr", 0.0)
-        self.text("THR %3.0f%%%s" % (thr * 100, " AB" if thr > 0.99 else ""), xl, 650, 0.8)
-        gear = s.get("gear", 0.0)
-        gtxt = "GEAR DN" if gear > 0.95 else ("GEAR UP" if gear < 0.05 else "GEAR TRANS")
-        self.text(gtxt, xl, 694, 0.8, GREEN if gear > 0.95 or gear < 0.05 else AMBER)
+        if beg:                                      # callouts outside the boxes (left of speed, right of altitude)
+            self.label("hud_spd", xl - 92, ya, lh, lc, "r")
+            self.label("hud_mach", xl - 92, ya + 64, lh * 0.85, lc, "r")
+            self.label("hud_g", xl - 92, ya - 66, lh * 0.85, lc, "r")
+            self.label("hud_aoa", xl - 92, ya + 112, lh * 0.85, lc, "r")
+            self.label("hud_alt", xr + 108, ya, lh, lc)
+            self.label("hud_vs", xr + 108, ya - 66, lh * 0.85, lc)
+            self.label("hud_agl", xr + 108, ya + 64, lh * 0.85, lc)
         if s.get("brk", 0.0) > 0.3:
             self.text("BRAKE", xr, 650, 0.8, AMBER)
-        if s.get("paused"):
+        if s.get("paused") and not ex.get("menu"):
             self.text("PAUSED", C, 300, 1.2, AMBER)
         w = ex.get("warn")
         if w:
             self.text(w, C, 360, 1.4, RED)
-        tl = ex.get("tut_line")
-        if tl:
-            self.text(tl, C, 770, 0.75)
+        # instructor line (Korean picture from the server, green on black = transparent here)
+        lt = ex.get("line_tex")
+        if lt is not None and ex.get("line_on"):
+            self.image(lt, C - 400, 735, 800, 56)
         note = ex.get("note")
         if note:
             self.text(note, C, 120, 0.6, AMBER)
 
-    # ---- MFDs (5 Hz) ------------------------------------------------------------------------------------------------
-    def draw_mfd(self, i, s, ex):
-        self._begin(self.rt_mfd[i], unreal.LinearColor(0.004, 0.012, 0.006, 1.0))
+    # ---- displays ---------------------------------------------------------------------------------------------------
+    def draw_display(self, tag, s, ex):
+        self._begin(self.rt_disp[tag], unreal.LinearColor(0.004, 0.008, 0.01, 1.0))
         self.ts = 1.0
+        self.k = DISP_SCALE
         try:
-            (self._mfd_flight if i == 0 else self._mfd_map)(s, ex)
+            {"MFD_C": self._train, "MFD_L": self._pfd, "MFD_R": self._session}[tag](s, ex)
         finally:
             self._end()
 
-    def _osb(self, labels_top, labels_bottom):
-        for k, t in enumerate(labels_top):
-            self.text(t, 64 + k * 96, 24, 1.0, WHITE)
-        for k, t in enumerate(labels_bottom):
-            self.text(t, 64 + k * 96, 490, 1.0, WHITE)
+    def _title(self, en, ko_t, ko_d, ex, W):
+        if ex.get("beginner"):
+            self.label(ko_t, 28, 34, 44, CYAN)
+            self.label(ko_d, 28, 76, 30, GREY)
+            return 104
+        self.text(en, 28, 34, 1.5, CYAN, center=False)
+        return 70
 
-    def _mfd_flight(self, s, ex):
-        self._osb(["FLCS", "ENG", "FUEL", "TEST", "DTE"], ["SWAP", "HUD", "", "", "HSD"])
-        rows = [("SPD", "%3.0f KT" % s["kts"]), ("MACH", "%.2f" % s.get("mach", 0)), ("ALT", "{:,.0f} FT".format(s["alt_m"] / 0.3048)),
-                ("VS", "%+.0f FPM" % s.get("vs_fpm", 0)), ("G", "%.1f" % s.get("nz", 1)), ("AOA", "%.1f DEG" % s.get("alpha", 0) if s["kts"] > 40 else "--"),
-                ("THR", "%3.0f %%" % (s.get("thr", 0) * 100)), ("GEAR", "DOWN" if s.get("gear", 0) > 0.95 else "UP" if s.get("gear", 0) < 0.05 else "MOVING"),
-                ("BRAKE", "ON" if s.get("brk", 0) > 0.3 else "OFF"), ("WOW", "GROUND" if s.get("wow") else "AIR")]
-        for k, (a, b) in enumerate(rows):
-            y = 72 + k * 39
-            self.text(a, 30, y, 1.25, DIM, center=False)
-            self.text(b, 170, y, 1.4, GREEN, center=False)
-        # throttle bar
+    def _row(self, y, en, ko, val, col, ex, x0=28, x1=990, size=2.6, unit=""):
+        if ex.get("beginner"):
+            self.label(ko, x0, y, 40, GREY)
+        else:
+            self.text(en, x0, y, 1.5, GREY, center=False)
+        self.text(val + ((" " + unit) if unit else ""), x1, y, size, col, center=True)
+
+    def _pfd(self, s, ex):
+        """flight data: big numbers with normal / caution / danger colours."""
+        y = self._title("FLIGHT DATA", "pfd_t", "pfd_d", ex, 1024)
+        ft, kts, vs = s["alt_m"] / 0.3048, s["kts"], s.get("vs_fpm", 0.0)
+        air = not s.get("wow")
+        aoa, g = s.get("alpha", 0.0), s.get("nz", 1.0)
+        spd_c = RED if (air and (aoa > 25 or (kts < 120 and air))) else AMBER if (air and kts < 160 and s.get("gear", 0) < 0.5) or kts > 650 else GREEN
+        rows = [("SPD", "r_spd", "%3.0f" % kts, spd_c, "KT"), ("ALT", "r_alt", "{:,.0f}".format(ft), GREEN, "FT")]
+        r = ex.get("radar_m")
+        if r is not None and r / 0.3048 < 5000:
+            rr = r / 0.3048
+            rows.append(("AGL R", "r_agl", "{:,.0f}".format(rr), RED if (rr < 500 and vs < -1500) else AMBER if rr < 1000 and air else GREEN, "FT"))
+        rows += [("VS", "r_vs", "%+.0f" % vs, AMBER if abs(vs) > 4000 else GREEN, "FPM"), ("HDG", "r_hdg", "%03.0f" % (s["psi"] % 360), GREEN, "DEG")]
+        y += 40
+        for en, ko, val, col, unit in rows:
+            self._row(y, en, ko, val, col, ex, x1=640, size=2.4, unit=unit)
+            y += 96
+        # small grid: G / max G, AOA, Mach, throttle, gear, brake
+        gm = ex.get("gmax", 1.0)
+        small = [("G", "r_g", "%.1f" % g, RED if g > 9 or g < -3 else AMBER if g > 7 else GREEN), ("MAX G", "r_gmax", "%.1f" % gm, RED if gm > 9 else AMBER if gm > 7 else GREEN),
+                 ("AOA", "r_aoa", ("%.1f" % aoa) if kts > 40 else "--", RED if aoa > 25 and air else AMBER if aoa > 15 and air else GREEN),
+                 ("MACH", "r_mach", "%.2f" % s.get("mach", 0.0), GREEN)]
+        x = 28
+        for i, (en, ko, val, col) in enumerate(small):
+            xx, yy = 28 + (i % 2) * 500, y + (i // 2) * 84
+            if ex.get("beginner"):
+                self.label(ko, xx, yy, 34, GREY)
+            else:
+                self.text(en, xx, yy, 1.2, GREY, center=False)
+            self.text(val, xx + 330, yy, 1.9, col)
+        y += 180
         thr = s.get("thr", 0.0)
-        self.box(452, 80, 30, 360, DIM, 2)
-        h = 356 * thr
-        for k in range(int(h / 6)):
-            self.line((456, 438 - k * 6), (478, 438 - k * 6), GREEN, 3)
+        if ex.get("beginner"):
+            self.label("r_thr", 28, y, 34, GREY)
+        else:
+            self.text("THR", 28, y, 1.2, GREY, center=False)
+        self.box(220, y - 18, 520, 36, GREY, 2)
+        self.fill(222, y - 16, 516 * max(0.0, min(1.0, thr)), 32, AMBER if thr > 0.95 else GREEN)
+        self.text("%3.0f %%%s" % (thr * 100, " AB" if thr > 0.95 else ""), 870, y, 1.5, AMBER if thr > 0.95 else GREEN)
+        y += 70
+        gear = s.get("gear", 0.0)
+        gtxt, gcol = ("DOWN", GREEN) if gear > 0.95 else ("UP", WHITE) if gear < 0.05 else ("TRANSIT", AMBER)
+        if ex.get("beginner"):
+            self.label("r_gear", 28, y, 34, GREY)
+            self.label("r_brk", 528, y, 34, GREY)
+        else:
+            self.text("GEAR", 28, y, 1.2, GREY, center=False)
+            self.text("BRAKE", 528, y, 1.2, GREY, center=False)
+        self.text(gtxt, 330, y, 1.8, gcol)
+        bk = s.get("brk", 0.0) > 0.3
+        self.text("ON" if bk else "OFF", 860, y, 1.8, AMBER if bk else GREY)
+        self.last["MFD_L"] = dict(kts=round(kts), ft=round(ft), vs=round(vs), thr=round(thr * 100), gear=gtxt)
 
-    def _mfd_map(self, s, ex):
-        self._osb(["HSD", "DEP", "CNTL", "", "RKTU"], ["SWAP", "FCR", "", "", "SMS"])
-        C, scale = 256, 230 / 10000.0          # 10 km range ring radius 230 px, heading up
-        hdg = math.radians(s["psi"])
-        self.circle(C, 270, 230, DIM, 48, 2)
-        self.circle(C, 270, 115, DIM, 32, 2)
-        self.text("10", C + 168, 270 - 168, 1.0, DIM)
-        self.text("5", C + 84, 270 - 84, 1.0, DIM)
-        for rw in ex.get("runways", ()):              # [(n0, e0, n1, e1)] metres from the aircraft
-            pts = []
-            for n, e in ((rw[0], rw[1]), (rw[2], rw[3])):
-                x = e * math.cos(hdg) - n * math.sin(hdg)
-                y = n * math.cos(hdg) + e * math.sin(hdg)
-                pts.append((C + x * scale, 270 - y * scale))
-            self.line(pts[0], pts[1], WHITE, 4)
-        self.line((C, 258), (C, 290), GREEN, 3)       # own aircraft
-        self.line((C - 14, 268), (C + 14, 268), GREEN, 3)
-        self.line((C - 6, 288), (C + 6, 288), GREEN, 3)
-        self.text("HDG %03.0f" % (s["psi"] % 360), 100, 64, 1.15, GREEN)
-        d = ex.get("rkt_dist_m")
-        if d is not None:
-            self.text("RKTU %.1f NM %03.0f" % (d / 1852.0, ex.get("rkt_brg", 0) % 360), 370, 64, 1.15, GREEN)
-        self.text(ex.get("cesium_line", ""), C, 450, 1.0, AMBER if "FLAT" in ex.get("cesium_line", "") else DIM)
+    def _train(self, s, ex):
+        """training display: the server's lesson picture (Korean) + live target bars and the deviation trend."""
+        W, H = DISP["MFD_C"]
+        tut = s.get("tut") or {}
+        tex = ex.get("panel_tex")
+        self.image(tex, 0, 0, W, H)
+        if tex is None:
+            self.text("TRAINING - waiting for sim/server.py", W / 2, H / 2, 1.6, AMBER)
+        ph = tut.get("phase")
+        tg = tut.get("targets") or []
+        self.last["MFD_C"] = dict(phase=ph, targets=[(t.get("name"), t.get("txt"), t.get("st")) for t in tg])
+        if ph not in ("practice", "solo") or not tg:
+            return
+        # band y 470..680 (render.py keeps it free in practice / solo): up to 3 rows + the trend on the right
+        y0, rh = 482, 62
+        self.fill(14, y0 - 30, W - 28, rh * min(3, len(tg)) + 14, unreal.LinearColor(0.0, 0.02, 0.03, 0.85))
+        for i, t in enumerate(tg[:3]):
+            y = y0 + i * rh
+            col = ST_COL[min(2, max(0, int(t.get("st", 0))))]
+            if ex.get("beginner"):
+                self.label("t_" + t["name"], 30, y, 36, WHITE)
+            else:
+                self.text(t["name"], 30, y, 1.3, WHITE, center=False)
+            self.text("%s" % t.get("txt", ""), 330, y, 1.9, col)
+            self.text("TGT %s +-%g %s" % (t.get("ttxt", ""), t.get("tol", 0), t.get("unit", "")), 560, y, 1.05, GREY)
+            # deviation bar: centre = target, green band = tolerance, marker = now
+            bx, bw = 700, 300
+            tol = max(1e-6, float(t.get("tol", 1)))
+            k = bw / 2 / (3 * tol)
+            self.box(bx, y - 12, bw, 24, GREY, 2)
+            self.fill(bx + bw / 2 - tol * k, y - 10, 2 * tol * k, 20, unreal.LinearColor(0.05, 0.3, 0.12, 1.0))
+            d = max(-3 * tol, min(3 * tol, float(t.get("dev", 0))))
+            mx = bx + bw / 2 + d * k
+            self.fill(mx - 5, y - 16, 10, 32, col)
+        # trend of the first target over the last 30 s (deviation / tolerance)
+        t0 = tut.get("t", 0.0) or 0.0
+        if tg:
+            v = float(tg[0].get("dev", 0)) / max(1e-6, float(tg[0].get("tol", 1)))
+            if not self.hist or t0 - self.hist[-1][0] >= 0.2 or t0 < self.hist[-1][0]:
+                if self.hist and t0 < self.hist[-1][0]:
+                    self.hist = []
+                self.hist.append((t0, v))
+            self.hist = [p for p in self.hist if t0 - p[0] <= 30.0]
+        gx, gy, gw, gh = 1030, y0 - 24, 230, rh * min(3, len(tg)) - 4
+        self.box(gx, gy, gw, gh, GREY, 2)
+        mid = gy + gh / 2
+        self.fill(gx + 2, mid - gh / 6, gw - 4, gh / 3, unreal.LinearColor(0.05, 0.3, 0.12, 1.0))
+        pts = [(gx + gw - (t0 - t) / 30.0 * gw, mid - max(-3.0, min(3.0, v)) / 3.0 * gh / 2) for t, v in self.hist]
+        for a, b in zip(pts, pts[1:]):
+            self.line(a, b, AMBER, 3)
+        if ex.get("beginner"):
+            self.label("r_trend", gx, gy - 14, 24, GREY)
+
+    def _session(self, s, ex):
+        """chair cue vs its limits, flight time, status, warnings (master caution logic)."""
+        y = self._title("CHAIR / STATUS", "ses_t", "ses_d", ex, 1024)
+        t = s.get("t", 0.0)
+        beg = ex.get("beginner")
+        if beg:
+            self.label("r_time", 28, y + 30, 36, GREY)
+        else:
+            self.text("FLT TIME", 28, y + 30, 1.3, GREY, center=False)
+        self.text("%d:%02d" % (int(t) // 60, int(t) % 60), 700, y + 30, 2.0, WHITE)
+        y += 100
+        lim = s.get("chair_lim") or (18.0, 14.0)
+        rate = s.get("chair_rate") or (1.3, 0.95)
+        tgt = s.get("chair_tgt") or (0.0, 0.0)
+        for i, (en, ko, val, tv, L, rt) in enumerate((("CHAIR ROLL", "r_croll", s.get("chair_roll", 0.0), tgt[0], lim[0], rate[0]),
+                                                      ("CHAIR PITCH", "r_cpitch", s.get("chair_pitch", 0.0), tgt[1], lim[1], rate[1]))):
+            if beg:
+                self.label(ko, 28, y, 36, GREY)
+            else:
+                self.text(en, 28, y, 1.2, GREY, center=False)
+            near = abs(val) > 0.9 * L
+            self.text("%+.1f" % val, 900, y, 1.8, AMBER if near else GREEN)
+            bx, bw = 300, 480
+            self.box(bx, y - 14, bw, 28, GREY, 2)
+            k = bw / 2 / L
+            self.fill(bx + bw / 2 - 2, y - 14, 4, 28, GREY)
+            self.fill(bx + bw / 2 + max(-L, min(L, val)) * k - 6, y - 18, 12, 36, AMBER if near else GREEN)
+            self.fill(bx + bw / 2 + max(-L, min(L, tv)) * k - 2, y - 22, 4, 44, CYAN)
+            self.text("+-%g deg  %g deg/s" % (L, rt), bx + bw / 2, y + 34, 0.9, GREY)
+            y += 100
+        # status chips
+        chips = []
+        if s.get("paused") and not (s.get("tut") or {}).get("menu"):
+            chips.append(("PAUSED", "s_paused", AMBER))
+        if ex.get("loading"):
+            chips.append(("LOADING", "s_loading", AMBER))
+        if s.get("demo"):
+            chips.append(("DEMO", "s_demo", CYAN))
+        if s.get("assist"):
+            chips.append(("ASSIST", "s_assist", GREEN))
+        if s.get("slow"):
+            chips.append(("SLOW 0.5x", "s_slow", GREEN))
+        x = 28
+        for en, ko, col in chips:
+            if beg:
+                x += self.label(ko, x, y, 34, col) + 30
+            else:
+                self.text(en, x, y, 1.3, col, center=False)
+                x += 220
+        y += 70
+        # warnings
+        act = ex.get("warnings") or []
+        if beg:
+            self.label("r_warn", 28, y, 38, WHITE)
+        else:
+            self.text("WARNINGS", 28, y, 1.3, WHITE, center=False)
+        y += 60
+        for key, (en, ko, col) in WARN_TXT.items():
+            on = key in act
+            c = col if on else unreal.LinearColor(0.16, 0.18, 0.2, 1.0)
+            if on:
+                self.fill(20, y - 26, 984, 52, unreal.LinearColor(col.r * 0.25, col.g * 0.25, col.b * 0.25, 1.0))
+            if beg:
+                self.label(ko, 40, y, 34, c)
+            else:
+                self.text(en, 40, y, 1.4, c, center=False)
+            y += 60
+        self.last["MFD_R"] = dict(warnings=list(act), chair=[round(s.get("chair_roll", 0.0), 1), round(s.get("chair_pitch", 0.0), 1)])

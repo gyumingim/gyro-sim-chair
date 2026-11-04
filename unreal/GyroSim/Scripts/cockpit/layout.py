@@ -155,37 +155,38 @@ def panel_pt(u, v, off=0.0):
 
 # HUD: combiner frame on the glare shield, tilted back (top toward the pilot)
 HUD_X, HUD_Z0, HUD_Z1, HUD_W, HUD_TILT = 500.5, 77.6, 95.0, 22.0, 18.0
-BOW_X = 468.0                          # windscreen bow (follows the canopy glass, above the HUD field of view)
+BOW_X = None                           # no forward windscreen bow (F-16 / T-7 style one-piece canopy: nothing in the forward view)
+MIRRORS = [(472.0, 1), (472.0, -1)]    # small rear-view mirrors on stalks at the canopy sill (x, side)
 REAR_ARCH_X = 372.0
 
-# ---- instruments / screens on the main panel (u = y, v = z) --------------------------------------------------------
-MFD_BEZEL, MFD_SCREEN = 15.0, 10.6
-MFD = {"MFD_L": (-21.0, 46.5), "MFD_R": (21.0, 46.5)}
-UFCP = dict(u=0.0, v=65.4, w=19.0, h=17.6)
-GAUGES = {   # name: (u, v, bezel diameter, dial), live ones have needles
-    "ADI": (0.0, 50.4, 9.0, "adi"),
-    "ASI": (-6.4, 39.5, 7.2, "asi"),
-    "ALT": (6.4, 39.5, 7.2, "alt"),
-    "VSI": (0.0, 29.9, 7.2, "vsi"),
-    "CLOCK": (35.0, 45.0, 5.6, "clock"),
-    "RPM": (19.0, 31.0, 6.0, "rpm"),
-    "FTIT": (19.0, 20.5, 6.0, "ftit"),
-    "FUEL": (0.0, 19.6, 6.6, "fuel"),
+# ---- displays / instruments on the main panel (u = y, v = z) -------------------------------------------------------
+# cockpit v2: every element carries live data or is a real control (user 11-04). Three glass displays (render targets):
+# MFD_C = training display (lesson, instruction, targets + deviation trend, score), MFD_L = flight data (PFD),
+# MFD_R = chair / session / warnings. name: (u, v, bezel w, bezel h, screen w, screen h, render target px w, px h)
+DISPLAYS = {"MFD_C": (0.0, 65.6, 26.5, 17.6, 24.0, 15.0, 1280, 800),
+            "MFD_L": (-22.5, 46.4, 17.0, 17.0, 15.0, 15.0, 1024, 1024),
+            "MFD_R": (22.5, 46.4, 17.0, 17.0, 15.0, 15.0, 1024, 1024)}
+GAUGES = {   # name: (u, v, bezel diameter, dial) - standby instruments, all live
+    "ADI": (0.0, 50.0, 9.0, "adi"),
+    "ASI": (-6.4, 39.3, 7.2, "asi"),
+    "ALT": (6.4, 39.3, 7.2, "alt"),
+    "VSI": (0.0, 29.7, 7.2, "vsi"),
 }
 LIVE_NEEDLES = {"ASI": ["asi"], "ALT": ["alt", "alt10k"], "VSI": ["vsi"]}
-GEAR_HANDLE = dict(u=-35.5, v=46.0, arm=6.5, knob=3.6, travel=16.0)
-GEAR_LIGHTS = [(-19.0, 34.0), (-22.0, 31.0), (-16.0, 31.0)]   # nose, left, right
-EYEBROWS = {"EB_L": (-17.6, 59.8, ("MASTER CAUTION", "FIRE"), ("amber", "red")),
-            "EB_R": (17.6, 59.8, ("ENG", "HYD/OIL"), ("red", "amber"))}
-
-# main panel decorative / small controls (kind, u, v, label, opts)
-MAIN_ELEMENTS = [
-    ("toggle", -22.0, 21.5, "MASTER ARM", dict(pos=("ARM", "OFF", "SIM"), state=0)),
-    ("button", -16.0, 21.5, "EMER JETT", dict(ring="stripe")),
-    ("toggle", -19.0, 15.0, "LDG LT", dict(pos=("ON", "TAXI", "OFF"), state=1)),
-    ("knob", 35.0, 40.4, "BARO", dict(small=True)),
-    ("knob", -34.0, 41.0, "HOOK", dict(small=True)),
-]
+GEAR_HANDLE = dict(u=-36.5, v=46.0, arm=6.5, knob=3.6, travel=16.0)
+GEAR_LIGHTS = [(-19.0, 34.0), (-22.0, 31.0), (-16.0, 31.0)]   # nose, left, right (green = down and locked)
+# live lights: name: (u, v, w, h, colour, legend). Lit only when the condition is true (sim_client):
+# MC = master caution (any warning), WARN = red warnings (PULL UP / OVER-G / STALL), BRAKE, ASSIST (easy mode), SLOW, VOICE
+LIGHTS = {"MC": (-19.6, 60.2, 6.6, 4.4, "amber", "MASTER CAUTION"), "WARN": (19.6, 60.2, 6.6, 4.4, "red", "WARNING"),
+          "BRAKE": (-22.0, 21.5, 4.6, 2.6, "amber", "BRAKE"), "ASSIST": (-16.0, 21.5, 4.6, 2.6, "green", "ASSIST"),
+          "SLOW": (-22.0, 16.5, 4.6, 2.6, "green", "SLOW"), "VOICE": (-16.0, 16.5, 4.6, 2.6, "green", "VOICE")}
+# beginner-mode callout planes on the panel (make_labels.py lbl_<name>.png): name -> (u, v); size from callouts.json
+CALLOUT_POS = {"adi": (0.0, 55.65), "asi": (-6.4, 34.9), "alt": (6.4, 34.9), "vsi": (0.0, 25.2), "gear": (-36.5, 41.6),
+               "wheels": (-19.0, 37.0), "lights": (-19.0, 25.6)}
+UFCP = None
+EYEBROWS = {}
+MAIN_ELEMENTS = []
+MFD_BEZEL, MFD_SCREEN = 17.0, 15.0     # (old names, used by the bezel texture)
 
 # ---- consoles: top plates (u = y right, v = x forward) ------------------------------------------------------------
 # (name, u0, u1, v0, v1, title, [elements]) ; element = (kind, u, v, label, opts)
@@ -229,13 +230,16 @@ CONSOLE_PANELS = [
     ("R6", 25.6, 48.5, 485.5, 498.5, "ANTI-ICE", [
         ("toggle", 31.0, 491.8, "ENG", dict(pos=("ON", "AUTO", "OFF"), state=1)), ("toggle", 41.0, 491.8, "PITOT", dict(pos=("ON", "", "OFF"), state=0))]),
 ]
+CONSOLE_DECOR = False                  # v2: no dead switches on the consoles (plain panels with fasteners)
+if not CONSOLE_DECOR:
+    CONSOLE_PANELS = [(n, u0, u1, v0, v1, "", []) for n, u0, u1, v0, v1, _t, _e in CONSOLE_PANELS]
 THR_HOUSING = dict(u0=-39.0, u1=-25.6, v0=421.5, v1=460.5, h=4.6)   # throttle quadrant housing on the left console
 
 # ---- texture atlas ----------------------------------------------------------------------------------------------------
 ATLAS = 4096
 PX_MAIN, PX_CONSOLE, PX_SMALL = 20, 24, 32     # px per cm
 MAIN_U0, MAIN_U1, MAIN_V0, MAIN_V1 = -60.0, 60.0, 10.0, 80.0
-DIALS = ["asi", "alt", "vsi", "adi", "clock", "rpm", "ftit", "fuel", "oil", "o2", "stripe"]
+DIALS = ["asi", "alt", "vsi", "adi", "clock", "rpm", "ftit", "fuel", "oil", "o2", "stripe"]   # (only asi/alt/vsi/adi/stripe used in v2)
 DIAL_TILE = 512
 
 

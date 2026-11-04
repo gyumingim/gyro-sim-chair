@@ -251,7 +251,7 @@ def main_panel(px=L.PX_MAIN):
     X = lambda u: (u - u0) * px
     Y = lambda v: (v1 - v) * px
     # sub-panel seams + fasteners
-    subs = [(-25.0, -13.6, 12.5, 38.5), (13.6, 25.0, 12.5, 38.5), (-12.6, 12.6, 12.5, 25.6), (-45.0, -29.0, 39.5, 54.0), (29.0, 45.0, 39.5, 54.0)]
+    subs = [(-25.0, -12.0, 12.5, 37.5), (12.0, 25.0, 12.5, 37.5), (-12.0, 12.0, 12.5, 25.4), (-46.0, -32.0, 39.5, 53.0)]
     for a, b, cc, d in subs:
         c.rect(X(a), Y(d), X(b), Y(cc), outline=(12, 12, 13), w=0.12 * px)
         c.rect(X(a) + 0.12 * px, Y(d) + 0.12 * px, X(b) - 0.12 * px, Y(cc) - 0.12 * px, outline=(44, 45, 48), w=0.06 * px)
@@ -270,7 +270,7 @@ def main_panel(px=L.PX_MAIN):
     c.text(X(g["u"]), Y(g["v"] + 4.3), "LG", 0.5 * px)
     c.text(X(g["u"] - 3.5), Y(g["v"] + 2.0), "UP", 0.36 * px)
     c.text(X(g["u"] - 3.5), Y(g["v"] - 2.0), "DN", 0.36 * px)
-    c.text(X(-19.0), Y(37.0), "WHEELS", 0.36 * px)
+    c.text(X(-19.0), Y(36.3), "WHEELS", 0.36 * px)
     # stripes around the gear handle well (white / red, like real gear handles' bezel)
     c.rect(X(g["u"] - 1.3), Y(g["v"] + 2.6), X(g["u"] + 1.3), Y(g["v"] - 2.6), fill=(10, 10, 10), radius=0.5 * px)
     return c.done()
@@ -342,6 +342,35 @@ def eyebrow(name, px=L.PX_SMALL):
     return c.done()
 
 
+def light_lens(w_cm, h_cm, col, legend, px=L.PX_SMALL):
+    """annunciator lens: dark tinted when off; the lit overlay (same UV, emissive material) makes it glow."""
+    w, h = int(w_cm * px), int(h_cm * px)
+    tint = {"amber": (70, 46, 8), "red": (70, 14, 10), "green": (12, 52, 20)}[col]
+    txt = {"amber": (255, 196, 70), "red": (255, 90, 70), "green": (110, 255, 140)}[col]
+    c = Canvas(w, h, tint)
+    c.rect(1, 1, w - 2, h - 2, outline=(0, 0, 0), w=0.1 * px, radius=0.15 * px)
+    words = legend.split(" ")
+    size = min(0.85, (h_cm - 0.5) / max(1, len(words)) * 0.75)
+    for i, wd in enumerate(words):
+        c.text(w / 2, h / 2 + (i - (len(words) - 1) / 2) * size * 1.15 * px, wd, size * px, col=txt, glow=False, weight="Bold Condensed")
+    return c.done()
+
+
+def wall_tile(px=12):
+    """side wall trim panel (60 x 30 cm tile, UV 0..1): seams, fastener rows, small structural ribs."""
+    w, h = 60 * px, 30 * px
+    c = Canvas(w, h, CONSOLE)
+    c.rgb.paste(paint_base(w * c.ss, h * c.ss, CONSOLE, 57))
+    for x0 in (0.0, 30.0):
+        c.rect(x0 * px + 2, 2, (x0 + 30) * px - 2, h - 2, outline=(30, 32, 34), w=2)
+        c.rect(x0 * px + 4, 4, (x0 + 30) * px - 4, h - 4, outline=(70, 73, 77), w=1)
+        for k in range(6):
+            xx = (x0 + 2.5 + k * 5.0) * px
+            for yy in (1.4 * px, h - 1.4 * px):
+                dzus(c, xx, yy, 0.3 * px)
+    return c.done()
+
+
 def build_atlas():
     P = Packer(L.ATLAS)
     regions, items = {}, []
@@ -357,11 +386,14 @@ def build_atlas():
         put(name, console_panel(name, u0, u1, v0, v1, title, elems), dict(u0=u0, u1=u1, v0=v0, v1=v1))
     T = L.THR_HOUSING
     put("thr", thr_housing(), dict(u0=T["u0"], u1=T["u1"], v0=T["v0"], v1=T["v1"]))
-    U = L.UFCP
-    put("ufcp", ufcp(), dict(u0=-U["w"] / 2, u1=U["w"] / 2, v0=-U["h"] / 2, v1=U["h"] / 2))
-    put("mfd", mfd_bezel(), dict(u0=-L.MFD_BEZEL / 2, u1=L.MFD_BEZEL / 2, v0=-L.MFD_BEZEL / 2, v1=L.MFD_BEZEL / 2))
+    if L.UFCP:
+        U = L.UFCP
+        put("ufcp", ufcp(), dict(u0=-U["w"] / 2, u1=U["w"] / 2, v0=-U["h"] / 2, v1=U["h"] / 2))
     for n in L.EYEBROWS:
         put(n, eyebrow(n), dict(u0=-5.5, u1=5.5, v0=-2.5, v1=2.5))
+    for n, (u, v, w, h, col, legend) in L.LIGHTS.items():          # live light lenses: legend on a tinted lens
+        put("LT_" + n, light_lens(w, h, col, legend), dict(u0=-w / 2, u1=w / 2, v0=-h / 2, v1=h / 2))
+    put("wall", wall_tile(), dict(u0=0, u1=1, v0=0, v1=1))
     # plain swatches (UV islands for unlabelled faces)
     for n, col in (("sw_panel", PANEL), ("sw_console", CONSOLE), ("sw_white", (200, 200, 196)), ("sw_red", (150, 20, 18)),
                    ("sw_black", (12, 12, 13)), ("sw_frame", (60, 63, 66))):

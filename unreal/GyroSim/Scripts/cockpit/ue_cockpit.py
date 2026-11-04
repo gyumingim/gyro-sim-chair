@@ -138,8 +138,66 @@ CK_SLOTS = {
     "CK_HUDFrame": dict(Tint=(0.03, 0.03, 0.032), Metal=0.6, Rough=0.35, Wear=0.6),
     "CK_HUDExit": dict(Tint=(0.0, 0.01, 0.005), Rough=0.05),
     "CK_Mirror": dict(Tint=(0.6, 0.62, 0.64), Metal=1.0, Rough=0.12),
+    "CK_Bezel": dict(Tint=(0.010, 0.010, 0.011), Rough=0.32, Wear=0.5, Cavity=0.4),
+    "CK_LightLit": dict(tex="T_CkPanels", Rough=0.2, Emissive=7.0),
+    "CK_Wall": dict(tex="T_CkPanels", Rough=0.68, Wear=0.6, Cavity=0.5, GrungeTile=2.0),
 }
-CK_GLASS = {"CK_Glass": ("M_CkInstGlass", (0.6, 0.65, 0.7), 0.05), "CK_HUDGlass": ("M_CkHUDGlass", (0.45, 0.7, 0.55), 0.07)}
+CK_GLASS = {"CK_Glass": ("M_CkInstGlass", (0.6, 0.65, 0.7), 0.05), "CK_HUDGlass": ("M_CkHUDGlass", (0.45, 0.7, 0.55), 0.07),
+            "CK_DispGlass": ("M_CkDispGlass", (0.55, 0.6, 0.65), 0.03)}
+
+
+DISPLAY_HLSL = """
+float2 dx = ddx(UV) * 0.33, dy = ddy(UV) * 0.33;
+float3 c = 0;
+[unroll] for (int i = -1; i <= 1; i++)
+[unroll] for (int j = -1; j <= 1; j++)
+    c += Texture2DSample(T, TSampler, UV + dx * i + dy * j).rgb;
+return c / 9.0;
+"""
+
+
+def ck_display():
+    """M_CkDisplay: opaque unlit glass display = render target 'Tex' x Brightness, 3 x 3 supersampled over the pixel
+    footprint (the canvas render targets have no mips) - crisp, no shimmer at VR distance. Opaque so the display glass
+    (reflections) can sit in front of it."""
+    m = _new_material("M_CkDisplay", CK + "/Materials")
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    t = _expr(m, unreal.MaterialExpressionTextureObjectParameter, -1100, 0, parameter_name="Tex")
+    tex = unreal.load_asset("/Engine/EngineResources/Black")
+    t.set_editor_property("texture", tex)
+    cu = _expr(m, unreal.MaterialExpressionCustom, -800, 0)
+    cu.set_editor_property("code", DISPLAY_HLSL)
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    ins = []
+    for n in ("T", "UV"):
+        ci = unreal.CustomInput()
+        ci.set_editor_property("input_name", n)
+        ins.append(ci)
+    cu.set_editor_property("inputs", ins)
+    MEL.connect_material_expressions(t, "", cu, "T")
+    MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionTextureCoordinate, -1100, 200), "", cu, "UV")
+    e = _op(m, unreal.MaterialExpressionMultiply, cu, _sparam(m, "Brightness", 1.0, -800, 250), -500, 0)
+    MEL.connect_material_property(e, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    return _finish(m)
+
+
+def ck_label():
+    """M_CkLabel: unlit masked label plane (green text on black PNG -> opacity from brightness)."""
+    m = _new_material("M_CkLabel", CK + "/Materials")
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
+    t = _expr(m, unreal.MaterialExpressionTextureSampleParameter2D, -800, 0, parameter_name="Tex")
+    tex = unreal.load_asset("/Engine/EngineResources/Black")
+    t.set_editor_property("texture", tex)
+    t.set_editor_property("sampler_type", _sampler_type(tex))
+    MEL.connect_material_property(_op(m, unreal.MaterialExpressionMultiply, t, _sparam(m, "Brightness", 1.6, -800, 250), -500, 0), "",
+                                  unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    g = _expr(m, unreal.MaterialExpressionComponentMask, -600, 300, r=False, g=True, b=False, a=False)
+    MEL.connect_material_expressions(t, "", g, "")
+    MEL.connect_material_property(_op(m, unreal.MaterialExpressionAdd, g, _const(m, 0.06, -700, 400), -400, 300), "",
+                                  unreal.MaterialProperty.MP_OPACITY_MASK)
+    m.set_editor_property("opacity_mask_clip_value", 0.12)
+    return _finish(m)
 
 
 CK_FILL_LOC, CK_FILL_CD = (452.0, 0.0, 92.0), 0.6     # cockpit fill light (cd): lifts the shadowed interior a little
@@ -205,6 +263,7 @@ def build_cockpit():
         EAL.save_loaded_asset(sm)
         meshes[name] = sm
     if not globals().get("CK_PLACE", True):
+        ck_display()
         log("cockpit assets re-imported (no placement)")
         return
     PV, NE, SC = man["pivots"], man["needles"], man["screens"]
@@ -240,10 +299,35 @@ def build_cockpit():
             log("fill light", k, e)
     fl.tags = [unreal.Name("AircraftPart"), unreal.Name("CockpitFill")]
     attach(fl, root)
+    disp = ck_display()
     for tag, s in SC.items():
         r = unreal.MathLibrary.make_rot_from_zx(V(*s["normal"]), V(0, 1, 0))
-        k = s["size"] / 100.0
-        ac(tag, SHAPE["Plane"], MAT["mfd"], tuple(s["center"]), (r.roll, r.pitch, r.yaw), (k, k, 1), tags=(tag,), shadows=False)
+        w, h = (s["size"], s["size"]) if not isinstance(s["size"], list) else s["size"]
+        ac(tag, SHAPE["Plane"], disp, tuple(s["center"]), (r.roll, r.pitch, r.yaw), (w / 100.0, h / 100.0, 1), tags=(tag,), shadows=False)
+    # live lights (lit overlays, shown by sim_client when their condition is true)
+    for name, li in (man.get("lights") or {}).items():
+        ac("Light_" + name, meshes.get(li["part"]), None, (0, 0, 0), tags=("Light_" + name,), shadows=False)
+    # beginner-mode callouts on the panel (Korean label pictures, hidden in expert mode by sim_client)
+    try:
+        cos = json.load(open(os.path.join(tdir, "callouts.json"), encoding="utf-8"))
+        lm = ck_label()
+        files = [os.path.join(tdir, "lbl_%s.png" % k) for k in cos]
+        ltx = import_textures([f for f in files if os.path.exists(f)], CK + "/Textures/Labels")
+        import importlib
+        sys.path.insert(0, os.path.join(PROJ, "Scripts", "cockpit"))
+        import layout as CKL
+        importlib.reload(CKL)
+        for k, (u, v) in CKL.CALLOUT_POS.items():
+            tx = ltx.get("lbl_" + k)
+            if not tx:
+                continue
+            mi = instance("MI_Lbl_" + k, lm, None, None, {"Tex": tx}, folder=CK + "/Materials/Labels")
+            c = CKL.panel_pt(u, v, 0.35)
+            r = unreal.MathLibrary.make_rot_from_zx(V(*CKL.PANEL_N), V(0, 1, 0))
+            ac("Lbl_" + k, SHAPE["Plane"], mi, c, (r.roll, r.pitch, r.yaw), (cos[k]["w"] / 100.0, cos[k]["h"] / 100.0, 1), tags=("BeginnerLabel",),
+               shadows=False)
+    except Exception as e:
+        log("beginner callouts failed", repr(e))
     log("cockpit placed:", sorted(meshes), "made", man.get("made"))
 
 

@@ -65,15 +65,22 @@ def render_panel(d, ver):
         title += "   %d / %d" % (d.get("step", 0), d["n"])
     g.text((x, 16), title, font=F(34, True), fill=GREEN)
     right = "%s · %s%s" % (d.get("trainee", ""), "조종 장치" if d.get("mode") == "rig" else "키보드", "" if d.get("voice") else " · 음성 꺼짐")
-    g.text((W - 22, 70), right, font=F(22), fill=GREY, anchor="ra")
+    g.text((W - 22, 30), right, font=F(20), fill=GREY, anchor="ra")
     y = 76
     if ph == "menu":
-        y = 96
-        for i, t in enumerate(d.get("items") or []):
-            sel = i == d.get("sel")
+        y = 84
+        items = d.get("items") or []
+        sel_i = d.get("sel", 0) or 0
+        first = max(0, min(sel_i - 4, len(items) - 9))
+        if first > 0:
+            g.text((W - 30, 80), "▲", font=F(24), fill=GREY, anchor="ra")
+        if first + 9 < len(items):
+            g.text((W - 30, H - 84), "▼", font=F(24), fill=GREY, anchor="ra")
+        for i, t in list(enumerate(items))[first:first + 9]:
+            sel = i == sel_i
             if sel:
                 g.rounded_rectangle([22, y - 4, W - 22, y + 46], radius=8, fill=(30, 70, 50), outline=GREEN, width=2)
-            g.text((40, y), ("▶ " if sel else "   ") + t, font=F(32, sel), fill=WHITE if sel else (200, 210, 220))
+            g.text((40, y), ("▶ " if sel else "   ") + t, font=F(30, sel), fill=WHITE if sel else (200, 210, 220))
             y += 54
         g.text((22, H - 44), "↑↓ 또는 스틱 앞뒤 = 고르기 · Enter / 트리거 = 선택 · Backspace = 뒤로", font=F(24), fill=BLUE)
     elif ph == "brief":
@@ -88,22 +95,26 @@ def render_panel(d, ver):
         if ph == "free":
             para(g, 30, y + 20, "자유 비행 — 교관 없음. F1 = 메뉴", F(34, True), WHITE, W - 60, 50)
         else:
-            y = para(g, 30, y, d.get("text", ""), F(24), GREY, W - 60, 32, 2) + 6
+            # layout: context (2 lines) + instruction (3 lines) + coach (2 lines) above y 376; y 380..540 is left free for
+            # the live target bars drawn by the cockpit display (hud.py); hint / keys / progress below
+            y = para(g, 30, y, d.get("text", ""), F(24), GREY, W - 60, 31, 2) + 4
             if d.get("instr"):
-                g.rectangle([18, y, 25, y + 46], fill=YELLOW)
-                y = para(g, 38, y, d["instr"], F(38, True), YELLOW, W - 70, 52, 3) + 4
+                g.rectangle([18, y + 2, 25, y + 44], fill=YELLOW)
+                y = para(g, 38, y, d["instr"], F(36, True), YELLOW, W - 70, 46, 3) + 2
             if d.get("coach"):
                 col = GREEN if d.get("coach_kind") == "good" else ORANGE
-                y = para(g, 30, max(y, 330), "교관: " + d["coach"], F(30, True), col, W - 60, 42, 2)
+                para(g, 30, max(y, 296), "교관: " + d["coach"], F(29, True), col, W - 60, 38, 2)
+            if d.get("targets"):
+                g.text((W - 26, 392), "목표와 차이 ↓", font=F(20), fill=GREY, anchor="ra")
             if d.get("hint") and ph == "practice":
-                g.text((22, H - 116), "힌트: " + wrap(g, d["hint"], F(24), W - 120)[0], font=F(24), fill=BLUE)
+                g.text((22, H - 100), "힌트: " + wrap(g, d["hint"], F(23), W - 120)[0], font=F(23), fill=BLUE)
             if d.get("msg"):
-                g.text((W - 22, H - 116), d["msg"], font=F(24), fill=ORANGE, anchor="ra")
+                g.text((W - 22, H - 100), d["msg"], font=F(23), fill=ORANGE, anchor="ra")
             if ph == "solo":
-                g.text((22, H - 82), "단독 점검 — 교관은 조용히 봐요. 점수: %s" % (d.get("live_score") if d.get("live_score") is not None else "-"),
-                       font=F(24), fill=(255, 200, 90))
+                g.text((22, H - 70), "단독 점검 — 교관은 조용히 봐요 · 점수 %s" % (d.get("live_score") if d.get("live_score") is not None else "-"),
+                       font=F(23), fill=(255, 200, 90))
             else:
-                g.text((22, H - 82), "N = 건너뛰기 · Z = 다시 듣기 · P = 멈춤", font=F(24), fill=BLUE)
+                g.text((22, H - 70), "N = 건너뛰기 · Z = 다시 듣기 · P = 멈춤 · F1 = 메뉴", font=F(23), fill=BLUE)
             _bar(g, d.get("prog", 0), (60, 200, 110))
     elif ph == "debrief":
         db = d.get("debrief") or {}

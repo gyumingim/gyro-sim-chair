@@ -658,15 +658,22 @@ try:
     fc.set_editor_property("fog_inscattering_luminance", unreal.LinearColor(0.35, 0.45, 0.6, 1.0))
 except Exception:
     pass
-cloud_mat = unreal.load_asset("/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst")
+# clouds: our instance of the engine's volumetric cloud material, scattered cumulus around the training altitude
+# (bases CLOUD_BASE_KM ~ 3300 ft, tops up to ~ CLOUD_BASE_KM + CLOUD_TOP_KM): fly under, through and above them.
+# Parameters tuned from screenshots (README "구름"); sample counts per quality preset in sim_client.PRESETS.
+CLOUD_BASE_KM, CLOUD_TOP_KM = 1.0, 2.2
+CLOUD_PARAMS = dict(Cloud_GlobalCoverage=-0.12, Cloud_GlobalDensity=0.022, Layout_CloudGlobalScale=150.0)
+cloud_parent = unreal.load_asset("/Engine/EngineSky/VolumetricClouds/m_SimpleVolumetricCloud_Inst")
+cloud_mat = instance("MI_Clouds", cloud_parent, CLOUD_PARAMS, None, None) if cloud_parent else None
 if cloud_mat:
     vc = eas.spawn_actor_from_class(unreal.VolumetricCloud, V(0, 0, 0))
     vc.set_actor_label("VolumetricCloud")
     vcc = vc.get_component_by_class(unreal.VolumetricCloudComponent)
     vcc.set_editor_property("material", cloud_mat)
-    vcc.set_editor_property("layer_bottom_altitude", 2.4)
-    vcc.set_editor_property("layer_height", 3.0)
-    for k, v in (("view_sample_count_scale", 0.7), ("shadow_view_sample_count_scale", 0.5)):
+    vcc.set_editor_property("layer_bottom_altitude", CLOUD_BASE_KM + AF.FIELD_M / 1000.0)
+    vcc.set_editor_property("layer_height", CLOUD_TOP_KM)
+    for k, v in (("view_sample_count_scale", 0.7), ("shadow_view_sample_count_scale", 0.5), ("sky_light_cloud_bottom_occlusion", 0.6),
+                 ("shadow_tracing_distance", 15.0), ("stop_tracing_transmittance_threshold", 0.005)):
         try:
             vcc.set_editor_property(k, v)
         except Exception as e:

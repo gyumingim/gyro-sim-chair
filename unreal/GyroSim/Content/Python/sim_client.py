@@ -46,13 +46,15 @@ TOKEN_FILE = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Path
 EOX_URL = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg"
 ION_TERRAIN, ION_BING, ION_PHOTOREAL = 1, 2, 2275207
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
+DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
 MFD_HZ = 5.0
 KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "key_panel.png"))
 
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
-          K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, **{"K%d" % i: 0x30 + i for i in range(1, 7)})
+          K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
+          **{"K%d" % i: 0x30 + i for i in range(0, 10)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
 RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
@@ -254,6 +256,10 @@ class SimClient:
         self.hud_t = self.mfd_t = self.trace_t = 0.0
         self.hud_vis = None
         self.hud_n, self.hud_ms = 0, 0.0
+        self.disp_ms = 0.0
+        self.warnings, self.gmax, self.gmax_rid = [], 1.0, None
+        self.panel_tex = self.line_tex = None
+        self.lights, self.lights_on, self.beg_labels, self.beg_shown = {}, {}, [], None
         self.cesium_mode = None       # 'terrain' | 'photoreal' | 'flat' | 'none' | 'error'
         self.radar_m = None           # height above whatever is under the aircraft (line trace), m
         self.crashed = False
@@ -285,6 +291,13 @@ class SimClient:
         self.gear_lights = self._find("GearLights")
         self.gear_lit = None
         self.gauge_vals = {}
+        self.lights = {k: self._find("Light_" + k) for k in ("MC", "WARN", "BRAKE", "ASSIST", "SLOW", "VOICE")}
+        self.lights = {k: a for k, a in self.lights.items() if a}
+        self.lights_on = {}
+        self.beg_labels = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "BeginnerLabel"))
+        self.beg_shown = None
+        self.panel_tex = self.line_tex = None
+        self.warnings, self.gmax, self.gmax_rid = [], 1.0, None
         self.texts = {}
         self.panel = self._find("TutorPanel")
         self.key_panel = self._find("KeyPanel")
@@ -292,7 +305,7 @@ class SimClient:
         self.screens = {}
         try:
             self.painter = hud.Painter(world)
-            for tag, rt in (("HUD", self.painter.rt_hud), ("MFD_L", self.painter.rt_mfd[0]), ("MFD_R", self.painter.rt_mfd[1])):
+            for tag, rt in [("HUD", self.painter.rt_hud)] + list(self.painter.rt_disp.items()):
                 a = self._find(tag)
                 if a:
                     mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
@@ -525,12 +538,24 @@ class SimClient:
     def _keyboard(self, dt):
         self._sync_reset()
         if self.override is not None:                       # scripted input (tests / automation)
-            self._send({"ctrl": dict(self.ctrl, **self.override), "rid": self.rid})
+            self._send({"ctrl": dict(self.ctrl, **self.override), "rid": self.rid, "hmd": self.hmd})
             return
         if not self.kb.focused():
             self.kb.prev.clear()
             return
         kb, c = self.kb, self.ctrl
+        tut = (self.s or {}).get("tut") or {}
+        if tut.get("phase") == "menu":                      # start menu: arrows / Enter / Space / Backspace drive it
+            for k, op in (("UP", "up"), ("DOWN", "down"), ("RETURN", "select"), ("SPACE", "select"), ("BACK", "back"), ("RIGHT", "select"),
+                          ("LEFT", "back")):
+                if kb.pressed(k):
+                    self._send({"cmd": "menu", "op": op})
+            if kb.pressed("F1"):
+                self._send({"cmd": "tut", "op": "menu"})
+            for k in ("Z", "Y", "L", "I", "N", "M"):
+                kb.pressed(k)
+            self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
+            return
 
         def axis(name, pos, neg):
             a, b = kb.down(pos), kb.down(neg)
@@ -578,8 +603,19 @@ class SimClient:
         if kb.pressed("N"):
             self._send({"cmd": "tut", "op": "next"})
         if kb.pressed("M"):
-            self._send({"cmd": "tut", "op": "restart"})
-        for i in range(1, 7):
+            self._send({"cmd": "tut", "op": "retry"})
+        if kb.pressed("Z"):                                  # say the instruction again
+            self._send({"cmd": "tut", "op": "repeat"})
+        if kb.pressed("I"):                                  # instruction wording: auto -> keyboard -> rig
+            self._send({"cmd": "tut", "op": "mode"})
+        if kb.pressed("Y"):                                  # instructor voice on / off
+            self._send({"cmd": "voice", "op": "toggle"})
+        if kb.pressed("L"):                                  # beginner labels / explanations on / off
+            self._send({"cmd": "tut", "op": "beginner"})
+        if kb.pressed("RETURN") or kb.pressed("SPACE"):
+            if tut.get("phase") in ("brief", "debrief", "crash"):
+                self._send({"cmd": "tut", "op": "next"})
+        for i in range(0, 10):
             if kb.pressed("K%d" % i):
                 self._send({"cmd": "tut", "op": "start", "lesson": i})
         # VR
@@ -587,7 +623,7 @@ class SimClient:
             recenter()
         if kb.pressed("F9"):
             unreal.SystemLibrary.execute_console_command(self.world, "stereo %s" % ("off" if self.hmd else "on"))
-        self._send({"ctrl": c, "rid": self.rid})
+        self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
 
     # ---------------------------------------------------------------------------------------------------------------
     def _check_hmd(self, now):
@@ -688,6 +724,48 @@ class SimClient:
             self.gear_lit = lit
             self.gear_lights.set_actor_hidden_in_game(not lit)
         self._gauges(dt)
+        if s.get("rid") != self.gmax_rid:
+            self.gmax_rid, self.gmax = s.get("rid"), 1.0
+        if not s.get("paused"):
+            self.gmax = max(self.gmax, s.get("nz", 1.0))
+        self.warnings = self._warnings()
+        self._lights()
+
+    def _warnings(self):
+        """active warnings (priority order): pullup, terrain, overg, stall, gear."""
+        s = self.s
+        w = []
+        if s.get("paused") or not self.startup_done:
+            return w
+        air = not s.get("wow")
+        r = self.radar_m if self.radar_m is not None else s.get("agl_m")
+        vs = s.get("vs_fpm", 0) * 0.00508
+        if self.crashed or s.get("crashed"):
+            w.append("terrain")
+        elif r is not None and air and vs < -1 and r / -vs < 6.0 and not (s.get("gear", 0) > 0.5 and vs > -6.0):
+            w.append("pullup")
+        nz = s.get("nz", 1.0)
+        if nz > 9.0 or nz < -3.0:
+            w.append("overg")
+        if air and (s.get("alpha", 0) > 25 or (s.get("kts", 999) < 120 and (s.get("agl_m", 0) or 0) > 15)):
+            w.append("stall")
+        if air and r is not None and r < 300 and s.get("kts", 999) < 200 and s.get("gear", 1) < 0.5 and s.get("vs_fpm", 0) < 0:
+            w.append("gear")
+        return w
+
+    def _lights(self):
+        s = self.s
+        tut = s.get("tut") or {}
+        w = self.warnings
+        want = dict(MC=bool(w), WARN=any(k in ("pullup", "terrain", "overg", "stall") for k in w), BRAKE=s.get("brk", 0.0) > 0.3,
+                    ASSIST=bool(s.get("assist")), SLOW=bool(s.get("slow")), VOICE=bool(tut.get("voice")))
+        if want["WARN"] and int(time.perf_counter() * 2.5) % 2:
+            want["WARN"] = False                                       # the red warning light flashes
+        for k, on in want.items():
+            a = self.lights.get(k)
+            if a and self.lights_on.get(k) != on:
+                self.lights_on[k] = on
+                a.set_actor_hidden_in_game(not on)
 
     def _gauges(self, dt):
         """standby needles (cockpit_gauges scales, clockwise as seen by the pilot = negative roll of the needle actor
@@ -745,16 +823,13 @@ class SimClient:
         s = self.s
         tut = s.get("tut") or {}
         ex = dict(radar_m=self.radar_m if self.radar_m is not None else s.get("agl_m"))
-        if self.crashed:
+        w = self.warnings
+        if "terrain" in w:
             ex["warn"] = "TERRAIN  -  R / T RESTART"
-        else:
-            r, vs = ex["radar_m"], s.get("vs_fpm", 0) * 0.00508
-            if r is not None and not s.get("wow") and vs < -1 and r / -vs < 6.0 and s.get("gear", 0) < 0.5:
-                ex["warn"] = "PULL UP"
-        if tut.get("on") and not tut.get("menu"):
-            n = int(round(tut.get("prog", 0) * 10))
-            ex["tut_line"] = "LESSON %d  STEP %d/%d  [%s%s]%s" % (tut.get("lesson", 0), tut.get("step", 0), tut.get("n", 0), "|" * n, "." * (10 - n),
-                                                                ("  SCORE %d" % tut["score"]) if tut.get("score") is not None else "")
+        elif w:
+            ex["warn"] = hud.WARN_TXT[w[0]][0]
+        ex.update(beginner=bool(tut.get("beginner", True)), line_tex=self.line_tex, menu=tut.get("phase") == "menu",
+                  line_on=tut.get("phase") in ("practice", "solo", "demo", "brief", "crash"))
         if not self.startup_done:
             ex["note"] = "LOADING - SIM PAUSED"
         elif getattr(self, "cesium_failed", None) and now - self.t_bind < 25:
@@ -815,15 +890,21 @@ class SimClient:
                 if now - self.last_log > 2:
                     self.last_log = now
                     _log("hud draw", repr(e))
-        if P and fresh and now - self.mfd_t >= 0.5 / MFD_HZ:           # one MFD per call, alternating (spreads the cost)
+        if P and fresh and now - self.mfd_t >= 1.0 / DISP_HZ:          # one display per call, in turn (spreads the cost)
             self.mfd_t = now
             try:
-                self.mfd_i = 1 - getattr(self, "mfd_i", 0)
-                tag = ("MFD_L", "MFD_R")[self.mfd_i]
+                self.mfd_i = (getattr(self, "mfd_i", 0) + 1) % len(DISP_ORDER)
+                tag = DISP_ORDER[self.mfd_i]
                 if tag in self.screens:
-                    P.draw_mfd(self.mfd_i, s, self._mfd_extra())
+                    t0 = time.perf_counter()
+                    tut = s.get("tut") or {}
+                    P.draw_display(tag, s, dict(beginner=bool(tut.get("beginner", True)), radar_m=self.radar_m, gmax=self.gmax,
+                                                warnings=self.warnings, panel_tex=self.panel_tex, loading=not self.startup_done))
+                    self.disp_ms += ((time.perf_counter() - t0) * 1000 - self.disp_ms) * 0.05
             except Exception as e:
-                _log("mfd draw", repr(e))
+                if now - self.last_log > 2:
+                    self.last_log = now
+                    _log("display draw", repr(e))
         if now - self.txt_t < 1 / 15:
             return
         self.txt_t = now
@@ -834,18 +915,33 @@ class SimClient:
                 self.keys_shown = ks
                 self.key_panel.set_actor_hidden_in_game(not ks)
         tut = (s or {}).get("tut") or {}
-        show = bool(tut.get("on")) and bool(tut.get("img")) and self.panel_on
+        # lesson panel picture + HUD instruction line (Korean PNGs from the server) -> training display, tutorial panel, HUD
+        if tut.get("ver") != self.tut_ver and tut.get("img"):
+            try:
+                if os.path.exists(tut["img"]):
+                    tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, tut["img"])
+                    if tex:
+                        self.panel_tex = tex
+                        if self.panel_mid:
+                            self.panel_mid.set_texture_parameter_value("Tex", tex)
+                if tut.get("line_img") and os.path.exists(tut["line_img"]):
+                    self.line_tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, tut["line_img"])
+                self.tut_ver = tut.get("ver")
+                self.mfd_t = 0.0
+            except Exception as e:
+                _log("tut image", repr(e))
+        # world-space lesson panel (lower left): in VR (the displays are small there), in the menu, and in the chase view
+        show = bool(tut.get("on")) and self.panel_tex is not None and self.panel_on and (self.hmd or tut.get("phase") == "menu" or self.view == "chase")
         if self.panel:
             if self.panel_shown != show:
                 self.panel_shown = show
                 self.panel.set_actor_hidden_in_game(not show)
-            if show and tut.get("ver") != self.tut_ver and self.panel_mid:
-                path = tut["img"]
-                if os.path.exists(path):
-                    tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, path)
-                    if tex:
-                        self.panel_mid.set_texture_parameter_value("Tex", tex)
-                        self.tut_ver = tut.get("ver")
+        # beginner callouts on the panel
+        beg = bool(tut.get("beginner", True)) and self.view == "cockpit"
+        if beg != self.beg_shown:
+            self.beg_shown = beg
+            for a in self.beg_labels:
+                a.set_actor_hidden_in_game(not beg)
 
     def tick(self, dt):
         try:

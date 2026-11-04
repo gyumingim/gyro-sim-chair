@@ -479,28 +479,32 @@ def build_canopy_frame():
         flip = sgn < 0
         P.add(bm, "CK_Frame", flip=flip)
     # windscreen bow at BOW_X following the glass arch (inset), and the rear arch behind the seat
-    for x, arch, sec, inset in ((L.BOW_X, L.GLASS_ARCH_468, (2.4, 2.0), 1.4),
-                                (L.REAR_ARCH_X, [(33.2, 76.0), (32.4, 88.0)] + L.GLASS_ARCH_372, (4.0, 3.0), 1.6)):
+    arches = [(L.REAR_ARCH_X, [(33.2, 76.0), (32.4, 88.0)] + L.GLASS_ARCH_372, (4.0, 3.0), 1.6)]
+    if L.BOW_X:
+        arches.insert(0, (L.BOW_X, L.GLASS_ARCH_468, (2.4, 2.0), 1.4))
+    for x, arch, sec, inset in arches:
         half = [(y, z) for y, z in arch]
         pts = half + [(-y, z) for y, z in half[::-1][1:]]
-        # inset toward the arch centre
         cz = 60.0
         path = []
         for y, z in pts:
-            d = V((0, y, z - cz))
-            d = d.normalized()
+            d = V((0, y, z - cz)).normalized()
             path.append((x, y - d.y * inset, z - d.z * inset))
-        gx, gz = L.glass_bottom(max(390, x)) if x >= 390 else (31.0, 101.5)
         bm = bm_sweep(path, rrect(sec[0], sec[1], 0.5, 2), side_hint=(1, 0, 0))
         bm.normal_update()
         P.add(bm, "CK_Frame")
-    # canopy handle (inside, on the bow) and rear-view mirrors on the bow
-    for sgn in (1, -1):
-        bm = bm_box(1.0, 4.6, 2.1, 0.35, 2)
-        o = V((L.BOW_X - 2.0, sgn * 12.0, 106.3))
-        P.add(bm, "CK_Black", frame=(o, (1, 0, 0), (0, math.cos(D2R(35)), -sgn * math.sin(D2R(35))), (0, sgn * math.sin(D2R(35)), math.cos(D2R(35)))))
-        bm = bm_box(0.2, 4.1, 1.6, 0.05, 1, c=(-0.52, 0, 0))
-        P.add(bm, "CK_Mirror", frame=(o, (1, 0, 0), (0, math.cos(D2R(35)), -sgn * math.sin(D2R(35))), (0, sgn * math.sin(D2R(35)), math.cos(D2R(35)))))
+    # rear-view mirrors: small, on short stalks from the canopy sill rails, angled back toward the pilot
+    for x, sgn in L.MIRRORS:
+        gy, gz = L.glass_bottom(x)
+        base = V((x, sgn * (gy - 2.0), gz + 0.6))
+        top = base + V((0.0, -sgn * 1.2, 4.2))
+        P.add(bm_sweep([tuple(base), tuple(top)], [(0.35 * math.cos(D2R(a)), 0.35 * math.sin(D2R(a))) for a in range(0, 360, 45)], side_hint=(1, 0, 0)),
+              "CK_Black")
+        yaw = D2R(sgn * 28)
+        Xm = (math.cos(yaw), -math.sin(yaw), 0.0)
+        fr = (tuple(top + V((0, 0, 1.0))), Xm, (math.sin(yaw), math.cos(yaw), 0.0), (0, 0, 1))
+        P.add(bm_box(0.8, 4.4, 2.0, 0.3, 2), "CK_Black", frame=fr)
+        P.add(bm_box(0.12, 4.0, 1.6, 0.04, 1, c=(-0.42, 0, 0)), "CK_Mirror", frame=fr)
 
 
 # =====================================================================================================================
@@ -602,51 +606,30 @@ def build_panel():
     big = max(bm.faces, key=lambda f: f.calc_area())
     P.add(bm, "CK_Panel", flip=big.normal.x > 0, recalc=False, uv0=lambda p, nn: region_uv("main", p[1], p[2]) if nn[0] < -0.8 else None, swatch="sw_panel")
 
-    # MFD bezels (screens are Unreal actors at the recess, see manifest)
-    for tag, (u, v) in L.MFD.items():
+    # glass displays (screens are Unreal render-target planes at the recess, see manifest): bevelled bezel, recess,
+    # anti-glare glass pane in front (ck_glass), a thin bright frame line around the glass
+    for tag, (u, v, BW, BH, SW, SH, pw, ph) in L.DISPLAYS.items():
         fr = panel_frame(u, v)
-        B, S = L.MFD_BEZEL, L.MFD_SCREEN
-        bm = bm_box(B, B, 1.6, 0.45, 3, c=(0, 0, 0.8))
-        # inset the front face to make the screen recess
+        o, X, Y, Z = fr
+        bm = bm_box(BW, BH, 1.8, 0.6, 4, c=(0, 0, 0.9))
         front = [f for f in bm.faces if f.normal.z > 0.99]
-        r = bmesh.ops.inset_region(bm, faces=front, thickness=(B - S) / 2 - 0.55, depth=0.0)
-        bmesh.ops.inset_region(bm, faces=front, thickness=0.25, depth=-0.6)
-        o, X, Y, Z = fr
-        P.add(bm, "CK_Panel", uv0=lambda p, nn, o=o: region_uv("mfd", (V(p) - V(o)).dot(V(X)), (V(p) - V(o)).dot(V(Y))) if V(nn).dot(V(Z)) > 0.9 else None,
-              swatch="sw_black", frame=fr)
-        for k in range(5):
-            p = -S / 2 + S * (k + 0.5) / 5
-            for cx, cy, w, h in ((p, B / 2 - 0.95, 1.2, 0.9), (B / 2 - 0.95, -p, 0.9, 1.2), (-p, -B / 2 + 0.95, 1.2, 0.9), (-B / 2 + 0.95, p, 0.9, 1.2)):
-                P.add(bm_box(w, h, 0.5, 0.15, 2, c=(cx, cy, 1.75)), "CK_Rubber", frame=fr)
-        for sx, sy in ((-1, 1), (1, 1), (-1, -1), (1, -1)):
-            P.add(bm_box(1.5, 0.75, 0.45, 0.18, 2, c=(sx * (B / 2 - 1.0), sy * (B / 2 - 1.75), 1.75)), "CK_Rubber", frame=fr)
-        MANIFEST["screens"][tag] = dict(center=list(L.panel_pt(u, v, 1.6 - 0.6 + 0.03)), normal=list(L.PANEL_N), up=list(L.PANEL_UP),
-                                        size=S - 0.2)
+        tx, ty = (BW - SW) / 2 - 0.35, (BH - SH) / 2 - 0.35
+        bmesh.ops.inset_region(bm, faces=front, thickness=min(tx, ty), depth=0.0)
+        bmesh.ops.inset_region(bm, faces=front, thickness=0.2, depth=-0.7)
+        P.add(bm, "CK_Bezel", swatch="sw_black", frame=fr)
+        part("ck_glass").add(bm_box(SW + 0.3, SH + 0.3, 0.08, 0.02, 1, c=(0, 0, 1.8 - 0.7 + 0.25)), "CK_DispGlass", frame=fr)
+        MANIFEST["screens"][tag] = dict(center=list(L.panel_pt(u, v, 1.8 - 0.7 + 0.03)), normal=list(L.PANEL_N), up=list(L.PANEL_UP),
+                                        size=[SW, SH], px=[pw, ph])
 
-    # UFCP
-    U = L.UFCP
-    fr = panel_frame(U["u"], U["v"])
-    o, X, Y, Z = fr
-    bm = bm_box(U["w"], U["h"], 2.6, 0.5, 3, c=(0, 0, 1.3))
-    P.add(bm, "CK_Panel", uv0=lambda p, nn: region_uv("ufcp", (V(p) - V(o)).dot(V(X)), (V(p) - V(o)).dot(V(Y))) if V(nn).dot(V(Z)) > 0.9 else None,
-          swatch="sw_panel", frame=fr)
-    for k in ATL["ufcp_keys"]:
-        bm = bm_box(k["w"] - 0.1, k["h"] - 0.1, 0.6, 0.16, 2, c=(k["u"], k["v"], 2.85))
-        P.add(bm, "CK_Panel", uv0=lambda p, nn: region_uv("ufcp", (V(p) - V(o)).dot(V(X)), (V(p) - V(o)).dot(V(Y))) if V(nn).dot(V(Z)) > 0.9 else None,
-              swatch="sw_black", frame=fr)
-    for sx in (-1, 1):                                    # brightness thumbwheels on the UFCP sides
-        bm = bm_cyl(0.9, 0.8, 20, 0.1)
-        for v_ in bm.verts:
-            v_.co = V((v_.co.z - 0.4 + sx * (U["w"] / 2 + 0.2), v_.co.y + 3.8, v_.co.x + 1.4))
-        P.add(bm, "CK_Knob", frame=fr)
-
-    # eyebrow annunciator panels
-    for tag, (u, v, labels, cols) in L.EYEBROWS.items():
+    # live lights: bezel + tinted lens (legend from the atlas) in the shell; lit overlay = own part (world coords)
+    for name, (u, v, w, h, col, legend) in L.LIGHTS.items():
         fr = panel_frame(u, v)
         o, X, Y, Z = fr
-        bm = bm_box(11.0, 5.0, 1.0, 0.3, 2, c=(0, 0, 0.5))
-        P.add(bm, "CK_Panel", uv0=lambda p, nn, o=o, tag=tag: region_uv(tag, (V(p) - V(o)).dot(V(X)), (V(p) - V(o)).dot(V(Y))) if V(nn).dot(V(Z)) > 0.9 else None,
-              swatch="sw_panel", frame=fr)
+        P.add(bm_box(w + 0.7, h + 0.7, 0.9, 0.25, 2, c=(0, 0, 0.45)), "CK_Black", frame=fr)
+        uvf = lambda p, nn, o=o, name=name: region_uv("LT_" + name, (V(p) - V(o)).dot(V(X)), (V(p) - V(o)).dot(V(Y))) if V(nn).dot(V(Z)) > 0.9 else None
+        P.add(bm_box(w, h, 0.25, 0.08, 1, c=(0, 0, 0.95)), "CK_Panel", uv0=uvf, swatch="sw_black", frame=fr)
+        part("ck_lt_" + name).add(bm_box(w, h, 0.05, 0.02, 1, c=(0, 0, 1.11)), "CK_LightLit", uv0=uvf, swatch="sw_black", frame=fr)
+        MANIFEST.setdefault("lights", {})[name] = dict(part="ck_lt_" + name, color=col, legend=legend)
 
     # instruments
     for name, (u, v, d, dial) in L.GAUGES.items():
@@ -786,6 +769,26 @@ def build_consoles():
     bm = bm_box(T["u1"] - T["u0"], T["v1"] - T["v0"], T["h"], 0.6, 3, c=((T["u0"] + T["u1"]) / 2, (T["v0"] + T["v1"]) / 2, z + T["h"] / 2))
     P.add(bm, "CK_Panel", uv0=lambda p, nn: region_uv("thr", p[1], p[0]) if nn[2] > 0.9 else None, swatch="sw_panel",
           frame=((0, 0, 0), (0, 1, 0), (1, 0, 0), (0, 0, 1)))
+    # side wall trim plates between the frames (riveted panels from the atlas "wall" tile), slightly inside the tub wall
+    for x0, x1 in ((393.5, 412.5), (415.5, 434.5), (437.5, 456.5), (459.5, 478.5), (481.5, 496.0)):
+        for sgn in (1, -1):
+            secs = []
+            for x in (x0, x1):
+                sec = tub_section(x)
+                i_con = next(i for i, (y, z) in enumerate(sec) if abs(z - L.CONSOLE_Z) < 1e-6)
+                wall = [(y, z) for y, z in sec[1:i_con] if z > L.CONSOLE_Z + 2.5]
+                secs.append([(x, sgn * (y - 0.45), z) for y, z in wall])
+            n = min(len(a_) for a_ in secs)
+            secs = [sc[:n] for sc in secs]
+            if n < 2:
+                continue
+            bm = bm_loft(secs)
+            bm.normal_update()
+            f0 = bm.faces[0] if hasattr(bm.faces, "__getitem__") and (bm.faces.ensure_lookup_table() or True) else None
+            flip = f0.normal.y * sgn > 0                       # must face the cockpit centre
+            zb = min(p[2] for sc in secs for p in sc)
+            P.add(bm, "CK_Wall", flip=flip, recalc=False,
+                  uv0=lambda p, nn, x0=x0, zb=zb: region_uv("wall", min(1.0, (p[0] - x0) / 60.0), min(1.0, (p[2] - zb) / 30.0)), swatch="sw_console")
     # side wall details: canopy jettison T-handle (left), map case (right), utility lights
     o = V((418.0, -(L.skin_half_width(418, 56) - L.SKIN_GAP - 0.4), 56.0))
     P.add(bm_box(5.0, 1.2, 3.0, 0.4, 2, c=(0, 0.6, 0)), "CK_Black", frame=(tuple(o), (1, 0, 0), (0, 1, 0), (0, 0, 1)))

@@ -1,12 +1,12 @@
 {
- "made": "2026-11-04 21:03:21",
+ "made": "2026-11-04 22:40:35",
  "frame": "UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)",
  "pivots": {
   "ADIBall": {
    "center": [
-    508.61721209402856,
+    508.66521209402856,
     0.0,
-    50.503825451283426
+    50.10382545128343
    ],
    "x_axis": [
     -1.0,
@@ -21,7 +21,7 @@
   },
   "GearHandle": [
    507.6842738969078,
-   -35.5,
+   -36.5,
    45.92851286762894
   ],
   "StickPivot": [
@@ -48,9 +48,9 @@
  "needles": {
   "asi": {
    "center": [
-    508.6429917278355,
+    508.6669917278355,
     -6.4,
-    39.44995900734026
+    39.24995900734026
    ],
    "x_axis": [
     -0.9928768384869221,
@@ -65,9 +65,9 @@
   },
   "alt": {
    "center": [
-    508.6429917278355,
+    508.6669917278355,
     6.4,
-    39.44995900734026
+    39.24995900734026
    ],
    "x_axis": [
     -0.9928768384869221,
@@ -82,9 +82,9 @@
   },
   "alt10k": {
    "center": [
-    508.72242187491446,
+    508.74642187491446,
     6.4,
-    39.45949062498973
+    39.25949062498973
    ],
    "x_axis": [
     -0.9928768384869221,
@@ -99,9 +99,9 @@
   },
   "vsi": {
    "center": [
-    509.7949917278355,
+    509.8189917278355,
     0.0,
-    29.849959007340257
+    29.649959007340257
    ],
    "x_axis": [
     -0.9928768384869221,
@@ -116,11 +116,11 @@
   }
  },
  "screens": {
-  "MFD_L": {
+  "MFD_C": {
    "center": [
-    507.1973368563585,
-    -21.0,
-    46.377280422763015
+    504.8060491725098,
+    0.0,
+    65.46536590070117
    ],
    "normal": [
     -0.9928768384869221,
@@ -132,13 +132,45 @@
     0.0,
     0.9928768384869221
    ],
-   "size": 10.4
+   "size": [
+    24.0,
+    15.0
+   ],
+   "px": [
+    1280,
+    800
+   ]
+  },
+  "MFD_L": {
+   "center": [
+    507.11004917250983,
+    -22.5,
+    46.26536590070117
+   ],
+   "normal": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "up": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ],
+   "size": [
+    15.0,
+    15.0
+   ],
+   "px": [
+    1024,
+    1024
+   ]
   },
   "MFD_R": {
    "center": [
-    507.1973368563585,
-    21.0,
-    46.377280422763015
+    507.11004917250983,
+    22.5,
+    46.26536590070117
    ],
    "normal": [
     -0.9928768384869221,
@@ -150,7 +182,14 @@
     0.0,
     0.9928768384869221
    ],
-   "size": 10.4
+   "size": [
+    15.0,
+    15.0
+   ],
+   "px": [
+    1024,
+    1024
+   ]
   }
  },
  "parts": {
@@ -166,31 +205,72 @@
     "CK_HUDExit",
     "CK_HUDFrame",
     "CK_Panel",
-    "CK_Knob",
+    "CK_Bezel",
     "CK_Dial",
     "CK_Orange",
-    "CK_Needle",
+    "CK_Knob",
     "CK_Hole",
     "CK_LensG",
+    "CK_Wall",
     "CK_Metal",
-    "CK_Chrome",
-    "CK_White",
-    "CK_RedGuard",
-    "CK_Red",
     "CK_Paint2",
     "CK_Seat",
     "CK_Fabric",
-    "CK_Webbing"
+    "CK_Webbing",
+    "CK_Chrome"
    ],
-   "tris": 51206
+   "tris": 23526
   },
   "ck_glass": {
    "fbx": "ck_glass.fbx",
    "slots": [
     "CK_HUDGlass",
+    "CK_DispGlass",
     "CK_Glass"
    ],
-   "tris": 468
+   "tris": 400
+  },
+  "ck_lt_MC": {
+   "fbx": "ck_lt_MC.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44
+  },
+  "ck_lt_WARN": {
+   "fbx": "ck_lt_WARN.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44
+  },
+  "ck_lt_BRAKE": {
+   "fbx": "ck_lt_BRAKE.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44
+  },
+  "ck_lt_ASSIST": {
+   "fbx": "ck_lt_ASSIST.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44
+  },
+  "ck_lt_SLOW": {
+   "fbx": "ck_lt_SLOW.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44
+  },
+  "ck_lt_VOICE": {
+   "fbx": "ck_lt_VOICE.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44
   },
   "ck_adi_ball": {
    "fbx": "ck_adi_ball.fbx",
@@ -286,6 +366,38 @@
     "CK_Paint2"
    ],
    "tris": 1000
+  }
+ },
+ "lights": {
+  "MC": {
+   "part": "ck_lt_MC",
+   "color": "amber",
+   "legend": "MASTER CAUTION"
+  },
+  "WARN": {
+   "part": "ck_lt_WARN",
+   "color": "red",
+   "legend": "WARNING"
+  },
+  "BRAKE": {
+   "part": "ck_lt_BRAKE",
+   "color": "amber",
+   "legend": "BRAKE"
+  },
+  "ASSIST": {
+   "part": "ck_lt_ASSIST",
+   "color": "green",
+   "legend": "ASSIST"
+  },
+  "SLOW": {
+   "part": "ck_lt_SLOW",
+   "color": "green",
+   "legend": "SLOW"
+  },
+  "VOICE": {
+   "part": "ck_lt_VOICE",
+   "color": "green",
+   "legend": "VOICE"
   }
  },
  "travel": {
