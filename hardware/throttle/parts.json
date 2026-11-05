@@ -1,249 +1,194 @@
 {
  "meta": {
-  "created": "2026-11-02T18:36:08",
+  "created": "2026-11-05T17:30:19",
   "pivot": [
    0,
    0,
-   45
+   95
   ],
-  "swing_deg": 30,
+  "detents_deg": {
+   "cutoff": -33,
+   "idle": -25,
+   "mil": 18,
+   "max": 30
+  },
+  "lift_mm": 8,
+  "l_hand": 170,
+  "tube_top": 155,
   "printer": [
    240,
    240,
    240
-  ]
+  ],
+  "arc_mm": 187
  },
  "parts": [
   {
-   "name": "base",
+   "name": "base_plate",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "바닥판, M6 ×4 로 의자 스로틀 받침판에 고정",
+   "note": "바닥판 170×90: M6 ×4 로 의자 왼쪽 스로틀 선반에",
    "material": "PLA",
    "size": [
-    190.0,
-    80.0,
+    170.0,
+    90.0,
     6.0
    ],
-   "volume_cm3": 90.2,
-   "grams": 61.5,
-   "moving": false,
-   "file": "stl/base.stl"
+   "volume_cm3": 90.8,
+   "grams": 61.9,
+   "orient": "그대로",
+   "file": "stl/base_plate.stl"
   },
   {
-   "name": "wall_left",
+   "name": "wall_L",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "옆벽 (왼쪽, +y). 608 베어링 자리, 바깥에 센서 받침",
+   "note": "옆벽 (왼쪽, +y): 608 베어링, 바깥에 AS5600",
    "material": "PLA",
    "size": [
-    90.0,
+    110.0,
     8.0,
-    74.0
+    111.0
    ],
-   "volume_cm3": 50.3,
-   "grams": 34.3,
-   "moving": false,
-   "file": "stl/wall_left.stl"
+   "volume_cm3": 94.7,
+   "grams": 70.5,
+   "orient": "옆면을 바닥에",
+   "file": "stl/wall_L.stl"
   },
   {
-   "name": "wall_right",
+   "name": "wall_R",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "옆벽 (오른쪽, −y). 608 베어링 자리",
+   "note": "옆벽 (오른쪽, −y): 608 베어링",
    "material": "PLA",
    "size": [
-    90.0,
+    110.0,
     8.0,
-    74.0
+    111.0
    ],
-   "volume_cm3": 50.3,
-   "grams": 34.3,
-   "moving": false,
-   "file": "stl/wall_right.stl"
+   "volume_cm3": 94.7,
+   "grams": 70.5,
+   "orient": "옆면을 바닥에",
+   "file": "stl/wall_R.stl"
   },
   {
-   "name": "lever",
+   "name": "bearing_L",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608-2RS",
+   "material": "steel",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bearing_L.stl"
+  },
+  {
+   "name": "bearing_R",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608-2RS",
+   "material": "steel",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.4,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bearing_R.stl"
+  },
+  {
+   "name": "gate_plate",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "허브 + 레버 한 덩어리. M8 너트가 허브에 끼워져 축이 레버와 같이 돔. 출력: 옆으로 눕혀서",
+   "note": "게이트판: 이빨 2 개 = 아이들→컷오프, MIL→AB 는 손잡이를 8 mm 들어야 넘어감. 양 끝 = 멈춤. 바꿔 끼워 위치 조절",
    "material": "PETG",
    "size": [
-    44.0,
-    48.0,
-    142.0
+    108.0,
+    6.0,
+    60.4
    ],
-   "volume_cm3": 88.3,
-   "grams": 61.7,
-   "moving": true,
-   "file": "stl/lever.stl"
-  },
-  {
-   "name": "grip",
-   "kind": "print",
-   "qty": 1,
-   "note": "손잡이: 엄지 버튼 2 + 검지 트리거 1 + 4방향 햇 1. 안은 비어 배선 통로",
-   "material": "PLA",
-   "size": [
-    44.0,
-    50.0,
-    75.0
-   ],
-   "volume_cm3": 84.6,
-   "grams": 57.7,
-   "moving": true,
-   "file": "stl/grip.stl"
-  },
-  {
-   "name": "detent_block",
-   "kind": "print",
-   "qty": 1,
-   "note": "앞 블록: M6 볼 플런저가 허브 홈에 걸려 애프터버너 '딸깍'",
-   "material": "PLA",
-   "size": [
-    18.0,
-    24.0,
-    51.0
-   ],
-   "volume_cm3": 21.6,
-   "grams": 14.7,
-   "moving": false,
-   "file": "stl/detent_block.stl"
+   "volume_cm3": 17.0,
+   "grams": 21.6,
+   "orient": "옆면을 바닥에, 채움 100 %",
+   "file": "stl/gate_plate.stl"
   },
   {
    "name": "friction_block",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "뒤 블록: M5 손나사가 고무 패드를 허브에 눌러 마찰 조절",
+   "note": "마찰 블록: 손잡이 나사 → 웨이브 스프링 → 코르크 패드가 허브를 누름 (레버가 놓은 자리에 머묾)",
    "material": "PLA",
    "size": [
-    18.0,
+    31.0,
     24.0,
-    51.0
+    105.0
    ],
-   "volume_cm3": 20.9,
-   "grams": 14.3,
-   "moving": false,
+   "volume_cm3": 56.7,
+   "grams": 56.3,
+   "orient": "바닥면을 바닥에",
    "file": "stl/friction_block.stl"
   },
   {
-   "name": "top_cover",
+   "name": "friction_shoe",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "윗덮개: 레버 홈 (±30°), 손가락 끼임 방지",
-   "material": "PLA",
+   "note": "마찰 패드 받침 (앞면에 코르크 2 mm 접착)",
+   "material": "PETG",
    "size": [
-    90.0,
-    76.0,
-    4.0
+    7.5,
+    20.0,
+    22.0
    ],
-   "volume_cm3": 22.6,
-   "grams": 15.4,
-   "moving": false,
-   "file": "stl/top_cover.stl"
+   "volume_cm3": 3.3,
+   "grams": 4.2,
+   "orient": "",
+   "file": "stl/friction_shoe.stl"
+  },
+  {
+   "name": "friction_knob",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "M6 손잡이 나사 (별 손잡이) + 웨이브 스프링",
+   "material": "steel",
+   "size": [
+    58.0,
+    26.0,
+    26.0
+   ],
+   "volume_cm3": 7.7,
+   "grams": null,
+   "orient": "",
+   "file": "stl/friction_knob.stl"
   },
   {
    "name": "sensor_mount",
+   "group": "fixed",
    "kind": "print",
-   "qty": 1,
-   "note": "AS5600 받침 (축 끝 자석과 약 2 mm)",
+   "note": "AS5600 받침 (왼쪽 벽 바깥)",
    "material": "PLA",
    "size": [
-    44.0,
-    17.6,
-    44.0
+    40.0,
+    15.0,
+    40.0
    ],
-   "volume_cm3": 6.6,
-   "grams": 4.5,
-   "moving": false,
+   "volume_cm3": 10.6,
+   "grams": 7.2,
+   "orient": "",
    "file": "stl/sensor_mount.stl"
   },
   {
-   "name": "magnet_cap",
-   "kind": "print",
-   "qty": 1,
-   "note": "볼트 끝에 끼우는 자석 컵 (6×2.5 mm 직경 방향 자석)",
-   "material": "PLA",
-   "size": [
-    14.0,
-    10.0,
-    14.0
-   ],
-   "volume_cm3": 1.1,
-   "grams": 0.8,
-   "moving": true,
-   "file": "stl/magnet_cap.stl"
-  },
-  {
-   "name": "electronics_bay",
-   "kind": "print",
-   "qty": 1,
-   "note": "전자부 칸: Pro Micro, USB 구멍 뒤쪽",
-   "material": "PLA",
-   "size": [
-    43.0,
-    64.0,
-    28.0
-   ],
-   "volume_cm3": 18.4,
-   "grams": 12.6,
-   "moving": false,
-   "file": "stl/electronics_bay.stl"
-  },
-  {
-   "name": "bearing_608_L",
-   "kind": "buy",
-   "qty": 1,
-   "note": "608ZZ 베어링",
-   "material": "",
-   "size": [
-    22.0,
-    7.0,
-    22.0
-   ],
-   "volume_cm3": 2.3,
-   "grams": null,
-   "moving": false,
-   "file": "stl/bearing_608_L.stl"
-  },
-  {
-   "name": "bearing_608_R",
-   "kind": "buy",
-   "qty": 1,
-   "note": "608ZZ 베어링",
-   "material": "",
-   "size": [
-    22.0,
-    7.0,
-    22.0
-   ],
-   "volume_cm3": 2.3,
-   "grams": null,
-   "moving": false,
-   "file": "stl/bearing_608_R.stl"
-  },
-  {
-   "name": "shaft_M8x90",
-   "kind": "buy",
-   "qty": 1,
-   "note": "M8×90 볼트 (축)",
-   "material": "",
-   "size": [
-    8.0,
-    90.0,
-    8.0
-   ],
-   "volume_cm3": 4.5,
-   "grams": null,
-   "moving": true,
-   "file": "stl/shaft_M8x90.stl"
-  },
-  {
    "name": "as5600",
+   "group": "fixed",
    "kind": "buy",
-   "qty": 1,
-   "note": "AS5600 홀 센서 보드",
-   "material": "",
+   "note": "AS5600 (스로틀 각도 → 컷오프 / 아이들 / MIL / AB 는 각도로 판별)",
+   "material": "PCB",
    "size": [
     23.0,
     1.6,
@@ -251,24 +196,593 @@
    ],
    "volume_cm3": 0.8,
    "grams": null,
-   "moving": false,
+   "orient": "",
    "file": "stl/as5600.stl"
   },
   {
-   "name": "pro_micro",
-   "kind": "buy",
-   "qty": 1,
-   "note": "아두이노 Pro Micro (ATmega32U4)",
-   "material": "",
+   "name": "electronics_bay",
+   "group": "fixed",
+   "kind": "print",
+   "note": "전자 상자: Pro Micro + TCA9548A (모든 조종기 센서가 여기로), USB 1 개",
+   "material": "PLA",
    "size": [
-    30.0,
-    18.0,
-    2.0
+    35.0,
+    80.0,
+    40.0
+   ],
+   "volume_cm3": 22.5,
+   "grams": 15.3,
+   "orient": "바닥을 바닥에",
+   "file": "stl/electronics_bay.stl"
+  },
+  {
+   "name": "bay_lid",
+   "group": "fixed",
+   "kind": "print",
+   "note": "전자 상자 뚜껑",
+   "material": "PLA",
+   "size": [
+    35.0,
+    80.0,
+    3.0
+   ],
+   "volume_cm3": 8.4,
+   "grams": 5.7,
+   "orient": "",
+   "file": "stl/bay_lid.stl"
+  },
+  {
+   "name": "hub",
+   "group": "lever",
+   "kind": "print",
+   "note": "허브 Ø60: 플라스틱 부싱 2 개로 Ø20 관이 위아래로 8 mm 미끄러짐, 양옆 Ø8 짧은 축",
+   "material": "PETG",
+   "size": [
+    60.0,
+    56.0,
+    60.0
+   ],
+   "volume_cm3": 132.2,
+   "grams": 167.9,
+   "orient": "축 방향으로 세워, 채움 100 %",
+   "file": "stl/hub.stl"
+  },
+  {
+   "name": "stub_L",
+   "group": "lever",
+   "kind": "buy",
+   "note": "Ø8 h6 짧은 축 (M4 조임)",
+   "material": "steel",
+   "size": [
+    8.0,
+    29.0,
+    8.0
+   ],
+   "volume_cm3": 1.5,
+   "grams": null,
+   "orient": "",
+   "file": "stl/stub_L.stl"
+  },
+  {
+   "name": "stub_R",
+   "group": "lever",
+   "kind": "buy",
+   "note": "Ø8 h6 짧은 축 (M4 조임)",
+   "material": "steel",
+   "size": [
+    8.0,
+    21.0,
+    8.0
    ],
    "volume_cm3": 1.1,
    "grams": null,
-   "moving": false,
-   "file": "stl/pro_micro.stl"
+   "orient": "",
+   "file": "stl/stub_R.stl"
+  },
+  {
+   "name": "bushings",
+   "group": "lever",
+   "kind": "buy",
+   "note": "igus JFM-2023-15 플랜지 부싱 ×2 (또는 LM20UU 짧은 것)",
+   "material": "igus",
+   "size": [
+    23.0,
+    23.0,
+    60.0
+   ],
+   "volume_cm3": 6.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bushings.stl"
+  },
+  {
+   "name": "magnet",
+   "group": "lever",
+   "kind": "buy",
+   "note": "자석 Ø6×2.5 직경 방향",
+   "material": "NdFeB",
+   "size": [
+    8.0,
+    3.5,
+    8.0
+   ],
+   "volume_cm3": 0.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/magnet.stl"
+  },
+  {
+   "name": "lever_tube",
+   "group": "slide",
+   "kind": "buy",
+   "note": "알루미늄 관 Ø20×2t, 221 mm = 레버. 위 40 mm 가 손잡이 속 (M4 가로볼트 + 뒤 4×6 홈), 아래 끝에 게이트 핀",
+   "material": "AL6061",
+   "size": [
+    20.0,
+    20.0,
+    221.0
+   ],
+   "volume_cm3": 25.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lever_tube.stl"
+  },
+  {
+   "name": "rest_collar",
+   "group": "slide",
+   "kind": "print",
+   "note": "멈춤 고리 (허브 위에 얹혀 내려가는 끝), M4 무두볼트",
+   "material": "PETG",
+   "size": [
+    32.0,
+    32.0,
+    10.0
+   ],
+   "volume_cm3": 4.8,
+   "grams": 6.1,
+   "orient": "",
+   "file": "stl/rest_collar.stl"
+  },
+  {
+   "name": "lift_spring",
+   "group": "slide",
+   "kind": "buy",
+   "note": "압축 스프링 ID 21 · OD 25 · 자유길이 25 (들어 올리는 힘 약 15~25 N, 추정)",
+   "material": "steel",
+   "size": [
+    25.0,
+    25.0,
+    20.0
+   ],
+   "volume_cm3": 2.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lift_spring.stl"
+  },
+  {
+   "name": "spring_collar",
+   "group": "slide",
+   "kind": "print",
+   "note": "스프링 받침 고리 (관 아래 끝)",
+   "material": "PETG",
+   "size": [
+    26.0,
+    26.0,
+    6.0
+   ],
+   "volume_cm3": 1.3,
+   "grams": 1.6,
+   "orient": "",
+   "file": "stl/spring_collar.stl"
+  },
+  {
+   "name": "gate_pin",
+   "group": "slide",
+   "kind": "buy",
+   "note": "게이트 핀 M5 (관을 가로질러, +y 로 튀어나옴)",
+   "material": "steel",
+   "size": [
+    5.0,
+    13.0,
+    5.0
+   ],
+   "volume_cm3": 0.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/gate_pin.stl"
+  }
+ ],
+ "check": [
+  {
+   "pose": [
+    -25,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    0,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    18,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -33,
+    8
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -28,
+    8
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    21,
+    8
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    30,
+    8
+   ],
+   "hits": []
+  }
+ ],
+ "gate_sweep": [
+  {
+   "a": -35,
+   "rest": true,
+   "lifted": true
+  },
+  {
+   "a": -34,
+   "rest": true,
+   "lifted": true
+  },
+  {
+   "a": -33,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -32,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -31,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -30,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -29,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -28,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -27,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -26,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": -25,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -24,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -23,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -22,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -21,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -20,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -19,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -18,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -17,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -16,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -15,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -14,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -13,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -12,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -11,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -10,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -9,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -8,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -7,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -6,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -5,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -4,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -3,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -2,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": -1,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 0,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 1,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 2,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 3,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 4,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 5,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 6,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 7,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 8,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 9,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 10,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 11,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 12,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 13,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 14,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 15,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 16,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 17,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 18,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 19,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 20,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 21,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 22,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 23,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 24,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 25,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 26,
+   "rest": true,
+   "lifted": false
+  },
+  {
+   "a": 27,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 28,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 29,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 30,
+   "rest": false,
+   "lifted": false
+  },
+  {
+   "a": 31,
+   "rest": true,
+   "lifted": true
+  },
+  {
+   "a": 32,
+   "rest": true,
+   "lifted": true
   }
  ]
 }

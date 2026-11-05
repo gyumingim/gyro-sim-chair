@@ -1,295 +1,326 @@
 {
  "meta": {
-  "created": "2026-11-02T18:42:23",
+  "created": "2026-11-05T17:20:07",
   "pivot": [
    0,
    0,
-   60
+   88
   ],
   "travel_deg": 20,
+  "gate_deg": {
+   "roll": 15,
+   "fwd": 16,
+   "aft": 20
+  },
+  "stops_deg": {
+   "roll_L": 15.25,
+   "roll_R": 15.25,
+   "fwd": 16.25,
+   "aft": 20.25
+  },
+  "tube_top": 415,
+  "l_hand": 430,
   "printer": [
    240,
    240,
    240
-  ]
+  ],
+  "roll_roller_y": 59.44,
+  "pitch_roller_z": 45.72,
+  "springs": {
+   "roll": {
+    "k": 2.4,
+    "pre": 8.0
+   },
+   "pitch": {
+    "k": 5.3,
+    "pre": 6.0
+   }
+  },
+  "lever_ratio": {
+   "roll": 2.0,
+   "pitch": 2.066666666666667
+  }
  },
  "parts": [
   {
-   "name": "base",
+   "name": "cam_roll",
+   "group": "roll",
+   "kind": "cut",
+   "note": "roll 캠: 알루미늄 10 t 레이저 절단 (cam_roll.dxf). 둥근 V 모양 = 가운데 걸림 없이 또렷한 중심",
+   "material": "AL6061",
+   "size": [
+    10.0,
+    107.0,
+    67.2
+   ],
+   "volume_cm3": 55.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/cam_roll.stl"
+  },
+  {
+   "name": "cam_pitch",
+   "group": "pitch",
+   "kind": "cut",
+   "note": "pitch 캠: 알루미늄 8 t 레이저 절단 (cam_pitch.dxf), D컷 축에 M3 무두볼트",
+   "material": "AL6061",
+   "size": [
+    48.8,
+    8.0,
+    77.4
+   ],
+   "volume_cm3": 24.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/cam_pitch.stl"
+  },
+  {
+   "name": "base_plate",
    "group": "fixed",
    "kind": "print",
-   "note": "바닥판: M6 ×4 로 접이식 스틱 받침 위에",
+   "note": "바닥판 188×192: M6 ×4 로 접이식 스틱 기둥 윗판에",
    "material": "PLA",
    "size": [
-    140.0,
-    140.0,
-    6.0
+    188.0,
+    192.0,
+    8.0
    ],
-   "volume_cm3": 116.6,
-   "grams": 79.5,
-   "file": "stl/base.stl"
+   "volume_cm3": 235.6,
+   "grams": 160.7,
+   "orient": "그대로 (바닥면 아래)",
+   "file": "stl/base_plate.stl"
   },
   {
    "name": "wall_front",
    "group": "fixed",
    "kind": "print",
-   "note": "앞벽: roll 축 608 베어링",
+   "note": "앞벽: roll 608 베어링 + roll 레버 축 2 + FFB 모터 자리 (M4 ×4)",
    "material": "PLA",
    "size": [
-    8.0,
-    60.0,
-    94.0
+    12.0,
+    192.0,
+    156.0
    ],
-   "volume_cm3": 42.2,
-   "grams": 28.8,
+   "volume_cm3": 336.3,
+   "grams": 250.2,
+   "orient": "앞면을 바닥에",
    "file": "stl/wall_front.stl"
   },
   {
    "name": "wall_back",
    "group": "fixed",
    "kind": "print",
-   "note": "뒤벽: roll 축 608 베어링",
+   "note": "뒤벽: roll 608 베어링, 뒤에 마찰 클러치와 roll 센서",
    "material": "PLA",
    "size": [
-    8.0,
-    60.0,
-    94.0
+    12.0,
+    192.0,
+    156.0
    ],
-   "volume_cm3": 42.2,
-   "grams": 28.8,
+   "volume_cm3": 337.2,
+   "grams": 250.8,
+   "orient": "뒷면을 바닥에",
    "file": "stl/wall_back.stl"
   },
   {
-   "name": "plunger_block_roll",
+   "name": "wall_side_L",
    "group": "fixed",
    "kind": "print",
-   "note": "roll 가운데 맞춤: M10 볼 플런저가 캠 V 홈을 누름",
+   "note": "옆벽 (왼쪽): 큰 창 = pitch 스프링 조절 너트 손이 닿게",
    "material": "PLA",
    "size": [
-    20.0,
-    18.0,
-    18.0
+    164.0,
+    8.0,
+    156.0
+   ],
+   "volume_cm3": 87.7,
+   "grams": 59.8,
+   "orient": "옆면을 바닥에",
+   "file": "stl/wall_side_L.stl"
+  },
+  {
+   "name": "wall_side_R",
+   "group": "fixed",
+   "kind": "print",
+   "note": "옆벽 (오른쪽)",
+   "material": "PLA",
+   "size": [
+    164.0,
+    8.0,
+    156.0
+   ],
+   "volume_cm3": 87.7,
+   "grams": 59.8,
+   "orient": "옆면을 바닥에",
+   "file": "stl/wall_side_R.stl"
+  },
+  {
+   "name": "roll_lever_L",
+   "group": "fixed",
+   "kind": "print",
+   "note": "roll 롤러 레버: 아래 = 축 (M6 어깨볼트), 가운데 = 608 롤러, 위 = 스프링 (지렛대 2:1)",
+   "material": "PETG",
+   "size": [
+    6.0,
+    14.0,
+    96.0
+   ],
+   "volume_cm3": 7.2,
+   "grams": 9.2,
+   "orient": "옆으로 눕혀 (구멍이 위로)",
+   "file": "stl/roll_lever_L.stl"
+  },
+  {
+   "name": "roll_roller_L",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608ZZ 롤러 (캠을 누름)",
+   "material": "steel",
+   "size": [
+    7.0,
+    22.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_roller_L.stl"
+  },
+  {
+   "name": "roll_pivot_L",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "M6 어깨볼트 (레버 축)",
+   "material": "steel",
+   "size": [
+    22.0,
+    6.0,
+    6.0
+   ],
+   "volume_cm3": 0.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_pivot_L.stl"
+  },
+  {
+   "name": "roll_lever_R",
+   "group": "fixed",
+   "kind": "print",
+   "note": "roll 롤러 레버: 아래 = 축 (M6 어깨볼트), 가운데 = 608 롤러, 위 = 스프링 (지렛대 2:1)",
+   "material": "PETG",
+   "size": [
+    6.0,
+    14.0,
+    96.0
+   ],
+   "volume_cm3": 7.2,
+   "grams": 9.2,
+   "orient": "옆으로 눕혀 (구멍이 위로)",
+   "file": "stl/roll_lever_R.stl"
+  },
+  {
+   "name": "roll_roller_R",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608ZZ 롤러 (캠을 누름)",
+   "material": "steel",
+   "size": [
+    7.0,
+    22.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_roller_R.stl"
+  },
+  {
+   "name": "roll_pivot_R",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "M6 어깨볼트 (레버 축)",
+   "material": "steel",
+   "size": [
+    22.0,
+    6.0,
+    6.0
+   ],
+   "volume_cm3": 0.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_pivot_R.stl"
+  },
+  {
+   "name": "roll_spring",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "roll 인장 스프링 (기본 k ≈ 2.4 N/mm, OD 8, 추정). 바꿔 끼워 무게감 조절",
+   "material": "steel",
+   "size": [
+    8.0,
+    88.9,
+    8.0
+   ],
+   "volume_cm3": 4.5,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_spring.stl"
+  },
+  {
+   "name": "roll_eyebolt",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "M5 아이볼트 + 손잡이 너트 = roll 예압 (가운데 힘) 조절",
+   "material": "steel",
+   "size": [
+    14.0,
+    38.0,
+    14.0
+   ],
+   "volume_cm3": 1.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_eyebolt.stl"
+  },
+  {
+   "name": "roll_clutch",
+   "group": "roll",
+   "kind": "buy",
+   "note": "roll 마찰 클러치: PTFE 와셔 + 마찰 와셔 + 웨이브 스프링 + 나일록 너트 (조이면 묵직)",
+   "material": "PTFE",
+   "size": [
+    7.0,
+    26.0,
+    26.0
    ],
    "volume_cm3": 3.3,
-   "grams": 2.2,
-   "file": "stl/plunger_block_roll.stl"
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_clutch.stl"
   },
   {
    "name": "sensor_mount_roll",
    "group": "fixed",
    "kind": "print",
-   "note": "roll AS5600 받침 (뒤벽)",
-   "material": "PLA",
-   "size": [
-    26.0,
-    40.0,
-    50.0
-   ],
-   "volume_cm3": 20.1,
-   "grams": 13.7,
-   "file": "stl/sensor_mount_roll.stl"
-  },
-  {
-   "name": "yoke",
-   "group": "roll",
-   "kind": "print",
-   "note": "바깥 요크: roll 로 돎, 안쪽 블록의 pitch 베어링을 잡음",
-   "material": "PETG",
-   "size": [
-    96.0,
-    70.0,
-    40.0
-   ],
-   "volume_cm3": 72.2,
-   "grams": 50.4,
-   "file": "stl/yoke.stl"
-  },
-  {
-   "name": "plunger_block_pitch",
-   "group": "roll",
-   "kind": "print",
-   "note": "pitch 가운데 맞춤: M10 볼 플런저 (요크에 붙음)",
+   "note": "roll AS5600 받침 (뒤벽 뒤, 자석과 1~2 mm)",
    "material": "PLA",
    "size": [
     18.0,
-    20.0,
-    16.0
-   ],
-   "volume_cm3": 3.9,
-   "grams": 2.7,
-   "file": "stl/plunger_block_pitch.stl"
-  },
-  {
-   "name": "sensor_mount_pitch",
-   "group": "roll",
-   "kind": "print",
-   "note": "pitch AS5600 받침 (요크 +y 쪽, 같이 돎)",
-   "material": "PLA",
-   "size": [
-    40.0,
-    16.0,
-    40.0
-   ],
-   "volume_cm3": 5.7,
-   "grams": 3.9,
-   "file": "stl/sensor_mount_pitch.stl"
-  },
-  {
-   "name": "inner_block",
-   "group": "pitch",
-   "kind": "print",
-   "note": "안쪽 블록: pitch 로 돎, Ø20 스틱 관이 꽂힘",
-   "material": "PETG",
-   "size": [
-    32.0,
-    48.0,
-    32.0
-   ],
-   "volume_cm3": 42.0,
-   "grams": 29.3,
-   "file": "stl/inner_block.stl"
-  },
-  {
-   "name": "stick_tube",
-   "group": "pitch",
-   "kind": "buy",
-   "note": "알루미늄 관 Ø20×2t, 길이 130",
-   "material": "",
-   "size": [
-    20.0,
-    20.0,
-    132.0
-   ],
-   "volume_cm3": 14.9,
-   "grams": null,
-   "file": "stl/stick_tube.stl"
-  },
-  {
-   "name": "grip",
-   "group": "pitch",
-   "kind": "print",
-   "note": "손잡이 (오른손): 트리거, 엄지 햇, 엄지 버튼 2, 새끼 버튼 1. 안은 배선 통로",
-   "material": "PLA",
-   "size": [
-    50.4,
-    40.0,
-    126.8
-   ],
-   "volume_cm3": 122.8,
-   "grams": 83.8,
-   "file": "stl/grip.stl"
-  },
-  {
-   "name": "roll_stub_front",
-   "group": "roll",
-   "kind": "buy",
-   "note": "M8×35 볼트 (roll 앞)",
-   "material": "",
-   "size": [
-    32.0,
-    8.0,
-    8.0
-   ],
-   "volume_cm3": 1.6,
-   "grams": null,
-   "file": "stl/roll_stub_front.stl"
-  },
-  {
-   "name": "roll_stub_back",
-   "group": "roll",
-   "kind": "buy",
-   "note": "M8×30 볼트 (roll 뒤)",
-   "material": "",
-   "size": [
-    26.0,
-    8.0,
-    8.0
-   ],
-   "volume_cm3": 1.3,
-   "grams": null,
-   "file": "stl/roll_stub_back.stl"
-  },
-  {
-   "name": "pitch_shaft",
-   "group": "pitch",
-   "kind": "buy",
-   "note": "M8×90 볼트 (pitch 축)",
-   "material": "",
-   "size": [
-    8.0,
-    86.0,
-    8.0
-   ],
-   "volume_cm3": 4.3,
-   "grams": null,
-   "file": "stl/pitch_shaft.stl"
-  },
-  {
-   "name": "cam_roll",
-   "group": "roll",
-   "kind": "print",
-   "note": "roll V 캠 (볼 플런저가 홈에 걸려 가운데로)",
-   "material": "PETG",
-   "size": [
-    6.0,
-    52.0,
-    51.4
-   ],
-   "volume_cm3": 12.2,
-   "grams": 8.5,
-   "file": "stl/cam_roll.stl"
-  },
-  {
-   "name": "cam_pitch",
-   "group": "pitch",
-   "kind": "print",
-   "note": "pitch V 캠",
-   "material": "PETG",
-   "size": [
     44.0,
-    6.0,
-    43.3
+    44.0
    ],
-   "volume_cm3": 8.6,
-   "grams": 6.0,
-   "file": "stl/cam_pitch.stl"
-  },
-  {
-   "name": "magcap_roll",
-   "group": "roll",
-   "kind": "print",
-   "note": "roll 자석 컵",
-   "material": "PLA",
-   "size": [
-    7.0,
-    14.0,
-    14.0
-   ],
-   "volume_cm3": 0.9,
-   "grams": 0.6,
-   "file": "stl/magcap_roll.stl"
-  },
-  {
-   "name": "magcap_pitch",
-   "group": "pitch",
-   "kind": "print",
-   "note": "pitch 자석 컵",
-   "material": "PLA",
-   "size": [
-    14.0,
-    8.0,
-    14.0
-   ],
-   "volume_cm3": 0.9,
-   "grams": 0.6,
-   "file": "stl/magcap_pitch.stl"
+   "volume_cm3": 15.0,
+   "grams": 10.2,
+   "orient": "뒷면을 바닥에",
+   "file": "stl/sensor_mount_roll.stl"
   },
   {
    "name": "as5600_roll",
    "group": "fixed",
    "kind": "buy",
    "note": "AS5600 (roll)",
-   "material": "",
+   "material": "PCB",
    "size": [
     1.6,
     23.0,
@@ -297,29 +328,63 @@
    ],
    "volume_cm3": 0.8,
    "grams": null,
+   "orient": "",
    "file": "stl/as5600_roll.stl"
   },
   {
-   "name": "as5600_pitch",
+   "name": "magnet_roll",
    "group": "roll",
    "kind": "buy",
-   "note": "AS5600 (pitch)",
-   "material": "",
+   "note": "자석 Ø6×2.5 직경 방향 + 축 끝 컵",
+   "material": "NdFeB",
    "size": [
-    23.0,
-    1.6,
-    23.0
+    3.5,
+    8.0,
+    8.0
    ],
-   "volume_cm3": 0.8,
+   "volume_cm3": 0.2,
    "grams": null,
-   "file": "stl/as5600_pitch.stl"
+   "orient": "",
+   "file": "stl/magnet_roll.stl"
+  },
+  {
+   "name": "cradle",
+   "group": "roll",
+   "kind": "print",
+   "note": "바깥 요람 (roll 로 돎): 앞뒤 Ø8 축 + pitch 608 베어링 2. 위가 뚫려 스틱이 지나감",
+   "material": "PETG",
+   "size": [
+    104.0,
+    70.0,
+    44.0
+   ],
+   "volume_cm3": 136.7,
+   "grams": 112.9,
+   "orient": "바닥 쪽을 바닥에, 채움 60 % + 벽 5 줄",
+   "file": "stl/cradle.stl"
+  },
+  {
+   "name": "cam_hub_roll",
+   "group": "roll",
+   "kind": "print",
+   "note": "roll 캠 받침 (요람 앞면 ↔ 캠, M4 ×2 로 같이 조임 → 캠이 축이 아니라 요람에 고정)",
+   "material": "PETG",
+   "size": [
+    8.0,
+    30.0,
+    30.0
+   ],
+   "volume_cm3": 5.2,
+   "grams": 6.6,
+   "orient": "",
+   "file": "stl/cam_hub_roll.stl"
   },
   {
    "name": "bearing_roll_front",
    "group": "fixed",
    "kind": "buy",
-   "note": "608ZZ",
-   "material": "",
+   "note": "608-2RS (roll 축)",
+   "material": "steel",
    "size": [
     7.0,
     22.0,
@@ -327,29 +392,63 @@
    ],
    "volume_cm3": 2.3,
    "grams": null,
+   "orient": "",
    "file": "stl/bearing_roll_front.stl"
   },
   {
    "name": "bearing_roll_back",
    "group": "fixed",
    "kind": "buy",
-   "note": "608ZZ",
-   "material": "",
+   "note": "608-2RS (roll 축)",
+   "material": "steel",
    "size": [
     7.0,
     22.0,
     22.0
    ],
-   "volume_cm3": 2.3,
+   "volume_cm3": 2.4,
    "grams": null,
+   "orient": "",
    "file": "stl/bearing_roll_back.stl"
+  },
+  {
+   "name": "roll_shaft_front",
+   "group": "roll",
+   "kind": "buy",
+   "note": "Ø8 h6 연마봉 70 mm (앞, 끝 18 mm = FFB 풀리 자리)",
+   "material": "steel",
+   "size": [
+    72.0,
+    8.0,
+    8.0
+   ],
+   "volume_cm3": 3.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_shaft_front.stl"
+  },
+  {
+   "name": "roll_shaft_back",
+   "group": "roll",
+   "kind": "buy",
+   "note": "Ø8 h6 연마봉 62 mm (뒤, 끝에 자석)",
+   "material": "steel",
+   "size": [
+    62.0,
+    8.0,
+    8.0
+   ],
+   "volume_cm3": 3.1,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roll_shaft_back.stl"
   },
   {
    "name": "bearing_pitch_L",
    "group": "roll",
    "kind": "buy",
-   "note": "608ZZ",
-   "material": "",
+   "note": "608-2RS (pitch 축)",
+   "material": "steel",
    "size": [
     22.0,
     7.0,
@@ -357,14 +456,63 @@
    ],
    "volume_cm3": 2.3,
    "grams": null,
+   "orient": "",
    "file": "stl/bearing_pitch_L.stl"
   },
   {
    "name": "bearing_pitch_R",
    "group": "roll",
    "kind": "buy",
-   "note": "608ZZ",
-   "material": "",
+   "note": "608-2RS (pitch 축)",
+   "material": "steel",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.4,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bearing_pitch_R.stl"
+  },
+  {
+   "name": "pitch_bracket",
+   "group": "roll",
+   "kind": "print",
+   "note": "pitch 센터링 받침 (요람 옆에 M3 ×3, 같이 roll 로 돎)",
+   "material": "PETG",
+   "size": [
+    104.0,
+    31.0,
+    105.4
+   ],
+   "volume_cm3": 58.3,
+   "grams": 51.9,
+   "orient": "큰 면을 바닥에",
+   "file": "stl/pitch_bracket.stl"
+  },
+  {
+   "name": "pitch_lever_T",
+   "group": "roll",
+   "kind": "print",
+   "note": "pitch 롤러 레버 (지렛대 2:1)",
+   "material": "PETG",
+   "size": [
+    78.0,
+    7.0,
+    14.0
+   ],
+   "volume_cm3": 6.7,
+   "grams": 8.5,
+   "orient": "옆으로 눕혀",
+   "file": "stl/pitch_lever_T.stl"
+  },
+  {
+   "name": "pitch_roller_T",
+   "group": "roll",
+   "kind": "buy",
+   "note": "608ZZ 롤러",
+   "material": "steel",
    "size": [
     22.0,
     7.0,
@@ -372,7 +520,607 @@
    ],
    "volume_cm3": 2.3,
    "grams": null,
-   "file": "stl/bearing_pitch_R.stl"
+   "orient": "",
+   "file": "stl/pitch_roller_T.stl"
+  },
+  {
+   "name": "pitch_pivot_T",
+   "group": "roll",
+   "kind": "buy",
+   "note": "M6 어깨볼트",
+   "material": "steel",
+   "size": [
+    6.0,
+    13.0,
+    6.0
+   ],
+   "volume_cm3": 0.4,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_pivot_T.stl"
+  },
+  {
+   "name": "pitch_lever_B",
+   "group": "roll",
+   "kind": "print",
+   "note": "pitch 롤러 레버 (지렛대 2:1)",
+   "material": "PETG",
+   "size": [
+    78.0,
+    7.0,
+    14.0
+   ],
+   "volume_cm3": 6.7,
+   "grams": 8.5,
+   "orient": "옆으로 눕혀",
+   "file": "stl/pitch_lever_B.stl"
+  },
+  {
+   "name": "pitch_roller_B",
+   "group": "roll",
+   "kind": "buy",
+   "note": "608ZZ 롤러",
+   "material": "steel",
+   "size": [
+    22.0,
+    7.0,
+    22.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_roller_B.stl"
+  },
+  {
+   "name": "pitch_pivot_B",
+   "group": "roll",
+   "kind": "buy",
+   "note": "M6 어깨볼트",
+   "material": "steel",
+   "size": [
+    6.0,
+    13.0,
+    6.0
+   ],
+   "volume_cm3": 0.4,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_pivot_B.stl"
+  },
+  {
+   "name": "pitch_spring",
+   "group": "roll",
+   "kind": "buy",
+   "note": "pitch 인장 스프링 (기본 k ≈ 5.3 N/mm, OD 10, 추정)",
+   "material": "steel",
+   "size": [
+    10.0,
+    10.0,
+    61.4
+   ],
+   "volume_cm3": 4.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_spring.stl"
+  },
+  {
+   "name": "pitch_eyebolt",
+   "group": "roll",
+   "kind": "buy",
+   "note": "M5 아이볼트 + 손잡이 너트 (아래 레버) = pitch 예압 조절, 옆창으로 손이 닿음",
+   "material": "steel",
+   "size": [
+    14.0,
+    14.0,
+    38.0
+   ],
+   "volume_cm3": 1.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_eyebolt.stl"
+  },
+  {
+   "name": "pitch_clutch",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "pitch 마찰 클러치 (요람 ↔ 캠 사이 와셔 묶음)",
+   "material": "PTFE",
+   "size": [
+    24.0,
+    4.5,
+    24.0
+   ],
+   "volume_cm3": 1.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_clutch.stl"
+  },
+  {
+   "name": "sensor_mount_pitch",
+   "group": "roll",
+   "kind": "print",
+   "note": "pitch AS5600 받침 (요람 −y 옆)",
+   "material": "PLA",
+   "size": [
+    44.0,
+    17.0,
+    44.0
+   ],
+   "volume_cm3": 6.7,
+   "grams": 4.6,
+   "orient": "",
+   "file": "stl/sensor_mount_pitch.stl"
+  },
+  {
+   "name": "as5600_pitch",
+   "group": "roll",
+   "kind": "buy",
+   "note": "AS5600 (pitch)",
+   "material": "PCB",
+   "size": [
+    23.0,
+    1.6,
+    23.0
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/as5600_pitch.stl"
+  },
+  {
+   "name": "magnet_pitch",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "자석 Ø6×2.5 + 축 끝 컵",
+   "material": "NdFeB",
+   "size": [
+    8.0,
+    3.5,
+    8.0
+   ],
+   "volume_cm3": 0.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/magnet_pitch.stl"
+  },
+  {
+   "name": "inner_block",
+   "group": "pitch",
+   "kind": "print",
+   "note": "안쪽 블록 (pitch 로 돎): Ø20 관 소켓 55 mm + M5 클램프 2, 아래 = FFB 막대 고리 / 배선 출구",
+   "material": "PETG",
+   "size": [
+    45.0,
+    48.0,
+    110.0
+   ],
+   "volume_cm3": 91.2,
+   "grams": 115.8,
+   "orient": "소켓을 위로, 채움 100 %",
+   "file": "stl/inner_block.stl"
+  },
+  {
+   "name": "pitch_shaft",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "Ø8 h6 연마봉 96 mm, D컷 (블록 + 캠 고정)",
+   "material": "steel",
+   "size": [
+    8.0,
+    96.0,
+    8.0
+   ],
+   "volume_cm3": 4.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/pitch_shaft.stl"
+  },
+  {
+   "name": "stick_tube",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "알루미늄 관 Ø20×2t, 길이 409 mm. 위 40 mm 가 손잡이 속 (M4 가로볼트, 뒤쪽 4×6 홈)",
+   "material": "AL6061",
+   "size": [
+    20.0,
+    20.0,
+    409.0
+   ],
+   "volume_cm3": 46.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/stick_tube.stl"
+  },
+  {
+   "name": "stop_collar",
+   "group": "pitch",
+   "kind": "print",
+   "note": "TPU 멈춤 링 (게이트에 닿아 부드럽게 멈춤), M3 무두볼트 고정",
+   "material": "TPU",
+   "size": [
+    30.0,
+    30.0,
+    30.0
+   ],
+   "volume_cm3": 11.6,
+   "grams": 14.0,
+   "orient": "그대로",
+   "file": "stl/stop_collar.stl"
+  },
+  {
+   "name": "gate_plate",
+   "group": "fixed",
+   "kind": "print",
+   "note": "윗판 = 멈춤 게이트 (바꿔 끼움): roll ±15°, 앞 16° / 뒤 20°. 고무 부츠를 위에 씌움",
+   "material": "PETG",
+   "size": [
+    188.0,
+    192.0,
+    6.0
+   ],
+   "volume_cm3": 178.7,
+   "grams": 136.1,
+   "orient": "그대로",
+   "file": "stl/gate_plate.stl"
+  }
+ ],
+ "forces": {
+  "variants": {
+   "light": {
+    "k_roll": 1.2,
+    "k_pitch": 2.65,
+    "roll_N": [
+     0.0,
+     1.6,
+     2.1,
+     2.6,
+     3.2,
+     3.7,
+     4.3,
+     4.8,
+     5.4,
+     6.0,
+     6.6,
+     7.1,
+     7.7,
+     8.3,
+     8.8,
+     9.4,
+     10.0,
+     10.5,
+     11.1,
+     11.7,
+     12.3
+    ],
+    "pitch_N": [
+     0.0,
+     2.2,
+     3.0,
+     3.7,
+     4.5,
+     5.3,
+     6.0,
+     6.9,
+     7.7,
+     8.5,
+     9.2,
+     10.0,
+     10.8,
+     11.7,
+     12.5,
+     13.3,
+     14.1,
+     14.9,
+     15.7,
+     16.6,
+     17.5
+    ]
+   },
+   "default": {
+    "k_roll": 2.4,
+    "k_pitch": 5.3,
+    "roll_N": [
+     0.0,
+     5.4,
+     6.5,
+     7.6,
+     8.7,
+     9.8,
+     10.9,
+     12.0,
+     13.2,
+     14.3,
+     15.5,
+     16.7,
+     17.8,
+     18.9,
+     20.1,
+     21.2,
+     22.4,
+     23.5,
+     24.6,
+     25.9,
+     27.1
+    ],
+    "pitch_N": [
+     0.0,
+     7.5,
+     9.0,
+     10.5,
+     12.1,
+     13.6,
+     15.2,
+     16.9,
+     18.5,
+     20.0,
+     21.6,
+     23.2,
+     24.8,
+     26.6,
+     28.2,
+     29.8,
+     31.4,
+     33.0,
+     34.6,
+     36.4,
+     38.2
+    ]
+   },
+   "heavy": {
+    "k_roll": 4.8,
+    "k_pitch": 10.6,
+    "roll_N": [
+     0.0,
+     15.1,
+     17.4,
+     19.7,
+     22.0,
+     24.3,
+     26.5,
+     28.8,
+     31.0,
+     33.3,
+     35.8,
+     38.1,
+     40.4,
+     42.7,
+     45.0,
+     47.2,
+     49.5,
+     51.8,
+     54.0,
+     56.6,
+     59.1
+    ],
+    "pitch_N": [
+     0.0,
+     21.0,
+     24.1,
+     27.2,
+     30.3,
+     33.4,
+     36.6,
+     40.0,
+     43.2,
+     46.4,
+     49.6,
+     52.7,
+     55.9,
+     59.6,
+     62.8,
+     66.0,
+     69.2,
+     72.4,
+     75.6,
+     79.1,
+     82.8
+    ]
+   }
+  },
+  "angles": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20
+  ],
+  "roll_N": [
+   0.0,
+   5.4,
+   6.5,
+   7.6,
+   8.7,
+   9.8,
+   10.9,
+   12.0,
+   13.2,
+   14.3,
+   15.5,
+   16.7,
+   17.8,
+   18.9,
+   20.1,
+   21.2,
+   22.4,
+   23.5,
+   24.6,
+   25.9,
+   27.1
+  ],
+  "pitch_N": [
+   0.0,
+   7.5,
+   9.0,
+   10.5,
+   12.1,
+   13.6,
+   15.2,
+   16.9,
+   18.5,
+   20.0,
+   21.6,
+   23.2,
+   24.8,
+   26.6,
+   28.2,
+   29.8,
+   31.4,
+   33.0,
+   34.6,
+   36.4,
+   38.2
+  ],
+  "roll_Nm": [
+   0.0,
+   2.31,
+   2.78,
+   3.26,
+   3.74,
+   4.22,
+   4.7,
+   5.18,
+   5.66,
+   6.14,
+   6.67,
+   7.17,
+   7.66,
+   8.15,
+   8.63,
+   9.12,
+   9.61,
+   10.1,
+   10.58,
+   11.13,
+   11.66
+  ],
+  "pitch_Nm": [
+   0.0,
+   3.21,
+   3.87,
+   4.53,
+   5.19,
+   5.86,
+   6.53,
+   7.26,
+   7.94,
+   8.62,
+   9.3,
+   9.98,
+   10.66,
+   11.44,
+   12.13,
+   12.82,
+   13.51,
+   14.2,
+   14.89,
+   15.64,
+   16.41
+  ],
+  "l_hand": 430,
+  "note": "손 위치 (축에서 L_HAND mm) 에서 필요한 힘 N. 반경 방향 롤러 + 에너지 법 계산 (마찰 · 클러치 제외, 추정)"
+ },
+ "check": [
+  {
+   "pose": [
+    0,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    20,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -20,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    0,
+    20
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    0,
+    -20
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    20,
+    20
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    20,
+    -20
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -20,
+    20
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -20,
+    -20
+   ],
+   "hits": []
+  }
+ ],
+ "check_gate": [
+  {
+   "pose": [
+    14.75,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    0,
+    15.75
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    0,
+    -19.75
+   ],
+   "hits": []
   }
  ]
 }

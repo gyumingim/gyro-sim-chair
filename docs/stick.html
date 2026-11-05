@@ -3,124 +3,132 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>자작 스틱</title>
-<style>
-:root{--bg:#f4f4f1;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.5}
-#app{display:grid;grid-template-columns:1fr 470px;height:100vh}
-@media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}}
-#view{position:relative;background:linear-gradient(#dfe7ef,#f4f6f8);min-height:340px}
-#view canvas{display:block}
-#hud{position:absolute;left:10px;top:10px;font-size:.8rem;background:#fffc;color:#234;padding:4px 8px;border-radius:6px}
-aside{overflow:auto;padding:14px;border-left:1px solid var(--line);background:var(--card)}
-h1{font-size:1.15rem;margin:0 0 4px}h2{font-size:.98rem;margin:14px 0 6px}
-.sub{color:var(--sub);font-size:.85rem;margin:0 0 8px}
-.box{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
-label{font-size:.86rem;color:var(--sub);display:block}label b{color:var(--ink)}
-input[type=range]{width:100%}
-table{width:100%;border-collapse:collapse;font-size:.8rem}
-td,th{border-bottom:1px solid var(--line);padding:4px 5px;text-align:left;vertical-align:top}
-th{color:var(--sub)}
-tr.sel td{background:#2f6fd622}
-.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
-.tot{font-weight:700}
-#info{font-size:.86rem;min-height:2.6em}
-</style>
+<title>센터 스틱 v2</title>
+<link rel="stylesheet" href="js/ctl.css">
 </head>
 <body>
 <div id="app">
   <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 부품 클릭 = 설명</div></div>
   <aside>
-    <h1>자작 가운데 스틱 v1 (오른손)</h1>
-    <p class="sub">2축 짐벌 (바깥 요크 = roll, 안쪽 블록 = pitch), 608 베어링 4, AS5600 2, V 캠 + M10 볼 플런저로 가운데 맞춤, Ø20 알루미늄 관 + 3D 출력 손잡이. 접이식 스틱 받침 위에 M6 ×4. 모델: <code>hardware/stick/stick.py</code>, STL: <code>hardware/stick/stl/</code>. roll·pitch ±20° 9 자세에서 부품끼리 겹침 없음 (모델 검사).</p>
+    <h1>센터 스틱 받침 v2 — 캠 + 롤러 + 스프링 짐벌</h1>
+    <p class="lead"><b>결론:</b> VKB · Virpil 고급 받침과 같은 방식. 축마다 <b>알루미늄 캠 + 608 롤러 2 개 + 인장 스프링 1 개</b>로 가운데를 잡아서 미끄럼 마찰 (스틱션) 과 가운데 걸림이 없다. 무게감은 손잡이 너트 (예압) 와 스프링 교체로 조절, 멈춤은 바꿔 끼우는 게이트판.</p>
     <div class="box">
-      <label>roll (좌우) <b id="rv">0°</b></label><input id="roll" type="range" min="-20" max="20" value="0">
-      <label>pitch (앞뒤, + = 앞으로 밀기) <b id="av">0°</b></label><input id="ang" type="range" min="-20" max="20" value="0">
-      <label>분해 보기 <b id="ev">0</b></label><input id="exp" type="range" min="0" max="100" value="0">
-      <div id="info">부품을 누르면 설명이 나옵니다.</div>
+      <label>roll (좌우, + = 오른쪽) <b id="rollv">0°</b></label><input id="roll" type="range" min="-20" max="20" step="0.5">
+      <label>pitch (+ = 앞으로 밂) <b id="pitchv">0°</b></label><input id="pitch" type="range" min="-20" max="20" step="0.5">
+      <label>분해 보기</label><input id="exp" type="range" min="0" max="100" value="0">
+      <label class="chk"><input type="checkbox" id="xray">상자 반투명 (속 보기)</label>
+      <div id="info" class="muted">부품을 누르면 설명이 나옵니다.</div>
     </div>
-    <h2>출력 부품</h2>
-    <table id="tp"><tr><th></th><th>부품</th><th>크기 (mm)</th><th>재료</th><th>무게</th></tr></table>
-    <h2>살 부품 (가격 추정)</h2>
-    <table id="tb"><tr><th>품목</th><th>수량</th><th>금액</th><th>메모</th></tr></table>
-    <h2>배선 (Pro Micro)</h2>
-    <table>
-      <tr><th>연결</th><th>Pro Micro 핀</th></tr>
-      <tr><td>AS5600 ×2 (I2C 주소가 같음)</td><td>roll: SDA/SCL = 2/3, pitch: 소프트 I2C 또는 아날로그 OUT → A0 (보드 OUT 핀)</td></tr>
-      <tr><td>트리거, 엄지 1·2, 새끼</td><td>4, 5, 6, 7 (반대쪽 GND, 내부 풀업)</td></tr>
-      <tr><td>햇 위 / 아래 / 왼 / 오른</td><td>8, 9, 10, 16</td></tr>
-    </table>
-    <p class="sub" style="margin-top:6px">펌웨어: X·Y 축 2 개 + 버튼 4 + 햇 1. 스로틀 보드와 따로 (USB 2 개) 또는 한 보드로 합쳐도 됨. (다음 단계)</p>
-    <h2>출력 메모</h2>
-    <ul class="sub" style="padding-left:18px;margin:0">
-      <li>요크·안쪽 블록·캠은 힘을 받으니 <b>PETG</b>, 나머지 PLA, 채움 30 % 이상, 벽 4 줄.</li>
-      <li>가운데로 돌아오는 힘 = 볼 플런저 스프링 세기 × V 홈 각도. 약하면 플런저를 더 조이거나 센 것으로.</li>
-      <li>교육생이 세게 당기므로 스틱 관은 알루미늄, 축은 M8 볼트 (출력물로 만들지 않음).</li>
-      <li>무게는 부피 × 밀도 × 0.55 (채움 30 %) 추정.</li>
+
+    <h2>주요 값</h2>
+    <div class="kv" id="kv"></div>
+
+    <h2>손에 걸리는 힘 (계산, 추정)</h2>
+    <div id="chart"></div>
+    <p class="sub">손 위치 = 짐벌 중심에서 <span id="lh"></span> mm. 마찰 · 클러치 빼고 캠 모양 + 스프링으로만 계산. 실선 = 기본 스프링, 점선 = 가벼움 / 무거움 교체.
+    실기 참고: F-15 피치 약 1.4 N/mm, MIL-F-8785C 최소 0.88 N/mm — 실기는 이보다 훨씬 무겁다. 시뮬레이터는 손목 피로 때문에 보통 더 가볍게 쓴다 (무거움 스프링 + 예압 최대로 실기에 가까워짐, 추정).</p>
+
+    <h2>어떻게 움직이나</h2>
+    <ul class="t">
+      <li><b>짐벌</b>: 바깥 요람 (파랑) = roll, 앞뒤 벽의 608 두 개. 안쪽 블록 (주황) = pitch, 요람 안 608 두 개. 축은 Ø8 h6 연마봉 (볼트 아님 → 덜걱거림 없음), 베어링은 웨이브 와셔로 예압.</li>
+      <li><b>가운데 잡기</b>: 캠 모양 r = r0 + a(√(θ²+c²) − c). 가운데가 둥근 V 라서 <b>홈에 '딸깍' 걸리지 않고</b> 또렷한 중심 (c = 2.5°) 다음에 고른 기울기. 롤러 2 개가 맞은편에서 누르니 축에 옆 힘이 안 걸림.</li>
+      <li><b>무게감 조절</b>: ① 손잡이 너트 (M5 아이볼트) = 예압 = 이탈력, ② 스프링 3 종 교체 = 기울기, ③ 캠 교체 (DXF 수정) = 느낌 자체 (가운데 없음 / 부드러움).</li>
+      <li><b>댐핑</b>: 축마다 건식 마찰 클러치 (PTFE + 마찰 와셔 + 웨이브 스프링 + 나일록). 정지 마찰이 미세 조작을 방해하므로 <b>약하게만</b> 건다.</li>
+      <li><b>멈춤</b>: 윗판 = 게이트. TPU 링이 게이트 가장자리에 닿아 부드럽게 멈춤. 기본 roll ±15° (손에서 약 ±110 mm, F-5E 기어 내림 ±4.0 in 과 비슷), pitch 앞 16° / 뒤 20°. 짐벌 자체는 ±20° 까지 겹침 없음.</li>
+      <li><b>센서</b>: AS5600 12 bit (0.088°) × 2 → 손에서 약 0.7 mm. roll 은 뒤 축 끝, pitch 는 −y 축 끝.</li>
+      <li><b>FFB 준비</b>: 앞 축이 벽 밖으로 18 mm (풀리 자리) + M4 ×4 모터 자리, 안쪽 블록 아래에 밀대 고리 (M5). 나중에 모터 2 개를 바닥에 고정하고 밀대로 연결.</li>
+      <li><b>손잡이 연결</b> (hardware/grips): Ø20×2t 관 위 40 mm 가 손잡이 속, 위 끝에서 15 mm 아래 M4 가로볼트, 뒤쪽 4×6 홈 = 돌아감 막기. 배선은 관 속 → 안쪽 블록 아래 구멍.</li>
     </ul>
+
+    <h2>조사 요약 (출처)</h2>
+    <table>
+      <tr><th>항목</th><th>값</th><th>근거</th></tr>
+      <tr><td>F-5E roll 이동</td><td>기어 내림 ±4.0 in, 올림 ±3.2 in</td><td><a href="https://forum.dcs.world/topic/380531-aileron-spring-stop-aileron-limiter">DCS 포럼 (Northrop 설명서 인용)</a></td></tr>
+      <tr><td>F/A-18 pitch 당김</td><td>약 2.5~5 in</td><td><a href="https://forum.dcs.world/topic/252987-hornet-stick-feeling-in-the-aircraft/page/2">DCS 포럼</a></td></tr>
+      <tr><td>F-15 pitch 감각</td><td>4 lb / 0.5 in ≈ 1.4 N/mm, 이중 스프링</td><td><a href="https://www.f15sim.com/operation/f15_longitudinal_control.html">f15sim</a></td></tr>
+      <tr><td>F-16 사이드스틱</td><td>최대 pitch 25 lb 당김 / 16 lb 밂, roll 17 lb, 이동 약 ¼ in</td><td><a href="https://forum.falcon-bms.com/post/787?page=3">Falcon BMS 포럼</a></td></tr>
+      <tr><td>MIL-F-8785C</td><td>센터 스틱 pitch 기울기 ≥ 5 lb/in. 이탈력 pitch 0.5~3 lb · roll 0.5~2 lb 는 <span class="tag">추정</span></td><td><a href="https://apps.dtic.mil/sti/tr/pdf/ADA131414.pdf">DTIC ADA131414</a></td></tr>
+      <tr><td>KT-1 · T-50 · Hawk · T-38</td><td>공개 수치 못 찾음 <span class="tag">추정</span> 피치 +5/−4 in, roll ±4 in</td><td>—</td></tr>
+      <tr><td>VKB Gunfighter</td><td>롤러 + 금속 캠 + 인장 스프링, 건식 클러치</td><td><a href="https://forum.dcs.world/topic/160418-vkb-sim-gunfighter-review-amp-mount-bracket/">DCS 리뷰</a></td></tr>
+      <tr><td>Virpil WarBRD / CM3</td><td>캠 교체 (Soft / No center), 스프링 2~3 종, 축별 클러치</td><td><a href="https://simufy.com/en/products/base-warbrd-d-virpil-controls">Simufy</a></td></tr>
+      <tr><td>TM Warthog</td><td>원뿔 + 큰 스프링 → 가운데 스틱션 (이 설계는 피함)</td><td><a href="https://forum.dcs.world/topic/159558-warthog-stick-bad-stiction-problem">DCS 포럼</a></td></tr>
+    </table>
+
+    <h2>출력 부품 <span class="muted">(클릭 = 3D 에서 표시)</span></h2>
+    <table id="tp"><tr><th></th><th>부품</th><th>크기 mm</th><th>재료</th><th>무게</th><th>출력 방향</th></tr></table>
+    <h2>살 부품 · 가공 (가격 추정)</h2>
+    <table id="tb"><tr><th>품목</th><th>수량</th><th class="n">금액</th><th>메모</th></tr></table>
+
+    <h2>출력 · 조립 메모</h2>
+    <ul class="t">
+      <li>요람 · 안쪽 블록 · 레버 · 게이트판은 <b>PETG</b>, 벽 5 줄, 채움 60~100 %. 나머지 PLA.</li>
+      <li>캠은 PLA 로 시험 출력 → 느낌이 정해지면 알루미늄 레이저 절단 (<code>hardware/stick/cam_roll.dxf</code>, <code>cam_pitch.dxf</code>). PLA 캠은 롤러 자국이 남음 (접촉 압력 약 50 MPa, 추정).</li>
+      <li>요람의 roll 캠은 축이 아니라 요람에 M4 ×2 로 고정 (캠 받침 사이에 끼움) → 미끄러져 중심이 어긋나지 않음.</li>
+      <li>무게 = 부피 × 밀도 × 채움 비율 (추정).</li>
+    </ul>
+    <h2>출력 후 시험할 것</h2>
+    <ul class="t">
+      <li>가운데 복귀 정밀도: 손 놓고 20 번 → AS5600 값 흩어짐 (목표 ±0.2° 이내).</li>
+      <li>이탈력 · 끝 힘: 손잡이에 전자 저울 (러기지 스케일) 걸고 1° · 10° · 끝 힘 측정 → 위 그래프와 비교, 스프링 · 예압 정함.</li>
+      <li>덜걱거림: 가운데서 손잡이를 앞뒤 · 좌우로 흔들어 축 유격 (0.1 mm 다이얼 게이지 또는 센서 값).</li>
+      <li>멈춤 링이 게이트에 닿는 각도 (계산 roll 15.25°, 앞 16.25°, 뒤 20.25°).</li>
+      <li>마찰 클러치를 조였을 때 가운데로 돌아오는지 (너무 세면 안 돌아옴 — MFG 페달 댐퍼와 같은 문제).</li>
+    </ul>
+    <p class="muted">모델: <code>hardware/stick/stick.py</code> (공통: <code>hardware/ctl_lib.py</code>) · 만든 시각 <span id="mt"></span> · 겹침 검사: roll·pitch ±20° 9 자세 <span id="chk"></span></p>
   </aside>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="js/ctl_viewer.js"></script>
 <script>
-const BASE="../hardware/stick/";
-const BUY=[["아두이노 Pro Micro (ATmega32U4)",1,9000,""],["AS5600 자기 각도 센서 보드 + 자석",2,8000,"roll·pitch"],["608ZZ 베어링",4,4000,""],
- ["M8 볼트 (×90 1, ×35 1, ×30 1) + 너트",1,4000,"축"],["M10 볼 플런저 (스프링 센 것)",2,8000,"가운데 맞춤"],["알루미늄 관 Ø20×2t, 130 mm",1,3000,"스틱"],
- ["12 mm 택트 스위치",4,2000,"트리거·엄지 2·새끼"],["4방향 햇 스위치",1,2500,""],["M3·M6 나사 세트",1,4000,""],["USB 케이블 2 m",1,3000,""],["전선 · 핀헤더",1,3000,""]];
-const COLORS={base:0x6b7280,wall_front:0x2f6fd6,wall_back:0x2f6fd6,plunger_block_roll:0x1f9d55,sensor_mount_roll:0x8e44ad,yoke:0xe08a1e,
- plunger_block_pitch:0x1f9d55,sensor_mount_pitch:0x8e44ad,inner_block:0xd93a3a,grip:0x333840,cam_roll:0xf2c94c,cam_pitch:0xf2c94c,magcap_roll:0x8e44ad,magcap_pitch:0x8e44ad};
-const EXPLODE={base:[0,0,-50],wall_front:[50,0,0],wall_back:[-50,0,0],plunger_block_roll:[70,0,40],sensor_mount_roll:[-80,0,0],yoke:[0,0,10],
- plunger_block_pitch:[0,-60,30],sensor_mount_pitch:[0,70,0],inner_block:[0,0,25],stick_tube:[0,0,60],grip:[0,0,120],roll_stub_front:[40,0,0],roll_stub_back:[-40,0,0],
- pitch_shaft:[0,0,25],cam_roll:[60,0,0],cam_pitch:[0,-45,25],magcap_roll:[-60,0,0],magcap_pitch:[0,55,25],as5600_roll:[-75,0,0],as5600_pitch:[0,65,0],
- bearing_roll_front:[30,0,0],bearing_roll_back:[-30,0,0],bearing_pitch_L:[0,30,10],bearing_pitch_R:[0,-30,10]};
-const $=id=>document.getElementById(id), won=v=>Math.round(v).toLocaleString("ko-KR")+"원";
-const view=$("view"),R=new THREE.WebGLRenderer({antialias:true,alpha:true});R.setPixelRatio(Math.min(2,devicePixelRatio));view.appendChild(R.domElement);
-const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(35,1,1,5000);cam.position.set(380,330,420);
-const ctl=new THREE.OrbitControls(cam,R.domElement);ctl.target.set(0,110,0);ctl.enableDamping=true;
-scene.add(new THREE.HemisphereLight(0xffffff,0x889,0.85));const sun=new THREE.DirectionalLight(0xffffff,0.6);sun.position.set(200,400,300);scene.add(sun);
-const grid=new THREE.GridHelper(400,20,0x9aa6b2,0xc9d0d6);scene.add(grid);
-const world=new THREE.Group();world.rotation.x=-Math.PI/2;scene.add(world);           // model is z-up mm
-const meshes={},rollG=new THREE.Group(),pitchG=new THREE.Group();let PZ=60,parts=[];
-world.add(rollG);rollG.add(pitchG);
-function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener("resize",resize);resize();
-fetch(BASE+"parts.json").then(r=>r.json()).then(d=>{
-  parts=d.parts;PZ=d.meta.pivot[2];rollG.position.set(0,0,PZ);
-  const loader=new THREE.STLLoader();
-  for(const p of parts){
-    loader.load(BASE+p.file,g=>{g.computeVertexNormals();
-      const buy=p.kind==="buy";const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:buy?0xb8bcc2:(COLORS[p.name]??0x888888),metalness:buy?0.6:0.05,roughness:buy?0.35:0.7}));
-      m.userData=p;meshes[p.name]=m;
-      const h=new THREE.Group();h.add(m);m.userData.holder=h;
-      if(p.group==="fixed")world.add(h);else{m.position.set(0,0,-PZ);(p.group==="roll"?rollG:pitchG).add(h)}
-      update()})}
-  // BOM tables
-  const tp=$("tp");let g=0;
-  for(const p of parts.filter(p=>p.kind==="print")){g+=p.grams;tp.insertAdjacentHTML("beforeend",`<tr data-n="${p.name}"><td><span class="sw" style="background:#${(COLORS[p.name]??0x888888).toString(16).padStart(6,"0")}"></span></td><td>${p.note.split(/[:(]/)[0]||p.name}<br><span style="color:var(--sub)">${p.name}.stl</span></td><td>${p.size.join("×")}</td><td>${p.material}</td><td>${p.grams} g</td></tr>`)}
-  const fil=Math.ceil(g*1.15/10)*10, filCost=fil*25;   // +15 % supports/waste, ~25 원/g
-  tp.insertAdjacentHTML("beforeend",`<tr class="tot"><td></td><td>필라멘트 합계 (+15 % 여유)</td><td></td><td></td><td>약 ${fil} g</td></tr>`);
-  const tb=$("tb");let tot=filCost;
-  for(const[n,q,pr,memo]of BUY){tot+=pr*(n.startsWith("M6 볼트")||n.startsWith("608")||n.startsWith("12 mm")?1:1);tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td>${q}</td><td>${won(pr)}</td><td>${memo}</td></tr>`)}
-  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 (PLA + PETG)</td><td>${fil} g</td><td>${won(filCost)}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td>${won(tot)}</td><td>배송비 제외</td></tr>`);
-  document.querySelectorAll("#tp tr[data-n]").forEach(r=>r.onclick=()=>select(r.dataset.n));
-});
-function update(){
-  const a=+$("ang").value,r=+$("roll").value,e=+$("exp").value/100;$("av").textContent=a+"°";$("rv").textContent=r+"°";$("ev").textContent=Math.round(e*100);
-  rollG.rotation.x=r*Math.PI/180;pitchG.rotation.y=a*Math.PI/180;
-  for(const n in meshes){const v=EXPLODE[n]||[0,0,0];meshes[n].userData.holder.position.set(v[0]*e,v[1]*e,v[2]*e)}
-}
-$("ang").oninput=update;$("roll").oninput=update;$("exp").oninput=update;
-let selN=null;
-function select(n){for(const k in meshes)meshes[k].material.emissive?.setHex(k===n?0x553300:0);selN=n;
-  const p=meshes[n]?.userData;if(p)$("info").innerHTML=`<b>${p.name}</b> — ${p.note}<br><span style="color:var(--sub)">${p.kind==="print"?"출력 · "+p.material+" · 약 "+p.grams+" g":"구매 부품"} · ${p.size.join("×")} mm</span>`;
-  document.querySelectorAll("#tp tr[data-n]").forEach(r=>r.classList.toggle("sel",r.dataset.n===n))}
-const ray=new THREE.Raycaster(),mp=new THREE.Vector2();let down=null;
-R.domElement.addEventListener("pointerdown",e=>down=[e.clientX,e.clientY]);
-R.domElement.addEventListener("pointerup",e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>5)return;const r=R.domElement.getBoundingClientRect();
-  mp.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mp,cam);const h=ray.intersectObjects(Object.values(meshes))[0];if(h)select(h.object.userData.name)});
-(function loop(){ctl.update();R.render(scene,cam);requestAnimationFrame(loop)})();
+const BUY=[["608 베어링 (축 4 + 롤러 4)",8,8000,"608-2RS"],["Ø8 h6 연마봉 300 mm (3 토막, D컷)",1,12000,"축"],["알루미늄 캠 레이저 절단 (6061 10 t + 8 t)",2,35000,"DXF 주문, 추정"],
+ ["인장 스프링 (OD 8~10, 축마다 3 종)",6,15000,"가벼움 · 기본 · 무거움"],["M5 아이볼트 + 손잡이 너트",2,6000,"예압 조절"],["M6 어깨볼트",4,8000,"레버 축"],
+ ["AS5600 보드 + 직경 자석",2,8000,""],["알루미늄 관 Ø20×2t, 500 mm",1,6000,"스틱"],["마찰 클러치 (PTFE · 마찰 와셔 · 웨이브 스프링 · 나일록)",2,8000,""],
+ ["M3 · M4 · M5 볼트 + 황동 인서트",1,12000,""],["고무 부츠",1,8000,"게이트 위"]];
+const col=p=>{const n=p.name;if(p.kind==="cut")return 0xd5d9de;
+ if(/^wall|^base/.test(n))return 0x3b4149;if(n==="gate_plate")return 0x1f2226;if(/cradle|cam_hub|pitch_bracket/.test(n))return 0x4f79b0;
+ if(n==="inner_block")return 0xd9822b;if(/lever/.test(n))return 0xc0392b;if(/sensor_mount/.test(n))return 0x7d5ba6;if(n==="stop_collar")return 0x161616;
+ if(/spring/.test(n))return 0xb7bdc4;if(/eyebolt|pivot/.test(n))return 0x8d939a;if(/as5600/.test(n))return 0x1f7a44;if(/magnet/.test(n))return 0x6b6f75;
+ if(/clutch/.test(n))return 0xeeeeee;if(n==="stick_tube")return 0xcfd3d7;return 0xa9afb6};
+const EX={base_plate:[0,0,-60],wall_front:[90,0,0],wall_back:[-90,0,0],wall_side_L:[0,110,0],wall_side_R:[0,-110,0],gate_plate:[0,0,140],stop_collar:[0,0,120],stick_tube:[0,0,160],
+ roll_lever_L:[50,40,0],roll_lever_R:[50,-40,0],roll_roller_L:[40,30,0],roll_roller_R:[40,-30,0],roll_spring:[60,0,40],roll_eyebolt:[60,30,40],roll_pivot_L:[70,40,0],roll_pivot_R:[70,-40,0],
+ cam_roll:[35,0,0],cam_hub_roll:[20,0,0],roll_shaft_front:[60,0,0],roll_shaft_back:[-60,0,0],roll_clutch:[-110,0,0],magnet_roll:[-125,0,0],sensor_mount_roll:[-140,0,0],as5600_roll:[-140,0,0],
+ bearing_roll_front:[80,0,0],bearing_roll_back:[-80,0,0],pitch_bracket:[0,80,0],pitch_lever_T:[0,60,20],pitch_lever_B:[0,60,-20],pitch_roller_T:[0,45,15],pitch_roller_B:[0,45,-15],
+ pitch_pivot_T:[0,85,20],pitch_pivot_B:[0,85,-20],pitch_spring:[0,70,0],pitch_eyebolt:[0,70,-20],cam_pitch:[0,30,0],pitch_clutch:[0,20,0],sensor_mount_pitch:[0,-70,0],as5600_pitch:[0,-75,0],
+ magnet_pitch:[0,-50,0],bearing_pitch_L:[0,15,0],bearing_pitch_R:[0,-15,0],inner_block:[0,0,50],pitch_shaft:[0,0,50]};
+let V;
+V=CtlViewer({base:"../hardware/stick/",color:col,
+ groups:{roll:{pivot:[0,0,88],axis:"x",ang:s=>s.roll},pitch:{parent:"roll",pivot:[0,0,88],axis:"y",ang:s=>s.pitch}},
+ explode:p=>{const v=EX[p.name]||[0,0,0];return p.group==="pitch"&&p.name!=="stick_tube"&&p.name!=="stop_collar"?[v[0],v[1],v[2]]:v},
+ xray:p=>/^wall|gate_plate/.test(p.name),
+ target:[0,0,150],camDir:[1.0,-0.85,0.62],dist:1150,
+ sliders:[{id:"roll",val:0,fmt:v=>v+"°"},{id:"pitch",val:0,fmt:v=>v+"°"}],
+ onData:d=>{
+  const m=d.meta,f=d.forces;document.getElementById("mt").textContent=m.created;document.getElementById("lh").textContent=m.l_hand;
+  const bad=d.check.filter(c=>c.hits.length).length;document.getElementById("chk").textContent=bad?`겹침 ${bad} 자세`:"겹침 없음";
+  const kv=[["이동 (게이트)",`roll ±${m.gate_deg.roll}° · 앞 ${m.gate_deg.fwd}° · 뒤 ${m.gate_deg.aft}° (짐벌 ±${m.travel_deg}°)`],
+   ["손에서 이동",`roll ±${Math.round(m.l_hand*Math.sin(m.gate_deg.roll*Math.PI/180))} mm · 앞 ${Math.round(m.l_hand*Math.sin(m.gate_deg.fwd*Math.PI/180))} / 뒤 ${Math.round(m.l_hand*Math.sin(m.gate_deg.aft*Math.PI/180))} mm`],
+   ["힘 (기본, 추정)",`roll 1° ${f.variants.default.roll_N[1]} N → 15° ${f.variants.default.roll_N[15]} N · pitch 1° ${f.variants.default.pitch_N[1]} N → 20° ${f.variants.default.pitch_N[20]} N`],
+   ["조절 범위 (추정)",`끝 힘 roll ${f.variants.light.roll_N[15]}~${f.variants.heavy.roll_N[15]} N · pitch ${f.variants.light.pitch_N[20]}~${f.variants.heavy.pitch_N[20]} N`],
+   ["짐벌 중심",`바닥판 아래면에서 ${m.pivot[2]} mm · 관 위끝 = 중심 위 ${m.tube_top} mm`],["크기","바닥판 188 × 192, 높이 170 (게이트 윗면)"]];
+  document.getElementById("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
+  const A=f.angles;ctlChart(document.getElementById("chart"),[
+   {name:"pitch 기본",color:"#d9822b",pts:A.map((a,i)=>[a,f.variants.default.pitch_N[i]])},
+   {name:"roll 기본",color:"#4f79b0",pts:A.map((a,i)=>[a,f.variants.default.roll_N[i]])},
+   {name:"pitch 가벼움/무거움",color:"#d9822b",dash:1,w:1.2,pts:A.map((a,i)=>[a,f.variants.light.pitch_N[i]])},
+   {name:"",color:"#d9822b",dash:1,w:1.2,pts:A.map((a,i)=>[a,f.variants.heavy.pitch_N[i]])},
+   {name:"roll 가벼움/무거움",color:"#4f79b0",dash:1,w:1.2,pts:A.map((a,i)=>[a,f.variants.light.roll_N[i]])},
+   {name:"",color:"#4f79b0",dash:1,w:1.2,pts:A.map((a,i)=>[a,f.variants.heavy.roll_N[i]])}],"기울인 각도 (°)","손 힘 (N)");
+  document.querySelectorAll(".legend span").forEach(s=>{if(!s.textContent)s.remove()});
+  const tp=document.getElementById("tp");let g=0;
+  for(const p of d.parts.filter(p=>p.kind==="print")){g+=p.grams;tp.insertAdjacentHTML("beforeend",`<tr data-n="${p.name}"><td><span class="sw" style="background:#${col(p).toString(16).padStart(6,"0")}"></span></td><td>${p.note.split(/[:(]/)[0]}<br><span class="muted">${p.name}.stl</span></td><td>${p.size.join("×")}</td><td>${p.material}</td><td class="n">${p.grams} g</td><td>${p.orient||""}</td></tr>`)}
+  const fil=Math.ceil(g*1.15/10)*10,fc=fil*25;tp.insertAdjacentHTML("beforeend",`<tr class="tot"><td></td><td>필라멘트 합계 (+15 %)</td><td></td><td></td><td class="n">${fil} g</td><td></td></tr>`);
+  const tb=document.getElementById("tb");let tot=fc;
+  for(const[n,q,pr,me]of BUY){tot+=pr;tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td>${q}</td><td class="n">${pr.toLocaleString("ko-KR")}</td><td>${me}</td></tr>`)}
+  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 PLA + PETG + TPU</td><td>${fil} g</td><td class="n">${fc.toLocaleString("ko-KR")}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${tot.toLocaleString("ko-KR")}원</td><td>배송비 · 손잡이 제외</td></tr>`);
+  document.querySelectorAll("tr[data-n]").forEach(r=>r.onclick=()=>V.select(r.dataset.n));
+ }});
 </script>
 </body>
 </html>

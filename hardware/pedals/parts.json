@@ -1,223 +1,879 @@
 {
  "meta": {
-  "created": "2026-11-02T18:55:23",
-  "rudder_deg": 20,
-  "brake_deg": 15,
+  "created": "2026-11-05T17:36:06",
+  "travel_mm": 40,
+  "rocker_deg": 20.35,
+  "pedal_y": 115,
+  "rocker_x": 175,
   "hinge": [
-   30,
-   70
+   -45,
+   51
+  ],
+  "lean_deg": 65,
+  "brake_deg": 15,
+  "roller_x": 45.6,
+  "spring": {
+   "k": 4.0,
+   "pre": 6.0
+  },
+  "reach_adjust_mm": 100,
+  "printer": [
+   240,
+   240,
+   240
   ]
  },
  "parts": [
   {
-   "name": "base_board",
+   "name": "plywood",
    "group": "fixed",
-   "kind": "cut",
-   "note": "바닥 합판 18 mm (320×400) — 출력 안 함, 재단",
-   "material": "합판",
+   "kind": "buy",
+   "note": "자작나무 합판 18 t, 450×400 (재단 주문). 아래에 2020 프로파일 2 줄 레일 클램프",
+   "material": "plywood",
    "size": [
-    320.0,
+    450.0,
     400.0,
     18.0
    ],
+   "volume_cm3": 3227.3,
    "grams": null,
-   "file": "stl/base_board.stl"
+   "orient": "",
+   "file": "stl/plywood.stl"
   },
   {
-   "name": "pivot_post",
+   "name": "rail_L",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "MGN12 리니어 레일 220 mm",
+   "material": "steel",
+   "size": [
+    220.0,
+    12.0,
+    8.0
+   ],
+   "volume_cm3": 21.1,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rail_L.stl"
+  },
+  {
+   "name": "stop_Lb",
    "group": "fixed",
    "kind": "print",
-   "note": "가운데 축 받침: 608 베어링 (세로), 아래에 AS5600",
-   "material": "PETG",
+   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
+   "material": "PLA",
    "size": [
-    60.0,
-    60.0,
+    12.0,
+    28.0,
     11.0
    ],
-   "grams": 19.7,
-   "file": "stl/pivot_post.stl"
+   "volume_cm3": 2.3,
+   "grams": 2.9,
+   "orient": "",
+   "file": "stl/stop_Lb.stl"
   },
   {
-   "name": "spring_post_L",
+   "name": "stop_Lf",
    "group": "fixed",
    "kind": "print",
-   "note": "가운데로 돌아오는 스프링 고정 기둥",
+   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
    "material": "PLA",
    "size": [
-    16.0,
-    16.0,
-    52.0
+    12.0,
+    28.0,
+    11.0
    ],
-   "grams": 7.3,
-   "file": "stl/spring_post_L.stl"
+   "volume_cm3": 2.3,
+   "grams": 2.9,
+   "orient": "",
+   "file": "stl/stop_Lf.stl"
   },
   {
-   "name": "spring_post_R",
+   "name": "rail_R",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "MGN12 리니어 레일 220 mm",
+   "material": "steel",
+   "size": [
+    220.0,
+    12.0,
+    8.0
+   ],
+   "volume_cm3": 21.1,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rail_R.stl"
+  },
+  {
+   "name": "stop_Rb",
    "group": "fixed",
    "kind": "print",
-   "note": "가운데로 돌아오는 스프링 고정 기둥",
+   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
    "material": "PLA",
    "size": [
-    16.0,
-    16.0,
-    52.0
+    12.0,
+    28.0,
+    11.0
    ],
-   "grams": 7.3,
-   "file": "stl/spring_post_R.stl"
+   "volume_cm3": 2.3,
+   "grams": 2.9,
+   "orient": "",
+   "file": "stl/stop_Rb.stl"
   },
   {
-   "name": "heel_rest",
+   "name": "stop_Rf",
    "group": "fixed",
-   "kind": "cut",
-   "note": "발뒤꿈치 받침 — 400 mm 라 출력 안 함, 나무 각재 재단 + 고무",
-   "material": "각재",
-   "size": [
-    60.0,
-    400.0,
-    10.0
-   ],
-   "grams": null,
-   "file": "stl/heel_rest.stl"
-  },
-  {
-   "name": "rudder_bar",
-   "group": "rudder",
-   "kind": "buy",
-   "note": "알루미늄 프로파일 20×30, 340 mm (러더 바)",
-   "material": "",
-   "size": [
-    30.0,
-    340.0,
-    20.0
-   ],
-   "grams": null,
-   "file": "stl/rudder_bar.stl"
-  },
-  {
-   "name": "bar_hub",
-   "group": "rudder",
-   "kind": "buy",
-   "note": "M8 축 + 와셔 (바를 베어링에)",
-   "material": "",
-   "size": [
-    40.0,
-    40.0,
-    20.0
-   ],
-   "grams": null,
-   "file": "stl/bar_hub.stl"
-  },
-  {
-   "name": "hinge_bracket_L",
-   "group": "rudder",
    "kind": "print",
-   "note": "페달 경첩 받침 (바 끝)",
+   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
+   "material": "PLA",
+   "size": [
+    12.0,
+    28.0,
+    11.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": 2.9,
+   "orient": "",
+   "file": "stl/stop_Rf.stl"
+  },
+  {
+   "name": "tower_base",
+   "group": "fixed",
+   "kind": "print",
+   "note": "러더 축 받침 (아래 608 + 레버 축 기둥 + 기둥 4)",
    "material": "PETG",
    "size": [
-    30.0,
-    110.0,
-    50.0
+    140.0,
+    140.0,
+    64.0
    ],
-   "grams": 20.5,
-   "file": "stl/hinge_bracket_L.stl"
+   "volume_cm3": 194.9,
+   "grams": 160.9,
+   "orient": "바닥을 바닥에, 채움 60 %",
+   "file": "stl/tower_base.stl"
+  },
+  {
+   "name": "tower_top",
+   "group": "fixed",
+   "kind": "print",
+   "note": "러더 축 윗판 (위 608), M5 긴 볼트 4 개로 기둥과 같이 조임",
+   "material": "PETG",
+   "size": [
+    140.0,
+    140.0,
+    8.0
+   ],
+   "volume_cm3": 124.5,
+   "grams": 94.8,
+   "orient": "그대로",
+   "file": "stl/tower_top.stl"
+  },
+  {
+   "name": "bearing_rock_lo",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608-2RS",
+   "material": "steel",
+   "size": [
+    22.0,
+    22.0,
+    7.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bearing_rock_lo.stl"
+  },
+  {
+   "name": "bearing_rock_hi",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608-2RS",
+   "material": "steel",
+   "size": [
+    22.0,
+    22.0,
+    7.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bearing_rock_hi.stl"
+  },
+  {
+   "name": "lever_F",
+   "group": "fixed",
+   "kind": "print",
+   "note": "센터링 롤러 레버 (지렛대 2:1)",
+   "material": "PETG",
+   "size": [
+    14.0,
+    78.0,
+    7.0
+   ],
+   "volume_cm3": 6.9,
+   "grams": 8.8,
+   "orient": "눕혀서, 채움 100 %",
+   "file": "stl/lever_F.stl"
+  },
+  {
+   "name": "roller_F",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608ZZ 롤러",
+   "material": "steel",
+   "size": [
+    22.0,
+    22.0,
+    7.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roller_F.stl"
+  },
+  {
+   "name": "lever_B",
+   "group": "fixed",
+   "kind": "print",
+   "note": "센터링 롤러 레버 (지렛대 2:1)",
+   "material": "PETG",
+   "size": [
+    14.0,
+    78.0,
+    7.0
+   ],
+   "volume_cm3": 6.9,
+   "grams": 8.8,
+   "orient": "눕혀서, 채움 100 %",
+   "file": "stl/lever_B.stl"
+  },
+  {
+   "name": "roller_B",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "608ZZ 롤러",
+   "material": "steel",
+   "size": [
+    22.0,
+    22.0,
+    7.0
+   ],
+   "volume_cm3": 2.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/roller_B.stl"
+  },
+  {
+   "name": "rock_spring",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "인장 스프링 (기본 k ≈ 4.0 N/mm, 추정) — 바꿔 끼워 페달 무게감 조절",
+   "material": "steel",
+   "size": [
+    61.2,
+    10.0,
+    10.0
+   ],
+   "volume_cm3": 4.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rock_spring.stl"
+  },
+  {
+   "name": "rock_eyebolt",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "M5 아이볼트 + 손잡이 너트 = 가운데 힘 (예압) 조절",
+   "material": "steel",
+   "size": [
+    38.0,
+    14.0,
+    14.0
+   ],
+   "volume_cm3": 1.6,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rock_eyebolt.stl"
+  },
+  {
+   "name": "as5600_rudder",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "AS5600 (러더)",
+   "material": "PCB",
+   "size": [
+    23.0,
+    23.0,
+    1.6
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/as5600_rudder.stl"
+  },
+  {
+   "name": "sensor_mount_rudder",
+   "group": "fixed",
+   "kind": "print",
+   "note": "러더 AS5600 받침 (윗판 위)",
+   "material": "PLA",
+   "size": [
+    40.0,
+    40.0,
+    15.0
+   ],
+   "volume_cm3": 10.6,
+   "grams": 7.2,
+   "orient": "",
+   "file": "stl/sensor_mount_rudder.stl"
+  },
+  {
+   "name": "damper_anchor",
+   "group": "fixed",
+   "kind": "print",
+   "note": "오일 댐퍼 아래 고정점",
+   "material": "PLA",
+   "size": [
+    20.0,
+    24.0,
+    58.0
+   ],
+   "volume_cm3": 27.7,
+   "grams": 34.3,
+   "orient": "",
+   "file": "stl/damper_anchor.stl"
+  },
+  {
+   "name": "cam_rudder",
+   "group": "rocker",
+   "kind": "cut",
+   "note": "러더 캠: 알루미늄 8 t 레이저 절단 (cam_rudder.dxf)",
+   "material": "AL6061",
+   "size": [
+    77.1,
+    48.7,
+    8.0
+   ],
+   "volume_cm3": 24.5,
+   "grams": null,
+   "orient": "",
+   "file": "stl/cam_rudder.stl"
+  },
+  {
+   "name": "rock_shaft",
+   "group": "rocker",
+   "kind": "buy",
+   "note": "Ø8 h6 연마봉 100 mm, D컷",
+   "material": "steel",
+   "size": [
+    8.0,
+    8.0,
+    81.0
+   ],
+   "volume_cm3": 4.1,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rock_shaft.stl"
+  },
+  {
+   "name": "rock_hub",
+   "group": "rocker",
+   "kind": "print",
+   "note": "러더 바 허브 (알루미늄 바를 위아래로 물고 M4 ×4, 축은 D컷 + 무두볼트)",
+   "material": "PETG",
+   "size": [
+    40.0,
+    40.0,
+    20.0
+   ],
+   "volume_cm3": 15.5,
+   "grams": 19.7,
+   "orient": "",
+   "file": "stl/rock_hub.stl"
+  },
+  {
+   "name": "rock_bar",
+   "group": "rocker",
+   "kind": "buy",
+   "note": "알루미늄 평철 30×8, 258 mm (러더 바), 끝 M6 구멍 = 연결봉",
+   "material": "AL6061",
+   "size": [
+    30.0,
+    258.0,
+    8.0
+   ],
+   "volume_cm3": 60.7,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rock_bar.stl"
+  },
+  {
+   "name": "magnet_rudder",
+   "group": "rocker",
+   "kind": "buy",
+   "note": "자석 Ø6×2.5 직경 방향 (축 위 끝)",
+   "material": "NdFeB",
+   "size": [
+    8.0,
+    8.0,
+    3.0
+   ],
+   "volume_cm3": 0.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/magnet_rudder.stl"
+  },
+  {
+   "name": "carriage_blk_L",
+   "group": "carL",
+   "kind": "buy",
+   "note": "MGN12H 캐리지",
+   "material": "steel",
+   "size": [
+    40.0,
+    27.0,
+    10.0
+   ],
+   "volume_cm3": 10.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/carriage_blk_L.stl"
+  },
+  {
+   "name": "carriage_L",
+   "group": "carL",
+   "kind": "print",
+   "note": "페달 캐리지 (MGN12H 위, M3 ×4): 가운데 = 발뒤꿈치 경첩 귀, 앞 = 연결봉 귀, 뒤 = 브레이크 스프링 다리",
+   "material": "PETG",
+   "size": [
+    170.0,
+    94.0,
+    56.0
+   ],
+   "volume_cm3": 148.6,
+   "grams": 122.7,
+   "orient": "바닥을 바닥에, 채움 60 %",
+   "file": "stl/carriage_L.stl"
   },
   {
    "name": "pedal_L",
-   "group": "brakeL",
+   "group": "brkL",
    "kind": "print",
-   "note": "페달 판 (발끝으로 누르면 앞으로 꺾임 = 브레이크)",
+   "note": "페달 판 230×100 (뒤 갈비 2, 발끝 턱). 발끝으로 누르면 경첩을 중심으로 앞으로 15° = 토 브레이크",
    "material": "PETG",
    "size": [
-    87.9,
-    84.0,
-    216.4
+    148.6,
+    100.0,
+    228.0
    ],
-   "grams": 134.6,
+   "volume_cm3": 250.7,
+   "grams": 159.2,
+   "orient": "뒷면 (갈비) 을 위로",
    "file": "stl/pedal_L.stl"
   },
   {
    "name": "hinge_pin_L",
-   "group": "rudder",
+   "group": "brkL",
    "kind": "buy",
-   "note": "M6 볼트 (경첩 축)",
-   "material": "",
+   "note": "Ø8 h6 핀 108 mm (페달에 고정, 귀의 부싱에서 돎, 끝에 자석)",
+   "material": "steel",
    "size": [
-    6.0,
-    113.0,
-    6.0
+    8.0,
+    108.0,
+    8.0
    ],
+   "volume_cm3": 5.4,
    "grams": null,
+   "orient": "",
    "file": "stl/hinge_pin_L.stl"
   },
   {
-   "name": "brake_sensor_L",
-   "group": "rudder",
-   "kind": "print",
-   "note": "브레이크 AS5600 받침 (경첩 축 끝)",
-   "material": "PLA",
+   "name": "brake_spring_L",
+   "group": "carL",
+   "kind": "buy",
+   "note": "토 브레이크 압축 스프링 OD 14 × 25 (k ≈ 10 N/mm, 추정): 뿔을 위에서 누름, M6 나사로 예압",
+   "material": "steel",
    "size": [
-    32.0,
-    10.0,
-    32.0
+    14.0,
+    14.0,
+    21.0
    ],
-   "grams": 7.2,
-   "file": "stl/brake_sensor_L.stl"
+   "volume_cm3": 3.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/brake_spring_L.stl"
   },
   {
-   "name": "hinge_bracket_R",
-   "group": "rudder",
+   "name": "as5600_brake_L",
+   "group": "carL",
+   "kind": "buy",
+   "note": "AS5600 (토 브레이크 왼)",
+   "material": "PCB",
+   "size": [
+    23.0,
+    1.6,
+    23.0
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/as5600_brake_L.stl"
+  },
+  {
+   "name": "sensor_mount_L",
+   "group": "carL",
    "kind": "print",
-   "note": "페달 경첩 받침 (바 끝)",
+   "note": "브레이크 AS5600 받침 (경첩 바깥 끝)",
+   "material": "PLA",
+   "size": [
+    28.0,
+    30.8,
+    34.0
+   ],
+   "volume_cm3": 6.1,
+   "grams": 4.2,
+   "orient": "",
+   "file": "stl/sensor_mount_L.stl"
+  },
+  {
+   "name": "carriage_blk_R",
+   "group": "carR",
+   "kind": "buy",
+   "note": "MGN12H 캐리지",
+   "material": "steel",
+   "size": [
+    40.0,
+    27.0,
+    10.0
+   ],
+   "volume_cm3": 10.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/carriage_blk_R.stl"
+  },
+  {
+   "name": "carriage_R",
+   "group": "carR",
+   "kind": "print",
+   "note": "페달 캐리지 (MGN12H 위, M3 ×4): 가운데 = 발뒤꿈치 경첩 귀, 앞 = 연결봉 귀, 뒤 = 브레이크 스프링 다리",
    "material": "PETG",
    "size": [
-    30.0,
-    110.0,
-    50.0
+    170.0,
+    94.0,
+    56.0
    ],
-   "grams": 20.5,
-   "file": "stl/hinge_bracket_R.stl"
+   "volume_cm3": 148.6,
+   "grams": 122.7,
+   "orient": "바닥을 바닥에, 채움 60 %",
+   "file": "stl/carriage_R.stl"
   },
   {
    "name": "pedal_R",
-   "group": "brakeR",
+   "group": "brkR",
    "kind": "print",
-   "note": "페달 판 (발끝으로 누르면 앞으로 꺾임 = 브레이크)",
+   "note": "페달 판 230×100 (뒤 갈비 2, 발끝 턱). 발끝으로 누르면 경첩을 중심으로 앞으로 15° = 토 브레이크",
    "material": "PETG",
    "size": [
-    87.9,
-    84.0,
-    216.4
+    148.6,
+    100.0,
+    228.0
    ],
-   "grams": 134.6,
+   "volume_cm3": 250.7,
+   "grams": 159.2,
+   "orient": "뒷면 (갈비) 을 위로",
    "file": "stl/pedal_R.stl"
   },
   {
    "name": "hinge_pin_R",
-   "group": "rudder",
+   "group": "brkR",
    "kind": "buy",
-   "note": "M6 볼트 (경첩 축)",
-   "material": "",
+   "note": "Ø8 h6 핀 108 mm (페달에 고정, 귀의 부싱에서 돎, 끝에 자석)",
+   "material": "steel",
    "size": [
-    6.0,
-    113.0,
-    6.0
+    8.0,
+    108.0,
+    8.0
    ],
+   "volume_cm3": 5.4,
    "grams": null,
+   "orient": "",
    "file": "stl/hinge_pin_R.stl"
   },
   {
-   "name": "brake_sensor_R",
-   "group": "rudder",
+   "name": "brake_spring_R",
+   "group": "carR",
+   "kind": "buy",
+   "note": "토 브레이크 압축 스프링 OD 14 × 25 (k ≈ 10 N/mm, 추정): 뿔을 위에서 누름, M6 나사로 예압",
+   "material": "steel",
+   "size": [
+    14.0,
+    14.0,
+    21.0
+   ],
+   "volume_cm3": 3.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/brake_spring_R.stl"
+  },
+  {
+   "name": "as5600_brake_R",
+   "group": "carR",
+   "kind": "buy",
+   "note": "AS5600 (토 브레이크 오른)",
+   "material": "PCB",
+   "size": [
+    23.0,
+    1.6,
+    23.0
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "orient": "",
+   "file": "stl/as5600_brake_R.stl"
+  },
+  {
+   "name": "sensor_mount_R",
+   "group": "carR",
    "kind": "print",
-   "note": "브레이크 AS5600 받침 (경첩 축 끝)",
+   "note": "브레이크 AS5600 받침 (경첩 바깥 끝)",
    "material": "PLA",
    "size": [
-    32.0,
-    10.0,
-    32.0
+    28.0,
+    30.8,
+    34.0
    ],
-   "grams": 7.2,
-   "file": "stl/brake_sensor_R.stl"
+   "volume_cm3": 6.1,
+   "grams": 4.2,
+   "orient": "",
+   "file": "stl/sensor_mount_R.stl"
+  },
+  {
+   "name": "link_L",
+   "group": "link",
+   "kind": "buy",
+   "note": "연결봉: M6 나사봉 + 로드엔드 2 (길이 조절 = 페달 가운데 맞춤)",
+   "material": "steel",
+   "size": [
+    104.2,
+    6.0,
+    15.7
+   ],
+   "volume_cm3": 2.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/link_L.stl"
+  },
+  {
+   "name": "link_R",
+   "group": "link",
+   "kind": "buy",
+   "note": "연결봉: M6 나사봉 + 로드엔드 2 (길이 조절 = 페달 가운데 맞춤)",
+   "material": "steel",
+   "size": [
+    104.2,
+    6.0,
+    15.7
+   ],
+   "volume_cm3": 2.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/link_R.stl"
+  },
+  {
+   "name": "damper",
+   "group": "link",
+   "kind": "buy",
+   "note": "RC 카 오일 쇼크 (1/8 버기, 스프링 뺌) = 점성 댐퍼. 오일 점도로 조절 (스틱션 없음)",
+   "material": "alu",
+   "size": [
+    92.0,
+    14.0,
+    14.0
+   ],
+   "volume_cm3": 14.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/damper.stl"
+  }
+ ],
+ "forces": {
+  "variants": {
+   "light": {
+    "k": 2.0,
+    "pedal_N": [
+     -0.0,
+     6.2,
+     8.3,
+     10.4,
+     12.6,
+     14.9,
+     17.1,
+     19.4,
+     21.8,
+     24.2,
+     26.6,
+     29.0,
+     31.5,
+     33.9,
+     36.5,
+     39.0,
+     41.7,
+     44.6,
+     47.3,
+     50.1,
+     52.9
+    ]
+   },
+   "default": {
+    "k": 4.0,
+    "pedal_N": [
+     -0.0,
+     20.7,
+     25.0,
+     29.4,
+     33.9,
+     38.4,
+     43.0,
+     47.5,
+     52.4,
+     57.4,
+     62.3,
+     67.1,
+     72.0,
+     77.1,
+     82.1,
+     87.3,
+     92.7,
+     98.7,
+     104.2,
+     109.8,
+     115.4
+    ]
+   },
+   "heavy": {
+    "k": 8.0,
+    "pedal_N": [
+     -0.0,
+     58.0,
+     67.0,
+     75.9,
+     85.1,
+     94.2,
+     103.5,
+     112.7,
+     122.6,
+     132.8,
+     142.5,
+     152.3,
+     162.3,
+     172.4,
+     182.7,
+     193.1,
+     204.1,
+     216.3,
+     227.4,
+     238.7,
+     250.1
+    ]
+   }
+  },
+  "travel_mm": [
+   0.0,
+   2.0,
+   4.1,
+   6.1,
+   8.2,
+   10.2,
+   12.2,
+   14.3,
+   16.3,
+   18.3,
+   20.3,
+   22.3,
+   24.3,
+   26.3,
+   28.3,
+   30.3,
+   32.2,
+   34.2,
+   36.1,
+   38.1,
+   40.0
+  ],
+  "rocker_deg": [
+   0.0,
+   1.02,
+   2.04,
+   3.05,
+   4.07,
+   5.09,
+   6.11,
+   7.12,
+   8.14,
+   9.16,
+   10.18,
+   11.19,
+   12.21,
+   13.23,
+   14.25,
+   15.27,
+   16.28,
+   17.3,
+   18.32,
+   19.34,
+   20.35
+  ],
+  "note": "한쪽 페달에서 필요한 힘 N (연결봉 · 레일 마찰 · 댐퍼 제외, 추정)"
+ },
+ "check": [
+  {
+   "pose": [
+    0,
+    0,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    20.354406398237206,
+    0,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -20.354406398237206,
+    0,
+    0
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    0,
+    15,
+    15
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    20.354406398237206,
+    15,
+    15
+   ],
+   "hits": []
+  },
+  {
+   "pose": [
+    -20.354406398237206,
+    15,
+    15
+   ],
+   "hits": []
   }
  ]
 }
