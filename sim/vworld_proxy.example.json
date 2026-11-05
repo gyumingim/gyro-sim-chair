@@ -1,0 +1,14 @@
+{
+ "_note": "Copy to unreal/GyroSim/Config/vworld_proxy.json (git-ignored) to change the V-World tile proxy. Values here = the defaults in sim/vworld_proxy.py.",
+ "port": 8790,
+ "mode": "online",
+ "cache_dir": "C:/GyroSimTiles/vworld",
+ "_terms": "V-World 이용약관 19조: 허락 없이 저장 금지. permanent_cache / prefetch_enabled 는 공간정보산업진흥원(1661-0115, vworld@spacen.or.kr)의 서면 허락을 받은 뒤에만 true 로. 그 전에는 받은 타일이 3일(서버 max-age) 뒤 지워진다.",
+ "permanent_cache": false,
+ "prefetch_enabled": false,
+ "rate_per_s": 4.0,
+ "concurrency": 4,
+ "daily_budget": 2000,
+ "max_online_zoom": 16,
+ "referer": ""
+}

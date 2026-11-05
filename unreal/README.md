@@ -25,6 +25,23 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 | `photo` | 평평한 땅 + 위성사진 (Sentinel-2, 10 m 해상도, 인터넷으로 받음 — 처음엔 타일이 하나씩 채워짐) |
 | 토큰 한 줄 | Cesium World Terrain (실제 산) + Bing 항공사진 |
 | 토큰 + `photoreal` | Google 사실적 3D 타일 (더 무거움) |
+| `vworld` (토큰 있어도 됨) | **브이월드(V-World) 항공사진** (한국만). 토큰 있으면 Cesium World Terrain + OSM 건물, 없으면 평평한 땅 (아래 "V-World 모드") |
+
+### V-World 모드 (11-05, `cesium_token.txt` 에 `vworld` 한 줄)
+근거·약관 정리: `docs/vworld-integration.md`. 구조: 언리얼(Cesium) → **로컬 타일 프록시** `sim/vworld_proxy.py` (127.0.0.1:8790) → api.vworld.kr.
+- **키**: `unreal/GyroSim/Config/vworld_key.txt` 한 줄 (git 제외 — 저장소가 공개). 키는 프록시만 읽고, 언리얼·로그·파일 어디에도 안 남김.
+- **프록시 켜기**: `python sim/server.py` 가 `vworld` 줄을 보면 같이 켠다 (따로: `python sim/vworld_proxy.py`). 안 켜져 있으면 Play 때 격자 땅 + HUD "V-WORLD PROXY NOT RUNNING".
+- **호출 아끼기** (키 차단 방지, 설정 `Config/vworld_proxy.json`, 예시 `sim/vworld_proxy.example.json`): 캐시 먼저, 초당 4 회·동시 4 개, **하루 2000 회** (한국 0시 초기화),
+  온라인 줌 16 까지 (Cesium 최대 레벨도 16), 한국 밖·줌 0–5 는 호출 없이 빈 타일, Cesium 오버레이 화면 오차 4 (기본 2 → 호출이 줄어듦, 양은 **추정**).
+  응답이 진짜 JPEG 인지 검사 (오류는 HTTP 200 + XML 로 옴). `OVER_REQUEST_LIMIT`·키 오류 → 그날 0시까지 호출 중지. 그 밖 오류 → 1, 2, 4 … 300 초 쉬기, 3 번 실패한 타일은 24 시간 안 부름.
+  못 받으면: 캐시 → 낮은 줌 캐시 확대 → 빈 타일. 상태: `python sim/vworld_proxy.py --status`, 호출 기록 `C:\GyroSimTiles\vworld\usage.jsonl`. 오프라인 = 설정 `"mode": "cache-only"`.
+- **약관 (19조 무단 저장 금지)**: 캐시(`C:\GyroSimTiles\vworld`, 저장소 밖)는 **받은 뒤 3 일(서버 max-age) 지나면 지움**.
+  `permanent_cache`(영구 보관)·`prefetch_enabled`(미리 받기 `--prefetch`)는 기본 **끔** — **공간정보산업진흥원의 서면 허락을 받은 뒤에만** 켠다 (1661-0115, vworld@spacen.or.kr).
+  타일은 절대 git 에 넣지 않는다 (`.gitignore` 에 `GyroSimTiles/`, `tile_cache/`). Cesium 자체 캐시에도 안 남게 프록시가 `no-store` 로 보냄.
+- **화면**: 오른쪽 아래에 출처 "지도: 브이월드(V-World), 국토교통부" (13조, `sim/vworld_attribution.png`, VR 에선 아래 가운데). 오른쪽 화면 MAP 줄 = V-WORLD PHOTO.
+  Sentinel-2·Bing 사진은 이 모드에서 **섞지 않음** (14조 군사시설 조항 위험). 활주로는 우리 메시 (V-World 는 청주 기지를 숲으로 가림).
+- **지형**: ion 토큰이 있으면 Cesium World Terrain (+ OSM 건물, ion 96188), **없으면 타원체 = 평평한 땅** (산 없음). 토큰 지형·건물은 토큰이 없어 **시험 못 함**.
+- 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 
 ### 실제 지형 켜기 — Cesium ion 토큰 (나중에 원하면, 사용자가 할 일)
 1. https://ion.cesium.com 에서 무료 가입 (Community 요금제, 카드 필요 없음).

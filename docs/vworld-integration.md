@@ -125,7 +125,12 @@ Unreal (Cesium) ──http://127.0.0.1:8765/vworld/sat/{z}/{reverseY}/{x}.jpg─
 | 한국 밖 / 줌 0–5 | V-World 를 부르지 않음. 0–5 는 Sentinel-2(EOX) 를 그대로 통과(이것은 기지가 안 보일 정도로 거칠다), 한국 밖은 Sentinel-2 또는 빈 바다색 | V-World 는 6–19, 한국만 |
 | 기록 | `C:\GyroSimTiles\usage.jsonl` 에 날짜별 호출 수·오류 | 예산 확인 |
 
-Unreal 쪽 변경 (다른 에이전트 작업 중이라 여기서는 하지 않음, 할 일만 적음):
+**구현됨 (11-05)**: `sim/vworld_proxy.py` (위 규칙 그대로, 단 포트는 **8790** — 8765 는 이 PC 의 다른 도구가 씀), `sim/server.py` 가 자동 시작,
+Unreal `vworld` 땅 모드 (`sim_client.py`), 점검 `Scripts/vworld_check.py`. 사용법은 `unreal/README.md` "V-World 모드".
+차이: 줌 0–5·한국 밖은 Sentinel-2 를 통과시키지 않고 **빈 타일** (14조 — 섞지 않기, 사용자 결정). Cesium 오버레이 최대 레벨 16, 화면 오차 4.
+구현 시험에서 V-World 에 보낸 요청: **97 회** (타일 96 + 시간 초과 1, 시험용 하루 예산 95 — 동시 요청이 예산 검사를 2 회 넘김, 그 뒤 고침), 그 뒤 cache-only.
+
+원래 계획 (위 구현의 근거):
 - `build_level.py`: `CesiumUrlTemplateRasterOverlay` 하나 더 (`MaterialLayerKey` 새 이름, `template_url =
   "http://127.0.0.1:8765/vworld/sat/{z}/{reverseY}/{x}.jpg"`, `minimum_level=0`, `maximum_level=19`, `auto_activate=False`).
   최소 레벨을 6 으로 두면 Cesium 이 전 세계 4096 장부터 부르려 하므로(헤더의 경고) 0 부터 두고 프록시가 0–5 를 처리.
@@ -182,7 +187,7 @@ Cesium 은 화면에서 가까운 곳일수록 높은 줌을 부른다. 한 줌 
 |---|---|
 | 개발키 WMTS 일일 제한 (마이포털 > 인증키 관리) | [확인 필요] |
 | 개발키 만료일 | [확인 필요] |
-| 진흥원 캐시 허락 회신 | [확인 필요] — 오기 전까지 영구 캐시·채우기 작업 끔 |
+| 진흥원 캐시 허락 회신 | [확인 필요]. **11-05 사용자 결정**: 약관 19조 위험(키 해지 가능)을 알고도 **이 PC 에서는 영구 캐시 켬** (git 제외 로컬 설정 `Config/vworld_proxy.json`, 저장소 기본값은 끔). 캐시는 git·업로드 금지 그대로. 미리 받기는 사용자가 원할 때만 |
 
 ---
 

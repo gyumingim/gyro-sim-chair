@@ -13,3 +13,6 @@ Content/ThirdParty/
 Config/cesium_token.txt
 cesium-request-cache.sqlite*
 Art/Cockpit/preview/
+Config/vworld_key.txt
+# local V-World tile proxy settings (sim/vworld_proxy.example.json)
+Config/vworld_proxy.json

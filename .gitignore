@@ -1,2 +1,6 @@
 # reference photos / video frames (third-party, some copyrighted) - never commit
 refs/
+# V-World tiles must never be committed (V-World terms 19조, 측량성과 국외 반출) - the cache lives outside the repo
+# (C:\GyroSimTiles) by default; these block it if it is ever pointed inside
+GyroSimTiles/
+tile_cache/

@@ -39,3 +39,10 @@ if "-gyrosimshots" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "realism_shots.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_shots"})
+
+# V-World ground mode check (developer use): launch with  -GyroSimVWorld  (Scripts/vworld_check.py, needs the 'vworld'
+# line in Config/cesium_token.txt and the tile proxy). Leaves the editor open.
+if "-gyrosimvworld" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_check.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld"})

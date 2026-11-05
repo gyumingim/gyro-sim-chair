@@ -14,7 +14,7 @@ The demo autopilot (training) overrides the controls while a demo runs.
 
 Run:  python server.py      then open http://127.0.0.1:8780/
 """
-import asyncio, json, os, socket, threading, time
+import asyncio, json, os, socket, sys, threading, time
 os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")     # joystick keeps working while Unreal has focus
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -250,6 +250,14 @@ def http_server():
 
 async def main():
     threading.Thread(target=http_server, daemon=True).start()
+    # V-World tile proxy (key, cache, budget) for the Unreal 'vworld' ground mode: started here when
+    # unreal/GyroSim/Config/cesium_token.txt has a 'vworld' line (or with --vworld-proxy); skipped if one already runs
+    try:
+        import vworld_proxy
+        if "--vworld-proxy" in sys.argv or vworld_proxy.ground_mode_is_vworld():
+            vworld_proxy.start_in_thread()
+    except Exception as e:
+        print("vworld proxy not started:", repr(e), flush=True)
     threading.Thread(target=joystick_thread, daemon=True).start()
     await asyncio.get_running_loop().create_datagram_endpoint(CmdUDP, local_addr=("127.0.0.1", CMD_UDP_PORT))
     async with serve(handler, "127.0.0.1", WS_PORT):

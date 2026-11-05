@@ -19,7 +19,8 @@ Third-party content is imported to /Game/ThirdParty (not in git - .gitignore); l
 
 Actors with tags used by sim_client: Aircraft, AircraftPart, Gear, Canopy, Cockpit, StickPivot, ThrottlePivot, PedalL,
 PedalR, GearHandle, GearLights, Needle_asi / Needle_alt / Needle_alt10k / Needle_vsi, ADIBall, SimCamera (rig),
-SimView (camera), HUD (plane), MFD_L / MFD_R (screens), TutorPanel, KeyPanel, CesiumGeoreference, CesiumGround.
+SimView (camera), HUD (plane), MFD_L / MFD_R (screens), TutorPanel, KeyPanel, CesiumGeoreference, CesiumGround,
+CesiumBuildings (OSM buildings, off until a token), Attribution (V-World source note).
 """
 import json, math, os, sys
 import unreal
@@ -690,6 +691,19 @@ if HAS_CESIUM:
         template_url="https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg",
         maximum_level=15, material_layer_key="Overlay0", auto_activate=False))
     add_comp(ts, unreal.CesiumIonRasterOverlay, dict(ion_asset_id=0, material_layer_key="Overlay1", auto_activate=False))   # asset 2 set at Play
+    # OSM buildings (vworld / terrain modes with an ion token; sim_client sets ion asset 96188 at Play). Off = no URL.
+    bt = eas.spawn_actor_from_class(unreal.Cesium3DTileset, V(0, 0, 0))
+    bt.set_actor_label("CesiumBuildings")
+    bt.tags = [unreal.Name("CesiumBuildings")]
+    try:
+        bt.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+    except Exception as e:
+        log("buildings mobility", e)
+    bt.set_georeference(gr)
+    bt.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
+    bt.set_editor_property("url", "")
+    bt.set_actor_location_and_rotation(V(0, 0, 0), unreal.Rotator(yaw=90.0), False, True)
+    bt.set_actor_hidden_in_game(True)
     log("Cesium georeference + ground tileset placed, overlays",
         [c.get_class().get_name() for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)])
 else:
@@ -1044,6 +1058,13 @@ for lbl, d, sc, pr in (("CrashBack", CRASH_D + 2.0, (12.0, 8.0, 1), 100), ("Cras
     ca.static_mesh_component.set_editor_property("translucency_sort_priority", pr)
     ca.set_actor_hidden_in_game(True)
     attach(ca, view)
+# V-World source note (terms 13조, sim/vworld_attribution.png set at Play): small plate on the view camera, shown only
+# in the vworld ground mode; sim_client places / sizes it (lower right on the monitor, low centre in VR).
+att = place("Attribution", SHAPE["Plane"], (EYE[0] + CRASH_D, 0.0, EYE[2]), MAT["crash"], (r.roll, r.pitch, r.yaw), (0.3, 0.03, 1),
+            movable=True, shadows=False, tags=("Attribution", "Overlay"))
+att.static_mesh_component.set_editor_property("translucency_sort_priority", 99)
+att.set_actor_hidden_in_game(True)
+attach(att, view)
 log("camera + overlays done")
 
 ws = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world().get_world_settings()

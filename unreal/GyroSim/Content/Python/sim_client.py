@@ -56,12 +56,22 @@ Z_OFFSET_CM = GEAR_BOTTOM_CM - AGL_REST_M * 100.0
 INTERP_DELAY = 1 / 60 + 0.004      # s behind the newest packet
 MAX_EXTRAP = 0.05
 
-GROUND_MODES = ("grid", "fields", "photo", "terrain", "photoreal")
+GROUND_MODES = ("grid", "fields", "photo", "terrain", "photoreal", "vworld")
 STARTUP_MODE = "air"               # Play always starts here (fresh run, not wherever the server drifted to)
 STARTUP_MIN, STARTUP_MAX, STARTUP_FPS = 1.5, 15.0, 90.0
 TOKEN_FILE = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "cesium_token.txt")
 EOX_URL = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg"
-ION_TERRAIN, ION_BING, ION_PHOTOREAL = 1, 2, 2275207
+ION_TERRAIN, ION_BING, ION_PHOTOREAL, ION_OSM_BUILDINGS = 1, 2, 2275207, 96188
+# 'vworld' ground (docs/vworld-integration.md): V-World aerial photos through the local tile proxy sim/vworld_proxy.py
+# (holds the key, cache, budget; started by sim/server.py). Korea only, online zoom <= 16. Terrain = Cesium World
+# Terrain only with an ion token, else the flat ellipsoid at the field elevation; OSM buildings only with a token.
+# Never mixed with Sentinel-2 / Bing (terms 14조). On-screen source note (terms 13조): sim/vworld_attribution.png.
+VW_CFG = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "vworld_proxy.json")
+VW_PORT = 8790                      # = vworld_proxy.DEFAULTS["port"] (overridden by Config/vworld_proxy.json "port")
+VW_MAX_LEVEL = 16
+VW_SSE = 4.0                        # raster overlay screen-space error (default 2): half the texel density, ~1/4 of the requests
+VW_ATTRIB_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "vworld_attribution.png"))
+VW_ATTRIB_D, VW_ATTRIB_W = 150.0, 0.30         # cm ahead of the view camera, width as a fraction of the view width
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
@@ -454,7 +464,7 @@ class SimClient:
         mode = kws[-1] if kws else ("terrain" if token else "grid")
         if mode in ("terrain", "photoreal") and not token:
             mode = "grid"
-        return token, mode
+        return token, mode       # 'vworld' works with or without a token (token = real terrain + OSM buildings)
 
     read_token = read_ground_cfg
 
@@ -482,12 +492,17 @@ class SimClient:
             ts.set_actor_hidden_in_game(True)
             return
         ts.set_actor_hidden_in_game(False)
-        if mode == "photo":
+        if mode == "vworld":
+            self._vworld_ground(ts, eox, token)
+        elif mode == "photo":
             h = self.s.get("field_m", 58.2) if self.s else 58.2
             ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
             ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
             if eox:
+                eox.set_editor_property("template_url", EOX_URL)
+                eox.set_editor_property("maximum_level", 15)
                 eox.add_to_tileset()
+                eox.set_active(True)
         else:
             ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
             ts.set_editor_property("ion_access_token", token)
@@ -497,24 +512,105 @@ class SimClient:
                 ion.set_editor_property("ion_access_token", token)
                 ion.set_editor_property("ion_asset_id", ION_BING)
                 ion.add_to_tileset()
+                ion.set_active(True)
         ts.refresh_tileset()
+
+    @staticmethod
+    def vworld_port():
+        try:
+            with open(VW_CFG, encoding="utf-8-sig") as f:
+                return int(json.load(f).get("port", VW_PORT))
+        except (OSError, ValueError, TypeError):
+            return VW_PORT
+
+    def vworld_status(self, timeout=0.4):
+        """the proxy's /status (budget, online / stopped), None if it is not running. Never contains the key."""
+        import urllib.request
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:%d/status" % self.vworld_port(), timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception:
+            return None
+
+    def _vworld_ground(self, ts, ov, token):
+        """V-World photo overlay (through the local proxy, never Sentinel-2 / Bing) on Cesium World Terrain (token) or
+        the flat ellipsoid raised to the field elevation (no token)."""
+        if token:
+            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            ts.set_editor_property("ion_access_token", token)
+            ts.set_editor_property("ion_asset_id", ION_TERRAIN)
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_CESIUM_ION)
+        else:
+            h = self.s.get("field_m", 58.2) if self.s else 58.2
+            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
+        self.vw_terrain = bool(token)
+        if ov:
+            ov.set_editor_property("template_url", "http://127.0.0.1:%d/vworld/sat/{z}/{reverseY}/{x}.jpg" % self.vworld_port())
+            ov.set_editor_property("minimum_level", 0)                 # the proxy answers 0-5 / outside Korea locally (blank)
+            ov.set_editor_property("maximum_level", VW_MAX_LEVEL)
+            try:
+                ov.set_maximum_screen_space_error(VW_SSE)
+                ov.set_maximum_simultaneous_tile_loads(8)
+            except Exception as e:
+                _log("vworld overlay options", repr(e))
+            ov.add_to_tileset()
+            ov.set_active(True)               # auto_activate is off in the map: add_to_tileset alone left it inactive (no requests)
+        if token:
+            self._osm_buildings(token)
+
+    def _osm_buildings(self, token):
+        """Cesium OSM Buildings (ion asset 96188, needs the token): a second tileset spawned in the Play world."""
+        try:
+            b = self.buildings = self._find("CesiumBuildings")          # build_level: off (no URL) until here
+            if b is None:
+                _log("OSM buildings: no CesiumBuildings actor in the map (run build_level.py)")
+                return
+            b.set_editor_property("ion_access_token", token)
+            b.set_editor_property("ion_asset_id", ION_OSM_BUILDINGS)
+            b.set_editor_property("tileset_source", unreal.TilesetSource.FROM_CESIUM_ION)
+            b.set_actor_hidden_in_game(False)
+            b.refresh_tileset()
+            _log("OSM buildings on")
+        except Exception as e:
+            _log("OSM buildings failed", repr(e))
 
     def _setup_cesium(self):
         gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
         self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
+        self.buildings, self.vw_terrain, self.vw_note, self.vw_stat, self.attrib = None, False, None, None, None
         token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
             mode = (mode if mode == "fields" else "grid") if self.grid else "none"
+        if mode == "vworld":
+            self.vw_stat = self.vworld_status(1.0)
+            if self.vw_stat is None:                  # no proxy -> grid (never Sentinel-2 in place of V-World)
+                _log("vworld: tile proxy not running on port", self.vworld_port(), "- grid ground (start sim/server.py or sim/vworld_proxy.py)")
+                self.cesium_failed = "V-WORLD PROXY NOT RUNNING - GRID GROUND"
+                mode = "grid"
         try:
             self._ground(mode, token)
             self.cesium_mode = mode
         except Exception as e:
             _log("ground setup failed", repr(e))
             self.cesium_mode = "error"
-        _log("ground mode", self.cesium_mode, "config", TOKEN_FILE, "token" if token else "no token")
+        _log("ground mode", self.cesium_mode, "config", TOKEN_FILE, "token" if token else "no token",
+             ("terrain" if self.vw_terrain else "flat ellipsoid (no ion token)") if self.cesium_mode == "vworld" else "")
+        self._attribution()
 
     def _cesium_fallback(self, why):
-        """terrain mode failed -> grid ground (tileset off)."""
+        """terrain mode failed -> grid ground (tileset off); vworld on terrain -> vworld on the flat ellipsoid."""
+        if self.cesium_mode == "vworld":
+            _log("vworld terrain failed -> flat ellipsoid:", why)
+            try:
+                if getattr(self, "buildings", None):
+                    self.buildings.set_actor_hidden_in_game(True)
+                self._ground("vworld", None)
+            except Exception as e:
+                _log("fallback failed", repr(e))
+            self.cesium_failed = "CESIUM TERRAIN FAILED (TOKEN?) - V-WORLD FLAT"
+            self.t_bind = time.perf_counter()
+            return
         _log("cesium fallback to grid:", why)
         try:
             self._ground("grid")
@@ -846,6 +942,7 @@ class SimClient:
                 self.view_cam.camera_component.set_field_of_view(want)
             except Exception as e:
                 _log("fov", repr(e))
+            self._attrib_place()                              # the source note keeps its size on screen
 
     def _place_outside(self, dt, loc, rot):
         tgt = loc + unreal.Vector(0, 0, LOOK_AT_UP_CM)
@@ -1142,7 +1239,7 @@ class SimClient:
         if not s or not self.last_pose or now - self.trace_t < 0.1:
             return
         self.trace_t = now
-        if self.cesium_mode not in ("terrain", "photoreal"):
+        if self.cesium_mode not in ("terrain", "photoreal") and not (self.cesium_mode == "vworld" and getattr(self, "vw_terrain", False)):
             self.radar_m = s.get("agl_m")
             return
         loc = self.last_pose[0]
@@ -1184,7 +1281,9 @@ class SimClient:
         if not self.startup_done:
             ex["note"] = "LOADING - SIM PAUSED"
         elif getattr(self, "cesium_failed", None) and now - self.t_bind < 25:
-            ex["note"] = "CESIUM TERRAIN FAILED (TOKEN?) - GRID GROUND"
+            ex["note"] = self.cesium_failed if isinstance(self.cesium_failed, str) and self.cesium_failed.isupper() else "CESIUM TERRAIN FAILED (TOKEN?) - GRID GROUND"
+        elif self.cesium_mode == "vworld" and self.vw_note:
+            ex["note"] = self.vw_note
         return ex
 
     def _mfd_extra(self):
@@ -1197,6 +1296,7 @@ class SimClient:
         n, e = rws[0][0], rws[0][1]
         line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "photo": "MAP: SATELLITE PHOTO (FLAT)",
                 "grid": "MAP: GRID (FLAT, 1 KM)", "fields": "MAP: FIELDS (FLAT, DRAWN)",
+                "vworld": "MAP: V-WORLD PHOTO " + ("+ TERRAIN" if getattr(self, "vw_terrain", False) else "(FLAT)"),
                 "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
         return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 
@@ -1296,6 +1396,83 @@ class SimClient:
             for a in self.beg_labels:
                 a.set_actor_hidden_in_game(not beg)
 
+    def _attribution(self):
+        """V-World source note (terms 13조) in the vworld mode: a small plate on the view camera, lower right on the
+        monitor (sized with the lens, so the tower zoom keeps it the same on screen), low centre in VR. Spawned here."""
+        on = self.cesium_mode == "vworld"
+        a = getattr(self, "attrib", None)
+        if not on:
+            if a:
+                a.set_actor_hidden_in_game(True)
+            return
+        try:
+            if a is None:
+                a = self._find("Attribution")          # build_level: plate on the view camera (M_Crash: unlit, no depth test)
+                if a is None:
+                    _log("attribution: no Attribution actor in the map (run build_level.py)")
+                    return
+                mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
+                tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, VW_ATTRIB_PNG) if os.path.exists(VW_ATTRIB_PNG) else None
+                if tex and mid:
+                    mid.set_texture_parameter_value("Tex", tex)
+                    self.attrib_aspect = tex.blueprint_get_size_x() / max(1, tex.blueprint_get_size_y())
+                else:
+                    _log("attribution image missing", VW_ATTRIB_PNG)
+                self.attrib = a
+                self.attrib_key = None
+            a.set_actor_hidden_in_game(False)
+            self._attrib_place()
+            _log("V-World attribution shown")
+        except Exception as e:
+            _log("attribution", repr(e))
+
+    def _attrib_place(self):
+        a = getattr(self, "attrib", None)
+        if a is None or self.cesium_mode != "vworld":
+            return
+        try:
+            vp = unreal.WidgetLayoutLibrary.get_viewport_size(self.world)
+            aspect = vp.x / vp.y if vp.y > 0 else 16 / 9
+        except Exception:
+            aspect = 16 / 9
+        fov = self.fov_set or VIEW_FOV
+        key = (round(fov, 2), round(aspect, 3), self.hmd)
+        if key == getattr(self, "attrib_key", None):
+            return
+        self.attrib_key = key
+        D = VW_ATTRIB_D
+        if self.hmd:                                             # VR: low centre, 26 deg down, fixed size (head-locked)
+            hw, w = D * math.tan(math.radians(VIEW_FOV / 2)), 40.0
+            pos = unreal.Vector(D, 0.0, -D * math.tan(math.radians(26.0)))
+        else:
+            hw = D * math.tan(math.radians(fov / 2))             # half view width at D
+            hh = hw / aspect
+            w = 2 * hw * VW_ATTRIB_W
+            h = w / getattr(self, "attrib_aspect", 1024 / 96)
+            m = 0.015 * 2 * hw
+            pos = unreal.Vector(D, hw - m - w / 2, -(hh - m - h / 2))
+        h = w / getattr(self, "attrib_aspect", 1024 / 96)
+        # plane local X = picture right, local Y = picture down (same rotation as the crash panel: normal toward the eye)
+        r = unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0))
+        a.set_actor_relative_location(pos, False, True)
+        a.set_actor_relative_rotation(r, False, True)
+        a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, h / 100.0, 1.0))
+
+    def _vworld_poll(self, now):
+        """proxy status every 5 s (budget / stopped) -> HUD note; the proxy never sends the key."""
+        if self.cesium_mode != "vworld" or now - getattr(self, "vw_poll_t", 0.0) < 5.0:
+            return
+        self.vw_poll_t = now
+        st = self.vworld_status(0.15)
+        self.vw_stat = st
+        if st is None:
+            self.vw_note = "V-WORLD PROXY STOPPED - CACHED TILES ONLY"
+        elif not st.get("online"):
+            self.vw_note = "V-WORLD OFFLINE (%s) - CACHE / LOW-RES" % str(st.get("why", "")).upper()[:40]
+        else:
+            self.vw_note = None
+        self._attrib_place()
+
     def tick(self, dt):
         try:
             now = time.perf_counter()
@@ -1320,6 +1497,7 @@ class SimClient:
                 self._place(dt, now)
                 self._controls(dt)
             self._trace(now)
+            self._vworld_poll(now)
             self._overlay(now)
             self._set_view_target()
             self.frames += 1

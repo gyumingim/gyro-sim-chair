@@ -24,6 +24,8 @@ python sim/server.py          # → http://127.0.0.1:8780/
 - 시험: `playtest/run.py` (학생 봇 잘함 · 서툼 · 반대로, 오프라인, `playtest/README.md`), `test_live.py` (켜진 서버), `playtest/soak.py` (1 시간, 서버 재시작 포함).
   설명서: `docs/sim-tutorial.html` (훈련생), `docs/sim-operator.html` (운영자).
 - `key_panel.py`: 언리얼 조종석 오른쪽 키 안내판 그림 `key_panel.png` 를 만듦 (한 번, git 에 있음). 키를 바꾸면 다시 실행.
+- `vworld_proxy.py`: 브이월드 항공사진 로컬 타일 프록시 (127.0.0.1:8790, 키·캐시·하루 예산·약관 3일 캐시). `server.py` 가 언리얼 땅 모드가 `vworld` 일 때 같이 켬.
+  `--status` 상태, `--selftest` 규칙 점검 (실제 호출 없음). 자세히: `../unreal/README.md` "V-World 모드", `../docs/vworld-integration.md`.
 - 조이스틱: pygame (`pip install pygame`), 축 매핑은 `controls.json`. 꽂혀 있으면 그 축은 브라우저/언리얼 입력보다 우선.
   언리얼 창이 앞에 있어도 동작 (SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1).
 
