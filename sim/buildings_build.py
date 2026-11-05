@@ -46,12 +46,13 @@ WORK, TILES, GROUND = (os.path.join(ROOT, d) for d in ("work", "tiles", "ground"
 INCOMING = r"C:\GyroSimTiles\incoming"
 DEFAULT_SHP = [os.path.join(INCOMING, "bldg_43", "AL_D010_43_20261009.shp")]
 RKTU = (36.7166, 127.4993)
-REGIONS = {"cheongju": dict(center=RKTU, radius_km=30.0)}
+REGIONS = {"cheongju": dict(center=RKTU, radius_km=30.0)}       # Busan: --prep --province 26 --whole --name busan
 SRC_CRS = "EPSG:5186"                                     # read from the .prj (checked: Korea 2000 Central Belt 2010)
 ATTRIB = "건물: 국토교통부 GIS건물통합정보 (CC BY)"
 
 # height rule ----------------------------------------------------------------------------------------------------------
-H_MIN, H_MAX = 2.0, 300.0                                 # A16 outside this = no height (outliers up to 25,275 m seen)
+H_MIN, H_MAX = 2.0, 600.0                                 # A16 outside this = no height (outliers up to 25,275 m seen)
+H_TALL = 300.0                                            # A16 above this only with a floor count that agrees (Busan LCT 411 m, 101 F)
 FLOOR_BASE, FLOOR_M = 1.5, 2.9                            # floors -> m (median of A16 vs A26 where both exist, see stats)
 # no height, no floors (가정, 56.6 % of 충북): small = sheds / houses, large = warehouses / factories
 AREA_DEFAULTS = ((40.0, 3.0), (150.0, 4.5), (600.0, 6.0), (3000.0, 8.0), (1e12, 10.0))
@@ -110,7 +111,7 @@ def area_default(a):
 def height_rule(h16, fl, area):
     """-> height m, source code (1 = A16, 2 = floors, 3 = area default), 'outlier' mask (A16 rejected)."""
     h16, fl = np.nan_to_num(h16), np.nan_to_num(fl)
-    ok16 = (h16 >= H_MIN) & (h16 <= H_MAX)
+    ok16 = (h16 >= H_MIN) & (h16 <= H_MAX) & ((h16 <= H_TALL) | (fl >= 3))
     # A16 that disagrees badly with the floor count (>= 3 floors) is a typo in one of them: trust the floors
     per = np.where(fl > 0, h16 / np.maximum(fl, 1), 0)
     bad_ratio = (fl >= 3) & ok16 & ((per < 2.0) | (per > 8.0))
@@ -163,10 +164,8 @@ def bilinear(a, north, west, lat, lon):
     return (a[r0, c0] * (1 - tc) + a[r0, c0 + 1] * tc) * (1 - tr) + (a[r0 + 1, c0] * (1 - tc) + a[r0 + 1, c0 + 1] * tc) * tr
 
 
-def mesh_height(dem, lat, lon):
-    """MSL height of the finest Cesium terrain mesh (terrain_build: level 13 tiles, 65 x 65 vertices sampled bilinear
-    from the 1" DEM, triangles a-b-d / a-d-c with the diagonal south-west -> north-east) at lat / lon."""
-    d = 180.0 / (1 << MESH_LEVEL) / (MESH_N - 1)
+def _mesh_height(dem, lat, lon, level, nv):
+    d = 180.0 / (1 << level) / (nv - 1)
     fy, fx = (np.asarray(lat) + 90.0) / d, (np.asarray(lon) + 180.0) / d
     j, i = np.floor(fy), np.floor(fx)
     v, u = fy - j, fx - i
@@ -174,6 +173,21 @@ def mesh_height(dem, lat, lon):
     ha, hb = dem.msl(la0, lo0), dem.msl(la0, lo0 + d)
     hc, hd = dem.msl(la0 + d, lo0), dem.msl(la0 + d, lo0 + d)
     return np.where(u >= v, ha + u * (hb - ha) + v * (hd - hb), ha + v * (hc - ha) + u * (hd - hc))
+
+
+def mesh_height(dem, lat, lon):
+    """MSL height of the finest Cesium terrain mesh (terrain_build: level 13 tiles, 65 x 65 vertices sampled bilinear
+    from the 1" DEM, triangles a-b-d / a-d-c with the diagonal south-west -> north-east) at lat / lon. Inside a
+    terrain_dem.HIRES box (Busan) the finest mesh is that box's deeper level (16, 33 x 33) - its lowest point wins, so
+    a block stands on whichever of the two meshes is drawn."""
+    lat, lon = np.asarray(lat, dtype=np.float64), np.asarray(lon, dtype=np.float64)
+    h = _mesh_height(dem, lat, lon, MESH_LEVEL, MESH_N)
+    for b in T.HIRES:
+        w, s, e, n = b["box"]
+        m = (lat >= s) & (lat < n) & (lon >= w) & (lon < e)
+        if np.any(m):
+            h = np.where(m, np.minimum(h, _mesh_height(dem, lat, lon, b["max_level"], b["n"])), h)
+    return h
 
 
 ZIPS = os.path.join(INCOMING, "zips")                    # AL_D010_{sido code}_{date}.zip, all 16 zips (11 서울 ... 52 전북)

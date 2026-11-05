@@ -12,16 +12,22 @@ without a keyboard or mouse (VR).
 Control priority: joystick axes > Unreal UDP (if a ctrl packet arrived in the last 0.5 s) > browser WebSocket.
 The demo autopilot (training) overrides the controls while a demo runs.
 
-Run:  python server.py      then open http://127.0.0.1:8780/
+Run:  python server.py [--start rkpk]      then open http://127.0.0.1:8780/   (--start: airfield, default rktu = Cheongju)
 """
 import asyncio, json, os, socket, sys, threading, time
+# start airfield (sim/airfield.py AIRFIELDS): --start rkpk (Busan Gimhae 36L) | rktu (Cheongju 06R, default), or the
+# GYROSIM_START environment variable. Set before anything imports airfield (simcore, terrain_dem).
+if "--start" in sys.argv:
+    os.environ["GYROSIM_START"] = sys.argv[sys.argv.index("--start") + 1].strip().lower()
 os.environ.setdefault("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")     # joystick keeps working while Unreal has focus
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from websockets.asyncio.server import serve
 from simcore import Sim, START, CHAIR_LIM, CHAIR_RATE
-from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0
+from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0, APT, AF as FIELD, runway_lines
 LAT0_LON0 = (LAT0, LON0)
+APT_INFO = dict(apt=APT, apt_icao=FIELD["icao"], runways=[list(r) for r in runway_lines(APT)], tower=list(FIELD["tower"]))
+print("sim: start airfield %s %s runway %s (field %.1f m, geoid N %.2f m)" % (FIELD["icao"], FIELD["name"], RWY["name"], FIELD_FT * 0.3048, GEOID_N), flush=True)
 from training.engine import Trainer
 from voice import Voice
 
@@ -75,7 +81,7 @@ if terrain_wanted():
         else:
             sim.terrain = DEM.height_msl
         sim.reset("air")
-        print("sim: JSBSim ground = Copernicus DEM (%d cells, %s); field %.1f m at RKTU" % (len(DEM.cells), terrain_dem.ROOT, DEM.height_msl(LAT0_LON0[0], LAT0_LON0[1])), flush=True)
+        print("sim: JSBSim ground = Copernicus DEM (%d cells, %s); field %.1f m at %s" % (len(DEM.cells), terrain_dem.ROOT, DEM.height_msl(LAT0_LON0[0], LAT0_LON0[1]), FIELD["icao"]), flush=True)
     else:
         print("sim: terrain data missing (python sim/terrain_fetch.py && python sim/terrain_build.py --all) - flat field elevation", flush=True)
 state = dict(paused=False, rid=0, snap=None, udp_ctrl_t=-1e9, joy=None, joy_name="", hmd=False, hmd_t=-1e9, t_start=time.time(), crashed=False,
@@ -121,6 +127,7 @@ def snapshot(dt_sim):
     s = sim.packet(1 / 60 if dt_sim > 0 else 0.0)
     if DEM:
         terrain_check(s, dt_sim)
+    s.update(APT_INFO)
     s.update(lat0=START["lat"], lon0=START["lon"], paused=state["paused"] or trainer.want_pause, user_paused=state["paused"], rid=state["rid"],
              field_m=FIELD_FT * 0.3048, geoid_n=GEOID_N, rwy_hdg=RWY["hdg"], joystick=state["joy_name"],
              src="joystick" if state["joy"] else ("unreal" if udp_fresh() else "browser"),

@@ -15,12 +15,14 @@ The whole box is one global 1" grid: row R from BOX_N downwards, column C from B
 
 Heights: Copernicus = orthometric (EGM2008, "MSL"). JSBSim altitudes in this project are MSL (airfield.py), so the
 server uses H directly. Cesium wants WGS84 ellipsoid heights: h = H + N, N = EGM2008 undulation (bilinear on the
-2.5' grid). At the airfield (RKTU) the DEM is flattened to the published field elevation and N to airfield.GEOID_N, so
-the sim's own runway mesh, JSBSim's runway and the Cesium terrain agree exactly there.
+2.5' grid). At every airfield in airfield.AIRFIELDS (RKTU, RKPK) the DEM is flattened to its published field elevation
+and N to its geoid_n, so the sim's own runway mesh, JSBSim's runway and the Cesium terrain agree exactly there (whichever
+airfield the sim starts at - the terrain tiles are the same for all).
 """
 import json, math, os
 import numpy as np
-from airfield import FIELD_M, GEOID_N, RWY, M_LAT, M_LON
+import airfield as AFL
+from airfield import FIELD_M, GEOID_N, RWY, M_LAT, M_LON      # selected start (server); flattening uses all airfields
 
 ROOT = os.environ.get("GYROSIM_TERRAIN", r"C:\GyroSimTiles\terrain")
 RAW, PROC, TILES = (os.path.join(ROOT, d) for d in ("raw", "proc", "tiles"))
@@ -28,26 +30,61 @@ BOX_W, BOX_S, BOX_E, BOX_N = 124, 33, 132, 39            # covers every download
 PX = 3600                                                 # samples per degree (1 arc-second)
 NCOL, NROW = (BOX_E - BOX_W) * PX, (BOX_N - BOX_S) * PX
 
-# airfield flattening (runway axes of 06R: x = m past the 06R threshold, y = m right of the centre line; 06L is 228 m
-# left): core = exactly FIELD_M, then a cosine blend to the real DEM over BLEND_M
-FLAT_X, FLAT_Y, BLEND_M = (-500.0, 3250.0), (-480.0, 260.0), 400.0
+# airfield flattening, every airfield in airfield.AIRFIELDS (runway axes of its start runway: x = m past the threshold,
+# y = m right of the centre line; box = its flat_x / flat_y): core = exactly its field elevation, then a cosine blend to
+# the real DEM over BLEND_M
+FLAT_X, FLAT_Y = AFL.AIRFIELDS["rktu"]["flat_x"], AFL.AIRFIELDS["rktu"]["flat_y"]     # (old names, RKTU)
+BLEND_M = 400.0
 MESH_DROP_M = 0.3                                         # Cesium terrain 30 cm under the runway mesh (no z-fighting), like the grid
+FIELDS = [dict(id=a["id"], lat=a["rwy"]["lat"], lon=a["rwy"]["lon"], hdg=a["rwy"]["hdg"], mlon=111320.0 * math.cos(math.radians(a["rwy"]["lat"])),
+               fx=a["flat_x"], fy=a["flat_y"], field_m=a["field_ft"] * 0.3048, geoid_n=a["geoid_n"]) for a in AFL.AIRFIELDS.values()]
+# 1-arc-second cells deeper than level 13 (quantized-mesh levels 14..max_level, 33 x 33 vertices): where V-World z19 photos
+# are cached, so Cesium asks the photo overlay for zoom 17-19 there (the raster zoom follows the terrain tile level:
+# about z16 on level-13 tiles). Busan = the V-World z19 fill region (vworld_fill.py, bounds 128.77-129.31 E, 34.98-35.39 N).
+HIRES = [dict(name="busan", box=(128.75, 34.96, 129.33, 35.40), max_level=16, n=33)]
 
 
 def cell_name(lat, lon):
     return "N%02dE%03d" % (lat, lon)
 
 
-def airfield_weight(lat, lon):
-    """1 inside the flattened airfield core, 0 outside the blend; numpy arrays or scalars."""
-    lat, lon = np.asarray(lat, dtype=np.float64), np.asarray(lon, dtype=np.float64)
-    n, e = (lat - RWY["lat"]) * M_LAT, (lon - RWY["lon"]) * M_LON
-    h = math.radians(RWY["hdg"])
+def _field_w(f, lat, lon):
+    n, e = (lat - f["lat"]) * M_LAT, (lon - f["lon"]) * f["mlon"]
+    h = math.radians(f["hdg"])
     x, y = n * math.cos(h) + e * math.sin(h), -n * math.sin(h) + e * math.cos(h)
-    dx = np.maximum(np.maximum(FLAT_X[0] - x, x - FLAT_X[1]), 0.0)
-    dy = np.maximum(np.maximum(FLAT_Y[0] - y, y - FLAT_Y[1]), 0.0)
+    dx = np.maximum(np.maximum(f["fx"][0] - x, x - f["fx"][1]), 0.0)
+    dy = np.maximum(np.maximum(f["fy"][0] - y, y - f["fy"][1]), 0.0)
     d = np.hypot(dx, dy)
     return np.where(d >= BLEND_M, 0.0, 0.5 + 0.5 * np.cos(np.pi * np.minimum(d, BLEND_M) / BLEND_M))
+
+
+def field_weights(lat, lon):
+    """[(field dict, weight array)] for the airfields near lat / lon (weight 1 inside the core, 0 outside the blend)."""
+    lat, lon = np.asarray(lat, dtype=np.float64), np.asarray(lon, dtype=np.float64)
+    out = []
+    for f in FIELDS:
+        if np.ndim(lat) == 0 and abs(float(lat) - f["lat"]) > 0.1:      # scalar fast path (server, 60 Hz)
+            continue
+        w = _field_w(f, lat, lon)
+        if np.any(w > 0):
+            out.append((f, w))
+    return out
+
+
+def airfield_weight(lat, lon):
+    """1 inside a flattened airfield core, 0 outside every blend; numpy arrays or scalars."""
+    lat, lon = np.asarray(lat, dtype=np.float64), np.asarray(lon, dtype=np.float64)
+    w = np.zeros(np.broadcast(lat, lon).shape)
+    for f, wf in field_weights(lat, lon):
+        w = np.maximum(w, wf)
+    return w
+
+
+def flatten(a, lat, lon, key):
+    """a (MSL heights or geoid N) blended to each airfield's field_m / geoid_n (key) by its weight."""
+    for f, w in field_weights(lat, lon):
+        a = w * f[key] + (1 - w) * a
+    return a
 
 
 class Dem:
@@ -131,7 +168,7 @@ class Dem:
 
     def geoid_n(self, lat, lon, flatten=True):
         """EGM2008 undulation N (m), bilinear between 2.5' cell centres; 0 outside the window. At the airfield
-        blended to airfield.GEOID_N (the value the runway mesh / Unreal origin use)."""
+        blended to that airfield's geoid_n (the value its runway mesh / Unreal origin use)."""
         lat, lon = np.asarray(lat, dtype=np.float64), np.asarray(lon, dtype=np.float64)
         a = self.geoid
         fr = (lat - self.g_n) / self.g_dy - 0.5
@@ -143,8 +180,7 @@ class Dem:
         inside = (fr >= -0.5) & (fr <= a.shape[0] - 0.5) & (fc >= -0.5) & (fc <= a.shape[1] - 0.5)
         n = np.where(inside, n, 0.0)
         if flatten:
-            w = airfield_weight(lat, lon)
-            n = w * GEOID_N + (1 - w) * n
+            n = globals()["flatten"](n, lat, lon, "geoid_n")
         return n
 
     def in_box(self, lat, lon):

@@ -60,3 +60,11 @@ if "-gyrosimvworldbuildings" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_buildings_check.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld_buildings"})
+
+# Busan start (developer use): server with  --start rkpk  in the vworld mode, launch with  -GyroSimBusan
+# (Scripts/busan_check.py: RKPK runway cockpit / side, 300 m over Busan, Haeundae, Seomyeon top-down; windows kept off-screen,
+# shots outside git in C:/GyroSimTiles/shots/busan). Quits the editor when done (GYROSIM_BUSAN_QUIT=0 keeps it).
+if "-gyrosimbusan" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "busan_check.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_busan"})

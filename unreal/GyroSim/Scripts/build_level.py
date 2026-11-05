@@ -29,6 +29,7 @@ PROJ = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
 REPO = os.path.normpath(os.path.join(PROJ, "..", ".."))
 sys.path.insert(0, os.path.join(REPO, "sim"))
 sys.path.insert(0, os.path.join(PROJ, "Content", "Python"))
+os.environ.pop("GYROSIM_START", None)       # the map is always built around RKTU (other airfields: own frames, see build_airfield)
 import airfield as AF                       # noqa: E402
 import geo                                  # noqa: E402
 
@@ -601,15 +602,22 @@ def save_mesh(dm, name, recompute_normals=True):
     return sm
 
 
+# airfield being built (build_airfield): its own world frame (origin = its sim start point, like FRAME for RKTU) and
+# runway surface ellipsoid height. sim_client moves the Cesium origin to the start airfield at Play and shows only the
+# actors tagged Airfield_<id> of that airfield.
+APT_CTX = dict(frame=FRAME, h_field=H_FIELD, tags=())
+
+
 def geo_mesh(dm, rwy, dz_cm):
     """vertices in runway axes (x = m past the threshold, y = m right of the centre line, z ignored) -> world cm on the
-    curved Earth at field elevation + dz_cm (same surface JSBSim rolls on)."""
+    curved Earth at field elevation + dz_cm (same surface JSBSim rolls on), in the frame of the airfield being built."""
     _, pts, _gaps = unreal.GeometryScript_MeshQueries.get_all_vertex_positions(dm, False)
     arr = unreal.GeometryScript_List.convert_vector_list_to_array(pts)
     out = []
+    fr, hf = APT_CTX["frame"], APT_CTX["h_field"]
     for p in arr:
         lat, lon = AF.rwy_point(p.x, p.y, rwy)
-        out.append(V(*FRAME.world(lat, lon, H_FIELD + (p.z + dz_cm) / 100.0)))
+        out.append(V(*fr.world(lat, lon, hf + (p.z + dz_cm) / 100.0)))
     unreal.GeometryScript_MeshEdits.set_all_mesh_vertex_positions(dm, unreal.GeometryScript_List.convert_array_to_vector_list(out))
     return dm
 
@@ -728,7 +736,7 @@ grid.static_mesh_component.set_editor_property("affect_distance_field_lighting",
 grid.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)      # sim_client hides it in photo / terrain mode
 log("grid ground done")
 
-# ---- airfield: both RKTU runways on their real coordinates ----------------------------------------------------------
+# ---- airfields: RKTU (world origin of the map) and RKPK (own frame, hidden unless the sim starts there), both runways each ----------------------------------------------------------
 STEP = 100.0          # m, curvature sampling along the runway
 
 
@@ -736,13 +744,14 @@ def runway(rwy, ends):
     L, W = rwy["len_m"], rwy["w_m"]
     n = int(L / STEP)
     s = unreal.DynamicMesh(); rect(s, 0, L, -W / 2, W / 2, n, 2)
-    a = place(f"Runway_{rwy['name']}", save_mesh(geo_mesh(s, rwy, 0.0), f"SM_Runway_{rwy['name']}"), (0, 0, 0), MAT["runway"], shadows=False)
+    tg = APT_CTX["tags"]
+    a = place(f"Runway_{rwy['name']}", save_mesh(geo_mesh(s, rwy, 0.0), f"SM_Runway_{rwy['name']}"), (0, 0, 0), MAT["runway"], shadows=False, tags=tg)
     g = unreal.DynamicMesh()
     for y0, y1 in ((-W / 2 - 25, -W / 2), (W / 2, W / 2 + 25)):     # close-up grass shoulders; the satellite photo beyond
         rect(g, -60, L + 60, y0, y1, n + 2, 1)
     rect(g, -60, 0, -W / 2, W / 2, 1, 1)
     rect(g, L, L + 60, -W / 2, W / 2, 1, 1)
-    place(f"Grass_{rwy['name']}", save_mesh(geo_mesh(g, rwy, -12.0), f"SM_Grass_{rwy['name']}"), (0, 0, 0), MAT["grass"], shadows=False)
+    place(f"Grass_{rwy['name']}", save_mesh(geo_mesh(g, rwy, -12.0), f"SM_Grass_{rwy['name']}"), (0, 0, 0), MAT["grass"], shadows=False, tags=tg)
     mk = unreal.DynamicMesh()
 
     def m(x0, x1, y0, y1):
@@ -764,12 +773,13 @@ def runway(rwy, ends):
             m(xs, xs + 22.5, side * 9.5 - 1.0, side * 9.5 + 1.0)
     for side in (-1, 1):                                     # edge stripes
         m(0, L, side * (W / 2 - 1.2) - 0.45, side * (W / 2 - 1.2) + 0.45)
-    place(f"RunwayMarks_{rwy['name']}", save_mesh(geo_mesh(mk, rwy, 2.0), f"SM_RunwayMarks_{rwy['name']}"), (0, 0, 0), MAT["mark"], shadows=False)
+    place(f"RunwayMarks_{rwy['name']}", save_mesh(geo_mesh(mk, rwy, 2.0), f"SM_RunwayMarks_{rwy['name']}"), (0, 0, 0), MAT["mark"], shadows=False, tags=tg)
     for txt, along, yaw_add in ((ends[0], 50.0, 0.0), (ends[1], L - 50.0, 180.0)):
         lat, lon = AF.rwy_point(along, 0.0, rwy)
-        p = FRAME.world(lat, lon, H_FIELD + 0.03)
+        p = APT_CTX["frame"].world(lat, lon, APT_CTX["h_field"] + 0.03)
         t = eas.spawn_actor_from_class(unreal.TextRenderActor, V(*p), unreal.Rotator(roll=0, pitch=90, yaw=rwy["hdg"] + yaw_add))
         t.set_actor_label(f"RunwayNumber_{txt}")
+        t.tags = [unreal.Name(x) for x in tg]
         tc = t.text_render
         tc.set_editor_property("text", txt)
         tc.set_editor_property("world_size", 1800.0)
@@ -780,13 +790,26 @@ def runway(rwy, ends):
     return a
 
 
-runway(AF.RWY, ("06R", "24L"))
-runway(AF.RWY2, ("06L", "24R"))
-# parallel taxiway links between the runways (visual)
-tw = unreal.DynamicMesh()
-for along in (300.0, 1370.0, 2440.0):
-    rect(tw, along - 11, along + 11, -AF.RWY["w_m"] / 2 - 175, -AF.RWY["w_m"] / 2, 1, 2)
-place("TaxiLinks", save_mesh(geo_mesh(tw, AF.RWY, -1.0), "SM_TaxiLinks"), (0, 0, 0), MAT["taxiway"], shadows=False)
+def build_airfield(apt):
+    a = AF.AIRFIELDS[apt]
+    if apt == "rktu":
+        fr = FRAME                                           # the map's own origin (unchanged)
+    else:
+        la0, lo0 = AF.origin(apt)
+        fr = geo.Frame(la0, lo0, a["geoid_n"])
+    APT_CTX.update(frame=fr, h_field=a["field_ft"] * 0.3048 + a["geoid_n"], tags=("Airfield", "Airfield_" + apt))
+    runway(a["rwy"], a["ends"][0])
+    runway(a["rwy2"], a["ends"][1])
+    if a.get("taxi_links"):                                  # parallel taxiway links between the runways (visual, RKTU)
+        tw = unreal.DynamicMesh()
+        for along in (300.0, 1370.0, 2440.0):
+            rect(tw, along - 11, along + 11, -a["rwy"]["w_m"] / 2 - 175, -a["rwy"]["w_m"] / 2, 1, 2)
+        place("TaxiLinks", save_mesh(geo_mesh(tw, a["rwy"], -1.0), "SM_TaxiLinks"), (0, 0, 0), MAT["taxiway"], shadows=False, tags=APT_CTX["tags"])
+
+
+build_airfield("rktu")
+build_airfield("rkpk")
+APT_CTX.update(frame=FRAME, h_field=H_FIELD, tags=())
 log("airfield done")
 
 # =====================================================================================================================

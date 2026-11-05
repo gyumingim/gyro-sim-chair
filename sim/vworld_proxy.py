@@ -141,6 +141,7 @@ class Proxy:
         self.bucket, self.bucket_t = 1.0, time.monotonic()
         self.backoff_s, self.backoff_until = 0.0, 0.0
         self.served = dict(cache=0, online=0, parent=0, blank=0)
+        self.served_z = {}
         self.session_api = 0
         self._blank = None
         self.last_cleanup = 0.0
@@ -420,7 +421,7 @@ class Proxy:
                     budget=int(self.cfg["daily_budget"]), left=max(0, int(self.cfg["daily_budget"]) - self.flight_count()),
                     fill_today=u.get("fill_count", 0),
                     errors_today=u.get("errors", 0), stop_until=u.get("stop_until", 0), stop_reason=u.get("stop_reason"),
-                    session_api=self.session_api, served=dict(self.served), cache_tiles=n, permanent_cache=bool(self.cfg["permanent_cache"]),
+                    session_api=self.session_api, served=dict(self.served), served_z=dict(sorted(self.served_z.items())), cache_tiles=n, permanent_cache=bool(self.cfg["permanent_cache"]),
                     max_online_zoom=self.cfg["max_online_zoom"], has_key=bool(self.key),
                     terrain=os.path.exists(os.path.join(TERRAIN_DIR, "layer.json")),
                     buildings=os.path.exists(os.path.join(BUILDINGS_DIR, "tileset.json")))
@@ -500,6 +501,7 @@ def make_handler(px):
                 data, src, _ = px.get(z, y, x)
                 with px.lock:
                     px.served[src] = px.served.get(src, 0) + 1
+                    px.served_z["%d_%s" % (z, src)] = px.served_z.get("%d_%s" % (z, src), 0) + 1     # zoom x source (checks: is z19 used?)
                 if data is None:
                     return self._send(404, b"no tile", "text/plain", "no-store")
                 # no-store everywhere: Cesium keeps no second copy (TERMS 19), and fallback tiles get asked for again

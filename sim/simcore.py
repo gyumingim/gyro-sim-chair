@@ -1,16 +1,17 @@
 """Simulation core shared by server.py (real time, network) and the offline playtest harness (playtest/run.py, faster
 than real time): JSBSim F-16 setup per start mode, controls (+ beginner stability assist), chair cue, state packet.
 
-Start modes: air (6000 ft, 350 kt, heading 000), runway (06R threshold + 150 m, stopped), approach (9 km final,
+Start airfield = airfield.py (RKTU 06R by default, RKPK 36L with GYROSIM_START=rkpk / server.py --start rkpk); the
+runway names below are RKTU's. Start modes: air (6000 ft, 350 kt, heading 000 / RKPK 095), runway (threshold + 150 m, stopped), approach (9 km final,
 1550 ft above the field, 180 kt, gear up), downwind (left-hand traffic pattern for runway 06R: 3 km left of the
 centre line, abeam mid-runway, heading 232, 1500 ft above the field, 250 kt), air_high (12000 ft, 400 kt, G lesson).
 """
 import math
 import jsbsim
-from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0, rwy_point
+from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0, AF, rwy_point
 
 DT = 1 / 120
-START = dict(lat=LAT0, lon=LON0, alt_ft=6000, kts=350, hdg=0.0, rwy_hdg=RWY["hdg"])
+START = dict(lat=LAT0, lon=LON0, alt_ft=6000, kts=350, hdg=AF["air_hdg"], rwy_hdg=RWY["hdg"])     # RKTU 000, RKPK 095 (toward Busan)
 CHAIR_LIM = (18.0, 14.0)                  # roll, pitch limits (deg) = control/chair_model.py recommendation (chair_bridge enforces the same)
 CHAIR_RATE = (1.3, 0.95)                  # deg/s  (physical chair can do ~1.61 / 1.13, estimate)
 CHAIR_ACC = (0.6, 0.48)                   # deg/s^2

@@ -48,6 +48,8 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 - 점검 (지형): `-GyroSimVWorldTerrain` (`Scripts/vworld_terrain_check.py`) → 활주로 옆모습, 설악산 시점 3 장, 경사면 카메라 바닥 시험, 설악산 충돌 → 빨간 화면, `Saved/verify/vworld_terrain/`.
 - 3D 건물 (청주 30 km, 국토교통부 GIS건물통합정보): `python -I sim/buildings_build.py --all` 로 만들면 vworld 모드(로컬 지형)에서 자동으로 켜짐 (`docs/vworld-integration.md` 6-1). 점검: `-GyroSimVWorldBuildings` (`Scripts/vworld_buildings_check.py`) → 시내·단지·활주로 그림, 건물 충돌, 건물 끔/켬 GPU, `Saved/verify/vworld_buildings/`.
   개발 점검용 환경 변수: `GYROSIM_GROUND=vworld` (설정 파일 대신 땅 모드), `GYROSIM_MUTE=1` (교관 음성 끔), `GYROSIM_TERRAIN=<폴더>` (지형 자료 위치). 서버 명령 `{"cmd":"place","lat":..,"lon":..,"alt_m":..,"hdg":..,"kts":..}` = 아무 곳 공중 시작.
+- **부산(김해 RKPK 36L) 시작**: `python sim/server.py --start rkpk` (vworld 모드). Cesium 원점·활주로 메시가 김해로 바뀜, 부산은 V-World z19 사진 + 부산 3D 건물.
+  강의는 청주 전용 (부산은 자유 비행). 점검 `-GyroSimBusan` (`Scripts/busan_check.py`, 그림은 git 밖 `C:\GyroSimTiles\shots\busan`). 자세히: `docs/vworld-integration.md` 6-2.
 - 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 
 ### 실제 지형 켜기 — Cesium ion 토큰 (나중에 원하면, 사용자가 할 일)

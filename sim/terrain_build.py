@@ -12,6 +12,8 @@ heights h = H_msl + N_egm2008 (terrain_dem.py), oct-encoded vertex normals (exte
   - levels 0-4 : whole globe (heights = geoid only outside the data, 33 x 33 vertices)
   - levels 5-9 : every tile touching the geoid window 120-136 E, 29-43 N (sea around Korea, no big chord sag)
   - levels 10-13: only tiles with land in the DEM box (65 x 65 vertices; level 13 ~ 38 x 31 m spacing = the DEM)
+  - levels 14-16: only inside terrain_dem.HIRES boxes (Busan, where V-World z19 photos are cached), land only, 33 x 33
+    vertices (bilinear 1" DEM, no new detail) - deeper tiles make Cesium ask the photo overlay for zoom 17-19 there
 Height source per level: 1" grid (<= 8" vertex spacing), 4" mean (<= 32"), 16" mean (coarser) - no aliasing.
 """
 import gzip, json, math, os, struct, sys, time
@@ -54,11 +56,12 @@ def prep():
         lat = lat0 + 1 - np.arange(T.PX) / T.PX
         lon = lon0 + np.arange(T.PX) / T.PX
         flat = 0
-        if T.airfield_weight(T.RWY["lat"], T.RWY["lon"]) > 0 and lat0 <= T.RWY["lat"] < lat0 + 1 and lon0 <= T.RWY["lon"] < lon0 + 1:
-            LA, LO = np.meshgrid(lat, lon, indexing="ij")
-            w = T.airfield_weight(LA, LO)
-            a = w * T.FIELD_M + (1 - w) * a
-            flat = int((w > 0).sum())
+        for f in T.FIELDS:                                 # every airfield (RKTU, RKPK) whose flat area reaches this cell
+            if lat0 - 0.05 <= f["lat"] < lat0 + 1.05 and lon0 - 0.05 <= f["lon"] < lon0 + 1.05:
+                LA, LO = np.meshgrid(lat, lon, indexing="ij")
+                w = T._field_w(f, LA, LO)
+                a = w * f["field_m"] + (1 - w) * a
+                flat += int((w > 0).sum())
         q = np.clip(np.round(a * 10.0), -32768, 32767).astype(np.int16)
         np.save(os.path.join(T.PROC, "dem_%s.npy" % T.cell_name(lat0, lon0)), q)
         r0, c0 = (T.BOX_N - (lat0 + 1)) * T.PX, (lon0 - T.BOX_W) * T.PX
@@ -74,8 +77,8 @@ def prep():
     np.save(os.path.join(T.PROC, "land4.npy"), land4)
     with open(os.path.join(T.PROC, "prep.json"), "w", encoding="utf-8") as f:
         json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), box=[T.BOX_W, T.BOX_S, T.BOX_E, T.BOX_N], cells=info,
-                       units="int16 decimetres MSL (EGM2008)", airfield=dict(field_m=T.FIELD_M, flat_x=T.FLAT_X, flat_y=T.FLAT_Y,
-                       blend_m=T.BLEND_M)), f, indent=1)
+                       units="int16 decimetres MSL (EGM2008)", airfields=[dict(id=f["id"], field_m=f["field_m"], geoid_n=f["geoid_n"],
+                       flat_x=f["fx"], flat_y=f["fy"]) for f in T.FIELDS], blend_m=T.BLEND_M), f, indent=1)
 
 
 # ---- step 3: sanity check ----------------------------------------------------------------------------------------------
@@ -141,10 +144,14 @@ def check():
         rows.append(r)
         print("%-28s ref %7.1f  raw %7s  dem %7.1f  %s err %+6.1f  N %.2f" % (name, ref, r["raw_m"], h,
               ("max300 %7.1f" % r["max300_m"]) if kind == "summit" else " " * 13, r["err_m"], n), flush=True)
-    g = float(dem.geoid_n(T.RWY["lat"], T.RWY["lon"], flatten=False))
-    res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), rows=rows,
-               geoid_at_rktu=dict(egm2008_grid=round(g, 3), geographiclib=T.GEOID_N, diff=round(g - T.GEOID_N, 3)))
-    print("geoid N at RKTU: grid %.3f vs GeographicLib %.2f (diff %+.3f m)" % (g, T.GEOID_N, g - T.GEOID_N), flush=True)
+    gs = {}
+    for f in T.FIELDS:
+        g = float(dem.geoid_n(f["lat"], f["lon"], flatten=False))
+        gs[f["id"]] = dict(egm2008_grid=round(g, 3), geographiclib=f["geoid_n"], diff=round(g - f["geoid_n"], 3),
+                           flattened_dem_at_threshold=round(float(dem.msl(f["lat"], f["lon"])), 2), field_m=round(f["field_m"], 2))
+        print("geoid N at %s: grid %.3f vs GeographicLib %.2f (diff %+.3f m), flattened DEM at the threshold %.2f m (field %.2f)" % (
+            f["id"].upper(), g, f["geoid_n"], g - f["geoid_n"], gs[f["id"]]["flattened_dem_at_threshold"], f["field_m"]), flush=True)
+    res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), rows=rows, geoid_at_rktu=gs["rktu"], geoid_at_airfields=gs)
     with open(os.path.join(T.PROC, "check.json"), "w", encoding="utf-8") as f:
         json.dump(res, f, indent=1, ensure_ascii=False)
     return res
@@ -299,6 +306,18 @@ def plan_tiles():
         return cs[r1, c1] - cs[r0, c1] - cs[r1, c0] + cs[r0, c0] > 0
 
     plan = {}
+    for L in range(MAX_LEVEL + 1, max([MAX_LEVEL] + [h["max_level"] for h in T.HIRES]) + 1):   # deeper levels, HIRES boxes only
+        wdeg = 180.0 / (1 << L)
+        lst = []
+        for h in T.HIRES:
+            if L > h["max_level"]:
+                continue
+            bw, bs, be, bn = h["box"]
+            for y in range(int((bs + 90) // wdeg), int(math.ceil((bn + 90) / wdeg))):
+                for x in range(int((bw + 180) // wdeg), int(math.ceil((be + 180) / wdeg))):
+                    if has_land(*tile_rect(L, x, y)):
+                        lst.append((x, y, h["n"]))
+        plan[L] = sorted(set(lst))
     for L in range(MAX_LEVEL + 1):
         wdeg = 180.0 / (1 << L)
         if L <= GLOBAL_MAX:
@@ -316,7 +335,7 @@ def plan_tiles():
                     continue
                 lst.append((x, y, 65 if lnd else 33))
         plan[L] = lst
-    return plan
+    return dict(sorted(plan.items()))
 
 
 def rects(xy):
@@ -379,8 +398,8 @@ def tiles():
                 print("  %d / %d  %.0f s  (eta %.0f s)  %.0f MB" % (done, len(jobs), el, el / done * (len(jobs) - done), sum(size.values()) / 1e6), flush=True)
     layer = dict(tilejson="2.1.0", name="GyroSim South Korea (Copernicus GLO-30)", description="ellipsoid heights = Copernicus GLO-30 (EGM2008 MSL) + EGM2008 N",
                  version="1.0.0", format="quantized-mesh-1.0", scheme="tms", projection="EPSG:4326", bounds=[-180, -90, 180, 90],
-                 minzoom=0, maxzoom=MAX_LEVEL, tiles=["{z}/{x}/{y}.terrain?v={version}"], extensions=["octvertexnormals"],
-                 attribution=ATTRIB, available=[rects([(x, y) for x, y, _ in plan[L]]) for L in range(MAX_LEVEL + 1)])
+                 minzoom=0, maxzoom=max(plan), tiles=["{z}/{x}/{y}.terrain?v={version}"], extensions=["octvertexnormals"],
+                 attribution=ATTRIB, available=[rects([(x, y) for x, y, _ in plan[L]]) for L in range(max(plan) + 1)])
     with open(os.path.join(T.TILES, "layer.json"), "w", encoding="utf-8") as f:
         json.dump(layer, f)
     stats = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0), tiles={L: len(v) for L, v in plan.items()},

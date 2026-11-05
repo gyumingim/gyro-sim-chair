@@ -46,7 +46,7 @@ ORBIT_DIST = (900.0, 40000.0)
 ORBIT_YAW_RATE, ORBIT_EL_RATE, ZOOM_RATE, MOUSE_DEG_PX, WHEEL_STEP = 70.0, 45.0, 1.8, 0.25, 0.87
 VR_SNAP_YAW, VR_SNAP_EL, VR_SNAP_ZOOM = 30.0, 15.0, 1.3
 LOOK_AT_UP_CM = 150.0
-TOWER_LL, TOWER_AGL_M = (36.7190, 127.4962), 35.0       # fixed camera ~500 m NW of the 06R midpoint, 35 m up (not the real tower)
+TOWER_LL, TOWER_AGL_M = (36.7190, 127.4962), 35.0       # fixed camera ~500 m NW of the 06R midpoint, 35 m up (not the real tower); packet "tower" = the start airfield's
 FLYBY_LEAD_S, FLYBY_MIN_M, FLYBY_SIDE_M, FLYBY_DOWN_M = 5.0, 300.0, 40.0, 10.0
 VIEW_FOV = 75.0                                          # = build_level camera field of view
 TOWER_SPAN_M = 60.0                                      # monitor tower / flyby auto zoom: this many m across the view at the aircraft
@@ -68,8 +68,14 @@ ION_TERRAIN, ION_BING, ION_PHOTOREAL, ION_OSM_BUILDINGS = 1, 2, 2275207, 96188
 # Never mixed with Sentinel-2 / Bing (terms 14조). On-screen source note (terms 13조): sim/vworld_attribution.png.
 VW_CFG = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "vworld_proxy.json")
 VW_PORT = 8790                      # = vworld_proxy.DEFAULTS["port"] (overridden by Config/vworld_proxy.json "port")
-VW_MAX_LEVEL = 16
+VW_MAX_LEVEL = 19                   # the proxy only fetches online up to its max_online_zoom (16); 17-19 = cache (Busan z19 fill) or
+                                    # the cached parent cut out. Cesium reaches 17-19 only over the deeper terrain tiles (Busan, terrain_dem.HIRES)
+RKTU_FIELD_M = 191.0 * 0.3048       # the map (build_level) is built around RKTU: grid ground at this field elevation
 VW_SSE = 4.0                        # raster overlay screen-space error (default 2): half the texel density, ~1/4 of the requests
+# where V-World z19 is cached (Busan fill), starting there: overlay SSE 1 = 4x the texel density -> z19 near the aircraft on the
+# deeper terrain tiles (terrain_dem.HIRES), z17 at mid range (texture size cap 2048 per terrain tile). Elsewhere it stays 4
+# (more requests would only burn the daily budget: online fetches stop at z16, beyond that it is the cache or the parent cut out).
+VW_SSE_HIRES, VW_HIRES_APTS = 1.0, ("rkpk",)
 VW_ATTRIB_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "vworld_attribution.png"))
 VW_ATTRIB_D, VW_ATTRIB_W = 150.0, 0.30         # cm ahead of the view camera, width as a fraction of the view width
 # local South Korea terrain (Copernicus DEM GLO-30 -> quantized-mesh, sim/terrain_build.py) from the same proxy at
@@ -360,6 +366,7 @@ class SimClient:
 
     def _bind_world(self, world):
         self.world = world
+        self.apt_key = None                            # _apt_sync: Cesium origin / airfield meshes follow the packet's start airfield
         self.aircraft = self._find("Aircraft")
         self.camera = self._find("SimCamera")          # rig: moved by us, carries the overlays
         self.view_cam = self._find("SimView") or self.camera   # CameraActor = view target (HMD / head look rotate it)
@@ -643,6 +650,39 @@ class SimClient:
         _log("ground mode", self.cesium_mode, "config", TOKEN_FILE, "token" if token else "no token",
              ("local DEM terrain" if self.vw_local else "terrain" if self.vw_terrain else "flat ellipsoid (no ion token)") if self.cesium_mode == "vworld" else "")
         self._attribution()
+
+    def _apt_sync(self):
+        """Start airfield from the packet (server.py --start, sim/airfield.py): the map is built around RKTU, other airfields'
+        runway meshes in their own frames (build_level build_airfield, tags Airfield / Airfield_<id>). Move the Cesium
+        georeference origin to the packet's lat0 / lon0 / geoid_n (= the world frame to_world uses, so sky, fog and lights
+        stay near the world origin), show only that airfield's meshes, put the grid ground at its field elevation."""
+        s = self.s
+        if not s or self.world is None:
+            return
+        apt = s.get("apt", "rktu")
+        key = (apt, s["lat0"], s["lon0"], s.get("geoid_n", 0.0))
+        if key == self.apt_key:
+            return
+        self.apt_key = key
+        try:
+            if self.georef:
+                self.georef.set_origin_longitude_latitude_height(unreal.Vector(s["lon0"], s["lat0"], s.get("geoid_n", 0.0)))
+            shown = 0
+            fields = unreal.GameplayStatics.get_all_actors_with_tag(self.world, "Airfield")
+            for a in fields:
+                on = a.actor_has_tag("Airfield_" + apt)
+                a.set_actor_hidden_in_game(not on)
+                shown += on
+            if self.grid:
+                self.grid.set_actor_location(unreal.Vector(0, 0, (s.get("field_m", RKTU_FIELD_M) - RKTU_FIELD_M) * 100.0), False, True)
+            if self.cesium_mode == "vworld" and self.tileset:
+                for o in self.tileset.get_components_by_class(unreal.CesiumUrlTemplateRasterOverlay):
+                    o.set_maximum_screen_space_error(VW_SSE_HIRES if apt in VW_HIRES_APTS else VW_SSE)
+            if apt != "rktu" and not fields:
+                _log("start airfield", apt, "but the map has no Airfield tags - rebuild it (Scripts/build_level.py)")
+            _log("start airfield %s: Cesium origin %.6f %.6f h %.2f, %d of %d airfield actors shown" % (apt, s["lat0"], s["lon0"], s.get("geoid_n", 0.0), shown, len(fields)))
+        except Exception as e:
+            _log("airfield sync failed", repr(e))
 
     def _cesium_fallback(self, why):
         """terrain mode failed -> grid ground (tileset off); vworld on terrain -> vworld on the flat ellipsoid."""
@@ -1062,7 +1102,8 @@ class SimClient:
         if v == "tower":
             if self.view_pt is None:
                 f, s = self._frame, self.s
-                p = f.world(TOWER_LL[0], TOWER_LL[1], s.get("field_m", 58.2) + s.get("geoid_n", 0.0) + TOWER_AGL_M)
+                tl = s.get("tower") or TOWER_LL
+                p = f.world(tl[0], tl[1], s.get("field_m", 58.2) + s.get("geoid_n", 0.0) + TOWER_AGL_M)
                 self.view_pt = [unreal.Vector(*p), None]
                 new = True
         else:
@@ -1602,6 +1643,7 @@ class SimClient:
             self._startup(now, dt)
             self._keyboard(dt)
             if self.s is not None:
+                self._apt_sync()
                 self._place(dt, now)
                 self._controls(dt)
             self._trace(now)
