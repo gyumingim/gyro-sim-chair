@@ -171,7 +171,51 @@ class Dem:
         return float(self.geoid_n(lat, lon)) if self.geoid is not None else GEOID_N
 
 
+BUILDINGS_ROOT = os.environ.get("GYROSIM_BUILDINGS", r"C:\GyroSimTiles\buildings")
+
+
+class Roofs:
+    """Building roof heights (MSL m) on the 1/3" grids made by sim/buildings_build.py --ground (ground/roof_<name>.npy,
+    one per region / province, int16 dm, -32768 = no building; all_touched rasterising = footprints grown by up to one
+    cell, ~10 m). Nearest cell; the highest roof if two rasters overlap. ~1 us per raster."""
+    def __init__(self, root=BUILDINGS_ROOT):
+        self.parts, made = [], []
+        g = os.path.join(root, "ground")
+        for fn in sorted(os.listdir(g)) if os.path.isdir(g) else ():
+            if fn.startswith("roof") and fn.endswith(".npy") and os.path.exists(os.path.join(g, fn[:-4] + ".json")):
+                m = json.load(open(os.path.join(g, fn[:-4] + ".json"), encoding="utf-8"))
+                a = np.load(os.path.join(g, fn), mmap_mode="r")
+                self.parts.append((a, m["west"], m["north"], m["px_per_deg"], a.shape[0], a.shape[1]))
+                made.append(m.get("made"))
+        self.made = max(made) if made else None
+
+    @property
+    def ok(self):
+        return bool(self.parts)
+
+    def roof_msl(self, lat, lon):
+        """roof height (MSL m) of the building under lat / lon, or None."""
+        best = None
+        for a, w, n, k, H, W in self.parts:
+            r, c = int((n - lat) * k), int((lon - w) * k)
+            if 0 <= r < H and 0 <= c < W:
+                v = int(a[r, c])
+                if v != -32768 and (best is None or v * 0.1 > best):
+                    best = v * 0.1
+        return best
+
+
 _DEM = None
+_ROOFS = None
+
+
+def roofs():
+    """shared Roofs (None if no building raster was built)."""
+    global _ROOFS
+    if _ROOFS is None:
+        r = Roofs()
+        _ROOFS = r if r.ok else False
+    return _ROOFS or None
 
 
 def get():

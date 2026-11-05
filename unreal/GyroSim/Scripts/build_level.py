@@ -20,7 +20,7 @@ Third-party content is imported to /Game/ThirdParty (not in git - .gitignore); l
 Actors with tags used by sim_client: Aircraft, AircraftPart, Gear, Canopy, Cockpit, StickPivot, ThrottlePivot, PedalL,
 PedalR, GearHandle, GearLights, Needle_asi / Needle_alt / Needle_alt10k / Needle_vsi, ADIBall, SimCamera (rig),
 SimView (camera), HUD (plane), MFD_L / MFD_R (screens), TutorPanel, KeyPanel, CesiumGeoreference, CesiumGround,
-CesiumBuildings (OSM buildings, off until a token), Attribution (V-World source note).
+CesiumBuildings (3D buildings, off until Play: local GIS건물통합정보 tiles or OSM buildings), Attribution (V-World source note).
 """
 import json, math, os, sys
 import unreal
@@ -691,7 +691,8 @@ if HAS_CESIUM:
         template_url="https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{reverseY}/{x}.jpg",
         maximum_level=15, material_layer_key="Overlay0", auto_activate=False))
     add_comp(ts, unreal.CesiumIonRasterOverlay, dict(ion_asset_id=0, material_layer_key="Overlay1", auto_activate=False))   # asset 2 set at Play
-    # OSM buildings (vworld / terrain modes with an ion token; sim_client sets ion asset 96188 at Play). Off = no URL.
+    # 3D buildings, set at Play by sim_client: vworld mode on the local terrain -> local tiles from the proxy
+    # (/buildings/tileset.json, sim/buildings_build.py), else with an ion token -> OSM buildings (asset 96188). Off = no URL.
     bt = eas.spawn_actor_from_class(unreal.Cesium3DTileset, V(0, 0, 0))
     bt.set_actor_label("CesiumBuildings")
     bt.tags = [unreal.Name("CesiumBuildings")]

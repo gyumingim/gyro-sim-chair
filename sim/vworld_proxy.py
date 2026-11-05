@@ -390,7 +390,8 @@ class Proxy:
                     errors_today=u.get("errors", 0), stop_until=u.get("stop_until", 0), stop_reason=u.get("stop_reason"),
                     session_api=self.session_api, served=dict(self.served), cache_tiles=n, permanent_cache=bool(self.cfg["permanent_cache"]),
                     max_online_zoom=self.cfg["max_online_zoom"], has_key=bool(self.key),
-                    terrain=os.path.exists(os.path.join(TERRAIN_DIR, "layer.json")))
+                    terrain=os.path.exists(os.path.join(TERRAIN_DIR, "layer.json")),
+                    buildings=os.path.exists(os.path.join(BUILDINGS_DIR, "tileset.json")))
 
 
 TILE_RE = re.compile(r"^/vworld/sat/(\d+)/(\d+)/(\d+)\.jpe?g$")
@@ -412,6 +413,22 @@ def terrain_file(path):
     return None
 
 
+BUILDINGS_RE = re.compile(r"^/buildings/([abc])/(-?\d+)_(-?\d+)\.glb$")
+# local 3D buildings (국토교통부 GIS건물통합정보 -> 3D Tiles, sim/buildings_build.py), also built offline, no upstream request
+BUILDINGS_DIR = os.path.join(os.environ.get("GYROSIM_BUILDINGS", r"C:\GyroSimTiles\buildings"), "tiles")
+
+
+def buildings_file(path):
+    """/buildings/tileset.json or /buildings/{a|b|c}/{i}_{j}.glb -> (file, content type) or None (numbers only)."""
+    if path == "/buildings/tileset.json":
+        return os.path.join(BUILDINGS_DIR, "tileset.json"), "application/json"
+    m = BUILDINGS_RE.match(path)
+    if m:
+        lvl, i, j = m.groups()
+        return os.path.join(BUILDINGS_DIR, lvl, "%s_%s.glb" % (i, j)), "model/gltf-binary"
+    return None
+
+
 def make_handler(px):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -430,15 +447,16 @@ def make_handler(px):
             try:
                 if path in ("/status", "/vworld/status"):
                     return self._send(200, json.dumps(px.status(), ensure_ascii=False).encode(), "application/json", "no-store")
-                tf = terrain_file(path) if path.startswith("/terrain/") else None
+                tf = terrain_file(path) if path.startswith("/terrain/") else buildings_file(path) if path.startswith("/buildings/") else None
                 if tf:
                     try:
                         with open(tf[0], "rb") as f:
                             body = f.read()
                     except OSError:
-                        return self._send(404, b"no terrain tile", "text/plain", "no-store")
+                        return self._send(404, b"no local tile", "text/plain", "no-store")
+                    kind = "terrain" if path.startswith("/terrain/") else "buildings"
                     with px.lock:
-                        px.served["terrain"] = px.served.get("terrain", 0) + 1
+                        px.served[kind] = px.served.get(kind, 0) + 1
                     # tiles are gzip files sent as they are: Cesium's GunzipAssetAccessor unpacks them (gzip magic)
                     return self._send(200, body, tf[1], "no-store")
                 m = TILE_RE.match(path)
@@ -536,6 +554,25 @@ def make_terrain_attribution(path=TERRAIN_ATTRIB_PNG):
     g.text((W / 2, 48), ATTRIB_TEXT, font=ImageFont.truetype(r"C:\Windows\Fonts\malgunbd.ttf", 54), fill=(235, 238, 240), anchor="mm")
     f = ImageFont.truetype(r"C:\Windows\Fonts\malgun.ttf", 30)
     for i, t in enumerate(TERRAIN_ATTRIB_LINES):
+        g.text((W / 2, 116 + 44 * i), t, font=f, fill=(215, 220, 224), anchor="mm")
+    im.save(path)
+    make_buildings_attribution()
+    return path
+
+
+BLDG_ATTRIB_PNG = os.path.join(HERE, "vworld_buildings_attribution.png")
+BLDG_ATTRIB_LINE = "건물: 국토교통부 GIS건물통합정보 (CC BY)"
+
+
+def make_buildings_attribution(path=BLDG_ATTRIB_PNG):
+    """the terrain plate + the building data credit (sim/buildings_build.py tiles shown)."""
+    from PIL import ImageDraw, ImageFont
+    W, H = 1600, 250
+    im = Image.new("RGB", (W, H), (10, 12, 14))
+    g = ImageDraw.Draw(im)
+    g.text((W / 2, 48), ATTRIB_TEXT, font=ImageFont.truetype(r"C:\Windows\Fonts\malgunbd.ttf", 54), fill=(235, 238, 240), anchor="mm")
+    f = ImageFont.truetype(r"C:\Windows\Fonts\malgun.ttf", 30)
+    for i, t in enumerate((BLDG_ATTRIB_LINE,) + TERRAIN_ATTRIB_LINES):
         g.text((W / 2, 116 + 44 * i), t, font=f, fill=(215, 220, 224), anchor="mm")
     im.save(path)
     return path

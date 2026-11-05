@@ -76,6 +76,10 @@ VW_ATTRIB_D, VW_ATTRIB_W = 150.0, 0.30         # cm ahead of the view camera, wi
 # /terrain/layer.json: preferred in the vworld mode (before Cesium World Terrain); its credit is on the source plate
 VW_TERRAIN_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_terrain_attribution.png")
 VW_TERRAIN_ATTRIB_W = 0.40
+# local 3D buildings (국토교통부 GIS건물통합정보 -> 3D Tiles, sim/buildings_build.py) from the same proxy at
+# /buildings/tileset.json: in the vworld mode on the local terrain (before Cesium OSM Buildings); credit on the plate
+VW_BLDG_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_buildings_attribution.png")
+VW_BLDG_SSE = 16.0                  # buildings tileset screen-space error (tiles: geometricError 500 / 130 / 50 / 0)
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
@@ -570,8 +574,35 @@ class SimClient:
                 _log("vworld overlay options", repr(e))
             ov.add_to_tileset()
             ov.set_active(True)               # auto_activate is off in the map: add_to_tileset alone left it inactive (no requests)
-        if token:
+        if local and (self.vw_stat or {}).get("buildings"):
+            self._local_buildings()
+        elif token:
             self._osm_buildings(token)
+
+    def _local_buildings(self):
+        """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
+        CesiumBuildings tileset (build_level: off, no URL) pointed at the local URL. Physics meshes on, so the camera
+        floor trace stands on roofs too (crashes are judged by the server's roof raster)."""
+        try:
+            b = self.buildings = self._find("CesiumBuildings")
+            if b is None:
+                _log("local buildings: no CesiumBuildings actor in the map (run build_level.py)")
+                return
+            b.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            b.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
+            b.set_editor_property("url", "http://127.0.0.1:%d/buildings/tileset.json" % self.vworld_port())
+            for k, v in (("maximum_screen_space_error", VW_BLDG_SSE), ("create_physics_meshes", True), ("show_credits_on_screen", False)):
+                try:
+                    b.set_editor_property(k, v)
+                except Exception as e:
+                    _log("local buildings", k, repr(e))
+            off = os.environ.get("GYROSIM_BUILDINGS_OFF", "") == "1"         # A/B checks (FPS without buildings)
+            b.set_actor_hidden_in_game(off)
+            b.refresh_tileset()
+            self.vw_bldg = not off
+            _log("local buildings on" if self.vw_bldg else "local buildings off (GYROSIM_BUILDINGS_OFF)")
+        except Exception as e:
+            _log("local buildings failed", repr(e))
 
     def _osm_buildings(self, token):
         """Cesium OSM Buildings (ion asset 96188, needs the token): a second tileset spawned in the Play world."""
@@ -593,7 +624,7 @@ class SimClient:
         gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
         self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
         self.buildings, self.vw_terrain, self.vw_note, self.vw_stat, self.attrib = None, False, None, None, None
-        self.vw_local = False
+        self.vw_local = self.vw_bldg = False
         token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
             mode = (mode if mode == "fields" else "grid") if self.grid else "none"
@@ -618,6 +649,7 @@ class SimClient:
         if self.cesium_mode == "vworld":
             _log("vworld terrain failed -> flat ellipsoid:", why)
             self.vw_stat = dict(self.vw_stat or {}, terrain=False)       # no second try of the local terrain
+            self.vw_bldg = False
             try:
                 if getattr(self, "buildings", None):
                     self.buildings.set_actor_hidden_in_game(True)
@@ -1370,7 +1402,7 @@ class SimClient:
         n, e = rws[0][0], rws[0][1]
         line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "photo": "MAP: SATELLITE PHOTO (FLAT)",
                 "grid": "MAP: GRID (FLAT, 1 KM)", "fields": "MAP: FIELDS (FLAT, DRAWN)",
-                "vworld": "MAP: V-WORLD PHOTO " + ("+ DEM 30 M" if getattr(self, "vw_local", False) else "+ TERRAIN" if getattr(self, "vw_terrain", False) else "(FLAT)"),
+                "vworld": "MAP: V-WORLD PHOTO " + ("+ DEM 30 M" + (" + BLDG" if getattr(self, "vw_bldg", False) else "") if getattr(self, "vw_local", False) else "+ TERRAIN" if getattr(self, "vw_terrain", False) else "(FLAT)"),
                 "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
         return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 
@@ -1486,7 +1518,8 @@ class SimClient:
                     _log("attribution: no Attribution actor in the map (run build_level.py)")
                     return
                 mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
-                png = VW_TERRAIN_ATTRIB_PNG if getattr(self, "vw_local", False) else VW_ATTRIB_PNG     # + Copernicus credit
+                png = (VW_BLDG_ATTRIB_PNG if getattr(self, "vw_bldg", False) else VW_TERRAIN_ATTRIB_PNG) if getattr(self, "vw_local", False) else VW_ATTRIB_PNG
+                # + Copernicus credit (+ building data credit)
                 tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, png) if os.path.exists(png) else None
                 if tex and mid:
                     mid.set_texture_parameter_value("Tex", tex)

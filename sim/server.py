@@ -52,15 +52,28 @@ def terrain_wanted():
         return False
 
 
-DEM = None
+DEM = ROOFS = None
 if terrain_wanted():
     try:
         import terrain_dem
         DEM = terrain_dem.get()
     except Exception as e:
         print("sim: terrain not loaded:", repr(e), flush=True)
+    ROOFS = None
+    if DEM and "--no-buildings" not in sys.argv:
+        try:
+            ROOFS = terrain_dem.roofs()      # 3D buildings (sim/buildings_build.py --ground): roofs are ground for the crash check
+        except Exception as e:
+            print("sim: building roofs not loaded:", repr(e), flush=True)
     if DEM:
-        sim.terrain = DEM.height_msl
+        if ROOFS:
+            def ground_msl(lat, lon, _d=DEM.height_msl, _r=ROOFS.roof_msl):
+                g, r = _d(lat, lon), _r(lat, lon)
+                return g if r is None or r <= g else r
+            sim.terrain = ground_msl
+            print("sim: building roofs in the ground (%s, raster %s)" % (terrain_dem.BUILDINGS_ROOT, ROOFS.made), flush=True)
+        else:
+            sim.terrain = DEM.height_msl
         sim.reset("air")
         print("sim: JSBSim ground = Copernicus DEM (%d cells, %s); field %.1f m at RKTU" % (len(DEM.cells), terrain_dem.ROOT, DEM.height_msl(LAT0_LON0[0], LAT0_LON0[1])), flush=True)
     else:
@@ -77,6 +90,7 @@ def reset(mode, at=None):
         state["rid"] += 1
         state["paused"] = False
         state["crashed"] = False
+        state["crash_obj"] = None
         if "trainer" in globals():
             trainer.free_t0 = trainer.clock          # free flight: crash check starts 1 s after a (re)start
 
@@ -96,8 +110,11 @@ def terrain_check(s, dt_sim):
     # off the airfield 2.5 m above the ground is already a hit (the trainer's gear-up / hard-landing checks fire at 2.4 m)
     if s["agl_m"] < -0.5 or (off_field and (s["wow"] or s["agl_m"] < 2.5)):
         state["crashed"] = True
-        print("sim: terrain hit at %.5f %.5f, terrain %.0f m, agl %.1f m, wow %s, off field %s" % (
-            s["lat"], s["lon"], sim.terrain_m or 0.0, s["agl_m"], s["wow"], off_field), flush=True)
+        # the ground under the aircraft was a building roof (sim.terrain = max(DEM, roof)) -> say so on the crash screen
+        on_bldg = ROOFS is not None and (ROOFS.roof_msl(s["lat"], s["lon"]) or -1e9) > DEM.height_msl(s["lat"], s["lon"]) + 0.5
+        state["crash_obj"] = "building" if on_bldg else "terrain"
+        print("sim: %s hit at %.5f %.5f, ground %.0f m, agl %.1f m, wow %s, off field %s" % (
+            state["crash_obj"], s["lat"], s["lon"], sim.terrain_m or 0.0, s["agl_m"], s["wow"], off_field), flush=True)
 
 
 def snapshot(dt_sim):
@@ -107,7 +124,7 @@ def snapshot(dt_sim):
     s.update(lat0=START["lat"], lon0=START["lon"], paused=state["paused"] or trainer.want_pause, user_paused=state["paused"], rid=state["rid"],
              field_m=FIELD_FT * 0.3048, geoid_n=GEOID_N, rwy_hdg=RWY["hdg"], joystick=state["joy_name"],
              src="joystick" if state["joy"] else ("unreal" if udp_fresh() else "browser"),
-             hmd=state["hmd"] and time.monotonic() - state["hmd_t"] < 2.0, crashed=state["crashed"], demo=trainer.ctrl_override is not None,
+             hmd=state["hmd"] and time.monotonic() - state["hmd_t"] < 2.0, crashed=state["crashed"], crash_obj=state.get("crash_obj") if state["crashed"] else None, demo=trainer.ctrl_override is not None,
              assist=trainer.assist, slow=trainer.slow, chair_lim=CHAIR_LIM, chair_rate=CHAIR_RATE, uptime=round(time.time() - state["t_start"]))
     try:
         s["tut"] = trainer.update(s, dt_sim)

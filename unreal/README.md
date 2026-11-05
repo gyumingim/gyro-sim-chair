@@ -46,6 +46,7 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   3인칭 카메라는 지형 아래로 안 내려감 (선 추적). 지형 자료가 없으면 ion 토큰 → Cesium World Terrain (+ OSM 건물, ion 96188), 없으면 평평한 땅. 자세한 것: `docs/vworld-integration.md` 5절.
   화면 출처 판에 Copernicus 표기도 같이 (`sim/vworld_terrain_attribution.png`). 오른쪽 화면 MAP 줄 = `V-WORLD PHOTO + DEM 30 M`.
 - 점검 (지형): `-GyroSimVWorldTerrain` (`Scripts/vworld_terrain_check.py`) → 활주로 옆모습, 설악산 시점 3 장, 경사면 카메라 바닥 시험, 설악산 충돌 → 빨간 화면, `Saved/verify/vworld_terrain/`.
+- 3D 건물 (청주 30 km, 국토교통부 GIS건물통합정보): `python -I sim/buildings_build.py --all` 로 만들면 vworld 모드(로컬 지형)에서 자동으로 켜짐 (`docs/vworld-integration.md` 6-1). 점검: `-GyroSimVWorldBuildings` (`Scripts/vworld_buildings_check.py`) → 시내·단지·활주로 그림, 건물 충돌, 건물 끔/켬 GPU, `Saved/verify/vworld_buildings/`.
   개발 점검용 환경 변수: `GYROSIM_GROUND=vworld` (설정 파일 대신 땅 모드), `GYROSIM_MUTE=1` (교관 음성 끔), `GYROSIM_TERRAIN=<폴더>` (지형 자료 위치). 서버 명령 `{"cmd":"place","lat":..,"lon":..,"alt_m":..,"hdg":..,"kts":..}` = 아무 곳 공중 시작.
 - 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 

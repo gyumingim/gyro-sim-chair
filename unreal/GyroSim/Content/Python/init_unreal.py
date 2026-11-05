@@ -42,7 +42,7 @@ if "-gyrosimshots" in _cmd:
 
 # V-World ground mode check (developer use): launch with  -GyroSimVWorld  (Scripts/vworld_check.py, needs the 'vworld'
 # line in Config/cesium_token.txt and the tile proxy). Leaves the editor open.
-if "-gyrosimvworld" in _cmd.replace("-gyrosimvworldterrain", ""):
+if "-gyrosimvworld" in _cmd.replace("-gyrosimvworldterrain", "").replace("-gyrosimvworldbuildings", ""):
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_check.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld"})
@@ -53,3 +53,10 @@ if "-gyrosimvworldterrain" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_terrain_check.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld_terrain"})
+
+# 3D buildings in the vworld mode (developer use): launch with  -GyroSimVWorldBuildings  (Scripts/vworld_buildings_check.py:
+# downtown / apartments / footprint alignment / runway views, building crash, GPU with buildings off / on). Leaves the editor open.
+if "-gyrosimvworldbuildings" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_buildings_check.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld_buildings"})
