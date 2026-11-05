@@ -20,7 +20,7 @@
 
 우리: `C:\GyroSimTiles\shots\busan\busan_cockpit_300m_to_seomyeon.png`(이하 **B300**), `busan_rkpk_runway_cockpit.png`(**BRW**).
 사진: 세션 scratchpad `page/cockpit/` 의 c01(KC-135 급유, F-16 캐노피), c10(F-15, 높은 고도), c14(F/A-18 고고도), c23(Gripen 해질녘 HUD·해), c24(Gripen HUD 유리), c25(Gripen 아퀴레이리 접근), c34(T-50 편대, 한국 남해 섬). 출처·라이선스는 `scripts/meta.json`.
-숫자는 영역 평균(PIL, HSV) — 측정 스크립트 `scratchpad/stats.py`. 사진은 카메라 보정·편광 필터가 섞였을 수 있음(**가정**: 사진 색 = 눈 색이 아님). 그래서 목표는 "사진 범위 안쪽" 이지 사진 값 그대로가 아님.
+숫자는 영역 평균(PIL, HSV) — 측정 스크립트 `C:\Users\a3162\AppData\Local\Temp\claude\b2ff6dea35ed22b8\92940a45-822d-4f2e-9a4d-643a3bbb683f\scratchpad\stats.py` (세션 임시 폴더 — 2단계에서 저장소로 옮길 것). 사진은 카메라 보정·편광 필터가 섞였을 수 있음(**가정**: 사진 색 = 눈 색이 아님). 그래서 목표는 "사진 범위 안쪽" 이지 사진 값 그대로가 아님.
 
 | # | 차이 | 근거 (영역 값) | v2 에서 |
 |---|---|---|---|
