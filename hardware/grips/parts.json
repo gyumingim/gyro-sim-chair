@@ -1,0 +1,1415 @@
+{
+ "meta": {
+  "created": "2026-11-05T19:58:14",
+  "script": "hardware/grips/grips.py",
+  "interface": {
+   "tube_d": 20.0,
+   "tube_wall": 2.0,
+   "insertion": 40.0,
+   "bolt": "M4x30 button head + nut",
+   "bolt_z": 25.0,
+   "key": "rib 3.8 wide x 6 at the rear (-x) of the socket top; tube notch 4 x 6"
+  },
+  "frame": "grip frame: origin socket mouth centre, z up the tube, x forward, y left"
+ },
+ "sizes": {
+  "S": {
+   "stick": {
+    "created": "2026-11-05T19:55:40",
+    "size": "S",
+    "HL": 168,
+    "HB": 78,
+    "who": "여성 평균 전후 · 작은 손 (손 길이 ≲ 176)",
+    "height": 136.8,
+    "cant": 12.0,
+    "min_wall": 2.22,
+    "dims": {
+     "mid_s": 77.5,
+     "depth": 38.0,
+     "width": 31.2,
+     "perimeter": 108.9,
+     "d_equiv": 34.7,
+     "finger_pitch": 17.7,
+     "head_s": 112.9,
+     "trigger_s": 104.0
+    },
+    "labels": [
+     {
+      "name": "trigger",
+      "label": "트리거 (검지)",
+      "pin": "P0",
+      "pos": [
+       30.2,
+       0.0,
+       92.6
+      ],
+      "normal": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "hat_trim",
+      "label": "트림 햇 (엄지)",
+      "pin": "P4-P7",
+      "pos": [
+       13.2,
+       4.4,
+       136.9
+      ],
+      "normal": [
+       -0.007,
+       0.192,
+       0.981
+      ]
+     },
+     {
+      "name": "btn_pickle",
+      "label": "엄지 버튼 1 (무장 발사)",
+      "pin": "P1",
+      "pos": [
+       31.3,
+       4.4,
+       130.3
+      ],
+      "normal": [
+       0.653,
+       0.287,
+       0.701
+      ]
+     },
+     {
+      "name": "btn_thumb2",
+      "label": "엄지 버튼 2 (시점/기타)",
+      "pin": "P2",
+      "pos": [
+       10.8,
+       16.8,
+       122.9
+      ],
+      "normal": [
+       -0.069,
+       0.935,
+       0.349
+      ]
+     },
+     {
+      "name": "btn_pinky",
+      "label": "새끼 버튼 (자동조종 해제/시점)",
+      "pin": "P3",
+      "pos": [
+       14.6,
+       8.6,
+       55.0
+      ],
+      "normal": [
+       0.829,
+       0.545,
+       -0.129
+      ]
+     }
+    ],
+    "screws": [
+     [
+      17.0,
+      37.0
+     ],
+     [
+      -17.5,
+      37.0
+     ],
+     [
+      11.8,
+      82.8
+     ],
+     [
+      -12.8,
+      114.9
+     ]
+    ],
+    "parts": [
+     {
+      "name": "stick_left",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       57.6,
+       19.3,
+       137.2
+      ],
+      "volume_cm3": 33.0,
+      "grams": 34.8,
+      "print_h": 3.4,
+      "file": "stl/S/stick_left.stl"
+     },
+     {
+      "name": "stick_right",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       57.6,
+       19.8,
+       136.8
+      ],
+      "volume_cm3": 35.2,
+      "grams": 37.1,
+      "print_h": 3.6,
+      "file": "stl/S/stick_right.stl"
+     },
+     {
+      "name": "stick_hatcap",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       14.6,
+       14.9,
+       7.0
+      ],
+      "volume_cm3": 0.5,
+      "grams": 0.6,
+      "print_h": 0.3,
+      "file": "stl/S/stick_hatcap.stl"
+     },
+     {
+      "name": "stick_trigger",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       12.8,
+       12.0,
+       26.5
+      ],
+      "volume_cm3": 3.2,
+      "grams": 3.3,
+      "print_h": 0.6,
+      "file": "stl/S/stick_trigger.stl"
+     },
+     {
+      "name": "stick_tube",
+      "kind": "buy",
+      "file": "stl/S/stick_tube.stl"
+     },
+     {
+      "name": "stick_m4_bolt",
+      "kind": "buy",
+      "file": "stl/S/stick_m4_bolt.stl"
+     },
+     {
+      "name": "stick_pcf8574",
+      "kind": "buy",
+      "file": "stl/S/stick_pcf8574.stl"
+     },
+     {
+      "name": "stick_trigger_switch",
+      "kind": "buy",
+      "file": "stl/S/stick_trigger_switch.stl"
+     },
+     {
+      "name": "stick_trigger_pivot",
+      "kind": "buy",
+      "file": "stl/S/stick_trigger_pivot.stl"
+     },
+     {
+      "name": "stick_hat_trim",
+      "kind": "buy",
+      "file": "stl/S/stick_hat_trim.stl"
+     },
+     {
+      "name": "stick_btn_pickle",
+      "kind": "buy",
+      "file": "stl/S/stick_btn_pickle.stl"
+     },
+     {
+      "name": "stick_btn_thumb2",
+      "kind": "buy",
+      "file": "stl/S/stick_btn_thumb2.stl"
+     },
+     {
+      "name": "stick_btn_pinky",
+      "kind": "buy",
+      "file": "stl/S/stick_btn_pinky.stl"
+     }
+    ],
+    "clash": [],
+    "strength": [
+     {
+      "s": 43.5,
+      "area": 843,
+      "I_fore_aft": 88591,
+      "I_side": 62610,
+      "arm": 94,
+      "sigma_fore_aft": 4.2,
+      "sigma_side": 5.0
+     },
+     {
+      "s": 55.0,
+      "area": 336,
+      "I_fore_aft": 36005,
+      "I_side": 27187,
+      "arm": 83,
+      "sigma_fore_aft": 8.4,
+      "sigma_side": 9.5
+     },
+     {
+      "s": 77.5,
+      "area": 373,
+      "I_fore_aft": 53109,
+      "I_side": 36885,
+      "arm": 61,
+      "sigma_fore_aft": 4.5,
+      "sigma_side": 5.5
+     }
+    ]
+   },
+   "throttle": {
+    "created": "2026-11-05T19:53:41",
+    "size": "S",
+    "HL": 168,
+    "HB": 78,
+    "who": "여성 평균 전후 · 작은 손 (손 길이 ≲ 176)",
+    "height": 139.6,
+    "cant": 8.0,
+    "min_wall": 2.45,
+    "dims": {
+     "mid_s": 77.5,
+     "depth": 39.4,
+     "width": 32.7,
+     "perimeter": 113.7,
+     "d_equiv": 36.2,
+     "finger_pitch": 17.7,
+     "head_s": 112.9,
+     "trigger_s": 104.0
+    },
+    "labels": [
+     {
+      "name": "hat_cursor",
+      "label": "커서 햇 (엄지)",
+      "pin": "P4-P7",
+      "pos": [
+       7.9,
+       -4.5,
+       139.5
+      ],
+      "normal": [
+       -0.075,
+       -0.192,
+       0.979
+      ]
+     },
+     {
+      "name": "btn_talk",
+      "label": "무전 버튼 (엄지)",
+      "pin": "P3",
+      "pos": [
+       26.6,
+       -4.6,
+       134.4
+      ],
+      "normal": [
+       0.602,
+       -0.287,
+       0.745
+      ]
+     },
+     {
+      "name": "sw_speedbrake",
+      "label": "스피드 브레이크 (엄지, 앞=펼침/뒤=접음)",
+      "pin": "P1/P2",
+      "pos": [
+       7.8,
+       -17.9,
+       123.7
+      ],
+      "normal": [
+       -0.055,
+       -0.953,
+       0.297
+      ]
+     },
+     {
+      "name": "btn_index",
+      "label": "검지 버튼 (언케이지/기타)",
+      "pin": "P0",
+      "pos": [
+       23.9,
+       5.7,
+       101.2
+      ],
+      "normal": [
+       0.935,
+       0.33,
+       -0.131
+      ]
+     }
+    ],
+    "screws": [
+     [
+      17.0,
+      37.0
+     ],
+     [
+      -17.5,
+      37.0
+     ],
+     [
+      12.3,
+      82.8
+     ],
+     [
+      -14.2,
+      114.9
+     ]
+    ],
+    "parts": [
+     {
+      "name": "throttle_left",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       55.4,
+       21.1,
+       139.9
+      ],
+      "volume_cm3": 35.8,
+      "grams": 37.8,
+      "print_h": 3.7,
+      "file": "stl/S/throttle_left.stl"
+     },
+     {
+      "name": "throttle_right",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       55.4,
+       19.7,
+       139.9
+      ],
+      "volume_cm3": 32.0,
+      "grams": 33.7,
+      "print_h": 3.3,
+      "file": "stl/S/throttle_right.stl"
+     },
+     {
+      "name": "throttle_hatcap",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       14.8,
+       14.9,
+       7.0
+      ],
+      "volume_cm3": 0.5,
+      "grams": 0.6,
+      "print_h": 0.3,
+      "file": "stl/S/throttle_hatcap.stl"
+     },
+     {
+      "name": "throttle_tube",
+      "kind": "buy",
+      "file": "stl/S/throttle_tube.stl"
+     },
+     {
+      "name": "throttle_m4_bolt",
+      "kind": "buy",
+      "file": "stl/S/throttle_m4_bolt.stl"
+     },
+     {
+      "name": "throttle_pcf8574",
+      "kind": "buy",
+      "file": "stl/S/throttle_pcf8574.stl"
+     },
+     {
+      "name": "throttle_hat_cursor",
+      "kind": "buy",
+      "file": "stl/S/throttle_hat_cursor.stl"
+     },
+     {
+      "name": "throttle_btn_talk",
+      "kind": "buy",
+      "file": "stl/S/throttle_btn_talk.stl"
+     },
+     {
+      "name": "throttle_sw_speedbrake",
+      "kind": "buy",
+      "file": "stl/S/throttle_sw_speedbrake.stl"
+     },
+     {
+      "name": "throttle_btn_index",
+      "kind": "buy",
+      "file": "stl/S/throttle_btn_index.stl"
+     }
+    ],
+    "clash": [],
+    "strength": [
+     {
+      "s": 43.5,
+      "area": 948,
+      "I_fore_aft": 107945,
+      "I_side": 77713,
+      "arm": 96,
+      "sigma_fore_aft": 3.7,
+      "sigma_side": 4.4
+     },
+     {
+      "s": 55.0,
+      "area": 315,
+      "I_fore_aft": 44728,
+      "I_side": 33034,
+      "arm": 85,
+      "sigma_fore_aft": 7.3,
+      "sigma_side": 8.3
+     },
+     {
+      "s": 77.5,
+      "area": 378,
+      "I_fore_aft": 58924,
+      "I_side": 42143,
+      "arm": 63,
+      "sigma_fore_aft": 4.4,
+      "sigma_side": 5.2
+     }
+    ]
+   }
+  },
+  "M": {
+   "stick": {
+    "created": "2026-11-05T19:56:02",
+    "size": "M",
+    "HL": 182,
+    "HB": 85,
+    "who": "남성 평균 전후 (손 길이 176~190)",
+    "height": 145.3,
+    "cant": 12.0,
+    "min_wall": 2.22,
+    "dims": {
+     "mid_s": 80.6,
+     "depth": 41.1,
+     "width": 33.7,
+     "perimeter": 117.9,
+     "d_equiv": 37.5,
+     "finger_pitch": 19.3,
+     "head_s": 119.3,
+     "trigger_s": 109.6
+    },
+    "labels": [
+     {
+      "name": "trigger",
+      "label": "트리거 (검지)",
+      "pin": "P0",
+      "pos": [
+       32.8,
+       0.0,
+       97.8
+      ],
+      "normal": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "hat_trim",
+      "label": "트림 햇 (엄지)",
+      "pin": "P4-P7",
+      "pos": [
+       14.7,
+       4.8,
+       145.3
+      ],
+      "normal": [
+       -0.007,
+       0.192,
+       0.981
+      ]
+     },
+     {
+      "name": "btn_pickle",
+      "label": "엄지 버튼 1 (무장 발사)",
+      "pin": "P1",
+      "pos": [
+       32.3,
+       5.2,
+       139.5
+      ],
+      "normal": [
+       0.653,
+       0.287,
+       0.701
+      ]
+     },
+     {
+      "name": "btn_thumb2",
+      "label": "엄지 버튼 2 (시점/기타)",
+      "pin": "P2",
+      "pos": [
+       12.0,
+       18.2,
+       130.1
+      ],
+      "normal": [
+       -0.069,
+       0.935,
+       0.349
+      ]
+     },
+     {
+      "name": "btn_pinky",
+      "label": "새끼 버튼 (자동조종 해제/시점)",
+      "pin": "P3",
+      "pos": [
+       15.7,
+       9.3,
+       55.6
+      ],
+      "normal": [
+       0.827,
+       0.545,
+       -0.139
+      ]
+     }
+    ],
+    "screws": [
+     [
+      17.0,
+      37.0
+     ],
+     [
+      -17.5,
+      37.0
+     ],
+     [
+      13.3,
+      86.4
+     ],
+     [
+      -14.4,
+      121.3
+     ]
+    ],
+    "parts": [
+     {
+      "name": "stick_left",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       62.5,
+       20.5,
+       145.6
+      ],
+      "volume_cm3": 37.8,
+      "grams": 39.8,
+      "print_h": 3.9,
+      "file": "stl/M/stick_left.stl"
+     },
+     {
+      "name": "stick_right",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       62.5,
+       21.0,
+       145.3
+      ],
+      "volume_cm3": 40.2,
+      "grams": 42.4,
+      "print_h": 4.1,
+      "file": "stl/M/stick_right.stl"
+     },
+     {
+      "name": "stick_hatcap",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       14.6,
+       14.9,
+       7.0
+      ],
+      "volume_cm3": 0.5,
+      "grams": 0.6,
+      "print_h": 0.3,
+      "file": "stl/M/stick_hatcap.stl"
+     },
+     {
+      "name": "stick_trigger",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       12.8,
+       12.0,
+       26.5
+      ],
+      "volume_cm3": 3.2,
+      "grams": 3.3,
+      "print_h": 0.6,
+      "file": "stl/M/stick_trigger.stl"
+     },
+     {
+      "name": "stick_tube",
+      "kind": "buy",
+      "file": "stl/M/stick_tube.stl"
+     },
+     {
+      "name": "stick_m4_bolt",
+      "kind": "buy",
+      "file": "stl/M/stick_m4_bolt.stl"
+     },
+     {
+      "name": "stick_pcf8574",
+      "kind": "buy",
+      "file": "stl/M/stick_pcf8574.stl"
+     },
+     {
+      "name": "stick_trigger_switch",
+      "kind": "buy",
+      "file": "stl/M/stick_trigger_switch.stl"
+     },
+     {
+      "name": "stick_trigger_pivot",
+      "kind": "buy",
+      "file": "stl/M/stick_trigger_pivot.stl"
+     },
+     {
+      "name": "stick_hat_trim",
+      "kind": "buy",
+      "file": "stl/M/stick_hat_trim.stl"
+     },
+     {
+      "name": "stick_btn_pickle",
+      "kind": "buy",
+      "file": "stl/M/stick_btn_pickle.stl"
+     },
+     {
+      "name": "stick_btn_thumb2",
+      "kind": "buy",
+      "file": "stl/M/stick_btn_thumb2.stl"
+     },
+     {
+      "name": "stick_btn_pinky",
+      "kind": "buy",
+      "file": "stl/M/stick_btn_pinky.stl"
+     }
+    ],
+    "clash": [],
+    "strength": [
+     {
+      "s": 43.5,
+      "area": 1001,
+      "I_fore_aft": 120116,
+      "I_side": 84878,
+      "arm": 102,
+      "sigma_fore_aft": 3.6,
+      "sigma_side": 4.3
+     },
+     {
+      "s": 55.0,
+      "area": 364,
+      "I_fore_aft": 47250,
+      "I_side": 35340,
+      "arm": 92,
+      "sigma_fore_aft": 7.6,
+      "sigma_side": 8.6
+     },
+     {
+      "s": 80.6,
+      "area": 413,
+      "I_fore_aft": 69682,
+      "I_side": 48408,
+      "arm": 67,
+      "sigma_fore_aft": 4.1,
+      "sigma_side": 4.9
+     }
+    ]
+   },
+   "throttle": {
+    "created": "2026-11-05T19:53:50",
+    "size": "M",
+    "HL": 182,
+    "HB": 85,
+    "who": "남성 평균 전후 (손 길이 176~190)",
+    "height": 148.3,
+    "cant": 8.0,
+    "min_wall": 2.45,
+    "dims": {
+     "mid_s": 80.6,
+     "depth": 42.7,
+     "width": 35.4,
+     "perimeter": 123.1,
+     "d_equiv": 39.2,
+     "finger_pitch": 19.3,
+     "head_s": 119.3,
+     "trigger_s": 109.6
+    },
+    "labels": [
+     {
+      "name": "hat_cursor",
+      "label": "커서 햇 (엄지)",
+      "pin": "P4-P7",
+      "pos": [
+       8.8,
+       -4.8,
+       148.1
+      ],
+      "normal": [
+       -0.075,
+       -0.192,
+       0.979
+      ]
+     },
+     {
+      "name": "btn_talk",
+      "label": "무전 버튼 (엄지)",
+      "pin": "P3",
+      "pos": [
+       26.9,
+       -5.3,
+       143.7
+      ],
+      "normal": [
+       0.602,
+       -0.287,
+       0.745
+      ]
+     },
+     {
+      "name": "sw_speedbrake",
+      "label": "스피드 브레이크 (엄지, 앞=펼침/뒤=접음)",
+      "pin": "P1/P2",
+      "pos": [
+       8.6,
+       -19.4,
+       131.0
+      ],
+      "normal": [
+       -0.055,
+       -0.953,
+       0.297
+      ]
+     },
+     {
+      "name": "btn_index",
+      "label": "검지 버튼 (언케이지/기타)",
+      "pin": "P0",
+      "pos": [
+       26.1,
+       6.2,
+       106.5
+      ],
+      "normal": [
+       0.935,
+       0.33,
+       -0.131
+      ]
+     }
+    ],
+    "screws": [
+     [
+      17.0,
+      37.0
+     ],
+     [
+      -17.5,
+      37.0
+     ],
+     [
+      13.8,
+      86.4
+     ],
+     [
+      -15.9,
+      121.3
+     ]
+    ],
+    "parts": [
+     {
+      "name": "throttle_left",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       60.0,
+       22.5,
+       148.3
+      ],
+      "volume_cm3": 41.4,
+      "grams": 43.6,
+      "print_h": 4.2,
+      "file": "stl/M/throttle_left.stl"
+     },
+     {
+      "name": "throttle_right",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       60.0,
+       21.0,
+       148.5
+      ],
+      "volume_cm3": 36.4,
+      "grams": 38.3,
+      "print_h": 3.7,
+      "file": "stl/M/throttle_right.stl"
+     },
+     {
+      "name": "throttle_hatcap",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       14.8,
+       14.9,
+       7.0
+      ],
+      "volume_cm3": 0.5,
+      "grams": 0.6,
+      "print_h": 0.3,
+      "file": "stl/M/throttle_hatcap.stl"
+     },
+     {
+      "name": "throttle_tube",
+      "kind": "buy",
+      "file": "stl/M/throttle_tube.stl"
+     },
+     {
+      "name": "throttle_m4_bolt",
+      "kind": "buy",
+      "file": "stl/M/throttle_m4_bolt.stl"
+     },
+     {
+      "name": "throttle_pcf8574",
+      "kind": "buy",
+      "file": "stl/M/throttle_pcf8574.stl"
+     },
+     {
+      "name": "throttle_hat_cursor",
+      "kind": "buy",
+      "file": "stl/M/throttle_hat_cursor.stl"
+     },
+     {
+      "name": "throttle_btn_talk",
+      "kind": "buy",
+      "file": "stl/M/throttle_btn_talk.stl"
+     },
+     {
+      "name": "throttle_sw_speedbrake",
+      "kind": "buy",
+      "file": "stl/M/throttle_sw_speedbrake.stl"
+     },
+     {
+      "name": "throttle_btn_index",
+      "kind": "buy",
+      "file": "stl/M/throttle_btn_index.stl"
+     }
+    ],
+    "clash": [],
+    "strength": [
+     {
+      "s": 43.5,
+      "area": 1123,
+      "I_fore_aft": 146410,
+      "I_side": 105370,
+      "arm": 105,
+      "sigma_fore_aft": 3.2,
+      "sigma_side": 3.8
+     },
+     {
+      "s": 55.0,
+      "area": 342,
+      "I_fore_aft": 57485,
+      "I_side": 42649,
+      "arm": 94,
+      "sigma_fore_aft": 6.7,
+      "sigma_side": 7.7
+     },
+     {
+      "s": 80.6,
+      "area": 418,
+      "I_fore_aft": 77159,
+      "I_side": 55193,
+      "arm": 69,
+      "sigma_fore_aft": 3.9,
+      "sigma_side": 4.7
+     }
+    ]
+   }
+  },
+  "L": {
+   "stick": {
+    "created": "2026-11-05T19:57:12",
+    "size": "L",
+    "HL": 196,
+    "HB": 91,
+    "who": "큰 손 (손 길이 ≳ 190, 남성 약 90~95 백분위 추정)",
+    "height": 153.1,
+    "cant": 12.0,
+    "min_wall": 2.21,
+    "dims": {
+     "mid_s": 83.4,
+     "depth": 44.2,
+     "width": 36.3,
+     "perimeter": 126.8,
+     "d_equiv": 40.4,
+     "finger_pitch": 20.7,
+     "head_s": 124.7,
+     "trigger_s": 114.4
+    },
+    "labels": [
+     {
+      "name": "trigger",
+      "label": "트리거 (검지)",
+      "pin": "P0",
+      "pos": [
+       35.3,
+       0.0,
+       102.1
+      ],
+      "normal": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "name": "hat_trim",
+      "label": "트림 햇 (엄지)",
+      "pin": "P4-P7",
+      "pos": [
+       15.9,
+       5.2,
+       153.0
+      ],
+      "normal": [
+       -0.007,
+       0.192,
+       0.981
+      ]
+     },
+     {
+      "name": "btn_pickle",
+      "label": "엄지 버튼 1 (무장 발사)",
+      "pin": "P1",
+      "pos": [
+       34.9,
+       5.6,
+       146.5
+      ],
+      "normal": [
+       0.653,
+       0.287,
+       0.701
+      ]
+     },
+     {
+      "name": "btn_thumb2",
+      "label": "엄지 버튼 2 (시점/기타)",
+      "pin": "P2",
+      "pos": [
+       13.1,
+       19.6,
+       136.5
+      ],
+      "normal": [
+       -0.069,
+       0.935,
+       0.349
+      ]
+     },
+     {
+      "name": "btn_pinky",
+      "label": "새끼 버튼 (자동조종 해제/시점)",
+      "pin": "P3",
+      "pos": [
+       16.9,
+       10.0,
+       56.1
+      ],
+      "normal": [
+       0.826,
+       0.545,
+       -0.147
+      ]
+     }
+    ],
+    "screws": [
+     [
+      17.0,
+      37.0
+     ],
+     [
+      -17.5,
+      37.0
+     ],
+     [
+      14.7,
+      89.6
+     ],
+     [
+      -16.0,
+      126.7
+     ]
+    ],
+    "parts": [
+     {
+      "name": "stick_left",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       67.3,
+       21.7,
+       152.1
+      ],
+      "volume_cm3": 42.9,
+      "grams": 45.2,
+      "print_h": 4.4,
+      "file": "stl/L/stick_left.stl"
+     },
+     {
+      "name": "stick_right",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       67.3,
+       22.3,
+       153.1
+      ],
+      "volume_cm3": 45.4,
+      "grams": 47.8,
+      "print_h": 4.6,
+      "file": "stl/L/stick_right.stl"
+     },
+     {
+      "name": "stick_hatcap",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       14.6,
+       14.9,
+       7.0
+      ],
+      "volume_cm3": 0.5,
+      "grams": 0.6,
+      "print_h": 0.3,
+      "file": "stl/L/stick_hatcap.stl"
+     },
+     {
+      "name": "stick_trigger",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       12.8,
+       12.0,
+       26.5
+      ],
+      "volume_cm3": 3.2,
+      "grams": 3.3,
+      "print_h": 0.6,
+      "file": "stl/L/stick_trigger.stl"
+     },
+     {
+      "name": "stick_tube",
+      "kind": "buy",
+      "file": "stl/L/stick_tube.stl"
+     },
+     {
+      "name": "stick_m4_bolt",
+      "kind": "buy",
+      "file": "stl/L/stick_m4_bolt.stl"
+     },
+     {
+      "name": "stick_pcf8574",
+      "kind": "buy",
+      "file": "stl/L/stick_pcf8574.stl"
+     },
+     {
+      "name": "stick_trigger_switch",
+      "kind": "buy",
+      "file": "stl/L/stick_trigger_switch.stl"
+     },
+     {
+      "name": "stick_trigger_pivot",
+      "kind": "buy",
+      "file": "stl/L/stick_trigger_pivot.stl"
+     },
+     {
+      "name": "stick_hat_trim",
+      "kind": "buy",
+      "file": "stl/L/stick_hat_trim.stl"
+     },
+     {
+      "name": "stick_btn_pickle",
+      "kind": "buy",
+      "file": "stl/L/stick_btn_pickle.stl"
+     },
+     {
+      "name": "stick_btn_thumb2",
+      "kind": "buy",
+      "file": "stl/L/stick_btn_thumb2.stl"
+     },
+     {
+      "name": "stick_btn_pinky",
+      "kind": "buy",
+      "file": "stl/L/stick_btn_pinky.stl"
+     }
+    ],
+    "clash": [],
+    "strength": [
+     {
+      "s": 43.5,
+      "area": 1171,
+      "I_fore_aft": 159324,
+      "I_side": 112543,
+      "arm": 109,
+      "sigma_fore_aft": 3.1,
+      "sigma_side": 3.7
+     },
+     {
+      "s": 55.0,
+      "area": 392,
+      "I_fore_aft": 60708,
+      "I_side": 44987,
+      "arm": 99,
+      "sigma_fore_aft": 6.8,
+      "sigma_side": 7.8
+     },
+     {
+      "s": 83.4,
+      "area": 454,
+      "I_fore_aft": 89523,
+      "I_side": 62198,
+      "arm": 72,
+      "sigma_fore_aft": 3.7,
+      "sigma_side": 4.4
+     }
+    ]
+   },
+   "throttle": {
+    "created": "2026-11-05T19:57:52",
+    "size": "L",
+    "HL": 196,
+    "HB": 91,
+    "who": "큰 손 (손 길이 ≳ 190, 남성 약 90~95 백분위 추정)",
+    "height": 156.0,
+    "cant": 8.0,
+    "min_wall": 2.45,
+    "dims": {
+     "mid_s": 83.4,
+     "depth": 45.9,
+     "width": 38.2,
+     "perimeter": 132.5,
+     "d_equiv": 42.2,
+     "finger_pitch": 20.7,
+     "head_s": 124.7,
+     "trigger_s": 114.4
+    },
+    "labels": [
+     {
+      "name": "hat_cursor",
+      "label": "커서 햇 (엄지)",
+      "pin": "P4-P7",
+      "pos": [
+       9.5,
+       -5.2,
+       155.8
+      ],
+      "normal": [
+       -0.075,
+       -0.192,
+       0.979
+      ]
+     },
+     {
+      "name": "btn_talk",
+      "label": "무전 버튼 (엄지)",
+      "pin": "P3",
+      "pos": [
+       29.1,
+       -5.7,
+       151.1
+      ],
+      "normal": [
+       0.602,
+       -0.287,
+       0.745
+      ]
+     },
+     {
+      "name": "sw_speedbrake",
+      "label": "스피드 브레이크 (엄지, 앞=펼침/뒤=접음)",
+      "pin": "P1/P2",
+      "pos": [
+       9.4,
+       -20.9,
+       137.4
+      ],
+      "normal": [
+       -0.055,
+       -0.953,
+       0.297
+      ]
+     },
+     {
+      "name": "btn_index",
+      "label": "검지 버튼 (언케이지/기타)",
+      "pin": "P0",
+      "pos": [
+       28.2,
+       6.7,
+       111.0
+      ],
+      "normal": [
+       0.935,
+       0.33,
+       -0.131
+      ]
+     }
+    ],
+    "screws": [
+     [
+      17.0,
+      37.0
+     ],
+     [
+      -17.5,
+      37.0
+     ],
+     [
+      15.3,
+      89.6
+     ],
+     [
+      -17.6,
+      126.7
+     ]
+    ],
+    "parts": [
+     {
+      "name": "throttle_left",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       64.4,
+       23.9,
+       156.0
+      ],
+      "volume_cm3": 47.2,
+      "grams": 49.7,
+      "print_h": 4.8,
+      "file": "stl/L/throttle_left.stl"
+     },
+     {
+      "name": "throttle_right",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       64.4,
+       22.3,
+       156.2
+      ],
+      "volume_cm3": 41.1,
+      "grams": 43.3,
+      "print_h": 4.2,
+      "file": "stl/L/throttle_right.stl"
+     },
+     {
+      "name": "throttle_hatcap",
+      "kind": "print",
+      "material": "PLA",
+      "solids": 1,
+      "size": [
+       14.8,
+       14.9,
+       7.0
+      ],
+      "volume_cm3": 0.5,
+      "grams": 0.6,
+      "print_h": 0.3,
+      "file": "stl/L/throttle_hatcap.stl"
+     },
+     {
+      "name": "throttle_tube",
+      "kind": "buy",
+      "file": "stl/L/throttle_tube.stl"
+     },
+     {
+      "name": "throttle_m4_bolt",
+      "kind": "buy",
+      "file": "stl/L/throttle_m4_bolt.stl"
+     },
+     {
+      "name": "throttle_pcf8574",
+      "kind": "buy",
+      "file": "stl/L/throttle_pcf8574.stl"
+     },
+     {
+      "name": "throttle_hat_cursor",
+      "kind": "buy",
+      "file": "stl/L/throttle_hat_cursor.stl"
+     },
+     {
+      "name": "throttle_btn_talk",
+      "kind": "buy",
+      "file": "stl/L/throttle_btn_talk.stl"
+     },
+     {
+      "name": "throttle_sw_speedbrake",
+      "kind": "buy",
+      "file": "stl/L/throttle_sw_speedbrake.stl"
+     },
+     {
+      "name": "throttle_btn_index",
+      "kind": "buy",
+      "file": "stl/L/throttle_btn_index.stl"
+     }
+    ],
+    "clash": [],
+    "strength": [
+     {
+      "s": 43.5,
+      "area": 1312,
+      "I_fore_aft": 194234,
+      "I_side": 139717,
+      "arm": 113,
+      "sigma_fore_aft": 2.8,
+      "sigma_side": 3.3
+     },
+     {
+      "s": 55.0,
+      "area": 371,
+      "I_fore_aft": 73143,
+      "I_side": 54362,
+      "arm": 102,
+      "sigma_fore_aft": 6.1,
+      "sigma_side": 7.0
+     },
+     {
+      "s": 83.4,
+      "area": 458,
+      "I_fore_aft": 98957,
+      "I_side": 70773,
+      "arm": 74,
+      "sigma_fore_aft": 3.6,
+      "sigma_side": 4.2
+     }
+    ]
+   }
+  }
+ }
+}

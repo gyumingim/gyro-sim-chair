@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스틱·스로틀 손잡이</title>
+<style>
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1d1d1f;--sub:#666;--line:#e1e1dc;--acc:#2f6fd6;--ok:#1f9d55;--warn:#d9822b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}}
+:root[data-theme="dark"]{--bg:#151517;--card:#1f1f22;--ink:#eee;--sub:#aaa;--line:#33333a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif;line-height:1.5}
+#app{display:grid;grid-template-columns:1fr 500px;height:100vh}
+@media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:60vh auto;height:auto}}
+#view{position:relative;background:linear-gradient(#dfe7ef,#f4f6f8);min-height:340px;overflow:hidden}
+#view canvas{display:block}
+#hud{position:absolute;left:10px;top:10px;font-size:.8rem;background:#fffc;color:#234;padding:4px 8px;border-radius:6px}
+#tags{position:absolute;inset:0;pointer-events:none}
+.tag{position:absolute;transform:translate(-50%,-50%);font-size:.72rem;background:#1d2a3ae6;color:#fff;padding:1px 6px;border-radius:9px;white-space:nowrap}
+.tag b{color:#ffd37a}
+aside{overflow:auto;padding:14px;border-left:1px solid var(--line);background:var(--card)}
+h1{font-size:1.15rem;margin:0 0 4px}h2{font-size:.98rem;margin:16px 0 6px}
+.sub{color:var(--sub);font-size:.85rem;margin:0 0 8px}
+.box{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+.concl{border:2px solid var(--acc)}
+label{font-size:.86rem;color:var(--sub)}label b{color:var(--ink)}
+input[type=range]{width:100%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:0 6px 6px 0}
+.seg button{border:0;background:transparent;color:var(--ink);padding:5px 12px;font:inherit;font-size:.85rem;cursor:pointer}
+.seg button.on{background:var(--acc);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+td,th{border-bottom:1px solid var(--line);padding:4px 5px;text-align:left;vertical-align:top}
+th{color:var(--sub)}
+.tot{font-weight:700}
+ul{padding-left:18px;margin:4px 0}li{margin:2px 0}
+.small{font-size:.8rem;color:var(--sub)}
+a{color:var(--acc)}
+code{font-size:.85em}
+body.shot aside{display:none}body.shot #app{grid-template-columns:1fr}body.shot #hud{display:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 오른쪽 = 스로틀(왼손), 왼쪽 = 스틱(오른손)</div><div id="tags"></div></div>
+  <aside>
+    <h1>스틱 · 스로틀 손잡이 (S / M / L)</h1>
+    <p class="sub">손 크기 자료로 정한 굵기·기울기·손바닥 볼록·손가락 홈·엄지 받침. PLA, 좌우 반쪽 출력, M3 나사 + 열압입 인서트. 모델 <code>hardware/grips/grips.py</code>, STL <code>hardware/grips/stl/&lt;크기&gt;/</code>, 연결 규격 <code>hardware/grips/INTERFACE.md</code>.</p>
+    <div class="box concl" id="concl">불러오는 중…</div>
+    <div class="box">
+      <div><span class="seg" id="segSize"><button data-v="S">S</button><button data-v="M" class="on">M</button><button data-v="L">L</button></span>
+      <span class="seg" id="segShow"><button data-v="both" class="on">둘 다</button><button data-v="stick">스틱</button><button data-v="throttle">스로틀</button></span></div>
+      <label>분해 보기 <b id="ev">0</b></label><input id="exp" type="range" min="0" max="100" value="0">
+      <label><input id="buy" type="checkbox" checked> 사는 부품 보기 (스위치·기판·관)</label> &nbsp;
+      <label><input id="tg" type="checkbox" checked> 버튼 이름</label> &nbsp;
+      <label><input id="xr" type="checkbox"> 반투명</label>
+    </div>
+    <h2>크기별 치수 (손잡이 가운데 = 가운뎃손가락 높이)</h2>
+    <table id="tdim"></table>
+    <p class="small">등가 지름 = 둘레 ÷ π. 자료: 편한 손잡이 둘레 ≈ 손 길이의 64 %, 지름 ≈ 19.7 % (아래 출처). 손잡이는 둥근 관이 아니라 앞뒤가 긴 타원 + 손바닥 볼록이라 둘레로 맞춤.</p>
+    <h2>버튼 배치 (PCF8574 핀 = 지금 펌웨어 그대로)</h2>
+    <table id="tbtn"></table>
+    <h2>출력 부품 (지금 크기)</h2>
+    <table id="tp"></table>
+    <h2>사는 부품 (두 손잡이, 가격 추정)</h2>
+    <table id="tb"></table>
+    <h2>출력 설정</h2>
+    <ul class="small">
+      <li>반쪽을 <b>자른 면(평평한 면)을 바닥에</b>. 안쪽 빈 곳 천장은 45° 지붕 모양이라 <b>지지대 없음</b>. 버튼 구멍·나사 머리 자리는 위를 봄.</li>
+      <li>PLA, 0.2 mm 층, 벽(perimeter) 4줄, 채움 25 % 자이로이드, 노즐 0.4. 겉면은 '아이언닝' 없이, 다 되면 400 → 800 방 사포.</li>
+      <li>층 방향: 반쪽을 눕혀 찍으므로 손잡이 길이 방향(당김 응력 방향)이 층 <b>안쪽</b>에 놓임 → 층이 벌어지는 방향이 아님 (강함).</li>
+      <li>트리거·햇 캡은 작은 부품: 트리거는 옆면을 바닥에, 햇 캡은 윗면을 아래로.</li>
+      <li>무게 = 부피 × 1.24 × 0.85 (얇은 벽이라 거의 다 벽), 출력 시간 ≈ 무게 ÷ 11 g/h + 15 분 (추정, 프린터마다 다름).</li>
+    </ul>
+    <h2>강도 확인 (꼭대기 200 N 세게 당김)</h2>
+    <table id="tst"></table>
+    <p class="small" id="stnote"></p>
+    <h2>조립 순서</h2>
+    <ol class="small" style="padding-left:18px">
+      <li>오른쪽 반쪽(스틱) / 오른쪽 반쪽(스로틀)의 인서트 구멍 Ø4 에 <b>M3 열압입 인서트</b>(M3×5.7, 바깥 약 4.6) 를 인두로 넣음. 자른 면에서 넣고, 튀어나온 것은 면에 맞게 깎음.</li>
+      <li>관 윗끝 뒤쪽에 4×6 홈, 끝에서 15 mm 아래에 좌우 Ø4.3 구멍 (규격 문서). 4심 선을 관 안으로 올림.</li>
+      <li>버튼은 <b>겉에서</b> 네모 구멍으로 밀어 넣음 → 다리가 뒤쪽 받침 홈으로 나옴 → 안에서 전선 납땜. 12 mm 둥근 캡 끼움. 햇 스위치도 같은 방식, 인쇄한 햇 캡을 막대에 순간접착.</li>
+      <li>트리거: 슬롯 뒤 벽 네모 구멍에 12 mm 택트를 앞에서 넣고 납땜, 레버를 슬롯에 넣고 M3×20 을 왼쪽에서 끼워 오른쪽 인서트에 (레버가 걸리지 않게 살짝만).</li>
+      <li>PCF8574 모듈 (핀헤더 떼고) 을 안쪽 뒤 벽에 양면테이프. 모든 버튼 반대쪽 다리는 GND 로 묶음.</li>
+      <li>반쪽을 덮고 M3×12 ×4 (왼쪽에서) 조임 → 관에 끼우고 M4×30 볼트 + 너트.</li>
+      <li>미끄럼 막이 (선택): 손잡이 가운데에 테니스 라켓 그립 테이프 감기, 또는 TPU 95A 로 1.2 mm 덮개(슬리브) — 덮개는 이 STL 겉면을 1.2 mm 키워 출력하면 됨 (아직 안 만듦). 둘레가 약 7 mm 늘어나므로 테이프를 쓸 사람은 한 크기 작은 것을 고려.</li>
+    </ol>
+    <h2>배선 (손잡이 하나당 PCF8574 하나, 선 4가닥)</h2>
+    <table class="small">
+      <tr><th>PCF8574</th><th>스틱 (0x20)</th><th>스로틀 (0x21)</th></tr>
+      <tr><td>P0</td><td>트리거</td><td>검지 버튼</td></tr>
+      <tr><td>P1 · P2</td><td>엄지 1 (발사) · 엄지 2</td><td>스피드 브레이크 앞 · 뒤 (토글 양쪽)</td></tr>
+      <tr><td>P3</td><td>새끼 버튼</td><td>무전 버튼</td></tr>
+      <tr><td>P4~P7</td><td>트림 햇 위·오른·아래·왼</td><td>커서 햇 위·오른·아래·왼</td></tr>
+      <tr><td>VCC/GND/SDA/SCL</td><td colspan="2">관 안 4심 차폐선 → 본체 Pro Micro 쪽 TCA9548A 채널 1 (스틱) / 2 (스로틀). 스로틀 모듈 A0 = VCC.</td></tr>
+    </table>
+    <p class="small">8 입력이라 <code>firmware/controls</code> 를 고칠 필요 없음 (버튼 1~4 스틱, 5~8 스로틀, 햇 2). 햇 가운데 누름은 남는 핀이 없어 연결 안 함 — 쓰려면 PCF8575 (16핀) 로 바꾸고 펌웨어 수정.</p>
+    <h2>손 크기 자료와 출처</h2>
+    <table class="small">
+      <tr><th>크기</th><th>손 길이 / 너비 (설계값)</th><th>맞는 사람</th></tr>
+      <tbody id="tsz"></tbody>
+    </table>
+    <ul class="small">
+      <li>한국인 손 (18~30대 평균, 기술표준원 2008 손 측정): 남 손 길이 184.7 · 손 너비 85.2, 여 170.6 · 76.3 mm — 기도형 2010, 대한산업공학회지 36(3) <a href="https://koreascience.kr/article/JAKO201013351013682.pdf">PDF</a>. 백분위 표는 원문을 못 읽어 <b>표준편차 약 8~9 mm 로 추정</b> (S/M/L 경계는 추정).</li>
+      <li>한국 성인 손 백분위 (5·50·95) 원 자료: 윤훈용 2003 <a href="https://koreascience.or.kr/article/JAKO200329256811495.pub?orgId=kiie">한국 성인의 손 부위 측정치에 관한 연구</a>, Size Korea (sizekorea.kats.go.kr).</li>
+      <li>편한 손잡이 지름 = 손 길이의 19.7 % (NIOSH, 원통 손잡이 최대 쥐기): <a href="https://stacks.cdc.gov/view/cdc/196025">Optimizing Handle Size Based on Normalized Hand Size</a>. 둘레 = 손 길이 64 %, 35 mm 가 가장 편함: <a href="https://stacks.cdc.gov/view/cdc/197408">Optimal Cylindrical Handle Diameter for Grip Force Tasks</a>.</li>
+      <li>손잡이 굵기와 쥐는 힘·접촉 면적 (지름/손 길이 비가 좌우): Seo & Armstrong 2008, Human Factors 50(5) — 위 NIOSH 자료와 같은 그룹.</li>
+      <li>한국 남학생 손잡이 편안함 3.5 cm 최적, 2.5~4.0 cm 차이 작음: <a href="https://koreascience.kr/article/JAKO199711919572924.page">대한인간공학회지 1997</a>.</li>
+      <li>앞으로 기울임(cant): 중립 손목 = 척측 편위 0~20° (<a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9069396">US 9069396</a>), 손잡이를 앞으로 15° 기울이면 요측 편위가 12~13° 줄어듦 (<a href="https://informahealthcare.com/doi/abs/10.1080/00140139.2013.765602">Ergonomics 2013</a>, 미는 손잡이 연구라 <b>그대로 적용은 추정</b>). → 스틱 12°, 스로틀 8°.</li>
+      <li>햇 스위치 후보 ALPS SKRHABE010 (7.5 mm SMD, 125 gf) <a href="https://www.digikey.com/en/products/detail/alps-alpine/SKRHABE010/19529064">DigiKey</a> — 이 설계는 납땜 쉬운 10×10 mm 스루홀 5방향 스위치 기준 (크기 추정, 받아서 확인).</li>
+    </ul>
+    <h2>출력 후 손으로 확인할 것</h2>
+    <ul class="small" id="todo">
+      <li>M 을 먼저 출력해 3~4명이 쥐어 보기: 손가락 끝이 반대편에서 서로 닿거나(가늘다) 엄지와 검지가 많이 떨어지면(굵다) 크기 변경.</li>
+      <li>엄지가 햇·엄지 버튼 2개에 손을 안 옮기고 닿는지, 검지 첫마디가 트리거 가운데에 오는지, 새끼 버튼이 새끼 끝에 오는지.</li>
+      <li>버튼 높이: 캡이 0~0.5 mm 나오게 설계 (스위치·캡 높이 추정). 너무 들어가면 뒤 받침에 종이·테이프, 너무 나오면 <code>D</code> 값 고쳐 다시 출력.</li>
+      <li>햇 스위치 실제 크기 (10.4 mm 네모 구멍), MTS-123 부싱 길이 (벽 2.5 mm), PCF8574 모듈 크기 (40×20×7 가정).</li>
+      <li>200 N 당김: 손잡이를 관에 끼우고 꼭대기를 체중계로 20 kg 당겨 1분 — 소켓 입구·볼트 구멍 금 여부.</li>
+    </ul>
+  </aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script>
+const BASE="../hardware/grips/";
+const Q=new URLSearchParams(location.search);
+if(Q.get("shot"))document.body.classList.add("shot");
+let SIZE=Q.get("size")||"M", SHOW=Q.get("show")||"both";
+const OFF={stick:-55,throttle:60};         // y offset of each grip in the scene
+const COL={left:0x3b4048,right:0x55606c,trigger:0xd93a3a,hatcap:0xe0a020};
+const BUY=[["12×12×7.3 택트 스위치 + 둥근 캡",6,500,"트리거·엄지 2·새끼 / 무전·검지"],["10×10 스루홀 5방향(햇) 스위치",2,1500,"트림·커서 햇 (추정가)"],
+ ["MTS-123 미니 토글 (ON)-OFF-(ON)",1,1500,"스피드 브레이크 (추정가)"],["PCF8574 I2C 모듈",2,2640,"펌웨어 부품표와 같은 것 (중복 아님)"],
+ ["M4×30 둥근머리 볼트 + 너트",2,500,"관 고정"],["M3×12 렌치볼트",8,100,"반쪽 결합"],["M3×20 렌치볼트",1,100,"트리거 축"],
+ ["M3 열압입 인서트 (M3×5.7)",9,150,"100개 봉지 약 8천 원"],["4심 차폐선 (관 안)",1,0,"본체 부품표에 포함"],["그립 테이프 (선택)",2,3000,"테니스 라켓용"]];
+const $=id=>document.getElementById(id), won=v=>Math.round(v).toLocaleString("ko-KR")+"원";
+const view=$("view"),R=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});R.setPixelRatio(Math.min(2,devicePixelRatio));view.appendChild(R.domElement);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(30,1,1,5000);
+const ctl=new THREE.OrbitControls(cam,R.domElement);ctl.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xffffff,0x778,0.75));
+const sun=new THREE.DirectionalLight(0xffffff,0.65);sun.position.set(300,500,400);scene.add(sun);
+const fill=new THREE.DirectionalLight(0xffffff,0.3);fill.position.set(-300,200,-300);scene.add(fill);
+const grid=new THREE.GridHelper(400,20,0x9aa6b2,0xc9d0d6);grid.position.y=-60;scene.add(grid);
+const world=new THREE.Group();world.rotation.x=-Math.PI/2;scene.add(world);
+function setCam(){const v=Q.get("cam")||"iso";const t=[0,85,0];
+  const P={iso:[330,250,-360],front:[520,90,0],side:[0,90,-520],back:[-420,200,-200],top:[150,520,-60],thumb:[-200,330,-330]}[v]||[330,250,-360];
+  cam.position.set(...P);ctl.target.set(...t);ctl.update()}
+setCam();
+function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener("resize",resize);resize();
+let DATA=null,meshes=[],tags=[],pending=0;
+const loader=new THREE.STLLoader();
+function clear(){for(const m of meshes){world.remove(m);m.geometry.dispose()}meshes=[];$("tags").innerHTML="";tags=[]}
+function role(n){if(n.endsWith("_left"))return"left";if(n.endsWith("_right"))return"right";if(n.includes("trigger")&&!n.includes("switch")&&!n.includes("pivot"))return"trigger";if(n.endsWith("hatcap"))return"hatcap";return"buy"}
+// smooth shading that keeps sharp edges: average the normals of faces meeting at a vertex only when they are
+// within `deg` of each other (STL has per-face normals -> flat facets on the curved skin otherwise)
+function creaseNormals(geo,deg){
+  const P=geo.attributes.position.array,n=P.length/9,FN=new Float32Array(n*3),cos=Math.cos(deg*Math.PI/180),map=new Map();
+  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3();
+  for(let f=0;f<n;f++){a.fromArray(P,f*9);b.fromArray(P,f*9+3);c.fromArray(P,f*9+6);
+    const nn=b.clone().sub(a).cross(c.clone().sub(a));const ar=nn.length()||1;nn.divideScalar(ar);FN.set([nn.x,nn.y,nn.z],f*3);
+    for(let k=0;k<3;k++){const i=f*9+k*3,key=P[i].toFixed(3)+","+P[i+1].toFixed(3)+","+P[i+2].toFixed(3);let L=map.get(key);if(!L)map.set(key,L=[]);L.push(f)}}
+  const N=new Float32Array(P.length);
+  for(const L of map.values())for(const f of L){let x=0,y=0,z=0;const fx=FN[f*3],fy=FN[f*3+1],fz=FN[f*3+2];
+    for(const g of L){const gx=FN[g*3],gy=FN[g*3+1],gz=FN[g*3+2];if(fx*gx+fy*gy+fz*gz>=cos){x+=gx;y+=gy;z+=gz}}
+    const l=Math.hypot(x,y,z)||1;
+    for(let k=0;k<3;k++){const i=f*9+k*3;const key=P[i].toFixed(3)+","+P[i+1].toFixed(3)+","+P[i+2].toFixed(3);if(map.get(key)===L){N[i]=x/l;N[i+1]=y/l;N[i+2]=z/l}}}
+  geo.setAttribute("normal",new THREE.BufferAttribute(N,3));
+}
+function load(){
+  clear();const sz=DATA.sizes[SIZE];
+  for(const kind of ["stick","throttle"]){
+    if(SHOW!=="both"&&SHOW!==kind)continue;
+    const g=sz[kind];
+    for(const p of g.parts){
+      const r=role(p.name);if(r==="buy"&&!$("buy").checked)continue;
+      pending++;
+      loader.load(BASE+p.file+"?v="+DATA.meta.created,geo=>{creaseNormals(geo,32);
+        const buy=r==="buy";const tube=p.name.endsWith("_tube")||p.name.endsWith("bolt")||p.name.endsWith("pivot");
+        const mat=new THREE.MeshStandardMaterial({color:buy?(tube?0xb8bcc2:(p.name.includes("pcf")?0x2a7a3a:0x26282c)):COL[r],metalness:buy&&tube?0.6:0.05,roughness:buy?0.4:0.62,
+          transparent:$("xr").checked&&(r==="left"||r==="right"),opacity:$("xr").checked?0.35:1,depthWrite:!($("xr").checked&&(r==="left"||r==="right"))});
+        const m=new THREE.Mesh(geo,mat);m.userData={kind,r,name:p.name};world.add(m);meshes.push(m);explode();if(--pending===0)window.READY=1})}
+    for(const L of g.labels){const d=document.createElement("div");d.className="tag";d.innerHTML=`${L.label} <b>${L.pin}</b>`;$("tags").appendChild(d);
+      tags.push({el:d,kind,p:new THREE.Vector3(L.pos[0]+L.normal[0]*10,L.pos[1]+L.normal[1]*10+OFF[kind],L.pos[2]+L.normal[2]*10)})}
+  }
+  tables();
+}
+function explode(){const e=+$("exp").value/100;$("ev").textContent=Math.round(e*100);
+  for(const m of meshes){const o=OFF[m.userData.kind];let y=o,x=0,z=0;
+    if(m.userData.r==="left")y+=35*e;if(m.userData.r==="right")y-=35*e;if(m.userData.r==="trigger")x+=30*e;if(m.userData.r==="hatcap")z+=30*e;
+    if(m.userData.r==="buy"&&!/tube|bolt/.test(m.userData.name))x-=0;
+    m.position.set(x,y,z)}}
+function tables(){
+  const S=DATA.sizes,sz=S[SIZE];
+  let h="<tr><th></th>"+["S","M","L"].map(k=>`<th>${k}${k===SIZE?" ◀":""}</th>`).join("")+"</tr>";
+  const row=(t,f)=>h+=`<tr><td>${t}</td>`+["S","M","L"].map(k=>`<td>${S[k]?f(S[k]):"-"}</td>`).join("")+"</tr>";
+  row("손 길이 / 너비",s=>`${s.stick.HL} / ${s.stick.HB}`);
+  row("스틱 앞뒤 × 좌우",s=>`${s.stick.dims.depth} × ${s.stick.dims.width}`);
+  row("스틱 둘레 (등가 지름)",s=>`${s.stick.dims.perimeter} (Ø${s.stick.dims.d_equiv})`);
+  row("스틱 높이 (바닥→꼭대기)",s=>s.stick.height);
+  row("스로틀 앞뒤 × 좌우",s=>`${s.throttle.dims.depth} × ${s.throttle.dims.width}`);
+  row("스로틀 둘레 (등가 지름)",s=>`${s.throttle.dims.perimeter} (Ø${s.throttle.dims.d_equiv})`);
+  row("스로틀 높이",s=>s.throttle.height);
+  row("손가락 홈 간격",s=>s.stick.dims.finger_pitch);
+  row("앞 기울기 스틱/스로틀",s=>`${s.stick.cant}° / ${s.throttle.cant}°`);
+  $("tdim").innerHTML=h;
+  let b="<tr><th>손잡이</th><th>버튼</th><th>PCF8574</th></tr>";
+  for(const kind of ["stick","throttle"])for(const L of sz[kind].labels)b+=`<tr><td>${kind==="stick"?"스틱":"스로틀"}</td><td>${L.label}</td><td>${L.pin}</td></tr>`;
+  $("tbtn").innerHTML=b;
+  let t="<tr><th>부품</th><th>크기 (mm)</th><th>무게</th><th>시간</th></tr>",g=0,hr=0;
+  for(const kind of ["stick","throttle"])for(const p of sz[kind].parts.filter(p=>p.kind==="print")){g+=p.grams;hr+=p.print_h;t+=`<tr><td>${p.name}.stl</td><td>${p.size.join("×")}</td><td>${p.grams} g</td><td>${p.print_h} h</td></tr>`}
+  t+=`<tr class="tot"><td>합계 (${SIZE})</td><td></td><td>${g.toFixed(0)} g</td><td>${hr.toFixed(1)} h</td></tr>`;$("tp").innerHTML=t;
+  let tb="<tr><th>품목</th><th>수량</th><th>금액</th><th>메모</th></tr>",tot=0;
+  for(const[n,q,pr,m]of BUY){tot+=q*pr;tb+=`<tr><td>${n}</td><td>${q}</td><td>${won(q*pr)}</td><td>${m}</td></tr>`}
+  const fil=Math.ceil(g*1.1/10)*10;tot+=fil*25;
+  tb+=`<tr><td>PLA</td><td>${fil} g</td><td>${won(fil*25)}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td>${won(tot)}</td><td>배송비 제외</td></tr>`;$("tb").innerHTML=tb;
+  let st="<tr><th>단면 (바닥에서)</th><th>팔 길이</th><th>앞뒤 당김 σ</th><th>옆 당김 σ</th></tr>";
+  for(const kind of ["stick","throttle"])for(const x of sz[kind].strength)st+=`<tr><td>${kind==="stick"?"스틱":"스로틀"} ${x.s} mm</td><td>${x.arm} mm</td><td>${x.sigma_fore_aft} MPa</td><td>${x.sigma_side} MPa</td></tr>`;
+  $("tst").innerHTML=st;
+  const mx=Math.max(...["stick","throttle"].flatMap(k=>sz[k].strength.flatMap(x=>[x.sigma_fore_aft,x.sigma_side])));
+  $("stnote").innerHTML=`가장 큰 굽힘 응력 약 ${mx.toFixed(1)} MPa. 출력 PLA 를 층 방향 안쪽으로 당길 때 강도 약 40~50 MPa (층 사이로는 약 15~25 MPa, 추정) → 층 방향으로 놓아 여유 약 ${(40/mx).toFixed(1)}배. 단면은 실제 모델(구멍·인서트 자리 포함)을 잘라 계산. 관 안쪽(바닥~40 mm)은 알루미늄 관이 받음: Ø20×2 관 꼭대기 하중 200 N 이면 소켓 입구 굽힘 약 ${(200*sz.stick.height/464).toFixed(0)} MPa (6061-T6 항복 약 240). M4 볼트·소켓 면압은 약 5 MPa 로 작음 (추정 계산).`;
+  $("tsz").innerHTML=["S","M","L"].map(k=>S[k]?`<tr><td>${k}</td><td>${S[k].stick.HL} / ${S[k].stick.HB}</td><td>${S[k].stick.who}</td></tr>`:"").join("");
+  const m=sz.stick.dims,mt=sz.throttle.dims;
+  $("concl").innerHTML=`<b>${SIZE}</b>: 스틱 둘레 ${m.perimeter} mm (등가 Ø${m.d_equiv}), 높이 ${sz.stick.height} mm · 스로틀 둘레 ${mt.perimeter} mm, 높이 ${sz.throttle.height} mm.<br>
+   스틱: 트리거(검지 레버) · 트림 햇 · 엄지 2 · 새끼 1. 스로틀: 커서 햇 · 무전 · 스피드 브레이크 토글 · 검지 1. 각 8 입력 = PCF8574 하나, 펌웨어 그대로.<br>
+   출력 약 ${g.toFixed(0)} g · ${hr.toFixed(0)} 시간 (두 손잡이, 추정). 겉 벽 최소 ${Math.min(sz.stick.min_wall,sz.throttle.min_wall)} mm (손가락 홈 바닥), 반쪽마다 한 덩어리. 부품·필라멘트 약 ${won(tot)} (추정). 연결: Ø20 관 40 mm + M4 볼트 (INTERFACE.md).`;
+}
+document.querySelectorAll("#segSize button").forEach(b=>b.onclick=()=>{SIZE=b.dataset.v;document.querySelectorAll("#segSize button").forEach(x=>x.classList.toggle("on",x===b));load()});
+document.querySelectorAll("#segShow button").forEach(b=>b.onclick=()=>{SHOW=b.dataset.v;document.querySelectorAll("#segShow button").forEach(x=>x.classList.toggle("on",x===b));load()});
+$("exp").oninput=explode;$("buy").onchange=load;$("xr").onchange=load;$("tg").onchange=()=>{$("tags").style.display=$("tg").checked?"":"none"};
+document.querySelectorAll("#segSize button").forEach(x=>x.classList.toggle("on",x.dataset.v===SIZE));
+document.querySelectorAll("#segShow button").forEach(x=>x.classList.toggle("on",x.dataset.v===SHOW));
+if(Q.get("exp"))$("exp").value=Q.get("exp");if(Q.get("xr"))$("xr").checked=true;if(Q.get("notag"))$("tg").checked=false,$("tags").style.display="none";if(Q.get("nobuy"))$("buy").checked=false;
+fetch(BASE+"parts.json?"+Date.now()).then(r=>r.json()).then(d=>{DATA=d;if(!d.sizes[SIZE])SIZE=Object.keys(d.sizes)[0];load()});
+const v3=new THREE.Vector3();
+(function loop(){ctl.update();R.render(scene,cam);
+  const w=view.clientWidth,h=view.clientHeight;
+  for(const t of tags){v3.copy(t.p).applyMatrix4(world.matrixWorld).project(cam);t.el.style.left=((v3.x+1)/2*w)+"px";t.el.style.top=((1-v3.y)/2*h)+"px"}
+  requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+{
+ "created": "2026-11-05T19:56:02",
+ "size": "M",
+ "HL": 182,
+ "HB": 85,
+ "who": "남성 평균 전후 (손 길이 176~190)",
+ "height": 145.3,
+ "cant": 12.0,
+ "min_wall": 2.22,
+ "dims": {
+  "mid_s": 80.6,
+  "depth": 41.1,
+  "width": 33.7,
+  "perimeter": 117.9,
+  "d_equiv": 37.5,
+  "finger_pitch": 19.3,
+  "head_s": 119.3,
+  "trigger_s": 109.6
+ },
+ "labels": [
+  {
+   "name": "trigger",
+   "label": "트리거 (검지)",
+   "pin": "P0",
+   "pos": [
+    32.8,
+    0.0,
+    97.8
+   ],
+   "normal": [
+    1,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "hat_trim",
+   "label": "트림 햇 (엄지)",
+   "pin": "P4-P7",
+   "pos": [
+    14.7,
+    4.8,
+    145.3
+   ],
+   "normal": [
+    -0.007,
+    0.192,
+    0.981
+   ]
+  },
+  {
+   "name": "btn_pickle",
+   "label": "엄지 버튼 1 (무장 발사)",
+   "pin": "P1",
+   "pos": [
+    32.3,
+    5.2,
+    139.5
+   ],
+   "normal": [
+    0.653,
+    0.287,
+    0.701
+   ]
+  },
+  {
+   "name": "btn_thumb2",
+   "label": "엄지 버튼 2 (시점/기타)",
+   "pin": "P2",
+   "pos": [
+    12.0,
+    18.2,
+    130.1
+   ],
+   "normal": [
+    -0.069,
+    0.935,
+    0.349
+   ]
+  },
+  {
+   "name": "btn_pinky",
+   "label": "새끼 버튼 (자동조종 해제/시점)",
+   "pin": "P3",
+   "pos": [
+    15.7,
+    9.3,
+    55.6
+   ],
+   "normal": [
+    0.827,
+    0.545,
+    -0.139
+   ]
+  }
+ ],
+ "screws": [
+  [
+   17.0,
+   37.0
+  ],
+  [
+   -17.5,
+   37.0
+  ],
+  [
+   13.3,
+   86.4
+  ],
+  [
+   -14.4,
+   121.3
+  ]
+ ],
+ "parts": [
+  {
+   "name": "stick_left",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    62.5,
+    20.5,
+    145.6
+   ],
+   "volume_cm3": 37.8,
+   "grams": 39.8,
+   "print_h": 3.9,
+   "file": "stl/M/stick_left.stl"
+  },
+  {
+   "name": "stick_right",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    62.5,
+    21.0,
+    145.3
+   ],
+   "volume_cm3": 40.2,
+   "grams": 42.4,
+   "print_h": 4.1,
+   "file": "stl/M/stick_right.stl"
+  },
+  {
+   "name": "stick_hatcap",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    14.6,
+    14.9,
+    7.0
+   ],
+   "volume_cm3": 0.5,
+   "grams": 0.6,
+   "print_h": 0.3,
+   "file": "stl/M/stick_hatcap.stl"
+  },
+  {
+   "name": "stick_trigger",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    12.8,
+    12.0,
+    26.5
+   ],
+   "volume_cm3": 3.2,
+   "grams": 3.3,
+   "print_h": 0.6,
+   "file": "stl/M/stick_trigger.stl"
+  },
+  {
+   "name": "stick_tube",
+   "kind": "buy",
+   "file": "stl/M/stick_tube.stl"
+  },
+  {
+   "name": "stick_m4_bolt",
+   "kind": "buy",
+   "file": "stl/M/stick_m4_bolt.stl"
+  },
+  {
+   "name": "stick_pcf8574",
+   "kind": "buy",
+   "file": "stl/M/stick_pcf8574.stl"
+  },
+  {
+   "name": "stick_trigger_switch",
+   "kind": "buy",
+   "file": "stl/M/stick_trigger_switch.stl"
+  },
+  {
+   "name": "stick_trigger_pivot",
+   "kind": "buy",
+   "file": "stl/M/stick_trigger_pivot.stl"
+  },
+  {
+   "name": "stick_hat_trim",
+   "kind": "buy",
+   "file": "stl/M/stick_hat_trim.stl"
+  },
+  {
+   "name": "stick_btn_pickle",
+   "kind": "buy",
+   "file": "stl/M/stick_btn_pickle.stl"
+  },
+  {
+   "name": "stick_btn_thumb2",
+   "kind": "buy",
+   "file": "stl/M/stick_btn_thumb2.stl"
+  },
+  {
+   "name": "stick_btn_pinky",
+   "kind": "buy",
+   "file": "stl/M/stick_btn_pinky.stl"
+  }
+ ],
+ "clash": [],
+ "strength": [
+  {
+   "s": 43.5,
+   "area": 1001,
+   "I_fore_aft": 120116,
+   "I_side": 84878,
+   "arm": 102,
+   "sigma_fore_aft": 3.6,
+   "sigma_side": 4.3
+  },
+  {
+   "s": 55.0,
+   "area": 364,
+   "I_fore_aft": 47250,
+   "I_side": 35340,
+   "arm": 92,
+   "sigma_fore_aft": 7.6,
+   "sigma_side": 8.6
+  },
+  {
+   "s": 80.6,
+   "area": 413,
+   "I_fore_aft": 69682,
+   "I_side": 48408,
+   "arm": 67,
+   "sigma_fore_aft": 4.1,
+   "sigma_side": 4.9
+  }
+ ]
+}

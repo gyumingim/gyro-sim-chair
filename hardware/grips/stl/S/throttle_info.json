@@ -1,0 +1,212 @@
+{
+ "created": "2026-11-05T19:53:41",
+ "size": "S",
+ "HL": 168,
+ "HB": 78,
+ "who": "여성 평균 전후 · 작은 손 (손 길이 ≲ 176)",
+ "height": 139.6,
+ "cant": 8.0,
+ "min_wall": 2.45,
+ "dims": {
+  "mid_s": 77.5,
+  "depth": 39.4,
+  "width": 32.7,
+  "perimeter": 113.7,
+  "d_equiv": 36.2,
+  "finger_pitch": 17.7,
+  "head_s": 112.9,
+  "trigger_s": 104.0
+ },
+ "labels": [
+  {
+   "name": "hat_cursor",
+   "label": "커서 햇 (엄지)",
+   "pin": "P4-P7",
+   "pos": [
+    7.9,
+    -4.5,
+    139.5
+   ],
+   "normal": [
+    -0.075,
+    -0.192,
+    0.979
+   ]
+  },
+  {
+   "name": "btn_talk",
+   "label": "무전 버튼 (엄지)",
+   "pin": "P3",
+   "pos": [
+    26.6,
+    -4.6,
+    134.4
+   ],
+   "normal": [
+    0.602,
+    -0.287,
+    0.745
+   ]
+  },
+  {
+   "name": "sw_speedbrake",
+   "label": "스피드 브레이크 (엄지, 앞=펼침/뒤=접음)",
+   "pin": "P1/P2",
+   "pos": [
+    7.8,
+    -17.9,
+    123.7
+   ],
+   "normal": [
+    -0.055,
+    -0.953,
+    0.297
+   ]
+  },
+  {
+   "name": "btn_index",
+   "label": "검지 버튼 (언케이지/기타)",
+   "pin": "P0",
+   "pos": [
+    23.9,
+    5.7,
+    101.2
+   ],
+   "normal": [
+    0.935,
+    0.33,
+    -0.131
+   ]
+  }
+ ],
+ "screws": [
+  [
+   17.0,
+   37.0
+  ],
+  [
+   -17.5,
+   37.0
+  ],
+  [
+   12.3,
+   82.8
+  ],
+  [
+   -14.2,
+   114.9
+  ]
+ ],
+ "parts": [
+  {
+   "name": "throttle_left",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    55.4,
+    21.1,
+    139.9
+   ],
+   "volume_cm3": 35.8,
+   "grams": 37.8,
+   "print_h": 3.7,
+   "file": "stl/S/throttle_left.stl"
+  },
+  {
+   "name": "throttle_right",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    55.4,
+    19.7,
+    139.9
+   ],
+   "volume_cm3": 32.0,
+   "grams": 33.7,
+   "print_h": 3.3,
+   "file": "stl/S/throttle_right.stl"
+  },
+  {
+   "name": "throttle_hatcap",
+   "kind": "print",
+   "material": "PLA",
+   "solids": 1,
+   "size": [
+    14.8,
+    14.9,
+    7.0
+   ],
+   "volume_cm3": 0.5,
+   "grams": 0.6,
+   "print_h": 0.3,
+   "file": "stl/S/throttle_hatcap.stl"
+  },
+  {
+   "name": "throttle_tube",
+   "kind": "buy",
+   "file": "stl/S/throttle_tube.stl"
+  },
+  {
+   "name": "throttle_m4_bolt",
+   "kind": "buy",
+   "file": "stl/S/throttle_m4_bolt.stl"
+  },
+  {
+   "name": "throttle_pcf8574",
+   "kind": "buy",
+   "file": "stl/S/throttle_pcf8574.stl"
+  },
+  {
+   "name": "throttle_hat_cursor",
+   "kind": "buy",
+   "file": "stl/S/throttle_hat_cursor.stl"
+  },
+  {
+   "name": "throttle_btn_talk",
+   "kind": "buy",
+   "file": "stl/S/throttle_btn_talk.stl"
+  },
+  {
+   "name": "throttle_sw_speedbrake",
+   "kind": "buy",
+   "file": "stl/S/throttle_sw_speedbrake.stl"
+  },
+  {
+   "name": "throttle_btn_index",
+   "kind": "buy",
+   "file": "stl/S/throttle_btn_index.stl"
+  }
+ ],
+ "clash": [],
+ "strength": [
+  {
+   "s": 43.5,
+   "area": 948,
+   "I_fore_aft": 107945,
+   "I_side": 77713,
+   "arm": 96,
+   "sigma_fore_aft": 3.7,
+   "sigma_side": 4.4
+  },
+  {
+   "s": 55.0,
+   "area": 315,
+   "I_fore_aft": 44728,
+   "I_side": 33034,
+   "arm": 85,
+   "sigma_fore_aft": 7.3,
+   "sigma_side": 8.3
+  },
+  {
+   "s": 77.5,
+   "area": 378,
+   "I_fore_aft": 58924,
+   "I_side": 42143,
+   "arm": 63,
+   "sigma_fore_aft": 4.4,
+   "sigma_side": 5.2
+  }
+ ]
+}
