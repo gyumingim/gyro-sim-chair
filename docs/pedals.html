@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>러더 페달 v2</title>
+<title>러더 페달 v3 (싼 출력판)</title>
 <link rel="stylesheet" href="js/ctl.css">
 </head>
 <body>
 <div id="app">
   <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 부품 클릭 = 설명</div></div>
   <aside>
-    <h1>러더 페달 v2 — 평행 슬라이딩 + 캠 센터링 + 오일 댐퍼</h1>
-    <p class="lead"><b>결론:</b> MFG Crosswind 처럼 두 페달이 각자 <b>리니어 레일 (MGN12)</b> 위에서 앞뒤로 곧게 미끄러지고, 앞쪽 러더 바가 둘을 묶는다 (왼발 앞 = 오른발 뒤). 가운데 잡기는 스틱과 같은 <b>캠 + 롤러 + 스프링</b>, 흔들림은 <b>RC 카 오일 쇼크</b>로 잡는다 (점성 = 스틱션 없음). 토 브레이크는 발뒤꿈치 경첩 + 스프링 + AS5600.</p>
+    <h1>러더 페달 v3 — 봉 + 볼 부싱 평행 슬라이딩 + 캠 센터링 + 펠트 마찰 (출력 부품 전부 PLA)</h1>
+    <p class="lead"><b>결론:</b> v2 와 같은 느낌 (두 페달이 곧게 ±40 mm, 왼발 앞 = 오른발 뒤, 캠 + 롤러 + 스프링 센터링, 토 브레이크 15°), <b>값은 약 19 만 → 약 9 만 원</b> (추정, 4040 레일 2 개는 의자 틀 몫). MGN12 레일 → <b>Ø12 연마봉 + LM12UU 볼 부싱</b>, 합판 · 2020 레일 → <b>의자 4040 바닥 레일 위를 T너트로 미끄러짐</b>, 오일 댐퍼 → <b>펠트 패드 + 손나사</b>, 알루미늄 캠 → <b>PLA 캠 + 스테인리스 띠</b>.</p>
     <div class="box">
       <label>러더 (+ = 오른발 앞) <b id="rudv">0 mm</b></label><input id="rud" type="range" min="-40" max="40" step="1">
       <label>왼 브레이크 <b id="blv">0°</b></label><input id="bl" type="range" min="0" max="15" step="0.5">
@@ -23,16 +23,20 @@
     <div class="kv" id="kv"></div>
     <h2>페달 힘 (계산, 추정)</h2>
     <div id="chart"></div>
-    <p class="sub">한쪽 발로 미는 힘. 레일 · 로드엔드 마찰과 오일 댐퍼 (속도에 비례) 는 빼고 계산. MIL-F-8785C 페달 이탈력 1~7 lb (4~31 N) <span class="tag">추정</span>, F-15 은 러더 1° 당 43 N 으로 훨씬 무겁다.</p>
+    <p class="sub">한쪽 발로 미는 힘. 부싱 · 로드엔드 마찰과 펠트 마찰은 빼고 계산 (v2 와 같은 캠 · 스프링 → 같은 곡선). MIL-F-8785C 페달 이탈력 1~7 lb (4~31 N) <span class="tag">추정</span>, F-15 은 러더 1° 당 43 N 으로 훨씬 무겁다.</p>
     <h2>어떻게 움직이나</h2>
     <ul class="t">
-      <li><b>평행 슬라이딩</b>: 페달이 호를 그리지 않고 곧게 ±40 mm. 조사로는 실기 이동이 F-16 ⅓ in 미만, F/A-18 ±1 in, 기계식 훈련기는 더 큼 → 그 가운데.</li>
-      <li><b>러더 바</b>: 알루미늄 평철 30×8 (258 mm) 이 Ø8 축 + 608 두 개 (아래 · 위) 로 돈다. 양 끝 M6 로드엔드 연결봉 → 캐리지 앞 귀. 연결봉 길이로 페달 가운데를 맞춤.</li>
-      <li><b>센터링</b>: 러더 축의 알루미늄 캠 (cam_rudder.dxf) 을 롤러 2 개가 누름. 손잡이 너트 = 예압 (이탈력), 스프링 교체 = 기울기.</li>
-      <li><b>댐핑</b>: RC 1/8 버기 오일 쇼크 (스프링 뺌) 를 러더 바와 앞 고정점 사이에. 오일 점도 (예: 300~1000 cSt) 로 조절. 너무 진하면 중심으로 늦게 돌아옴 (MFG 댐퍼 0/23 사례).</li>
-      <li><b>토 브레이크</b>: 페달 판이 발뒤꿈치 Ø8 핀을 중심으로 앞으로 15°. 뒤로 나온 뿔을 압축 스프링이 위에서 누르고 M6 나사로 예압. 핀 끝 자석 → AS5600.</li>
-      <li><b>다리 길이 맞춤</b>: 합판 전체가 의자 바닥의 2020 프로파일 2 줄 위를 미끄러지고 25 mm 간격 핀으로 고정, ±100 mm (키 160~190 cm, 의자 화면에서 확인).</li>
+      <li><b>평행 슬라이딩</b>: 페달마다 Ø12 봉 2 개 위에 LM12UU 볼 부싱 4 개 (스틱션 없음). 발 힘이 캐리지를 앞으로 숙이게 하는 힘 (최대 약 180 N·m) 을 봉 2 개 · 부싱 간격 110 mm 가 받는다. 608 바퀴로 4040 위를 굴리는 안은 버림: 발 힘에 뒤 바퀴가 들려 판이 기울어짐 (아래로 잡아 줄 면이 없음).</li>
+      <li><b>±40 mm 멈춤</b>: 부싱 상자 끝이 앞틀 · 뒤 받침의 고무 패드에 닿는다 → 한 발 세게 밀어도 힘이 바로 4040 레일로 감 (러더 바 · 축을 안 거침).</li>
+      <li><b>러더 바</b>: 알루미늄 평철 30×8 (258 mm) 이 Ø10 축 + 6000 베어링 두 개로 돈다. 양 끝 M6 로드엔드 연결봉 → 캐리지 앞 귀. 러더 상자 옆벽의 창은 바에 닿지 않음.</li>
+      <li><b>센터링</b>: 러더 축의 PLA 캠 (롤러 면 4 곳에 스테인리스 띠 0.5 mm) 을 608 롤러 2 개가 누름. 손잡이 너트 = 예압 (이탈력), 스프링 교체 = 기울기. 안 쓸 때 예압을 풀어 두면 캠 · 레버가 덜 눌림.</li>
+      <li><b>댐핑</b>: 러더 상자 뚜껑에 붙은 PLA 판스프링 끝의 펠트가 허브 윗테를 누름, 뒤벽 M6 손나사로 세기 조절 (0 = 안 누름). 마찰이라 너무 세면 가운데로 안 돌아옴 (계산: 패드 힘 약 400 N 아래, 추정) — 처음엔 풀어 두고 필요할 때만.</li>
+      <li><b>토 브레이크</b>: 페달 판이 발뒤꿈치 Ø8 핀을 중심으로 앞으로 15°. 뒤로 나온 뿔을 압축 스프링이 누르고 M6 나사로 예압. 끝 (15°) 에서 판 뒤 갈비가 캐리지의 멈춤 기둥 2 개에 닿음 → 세게 밟아도 경첩 · 스프링이 아니라 기둥이 받음. 핀 끝 자석 → AS5600.</li>
+      <li><b>다리 길이 맞춤</b>: 앞틀 2 + 뒤 받침 2 를 4040 레일 (y ±100) 에 M6 T너트 + 손잡이로 물림. 풀고 밀고, 왼쪽 앞틀의 Ø6 인덱스 핀을 레일 윗면 구멍 (25 mm 간격) 에 꽂음, ±100 mm (키 160~190 cm). 앞틀 ↔ 러더 상자 M5 ×4, 봉이 앞뒤를 묶어서 한 덩어리로 움직임.</li>
     </ul>
+    <h2>강도 (계산, 추정)</h2>
+    <table id="st"></table>
+    <p class="sub" id="stn"></p>
     <h2>조사 요약 (출처)</h2>
     <table>
       <tr><th>항목</th><th>값</th><th>근거</th></tr>
@@ -44,18 +48,20 @@
       <tr><td>Virpil ACE</td><td>캠 센터링 (Hard / Soft), 스프링 2 종</td><td><a href="https://simufy.com/en/products/vpc-ace-collection-rudder-pedals">Simufy</a></td></tr>
     </table>
     <h2>출력 부품</h2>
+    <p class="sub" id="pt"></p>
     <table id="tp"><tr><th></th><th>부품</th><th>크기 mm</th><th>재료</th><th>무게</th><th>출력 방향</th></tr></table>
     <h2>살 부품 (가격 추정)</h2>
     <table id="tb"><tr><th>품목</th><th>수량</th><th class="n">금액</th><th>메모</th></tr></table>
     <h2>출력 후 시험할 것</h2>
     <ul class="t">
-      <li>레일 두 줄 평행 맞추기 (캐리지가 끝에서 끝까지 걸림 없이) — 합판에 지그로 구멍.</li>
+      <li>봉 두 개 평행 (캐리지가 끝에서 끝까지 걸림 없이): 앞틀 · 뒤 받침의 M4 조임을 캐리지를 끝까지 민 상태에서 조인다.</li>
       <li>페달 이탈력 · 끝 힘 (러기지 스케일로 발 위치에서), 스프링 · 예압 선택.</li>
-      <li>오일 쇼크 점도 바꿔가며 가운데 복귀 시간 (발 떼고 1 초 안).</li>
+      <li>펠트 손나사를 조여 가며 발 뗐을 때 가운데로 돌아오는지 (돌아오는 가장 센 자리 표시).</li>
+      <li>1 주 뒤 캠 띠 들뜸 · PLA 크리프 (가운데 값 변화), 부싱 덜걱거림.</li>
       <li>토 브레이크 끝 힘 (목표 30~60 N, 추정) 과 AS5600 범위.</li>
       <li>레일 위치 핀으로 160 / 175 / 190 cm 탑승자 무릎 각도 확인.</li>
     </ul>
-    <p class="muted">모델: <code>hardware/pedals/pedals.py</code> · 만든 시각 <span id="mt"></span> · 겹침 검사 <span id="chk"></span></p>
+    <p class="muted">v2 (MGN12 · 오일 댐퍼 · 합판, 약 19 만 원) 는 git 기록 <code>62f629a</code>. 모델: <code>hardware/pedals/pedals.py</code> · 만든 시각 <span id="mt"></span> · 겹침 검사 <span id="chk"></span></p>
   </aside>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -63,38 +69,36 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="js/ctl_viewer.js"></script>
 <script>
-const PY=115,XR=110,ARM=(18+46+18+54)/2,HX=-45,HZ=51;
+const PY=115,XR=180,ARM=58,EARX=71,HX=-45,HZ=57;
 const phi=s=>Math.asin(Math.max(-1,Math.min(1,s.rud/PY)))*180/Math.PI;      // + rud = right pedal forward = left back
-const BUY=[["MGN12H 레일 220 mm + 캐리지",2,36000,"알리 기준, 추정"],["608 베어링",4,4000,"러더 축 2 + 롤러 2"],["Ø8 h6 연마봉 (러더 축 100 + 핀 2 × 108)",1,10000,""],
- ["알루미늄 캠 레이저 절단 8 t",1,18000,"cam_rudder.dxf, 추정"],["알루미늄 평철 30×8, 258 mm",1,6000,"러더 바"],["M6 로드엔드 4 + 나사봉",1,10000,"연결봉 2"],
- ["인장 스프링 3 종 + M5 아이볼트 + 손잡이 너트",1,10000,""],["RC 1/8 버기 오일 쇼크 (스프링 뺌) + 실리콘 오일",1,15000,"점성 댐퍼"],
- ["토 브레이크 압축 스프링 OD 14 + M6 나사",2,4000,""],["AS5600 + 자석",3,12000,"러더 + 브레이크 2"],["자작나무 합판 18 t 390×400",1,15000,"재단"],
- ["2020 알루미늄 프로파일 500 mm + T너트 + 인덱스 핀",2,16000,"다리 길이 조절 레일"],["M3 · M4 · M6 볼트 + 인서트",1,12000,""]];
-const col=p=>{const n=p.name;if(p.kind==="cut")return 0xd5d9de;if(n==="plywood")return 0xc8a77a;if(/^tower|^stop|damper_anchor/.test(n))return 0x3b4149;
- if(/^carriage_[LR]$/.test(n))return 0x4f79b0;if(/^pedal_/.test(n))return 0x2b3036;if(/^lever/.test(n))return 0xc0392b;if(n==="rock_hub")return 0xd9822b;
- if(/sensor_mount/.test(n))return 0x7d5ba6;if(/as5600/.test(n))return 0x1f7a44;if(/spring/.test(n))return 0xb7bdc4;if(/rail|carriage_blk/.test(n))return 0x9aa1a8;
- if(n==="rock_bar")return 0xcfd3d7;return 0xa9afb6};
-const EX={tower_top:[0,0,80],sensor_mount_rudder:[0,0,120],as5600_rudder:[0,0,115],magnet_rudder:[0,0,100],bearing_rock_hi:[0,0,60],rock_bar:[0,0,40],rock_hub:[0,0,30],
+const BUY=[["Ø12 h6 연마봉 300 mm (봉 4 개, 길이 287 로 자름)",4,12000,"알리, 추정"],["LM12UU 볼 부싱",8,6000,"MGN12 레일 대신"],["608ZZ (센터링 롤러)",2,1000,""],["6000ZZ (러더 축 Ø10)",2,1500,""],
+ ["Ø10 연마봉 100 + Ø8 핀 2 × 108",1,4000,"러더 축 + 브레이크 경첩"],["알루미늄 평철 30×8, 258 mm",1,3000,"러더 바"],["M6 로드엔드 4 + 나사봉",1,5000,"연결봉 2"],
+ ["인장 스프링 모음 + M5 볼트",1,4000,"센터링"],["토 브레이크 압축 스프링 OD 14 + M6 나사",2,2000,""],["AS5600 + 자석",3,4000,"러더 + 브레이크 2"],["스테인리스 띠 0.5×8 (스틱과 나눠 씀)",1,1500,"캠 롤러 면"],
+ ["펠트 2 t + M6 볼트 (손잡이 출력)",1,1000,"마찰 댐퍼"],["고무 패드 2 t",4,1000,"±40 mm 멈춤"],["M6 T너트 4 + 손잡이 볼트 + Ø6 인덱스 핀",1,3000,"4040 레일에 물림"],["M3 · M4 · M5 볼트 + 인서트",1,5000,"모음"]];
+const RAILS=12000;   // 4040 x 2 x 560 mm: counted in the chair frame (not in this total)
+const PRINT_WHITE=0xf2f1ec;   // all printed parts = matte white PLA
+const col=p=>{const n=p.name;if(p.kind==="print")return PRINT_WHITE;if(/^rail_/.test(n))return 0x8a9097;if(/bumper|felt/.test(n))return 0x161616;
+ if(/as5600/.test(n))return 0x1f7a44;if(/spring/.test(n))return 0xb7bdc4;if(/^rod_|lmuu/.test(n))return 0xc6cbd1;if(n==="rock_bar")return 0xcfd3d7;return 0xa9afb6};
+const EX={tower:[0,0,-40],front_frame_L:[30,40,-40],front_frame_R:[30,-40,-40],rear_block_L:[-40,40,-40],rear_block_R:[-40,-40,-40],tower_top:[0,0,80],damper_felt:[0,0,80],damper_screw:[-60,0,0],sensor_mount_rudder:[0,0,120],as5600_rudder:[0,0,115],magnet_rudder:[0,0,100],bearing_rock_hi:[0,0,60],rock_bar:[0,0,40],rock_hub:[0,0,30],
  lever_F:[30,0,10],lever_B:[-30,0,10],roller_F:[25,0,0],roller_B:[-25,0,0],rock_spring:[0,40,15],rock_eyebolt:[40,40,15],cam_rudder:[0,0,-5],
  pedal_L:[-40,40,70],pedal_R:[-40,-40,70],hinge_pin_L:[0,90,30],hinge_pin_R:[0,-90,30],carriage_L:[0,30,30],carriage_R:[0,-30,30],brake_spring_L:[-20,30,70],brake_spring_R:[-20,-30,70],
  sensor_mount_L:[0,110,30],sensor_mount_R:[0,-110,30],as5600_brake_L:[0,105,30],as5600_brake_R:[0,-105,30]};
-let V=CtlViewer({base:"../hardware/pedals/",color:col,skip:p=>/^link_|^damper$/.test(p.name),
+let V=CtlViewer({base:"../hardware/pedals/",color:col,skip:p=>/^link_/.test(p.name),
  groups:{rocker:{pivot:[XR,0,0],axis:"z",ang:phi},
    carL:{pivot:[0,PY,0],move:s=>[-PY*Math.sin(phi(s)*Math.PI/180),0,0]},carR:{pivot:[0,-PY,0],move:s=>[PY*Math.sin(phi(s)*Math.PI/180),0,0]},
    brkL:{parent:"carL",pivot:[HX,0,HZ],axis:"y",ang:s=>s.bl},brkR:{parent:"carR",pivot:[HX,0,HZ],axis:"y",ang:s=>s.br}},
  explode:p=>EX[p.name]||[0,0,0],
- target:[60,0,90],camDir:[-1,-0.75,0.75],dist:1500,
+ target:[40,0,90],camDir:[-1,-0.75,0.75],dist:1500,
  sliders:[{id:"rud",val:0,fmt:v=>v+" mm"},{id:"bl",val:0,fmt:v=>v+"°"},{id:"br",val:0,fmt:v=>v+"°"}],
  dyn:(s,add)=>{const p=phi(s)*Math.PI/180;
-   for(const sg of[1,-1]){const dx=-sg*PY*Math.sin(p);add([47.5+dx,sg*PY,ARM],[XR-sg*PY*Math.sin(p),sg*PY*Math.cos(p),ARM+12],3.2)}
-   const b=[XR-40*Math.sin(p),40*Math.cos(p),ARM];add(b,[XR+60,40,ARM],5);add([XR+55,40,ARM],[XR+104,40,ARM],7.5)},
+   for(const sg of[1,-1]){const dx=-sg*PY*Math.sin(p);add([EARX+dx,sg*PY,ARM],[XR-sg*PY*Math.sin(p),sg*PY*Math.cos(p),ARM+12],3.2)}},
  onData:d=>{
   const m=d.meta,f=d.forces;document.getElementById("mt").textContent=m.created;
-  const bad=d.check.filter(c=>c.hits.length).length;document.getElementById("chk").textContent=bad?`겹침 ${bad} 자세`:"러더 ±40 mm × 브레이크 6 자세 겹침 없음";
+  const bad=d.check.filter(c=>c.hits.length).length;document.getElementById("chk").textContent=bad?`겹침 ${bad} 자세`:`러더 ±40 mm × 브레이크 6 자세 겹침 없음 · 브레이크 멈춤 ${d.strength.brake_stop_deg}°`;
   const v=f.variants;
   const kv=[["러더 이동",`±${m.travel_mm} mm (러더 바 ±${m.rocker_deg}°)`],["페달 힘 (추정)",`기본: 2 mm ${v.default.pedal_N[1]} N → 끝 ${v.default.pedal_N[20]} N · 조절 ${v.light.pedal_N[20]}~${v.heavy.pedal_N[20]} N`],
    ["토 브레이크",`0~${m.brake_deg}° (발끝에서 약 45 mm), 끝 힘 약 30 N 기본 (추정)`],["페달 판",`230 × 100, 바닥에서 ${m.lean_deg}° 기울어짐, 간격 ${2*m.pedal_y} mm`],
-   ["다리 길이 조절",`±${m.reach_adjust_mm} mm (25 mm 간격 핀)`],["크기","합판 390 × 400, 높이 약 0.25 m"]];
+   ["다리 길이 조절",`±${m.reach_adjust_mm} mm (25 mm 간격 핀, 4040 레일 y ±${m.rail_y})`],["크기","앞뒤 410 (x −170 ~ 240) × 폭 약 355, 레일 윗면 위 약 0.27 m"],["마찰 댐퍼 한계",`펠트 힘 약 ${d.strength.friction.max_pad_N} N 아래 (추정)`]];
   document.getElementById("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
   ctlChart(document.getElementById("chart"),[{name:"기본",color:"#d9822b",pts:f.travel_mm.map((x,i)=>[x,v.default.pedal_N[i]])},
    {name:"가벼움",color:"#4f79b0",dash:1,pts:f.travel_mm.map((x,i)=>[x,v.light.pedal_N[i]])},{name:"무거움",color:"#c0392b",dash:1,pts:f.travel_mm.map((x,i)=>[x,v.heavy.pedal_N[i]])}],"페달 이동 (mm)","페달 힘 (N)");
@@ -103,7 +107,12 @@ let V=CtlViewer({base:"../hardware/pedals/",color:col,skip:p=>/^link_|^damper$/.
   const fil=Math.ceil(g*1.15/10)*10,fc=fil*25;tp.insertAdjacentHTML("beforeend",`<tr class="tot"><td></td><td>필라멘트 합계 (+15 %)</td><td></td><td></td><td class="n">${fil} g</td><td></td></tr>`);
   const tb=document.getElementById("tb");let t=fc;
   for(const[n,q,pr,me]of BUY){t+=pr;tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td>${q}</td><td class="n">${pr.toLocaleString("ko-KR")}</td><td>${me}</td></tr>`)}
-  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 PETG + PLA</td><td>${fil} g</td><td class="n">${fc.toLocaleString("ko-KR")}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${t.toLocaleString("ko-KR")}원</td><td>배송비 제외</td></tr>`);
+  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 PLA</td><td>${fil} g</td><td class="n">${fc.toLocaleString("ko-KR")}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${t.toLocaleString("ko-KR")}원</td><td>배송비 제외 · 4040 레일 2 × 560 (약 ${RAILS.toLocaleString("ko-KR")}원) 은 의자 틀 몫</td></tr>`);
+
+  const S=d.strength;if(S){const row=r=>`<tr><td>${r.name}${r.note?`<br><span class="muted">${r.note}</span>`:""}</td><td class="n">${r.load} / ${r.limit} ${r.unit}</td><td class="n"><b style="color:${r.sf<1?"#c0392b":r.sf<1.5?"#c77700":"#1f9d55"}">${r.sf}</b></td></tr>`;
+   document.getElementById("st").innerHTML=`<tr><th>어디 (순간 큰 힘)</th><th class="n">걸림 / 한계</th><th class="n">안전율</th></tr>`+S.rows.map(row).join("")+`<tr><th>계속 걸리는 힘 (크리프) · 캠 접촉</th><th></th><th></th></tr>`+S.creep.map(row).join("");
+   document.getElementById("stn").textContent=S.note}
+  const ph=Math.round(fil/12);document.getElementById("pt").textContent=`필라멘트 약 ${fil} g · 출력 시간 약 ${ph} 시간 (0.4 노즐, 시간당 약 12 g 으로 어림, 추정)`;
   document.querySelectorAll("tr[data-n]").forEach(r=>r.onclick=()=>V.select(r.dataset.n));
  }});
 </script>

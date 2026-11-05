@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>센터 스틱 v2</title>
+<title>센터 스틱 v3 (싼 출력판)</title>
 <link rel="stylesheet" href="js/ctl.css">
 </head>
 <body>
 <div id="app">
   <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 부품 클릭 = 설명</div></div>
   <aside>
-    <h1>센터 스틱 받침 v2 — 캠 + 롤러 + 스프링 짐벌</h1>
-    <p class="lead"><b>결론:</b> VKB · Virpil 고급 받침과 같은 방식. 축마다 <b>알루미늄 캠 + 608 롤러 2 개 + 인장 스프링 1 개</b>로 가운데를 잡아서 미끄럼 마찰 (스틱션) 과 가운데 걸림이 없다. 무게감은 손잡이 너트 (예압) 와 스프링 교체로 조절, 멈춤은 바꿔 끼우는 게이트판.</p>
+    <h1>센터 스틱 받침 v3 — 캠 + 롤러 + 스프링 짐벌 (출력 부품 전부 PLA)</h1>
+    <p class="lead"><b>결론:</b> v2 와 같은 방식 (VKB · Virpil 식 캠 + 608 롤러 + 인장 스프링, 스틱션 · 가운데 걸림 없음), 힘 곡선 · 게이트 · 퀵릴리즈 그대로. <b>값은 약 16 만 → 약 7.8 만 원</b> (추정): 알루미늄 캠 → <b>PLA 출력 캠 + 롤러 면에 스테인리스 띠 0.5 mm</b>, 벽 5 장 → <b>PLA 상자 한 덩어리</b>, TPU 링 → PLA 테 + 고무 호스, 어깨볼트 · 아이볼트 · 시트포스트 클램프 · 부츠 → 일반 볼트 + 출력 손잡이 · 캠 레버. 의자 4040 가로대 2 개에 T너트 4 개로 고정.</p>
     <div class="box">
       <label>roll (좌우, + = 오른쪽) <b id="rollv">0°</b></label><input id="roll" type="range" min="-20" max="20" step="0.5">
       <label>pitch (+ = 앞으로 밂) <b id="pitchv">0°</b></label><input id="pitch" type="range" min="-20" max="20" step="0.5">
@@ -30,13 +30,15 @@
 
     <h2>어떻게 움직이나</h2>
     <ul class="t">
+      <li><b>v3 강도 대책</b>: 손 200 N 을 게이트에 대면 게이트에 약 1.7 kN, 축에 약 1.5 kN 이 걸린다 (긴 스틱 지렛대). 그래서 ① 게이트판이 아래 턱 · 키로 벽에 끼워져 나사가 아니라 벽이 받고, ② roll 축에 밀림 받침 링 (0.3 mm 떠 있음) 이 있어 축방향 힘을 608 대신 벽 면이 받고, ③ 안쪽 블록 ↔ 요람 틈 0.5 mm 라 옆 힘을 요람 면이 받는다. 아래 강도 표.</li>
+      <li><b>PLA 캠</b>: 띠 없이 PLA 만이면 게이트 끝 접촉압이 60~85 MPa (PLA 압축 한계 근처) → 금방 패이고, 가운데 예압만으로도 30~35 MPa 가 계속 걸려 롤러 자리가 눌려 <b>가운데 홈</b>이 생길 수 있다. 그래서 롤러 닿는 면 (캠 하나에 4 곳) 에 스테인리스 띠 0.5×10 을 에폭시로 붙인다 (띠가 힘을 넓게 펴서 PLA 압력 1~13 MPa, 추정). 캠은 M4 2 개라 2 분이면 교체, 출력 비용 약 1000 원. 안 쓸 때 예압 너트를 풀어 두면 더 오래 간다.</li>
       <li><b>짐벌</b>: 바깥 요람 (파랑) = roll, 앞뒤 벽의 608 두 개. 안쪽 블록 (주황) = pitch, 요람 안 608 두 개. 축은 Ø8 h6 연마봉 (볼트 아님 → 덜걱거림 없음), 베어링은 웨이브 와셔로 예압.</li>
-      <li><b>가운데 잡기</b>: 캠 모양 r = r0 + a(√(θ²+c²) − c). 가운데가 둥근 V 라서 <b>홈에 '딸깍' 걸리지 않고</b> 또렷한 중심 (c = 2.5°) 다음에 고른 기울기. 롤러 2 개가 맞은편에서 누르니 축에 옆 힘이 안 걸림.</li>
-      <li><b>무게감 조절</b>: ① 손잡이 너트 (M5 아이볼트) = 예압 = 이탈력, ② 스프링 3 종 교체 = 기울기, ③ 캠 교체 (DXF 수정) = 느낌 자체 (가운데 없음 / 부드러움).</li>
-      <li><b>댐핑</b>: 축마다 건식 마찰 클러치 (PTFE + 마찰 와셔 + 웨이브 스프링 + 나일록). 정지 마찰이 미세 조작을 방해하므로 <b>약하게만</b> 건다.</li>
+      <li><b>가운데 잡기</b>: 캠 (PLA + 띠) 모양 r = r0 + a(√(θ²+c²) − c). 가운데가 둥근 V 라서 <b>홈에 '딸깍' 걸리지 않고</b> 또렷한 중심 (c = 2.5°) 다음에 고른 기울기. 롤러 2 개가 맞은편에서 누르니 축에 옆 힘이 안 걸림.</li>
+      <li><b>무게감 조절</b>: ① 손잡이 너트 (M5 볼트 + 출력 너트) = 예압 = 이탈력, ② 스프링 3 종 교체 = 기울기, ③ 캠 교체 (DXF 수정) = 느낌 자체 (가운데 없음 / 부드러움).</li>
+      <li><b>댐핑</b>: 축마다 건식 마찰 (펠트 와셔 + 스프링 와셔 + 나일록). 정지 마찰이 미세 조작을 방해하므로 <b>약하게만</b> 건다.</li>
       <li><b>긴 스틱</b>: 짐벌 상자를 의자 바닥판 위 (정강이 뒤) 에 두고 짐벌 중심 → 손 662 mm. 실기 센터 스틱처럼 축이 바닥 근처에 있어 손이 큰 호를 그린다. 아래 관 Ø25×2.5 (속 Ø20) + 위 관 Ø20 (손잡이 규격) 을 겹쳐 끼움 → 100 N 에 끝 처짐 약 12 mm (Ø20 하나면 약 30 mm, 계산 추정).</li>
-      <li><b>멈춤</b>: 윗판 = 게이트. TPU 링이 게이트 가장자리에 닿아 부드럽게 멈춤. 기본 roll ±10° (손에서 ±115 mm ≈ F-5E 기어 내림 ±4.0 in), pitch 앞 10° / 뒤 13° (손에서 +115 / −149 mm). 짐벌 자체는 ±20° 까지 겹침 없음 → 게이트판만 바꾸면 이동을 늘릴 수 있다.</li>
-      <li><b>타고 내리기</b>: 소켓 클램프를 퀵릴리즈 (자전거 시트포스트 레버) 로 → 관을 뽑고 탄다. 손잡이 배선은 관 아래 GX12 커넥터.</li>
+      <li><b>멈춤</b>: 윗판 = 게이트 (PLA 4 t). 관의 PLA 테에 끼운 고무 호스 토막 (내경 30 · 외경 36) 이 게이트 가장자리에 닿아 부드럽게 멈춤. 기본 roll ±10° (손에서 ±115 mm ≈ F-5E 기어 내림 ±4.0 in), pitch 앞 10° / 뒤 13° (손에서 +115 / −149 mm). 짐벌 자체는 ±20° 까지 겹침 없음 → 게이트판만 바꾸면 이동을 늘릴 수 있다.</li>
+      <li><b>타고 내리기</b>: 소켓 클램프 M5 2 개를 출력 캠 레버로 한 번에 → 관을 뽑고 탄다. 손잡이 배선은 관 아래 GX12 커넥터.</li>
       <li><b>센서</b>: AS5600 12 bit (0.088°) × 2 → 손에서 약 1 mm. roll 은 뒤 축 끝, pitch 는 −y 축 끝.</li>
       <li><b>FFB 준비</b>: 앞 축이 벽 밖으로 18 mm (풀리 자리) + M4 ×4 모터 자리, 안쪽 블록 아래에 밀대 고리 (M5). 나중에 모터 2 개를 바닥에 고정하고 밀대로 연결.</li>
       <li><b>손잡이 연결</b> (hardware/grips): 위 관 Ø20×2t 의 위 40 mm 가 손잡이 속, 위 끝에서 15 mm 아래 M4 가로볼트, 뒤쪽 4×6 홈 = 돌아감 막기. 배선은 관 속 → 안쪽 블록 아래 구멍.</li>
@@ -56,15 +58,20 @@
       <tr><td>TM Warthog</td><td>원뿔 + 큰 스프링 → 가운데 스틱션 (이 설계는 피함)</td><td><a href="https://forum.dcs.world/topic/159558-warthog-stick-bad-stiction-problem">DCS 포럼</a></td></tr>
     </table>
 
+    <h2>강도 (계산, 추정)</h2>
+    <table id="st"></table>
+    <p class="sub" id="stn"></p>
     <h2>출력 부품 <span class="muted">(클릭 = 3D 에서 표시)</span></h2>
+    <p class="sub" id="pt"></p>
     <table id="tp"><tr><th></th><th>부품</th><th>크기 mm</th><th>재료</th><th>무게</th><th>출력 방향</th></tr></table>
     <h2>살 부품 · 가공 (가격 추정)</h2>
     <table id="tb"><tr><th>품목</th><th>수량</th><th class="n">금액</th><th>메모</th></tr></table>
 
     <h2>출력 · 조립 메모</h2>
     <ul class="t">
-      <li>요람 · 안쪽 블록 · 레버 · 게이트판은 <b>PETG</b>, 벽 5 줄, 채움 60~100 %. 나머지 PLA.</li>
-      <li>캠은 PLA 로 시험 출력 → 느낌이 정해지면 알루미늄 레이저 절단 (<code>hardware/stick/cam_roll.dxf</code>, <code>cam_pitch.dxf</code>). PLA 캠은 롤러 자국이 남음 (접촉 압력 약 50 MPa, 추정).</li>
+      <li><b>전부 PLA</b> (흰색 무광으로 그림). 무게 = 껍데기 1.2 mm 꽉 + 속 채움 (부품마다 20~60 %) 으로 계산 (추정). 상자는 바닥을 바닥에 놓고 한 번에 (188×192×164, 베드 240 안).</li>
+      <li>캠: 0.12 mm 층, 벽 6 줄, 띠 붙는 면 4 곳은 0.5 mm 안쪽으로 출력되어 있음 (띠 바깥면 = 설계 프로필). 띠는 손으로 캠에 대고 구부려 에폭시 + 집게. 금속 캠이 필요하면 DXF 그대로 (<code>hardware/stick/cam_roll.dxf</code>, <code>cam_pitch.dxf</code>).</li>
+      <li>PLA 는 55 °C 부터 무르다 → 차 안 · 햇빛 창가 보관 금지. 예압 너트는 안 쓸 때 풀어 둔다 (레버 · 캠 크리프).</li>
       <li>요람의 roll 캠은 축이 아니라 요람에 M4 ×2 로 고정 (캠 받침 사이에 끼움) → 미끄러져 중심이 어긋나지 않음.</li>
       <li>무게 = 부피 × 밀도 × 채움 비율 (추정).</li>
     </ul>
@@ -75,9 +82,10 @@
       <li>덜걱거림: 가운데서 손잡이를 앞뒤 · 좌우로 흔들어 축 유격 (0.1 mm 다이얼 게이지 또는 센서 값).</li>
       <li>멈춤 링이 게이트에 닿는 각도 (모델 roll 10.25°, 앞 10.25°, 뒤 13.25°).</li>
       <li>관 처짐: 손잡이에 50 N 걸고 끝 이동 (계산 약 6 mm).</li>
+      <li>1 주 쓴 뒤 캠 띠 끝 들뜸 · 가운데 눌림 (손 놓고 가운데 복귀 값이 처음과 같은지).</li>
       <li>마찰 클러치를 조였을 때 가운데로 돌아오는지 (너무 세면 안 돌아옴 — MFG 페달 댐퍼와 같은 문제).</li>
     </ul>
-    <p class="muted">모델: <code>hardware/stick/stick.py</code> (공통: <code>hardware/ctl_lib.py</code>) · 만든 시각 <span id="mt"></span> · 겹침 검사: roll·pitch ±20° 9 자세 <span id="chk"></span></p>
+    <p class="muted">v2 (알루미늄 캠 · PETG · TPU, 약 16 만 원) 는 git 기록 <code>62f629a</code>. 모델: <code>hardware/stick/stick.py</code> (공통: <code>hardware/ctl_lib.py</code>) · 만든 시각 <span id="mt"></span> · 겹침 검사: roll·pitch ±20° 9 자세 <span id="chk"></span></p>
   </aside>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -85,16 +93,15 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="js/ctl_viewer.js"></script>
 <script>
-const BUY=[["608 베어링 (축 4 + 롤러 4)",8,8000,"608-2RS"],["Ø8 h6 연마봉 300 mm (3 토막, D컷)",1,12000,"축"],["알루미늄 캠 레이저 절단 (6061 10 t + 8 t)",2,35000,"DXF 주문, 추정"],
- ["인장 스프링 (OD 8~10, 축마다 3 종)",6,15000,"가벼움 · 기본 · 무거움"],["M5 아이볼트 + 손잡이 너트",2,6000,"예압 조절"],["M6 어깨볼트",4,8000,"레버 축"],
- ["AS5600 보드 + 직경 자석",2,8000,""],["알루미늄 관 Ø25×2.5t 600 mm + Ø20×2t 140 mm",1,12000,"스틱 (겹쳐 끼움)"],["퀵릴리즈 클램프 (시트포스트용 Ø34.9 → 출력 소켓에 맞춤) + GX12 4 핀 커넥터",1,9000,"탈 때 관 뽑기"],["마찰 클러치 (PTFE · 마찰 와셔 · 웨이브 스프링 · 나일록)",2,8000,""],
- ["M3 · M4 · M5 볼트 + 황동 인서트",1,12000,""],["고무 부츠",1,8000,"게이트 위"]];
-const col=p=>{const n=p.name;if(p.kind==="cut")return 0xd5d9de;
- if(/^wall|^base/.test(n))return 0x3b4149;if(n==="gate_plate")return 0x1f2226;if(/cradle|cam_hub|pitch_bracket/.test(n))return 0x4f79b0;
- if(n==="inner_block")return 0xd9822b;if(/lever/.test(n))return 0xc0392b;if(/sensor_mount/.test(n))return 0x7d5ba6;if(n==="stop_collar")return 0x161616;
+const BUY=[["608ZZ 베어링 (축 4 + 롤러 4)",8,4000,"알리 10 개 묶음, 추정"],["Ø8 h6 연마봉 300 mm (3 토막, D컷)",1,5000,"축"],["스테인리스 띠 0.5 t × 10 폭, 1 m",1,2500,"캠 롤러 면 8 곳 (페달과 나눠 씀)"],
+ ["인장 스프링 모음 (OD 8~10)",1,5000,"가벼움 · 기본 · 무거움 고르기"],["M5 볼트 (예압) + 출력 손잡이 너트",2,1000,""],["M6 볼트 (목이 매끈한 것) ",4,2000,"레버 축 (어깨볼트 대신)"],
+ ["AS5600 보드 + 직경 자석",2,4000,"알리"],["알루미늄 관 Ø25×2.5t 600 mm + Ø20×2t 140 mm",1,10000,"스틱 (겹쳐 끼움)"],["GX12 4 핀 커넥터 + M5 볼트 2 (캠 레버)",1,2500,"탈 때 관 뽑기"],["펠트 와셔 + 스프링 와셔 + 나일록",2,1500,"마찰"],
+ ["고무 호스 토막 (내경 30, 외경 36)",1,1000,"멈춤 완충 (TPU 대신)"],["M6 T너트 + 볼트",4,2000,"의자 4040 가로대에"],["M3 · M4 · M5 볼트 + 황동 인서트",1,6000,"모음"],["에폭시 (띠 붙임)",1,2000,""]];
+const PRINT_WHITE=0xf2f1ec;   // all printed parts = matte white PLA
+const col=p=>{const n=p.name;if(p.kind==="print")return PRINT_WHITE;if(n==="stop_rubber")return 0x161616;
  if(/spring/.test(n))return 0xb7bdc4;if(/eyebolt|pivot/.test(n))return 0x8d939a;if(/as5600/.test(n))return 0x1f7a44;if(/magnet/.test(n))return 0x6b6f75;
  if(/clutch/.test(n))return 0xeeeeee;if(n==="stick_tube")return 0xcfd3d7;return 0xa9afb6};
-const EX={base_plate:[0,0,-60],wall_front:[90,0,0],wall_back:[-90,0,0],wall_side_L:[0,110,0],wall_side_R:[0,-110,0],gate_plate:[0,0,140],stop_collar:[0,0,120],stick_tube:[0,0,160],
+const EX={housing:[0,0,-90],gate_plate:[0,0,140],stop_collar:[0,0,120],stop_rubber:[0,0,120],stick_tube:[0,0,160],thrust_front:[70,0,0],thrust_back:[-70,0,0],qr_lever:[-40,0,50],
  roll_lever_L:[50,40,0],roll_lever_R:[50,-40,0],roll_roller_L:[40,30,0],roll_roller_R:[40,-30,0],roll_spring:[60,0,40],roll_eyebolt:[60,30,40],roll_pivot_L:[70,40,0],roll_pivot_R:[70,-40,0],
  cam_roll:[35,0,0],cam_hub_roll:[20,0,0],roll_shaft_front:[60,0,0],roll_shaft_back:[-60,0,0],roll_clutch:[-110,0,0],magnet_roll:[-125,0,0],sensor_mount_roll:[-140,0,0],as5600_roll:[-140,0,0],
  bearing_roll_front:[80,0,0],bearing_roll_back:[-80,0,0],pitch_bracket:[0,80,0],pitch_lever_T:[0,60,20],pitch_lever_B:[0,60,-20],pitch_roller_T:[0,45,15],pitch_roller_B:[0,45,-15],
@@ -104,7 +111,7 @@ let V;
 V=CtlViewer({base:"../hardware/stick/",color:col,
  groups:{roll:{pivot:[0,0,88],axis:"x",ang:s=>s.roll},pitch:{parent:"roll",pivot:[0,0,88],axis:"y",ang:s=>s.pitch}},
  explode:p=>{const v=EX[p.name]||[0,0,0];return p.group==="pitch"&&p.name!=="stick_tube"&&p.name!=="stop_collar"?[v[0],v[1],v[2]]:v},
- xray:p=>/^wall|gate_plate/.test(p.name),
+ xray:p=>/^housing|gate_plate/.test(p.name),
  target:[0,0,150],camDir:[1.0,-0.85,0.62],dist:1150,
  sliders:[{id:"roll",val:0,fmt:v=>v+"°"},{id:"pitch",val:0,fmt:v=>v+"°"}],
  onData:d=>{
@@ -114,7 +121,7 @@ V=CtlViewer({base:"../hardware/stick/",color:col,
    ["손에서 이동",`roll ±${Math.round(m.l_hand*Math.sin(m.gate_deg.roll*Math.PI/180))} mm · 앞 ${Math.round(m.l_hand*Math.sin(m.gate_deg.fwd*Math.PI/180))} / 뒤 ${Math.round(m.l_hand*Math.sin(m.gate_deg.aft*Math.PI/180))} mm`],
    ["힘 (기본, 추정)",`roll 1° ${f.variants.default.roll_N[1]} N → ${GR_}° ${f.variants.default.roll_N[GR_]} N · pitch 1° ${f.variants.default.pitch_N[1]} N → 뒤 ${GA_}° ${f.variants.default.pitch_N[GA_]} N`],
    ["조절 범위 (추정)",`게이트 끝 힘 roll ${f.variants.light.roll_N[GR_]}~${f.variants.heavy.roll_N[GR_]} N · pitch ${f.variants.light.pitch_N[GA_]}~${f.variants.heavy.pitch_N[GA_]} N`],
-   ["짐벌 중심",`바닥판 아래면에서 ${m.pivot[2]} mm · 관 위끝 = 중심 위 ${m.tube_top} mm`],["크기","바닥판 188 × 192, 높이 170 (게이트 윗면)"]];
+   ["짐벌 중심",`바닥판 아래면에서 ${m.pivot[2]} mm · 관 위끝 = 중심 위 ${m.tube_top} mm`],["크기 · 고정","188 × 192, 높이 168 (게이트 윗면). 아래 M6 ×4 (x ±70, y ±70) → 4040 가로대 2 개 (x ±70) T너트"]];
   document.getElementById("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
   const A=f.angles;ctlChart(document.getElementById("chart"),[
    {name:"pitch 기본",color:"#d9822b",pts:A.map((a,i)=>[a,f.variants.default.pitch_N[i]])},
@@ -129,7 +136,12 @@ V=CtlViewer({base:"../hardware/stick/",color:col,
   const fil=Math.ceil(g*1.15/10)*10,fc=fil*25;tp.insertAdjacentHTML("beforeend",`<tr class="tot"><td></td><td>필라멘트 합계 (+15 %)</td><td></td><td></td><td class="n">${fil} g</td><td></td></tr>`);
   const tb=document.getElementById("tb");let tot=fc;
   for(const[n,q,pr,me]of BUY){tot+=pr;tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td>${q}</td><td class="n">${pr.toLocaleString("ko-KR")}</td><td>${me}</td></tr>`)}
-  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 PLA + PETG + TPU</td><td>${fil} g</td><td class="n">${fc.toLocaleString("ko-KR")}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${tot.toLocaleString("ko-KR")}원</td><td>배송비 · 손잡이 제외</td></tr>`);
+  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 PLA</td><td>${fil} g</td><td class="n">${fc.toLocaleString("ko-KR")}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${tot.toLocaleString("ko-KR")}원</td><td>배송비 · 손잡이 제외</td></tr>`);
+
+  const S=d.strength;if(S){const row=r=>`<tr><td>${r.name}${r.note?`<br><span class="muted">${r.note}</span>`:""}</td><td class="n">${r.load} / ${r.limit} ${r.unit}</td><td class="n"><b style="color:${r.sf<1?"#c0392b":r.sf<1.5?"#c77700":"#1f9d55"}">${r.sf}</b></td></tr>`;
+   document.getElementById("st").innerHTML=`<tr><th>어디 (순간 큰 힘)</th><th class="n">걸림 / 한계</th><th class="n">안전율</th></tr>`+S.rows.map(row).join("")+`<tr><th>계속 걸리는 힘 (크리프) · 캠 접촉</th><th></th><th></th></tr>`+S.creep.map(row).join("");
+   document.getElementById("stn").textContent=S.note}
+  const ph=Math.round(fil/12);document.getElementById("pt").textContent=`필라멘트 약 ${fil} g · 출력 시간 약 ${ph} 시간 (0.4 노즐, 시간당 약 12 g 으로 어림, 추정)`;
   document.querySelectorAll("tr[data-n]").forEach(r=>r.onclick=()=>V.select(r.dataset.n));
  }});
 </script>

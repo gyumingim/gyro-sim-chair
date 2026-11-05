@@ -1,6 +1,6 @@
 {
  "meta": {
-  "created": "2026-11-05T18:35:13",
+  "created": "2026-11-05T21:53:09",
   "pivot": [
    0,
    0,
@@ -46,128 +46,64 @@
   {
    "name": "cam_roll",
    "group": "roll",
-   "kind": "cut",
-   "note": "roll 캠: 알루미늄 10 t 레이저 절단 (cam_roll.dxf). 둥근 V 모양 = 가운데 걸림 없이 또렷한 중심",
-   "material": "AL6061",
+   "kind": "print",
+   "note": "roll 캠 (PLA 출력, 바꿔 끼움): 둥근 V 모양 = 가운데 걸림 없이 또렷한 중심. 0.12 mm 층, 벽 6 줄. M4 ×2 만 풀면 교체. 롤러 닿는 면 4 곳에 스테인리스 띠 0.5×10 을 에폭시로 붙임 (프로필은 0.5 mm 안쪽으로 출력)",
+   "material": "PLA",
    "size": [
     10.0,
-    107.0,
-    67.2
+    106.1,
+    66.6
    ],
-   "volume_cm3": 55.9,
-   "grams": null,
-   "orient": "",
+   "volume_cm3": 52.1,
+   "grams": 44.1,
+   "orient": "눕혀서 (캠 면이 바닥), 층 0.12",
    "file": "stl/cam_roll.stl"
   },
   {
    "name": "cam_pitch",
    "group": "pitch",
-   "kind": "cut",
-   "note": "pitch 캠: 알루미늄 8 t 레이저 절단 (cam_pitch.dxf), D컷 축에 M3 무두볼트",
-   "material": "AL6061",
+   "kind": "print",
+   "note": "pitch 캠 (PLA 출력, 바꿔 끼움): D컷 축에 M3 무두볼트 + M3 ×2. 롤러 면 4 곳에 스테인리스 띠 0.5×8",
+   "material": "PLA",
    "size": [
-    48.8,
+    48.3,
     8.0,
-    77.4
+    76.5
    ],
-   "volume_cm3": 24.6,
-   "grams": null,
-   "orient": "",
+   "volume_cm3": 23.8,
+   "grams": 22.8,
+   "orient": "눕혀서, 층 0.12",
    "file": "stl/cam_pitch.stl"
   },
   {
-   "name": "base_plate",
+   "name": "housing",
    "group": "fixed",
    "kind": "print",
-   "note": "바닥판 188×192: M6 ×4 로 접이식 스틱 기둥 윗판에",
+   "note": "짐벌 상자 (PLA 한 덩어리 = 바닥 + 앞뒤 벽 10 t + 옆벽 5 t): 앞뒤 608 2, roll 레버 축, FFB 모터 자리, 아래 M6 ×4 → 4040 T너트",
    "material": "PLA",
    "size": [
     188.0,
     192.0,
-    8.0
+    164.0
    ],
-   "volume_cm3": 235.6,
-   "grams": 160.7,
-   "orient": "그대로 (바닥면 아래)",
-   "file": "stl/base_plate.stl"
-  },
-  {
-   "name": "wall_front",
-   "group": "fixed",
-   "kind": "print",
-   "note": "앞벽: roll 608 베어링 + roll 레버 축 2 + FFB 모터 자리 (M4 ×4)",
-   "material": "PLA",
-   "size": [
-    12.0,
-    192.0,
-    156.0
-   ],
-   "volume_cm3": 336.3,
-   "grams": 250.2,
-   "orient": "앞면을 바닥에",
-   "file": "stl/wall_front.stl"
-  },
-  {
-   "name": "wall_back",
-   "group": "fixed",
-   "kind": "print",
-   "note": "뒤벽: roll 608 베어링, 뒤에 마찰 클러치와 roll 센서",
-   "material": "PLA",
-   "size": [
-    12.0,
-    192.0,
-    156.0
-   ],
-   "volume_cm3": 337.2,
-   "grams": 250.8,
-   "orient": "뒷면을 바닥에",
-   "file": "stl/wall_back.stl"
-  },
-  {
-   "name": "wall_side_L",
-   "group": "fixed",
-   "kind": "print",
-   "note": "옆벽 (왼쪽): 큰 창 = pitch 스프링 조절 너트 손이 닿게",
-   "material": "PLA",
-   "size": [
-    164.0,
-    8.0,
-    156.0
-   ],
-   "volume_cm3": 87.7,
-   "grams": 59.8,
-   "orient": "옆면을 바닥에",
-   "file": "stl/wall_side_L.stl"
-  },
-  {
-   "name": "wall_side_R",
-   "group": "fixed",
-   "kind": "print",
-   "note": "옆벽 (오른쪽)",
-   "material": "PLA",
-   "size": [
-    164.0,
-    8.0,
-    156.0
-   ],
-   "volume_cm3": 87.7,
-   "grams": 59.8,
-   "orient": "옆면을 바닥에",
-   "file": "stl/wall_side_R.stl"
+   "volume_cm3": 840.0,
+   "grams": 492.7,
+   "orient": "바닥을 바닥에 (베어링 구멍은 가로 = 서포트 없이 브리지), 벽 4 줄 + 채움 20 %",
+   "file": "stl/housing.stl"
   },
   {
    "name": "roll_lever_L",
    "group": "fixed",
    "kind": "print",
    "note": "roll 롤러 레버: 아래 = 축 (M6 어깨볼트), 가운데 = 608 롤러, 위 = 스프링 (지렛대 2:1)",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     6.0,
     14.0,
     96.0
    ],
    "volume_cm3": 7.2,
-   "grams": 9.2,
+   "grams": 7.9,
    "orient": "옆으로 눕혀 (구멍이 위로)",
    "file": "stl/roll_lever_L.stl"
   },
@@ -191,14 +127,14 @@
    "name": "roll_pivot_L",
    "group": "fixed",
    "kind": "buy",
-   "note": "M6 어깨볼트 (레버 축)",
+   "note": "M6 볼트 (나사산 없는 목 부분 = 레버 축)",
    "material": "steel",
    "size": [
-    22.0,
+    24.0,
     6.0,
     6.0
    ],
-   "volume_cm3": 0.6,
+   "volume_cm3": 0.7,
    "grams": null,
    "orient": "",
    "file": "stl/roll_pivot_L.stl"
@@ -208,14 +144,14 @@
    "group": "fixed",
    "kind": "print",
    "note": "roll 롤러 레버: 아래 = 축 (M6 어깨볼트), 가운데 = 608 롤러, 위 = 스프링 (지렛대 2:1)",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     6.0,
     14.0,
     96.0
    ],
    "volume_cm3": 7.2,
-   "grams": 9.2,
+   "grams": 7.9,
    "orient": "옆으로 눕혀 (구멍이 위로)",
    "file": "stl/roll_lever_R.stl"
   },
@@ -239,14 +175,14 @@
    "name": "roll_pivot_R",
    "group": "fixed",
    "kind": "buy",
-   "note": "M6 어깨볼트 (레버 축)",
+   "note": "M6 볼트 (나사산 없는 목 부분 = 레버 축)",
    "material": "steel",
    "size": [
-    22.0,
+    24.0,
     6.0,
     6.0
    ],
-   "volume_cm3": 0.6,
+   "volume_cm3": 0.7,
    "grams": null,
    "orient": "",
    "file": "stl/roll_pivot_R.stl"
@@ -271,7 +207,7 @@
    "name": "roll_eyebolt",
    "group": "fixed",
    "kind": "buy",
-   "note": "M5 아이볼트 + 손잡이 너트 = roll 예압 (가운데 힘) 조절",
+   "note": "M5 볼트 (출력 고리) + 출력 손잡이 너트 = roll 예압 (가운데 힘) 조절. 안 쓸 때는 풀어 둠 (PLA 캠 눌림 방지)",
    "material": "steel",
    "size": [
     14.0,
@@ -287,8 +223,8 @@
    "name": "roll_clutch",
    "group": "roll",
    "kind": "buy",
-   "note": "roll 마찰 클러치: PTFE 와셔 + 마찰 와셔 + 웨이브 스프링 + 나일록 너트 (조이면 묵직)",
-   "material": "PTFE",
+   "note": "roll 마찰: 펠트 와셔 + 스프링 와셔 + 나일록 너트 (조이면 묵직, 약하게만)",
+   "material": "felt",
    "size": [
     7.0,
     26.0,
@@ -311,7 +247,7 @@
     44.0
    ],
    "volume_cm3": 15.0,
-   "grams": 10.2,
+   "grams": 12.9,
    "orient": "뒷면을 바닥에",
    "file": "stl/sensor_mount_roll.stl"
   },
@@ -352,14 +288,14 @@
    "group": "roll",
    "kind": "print",
    "note": "바깥 요람 (roll 로 돎): 앞뒤 Ø8 축 + pitch 608 베어링 2. 위가 뚫려 스틱이 지나감",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     104.0,
     70.0,
     44.0
    ],
    "volume_cm3": 136.7,
-   "grams": 112.9,
+   "grams": 87.5,
    "orient": "바닥 쪽을 바닥에, 채움 60 % + 벽 5 줄",
    "file": "stl/cradle.stl"
   },
@@ -368,14 +304,14 @@
    "group": "roll",
    "kind": "print",
    "note": "roll 캠 받침 (요람 앞면 ↔ 캠, M4 ×2 로 같이 조임 → 캠이 축이 아니라 요람에 고정)",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     8.0,
     30.0,
     30.0
    ],
    "volume_cm3": 5.2,
-   "grams": 6.6,
+   "grams": 5.2,
    "orient": "",
    "file": "stl/cam_hub_roll.stl"
   },
@@ -444,6 +380,38 @@
    "file": "stl/roll_shaft_back.stl"
   },
   {
+   "name": "thrust_front",
+   "group": "roll",
+   "kind": "print",
+   "note": "앞 밀림 받침 링 Ø40 (PLA): 평소 0.3 mm 떠 있고, 손으로 세게 밀면 벽 면에 닿아 힘을 벽이 받음 (608 축방향 보호)",
+   "material": "PLA",
+   "size": [
+    13.4,
+    40.0,
+    40.0
+   ],
+   "volume_cm3": 16.1,
+   "grams": 20.0,
+   "orient": "눕혀서",
+   "file": "stl/thrust_front.stl"
+  },
+  {
+   "name": "thrust_back",
+   "group": "roll",
+   "kind": "print",
+   "note": "뒤 밀림 받침 링 Ø40 (PLA): 요람 뒤면 ↔ 뒤벽 사이 0.3 mm",
+   "material": "PLA",
+   "size": [
+    31.4,
+    40.0,
+    40.0
+   ],
+   "volume_cm3": 8.5,
+   "grams": 8.8,
+   "orient": "세워서",
+   "file": "stl/thrust_back.stl"
+  },
+  {
    "name": "bearing_pitch_L",
    "group": "roll",
    "kind": "buy",
@@ -480,14 +448,14 @@
    "group": "roll",
    "kind": "print",
    "note": "pitch 센터링 받침 (요람 옆에 M3 ×3, 같이 roll 로 돎)",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     104.0,
     31.0,
     105.4
    ],
    "volume_cm3": 58.3,
-   "grams": 51.9,
+   "grams": 49.0,
    "orient": "큰 면을 바닥에",
    "file": "stl/pitch_bracket.stl"
   },
@@ -496,14 +464,14 @@
    "group": "roll",
    "kind": "print",
    "note": "pitch 롤러 레버 (지렛대 2:1)",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     78.0,
     7.0,
     14.0
    ],
    "volume_cm3": 6.7,
-   "grams": 8.5,
+   "grams": 7.3,
    "orient": "옆으로 눕혀",
    "file": "stl/pitch_lever_T.stl"
   },
@@ -544,14 +512,14 @@
    "group": "roll",
    "kind": "print",
    "note": "pitch 롤러 레버 (지렛대 2:1)",
-   "material": "PETG",
+   "material": "PLA",
    "size": [
     78.0,
     7.0,
     14.0
    ],
    "volume_cm3": 6.7,
-   "grams": 8.5,
+   "grams": 7.3,
    "orient": "옆으로 눕혀",
    "file": "stl/pitch_lever_B.stl"
   },
@@ -607,7 +575,7 @@
    "name": "pitch_eyebolt",
    "group": "roll",
    "kind": "buy",
-   "note": "M5 아이볼트 + 손잡이 너트 (아래 레버) = pitch 예압 조절, 옆창으로 손이 닿음",
+   "note": "M5 볼트 + 출력 손잡이 너트 (아래 레버) = pitch 예압 조절, 옆창으로 손이 닿음. 안 쓸 때 풀어 둠",
    "material": "steel",
    "size": [
     14.0,
@@ -623,8 +591,8 @@
    "name": "pitch_clutch",
    "group": "pitch",
    "kind": "buy",
-   "note": "pitch 마찰 클러치 (요람 ↔ 캠 사이 와셔 묶음)",
-   "material": "PTFE",
+   "note": "pitch 마찰 (요람 ↔ 캠 사이 펠트 + 스프링 와셔)",
+   "material": "felt",
    "size": [
     24.0,
     4.5,
@@ -647,7 +615,7 @@
     44.0
    ],
    "volume_cm3": 6.7,
-   "grams": 4.6,
+   "grams": 7.7,
    "orient": "",
    "file": "stl/sensor_mount_pitch.stl"
   },
@@ -687,17 +655,33 @@
    "name": "inner_block",
    "group": "pitch",
    "kind": "print",
-   "note": "안쪽 블록 (pitch 로 돎): Ø25 관 소켓 55 mm + 퀵릴리즈 클램프 (M5 캠 레버 2), 아래 = FFB 막대 고리 / 배선 출구",
-   "material": "PETG",
+   "note": "안쪽 블록 (pitch 로 돎): Ø25 관 소켓 55 mm + 퀵릴리즈 클램프 (M5 + 출력 캠 레버), 아래 = FFB 막대 고리 / 배선 출구",
+   "material": "PLA",
    "size": [
     52.0,
-    48.0,
+    49.0,
     110.0
    ],
-   "volume_cm3": 96.7,
-   "grams": 122.8,
+   "volume_cm3": 98.0,
+   "grams": 80.0,
    "orient": "소켓을 위로, 채움 100 %",
    "file": "stl/inner_block.stl"
+  },
+  {
+   "name": "qr_lever",
+   "group": "pitch",
+   "kind": "print",
+   "note": "퀵릴리즈 캠 레버 (PLA): M5 볼트 2 개를 한 번에 조이는 판 + 레버 → 관 뽑고 탈 때",
+   "material": "PLA",
+   "size": [
+    20.0,
+    4.0,
+    24.0
+   ],
+   "volume_cm3": 1.7,
+   "grams": 2.1,
+   "orient": "눕혀서",
+   "file": "stl/qr_lever.stl"
   },
   {
    "name": "pitch_shaft",
@@ -751,32 +735,48 @@
    "name": "stop_collar",
    "group": "pitch",
    "kind": "print",
-   "note": "TPU 멈춤 링 (게이트에 닿아 부드럽게 멈춤), M3 무두볼트 고정",
-   "material": "TPU",
+   "note": "멈춤 링 속 (PLA): 고무 호스 토막을 끼우는 테 + M3 무두볼트로 관에 고정",
+   "material": "PLA",
+   "size": [
+    34.0,
+    34.0,
+    30.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": 8.7,
+   "orient": "그대로",
+   "file": "stl/stop_collar.stl"
+  },
+  {
+   "name": "stop_rubber",
+   "group": "pitch",
+   "kind": "buy",
+   "note": "고무 호스 토막 내경 30 외경 36 × 26 (산 부품) = TPU 대신 완충. 게이트에 닿아 부드럽게 멈춤",
+   "material": "rubber",
    "size": [
     36.0,
     36.0,
-    30.0
+    26.0
    ],
-   "volume_cm3": 15.6,
-   "grams": 18.8,
-   "orient": "그대로",
-   "file": "stl/stop_collar.stl"
+   "volume_cm3": 8.1,
+   "grams": null,
+   "orient": "",
+   "file": "stl/stop_rubber.stl"
   },
   {
    "name": "gate_plate",
    "group": "fixed",
    "kind": "print",
-   "note": "윗판 = 멈춤 게이트 (바꿔 끼움): roll ±10°, 앞 10° / 뒤 13°. 고무 부츠를 위에 씌움",
-   "material": "PETG",
+   "note": "윗판 = 멈춤 게이트 (PLA, 바꿔 끼움): roll ±10°, 앞 10° / 뒤 13°. 아래 턱 + 키가 벽에 끼워져 멈춤 힘을 나사가 아니라 벽이 받음",
+   "material": "PLA",
    "size": [
     188.0,
     192.0,
-    6.0
+    10.0
    ],
-   "volume_cm3": 192.0,
-   "grams": 146.3,
-   "orient": "그대로",
+   "volume_cm3": 138.0,
+   "grams": 139.4,
+   "orient": "윗면을 바닥에",
    "file": "stl/gate_plate.stl"
   }
  ],
@@ -1050,6 +1050,183 @@
   ],
   "l_hand": 662,
   "note": "손 위치 (축에서 L_HAND mm) 에서 필요한 힘 N. 반경 방향 롤러 + 에너지 법 계산 (마찰 · 클러치 제외, 추정)"
+ },
+ "strength": {
+  "F_hand": 200.0,
+  "gate_force": 1697,
+  "pivot_force": 1497,
+  "rows": [
+   {
+    "name": "게이트 가장자리 눌림 (고무 링 접촉 20 mm × 판 4 t)",
+    "load": 21.22,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 2.83,
+    "note": "판을 눕혀 출력 → 층 방향 안"
+   },
+   {
+    "name": "게이트 키 4 개 옆 눌림 (roll, 6×11.6 mm²)",
+    "load": 6.1,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 9.84,
+    "note": ""
+   },
+   {
+    "name": "앞/뒤벽 판 굽힘 (밀림 링 Ø40 → 10 t 벽, 4 변 고정 판)",
+    "load": 13.23,
+    "limit": 20.0,
+    "unit": "MPa",
+    "sf": 1.51,
+    "note": "벽이 세워 출력 → 층 사이 강도 20 MPa 로 봄"
+   },
+   {
+    "name": "상자 뿌리 굽힘 (바닥 ↔ 벽 이음, 상자 단면)",
+    "load": 0.36,
+    "limit": 20.0,
+    "unit": "MPa",
+    "sf": 55.23,
+    "note": ""
+   },
+   {
+    "name": "608 정격 (pivot 힘 / 2 개)",
+    "load": 748.72,
+    "limit": 1370.0,
+    "unit": "N",
+    "sf": 1.83,
+    "note": "정적 정격 C0 = 영구 눌림 시작 (깨짐 아님)"
+   },
+   {
+    "name": "pitch 축 Ø8 굽힘 (블록 폭에 고른 하중)",
+    "load": 286.73,
+    "limit": 500,
+    "unit": "MPa",
+    "sf": 1.74,
+    "note": "연마봉 항복 약 500 MPa (추정)"
+   },
+   {
+    "name": "요람 옆판 굽힘 (roll, 블록이 면으로 밂)",
+    "load": 34.46,
+    "limit": 50.0,
+    "unit": "MPa",
+    "sf": 1.45,
+    "note": "요람 바닥을 바닥에 출력 → 굽힘 응력은 층 안"
+   },
+   {
+    "name": "안쪽 블록 소켓 뿌리 굽힘 (관 몫 무시)",
+    "load": 6.22,
+    "limit": 20.0,
+    "unit": "MPa",
+    "sf": 3.21,
+    "note": "소켓을 위로 출력 → 층 사이"
+   },
+   {
+    "name": "알루미늄 관 Ø25×2.5 굽힘 (멈춤 링 위)",
+    "load": 128.97,
+    "limit": 170,
+    "unit": "MPa",
+    "sf": 1.32,
+    "note": "6063-T5 항복 약 170 (6061-T6 이면 240)"
+   },
+   {
+    "name": "M6 T너트 볼트 인장 (상자 → 4040)",
+    "load": 0.47,
+    "limit": 11.6,
+    "unit": "kN",
+    "sf": 24.53,
+    "note": "8.8 볼트 보증 하중"
+   }
+  ],
+  "creep": [
+   {
+    "name": "roll 캠 접촉압 (가운데, 예압만 = 계속)",
+    "load": 28.57,
+    "limit": 33.0,
+    "unit": "MPa",
+    "sf": 1.16,
+    "note": "국부 접촉 허용 ~33 MPa 로 봄 (추정). 넘으면 롤러 자리 눌림 → 가운데 홈"
+   },
+   {
+    "name": "pitch 캠 접촉압 (가운데, 예압만 = 계속)",
+    "load": 34.85,
+    "limit": 33.0,
+    "unit": "MPa",
+    "sf": 0.95,
+    "note": ""
+   },
+   {
+    "name": "roll 캠 접촉압 (게이트 끝, 순간)",
+    "load": 61.35,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 0.98,
+    "note": ""
+   },
+   {
+    "name": "pitch 캠 접촉압 (뒤 게이트 끝, 순간)",
+    "load": 83.7,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 0.72,
+    "note": ""
+   },
+   {
+    "name": "roll 레버 굽힘 (예압, 계속)",
+    "load": 5.1,
+    "limit": 10.0,
+    "unit": "MPa",
+    "sf": 1.96,
+    "note": ""
+   },
+   {
+    "name": "pitch 레버 굽힘 (예압, 계속)",
+    "load": 5.04,
+    "limit": 10.0,
+    "unit": "MPa",
+    "sf": 1.98,
+    "note": ""
+   },
+   {
+    "name": "roll 캠 + 띠 0.5×10: PLA 받침 압력 (게이트 끝)",
+    "load": 5.27,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 11.39,
+    "note": "띠 굽힘 303 MPa (스테인리스 301/304 반경질 항복 ~1000, 추정)"
+   },
+   {
+    "name": "pitch 캠 + 띠 0.5×8: PLA 받침 압력 (뒤 게이트 끝)",
+    "load": 12.96,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 4.63,
+    "note": "띠 굽힘 667 MPa (스테인리스 301/304 반경질 항복 ~1000, 추정)"
+   },
+   {
+    "name": "roll 캠 + 띠: PLA 받침 압력 (가운데, 계속)",
+    "load": 1.14,
+    "limit": 10.0,
+    "unit": "MPa",
+    "sf": 8.76,
+    "note": ""
+   },
+   {
+    "name": "pitch 캠 + 띠: PLA 받침 압력 (가운데, 계속)",
+    "load": 2.25,
+    "limit": 10.0,
+    "unit": "MPa",
+    "sf": 4.45,
+    "note": ""
+   }
+  ],
+  "roller_force": {
+   "roll": 50,
+   "pitch": 74,
+   "roll_gate": 231,
+   "pitch_gate": 429
+  },
+  "shim_mm": 0.5,
+  "note": "캠 접촉 위 4 줄 = 띠 없는 PLA 캠 (참고). 손 200 N 을 게이트에 댄 채 (pitch 또는 roll). PLA 층 안 50 / 층 사이 20 / 압축 60 MPa, 계속 하중 10 MPa 이하 (추정). 캠 접촉은 롤러 1 줄이 다 받는다고 봄 (실제는 V 양쪽 2 줄 → 더 낮음)"
  },
  "check": [
   {

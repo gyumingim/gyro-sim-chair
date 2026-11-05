@@ -145,3 +145,38 @@ def check_pairs(parts, posed, poses, allow, groups_moving=None):
             if v > 0.5: bad.append(f"{a}x{b} {v:.0f}")
         res.append((pose, bad))
     return res
+
+
+# ---------------- v3 strength helpers (all-PLA controls; every value here is an estimate = 추정) ----------------
+# Printed PLA (0.4 nozzle, 0.2 layers, 3-4 perimeters): in-layer tensile ~50 MPa, across layers (interlayer) ~20 MPa
+# (conservative; well-tuned prints reach 25-35), compressive ~60 MPa, E ~3.5 GPa, nu 0.36.
+# Sustained (creep) guideline used here: keep long-term stress in a printed PLA part below ~10 MPa at room temperature,
+# and below ~5 MPa if the room / car can exceed 35-40 C (PLA softens from ~55 C). Rule of thumb, not a datasheet value.
+PLA_MECH = dict(xy=50.0, z=20.0, comp=60.0, E=3500.0, nu=0.36, creep=10.0, creep_hot=5.0)
+C0_608, C0_6000 = 1370.0, 2360.0          # static load rating N (NSK / SKF catalogue values, 608 / 6000)
+
+
+def hertz_line(F, L, R1, R2=float("inf"), E1=PLA_MECH["E"], nu1=PLA_MECH["nu"], E2=200000.0, nu2=0.3):
+    """peak contact pressure (MPa) for a cylinder (roller R1) on a cylinder/flat (R2, inf = flat), line length L."""
+    Es = 1.0 / ((1 - nu1 ** 2) / E1 + (1 - nu2 ** 2) / E2)
+    Rs = 1.0 / (1.0 / R1 + (0 if R2 == float("inf") else 1.0 / R2))
+    return math.sqrt(F * Es / (math.pi * L * Rs))
+
+
+def sf(name, load, limit, unit="MPa", note=""):
+    return dict(name=name, load=round(load, 2), limit=round(limit, 1), unit=unit, sf=round(limit / max(load, 1e-9), 2), note=note)
+
+
+def auto_fill(shape, infill=0.2, shell=1.2):
+    """mass fraction of a printed part: shell (perimeters + top/bottom, ~1.2 mm from every surface) solid + infill inside."""
+    V = shape.volume; A = shape.area
+    sh = min(V, A * shell)
+    return round((sh + infill * (V - sh)) / V, 3)
+
+
+def shim_pressure(F, b, t, Es=193000.0, Ef=PLA_MECH["E"]):
+    """steel strip (thickness t, width b) glued on a PLA cam, point load F from the roller: beam on elastic foundation
+    (foundation modulus ~ Ef). Returns (peak PLA pressure MPa, strip bending stress MPa). 추정."""
+    I = b * t ** 3 / 12
+    beta = (Ef / (4 * Es * I)) ** 0.25
+    return F * beta / (2 * b), (F / (4 * beta)) / (b * t * t / 6)

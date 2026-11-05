@@ -1,13 +1,13 @@
 {
  "meta": {
-  "created": "2026-11-05T18:02:06",
+  "created": "2026-11-05T21:55:05",
   "travel_mm": 40,
   "rocker_deg": 20.35,
   "pedal_y": 115,
-  "rocker_x": 110,
+  "rocker_x": 180,
   "hinge": [
    -45,
-   51
+   57
   ],
   "lean_deg": 65,
   "brake_deg": 15,
@@ -17,169 +17,91 @@
    "pre": 6.0
   },
   "reach_adjust_mm": 100,
+  "rail_y": 100,
   "printer": [
    240,
    240,
    240
-  ]
+  ],
+  "origin": "4040 rail top"
  },
  "parts": [
-  {
-   "name": "plywood",
-   "group": "fixed",
-   "kind": "buy",
-   "note": "자작나무 합판 18 t, 390×400 (재단 주문). 아래에 2020 프로파일 2 줄 레일 클램프",
-   "material": "plywood",
-   "size": [
-    390.0,
-    400.0,
-    18.0
-   ],
-   "volume_cm3": 2795.3,
-   "grams": null,
-   "orient": "",
-   "file": "stl/plywood.stl"
-  },
   {
    "name": "rail_L",
    "group": "fixed",
    "kind": "buy",
-   "note": "MGN12 리니어 레일 220 mm",
-   "material": "steel",
+   "note": "의자 바닥 4040 레일 (y ±100). 페달 받침이 T너트로 물리고 앞뒤 ±100 mm 미끄러짐. 왼쪽 레일 윗면에 Ø6 구멍 25 mm 간격 9 개 (인덱스 핀)",
+   "material": "alu",
    "size": [
-    220.0,
-    12.0,
-    8.0
+    520.0,
+    40.0,
+    40.0
    ],
-   "volume_cm3": 21.1,
+   "volume_cm3": 832.0,
    "grams": null,
    "orient": "",
    "file": "stl/rail_L.stl"
   },
   {
-   "name": "stop_Lb",
-   "group": "fixed",
-   "kind": "print",
-   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
-   "material": "PLA",
-   "size": [
-    12.0,
-    28.0,
-    11.0
-   ],
-   "volume_cm3": 2.3,
-   "grams": 2.9,
-   "orient": "",
-   "file": "stl/stop_Lb.stl"
-  },
-  {
-   "name": "stop_Lf",
-   "group": "fixed",
-   "kind": "print",
-   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
-   "material": "PLA",
-   "size": [
-    12.0,
-    28.0,
-    11.0
-   ],
-   "volume_cm3": 2.3,
-   "grams": 2.9,
-   "orient": "",
-   "file": "stl/stop_Lf.stl"
-  },
-  {
    "name": "rail_R",
    "group": "fixed",
    "kind": "buy",
-   "note": "MGN12 리니어 레일 220 mm",
-   "material": "steel",
+   "note": "의자 바닥 4040 레일 (y ±100). 페달 받침이 T너트로 물리고 앞뒤 ±100 mm 미끄러짐. 왼쪽 레일 윗면에 Ø6 구멍 25 mm 간격 9 개 (인덱스 핀)",
+   "material": "alu",
    "size": [
-    220.0,
-    12.0,
-    8.0
+    520.0,
+    40.0,
+    40.0
    ],
-   "volume_cm3": 21.1,
+   "volume_cm3": 832.0,
    "grams": null,
    "orient": "",
    "file": "stl/rail_R.stl"
   },
   {
-   "name": "stop_Rb",
+   "name": "tower",
    "group": "fixed",
    "kind": "print",
-   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
+   "note": "러더 축 상자 (PLA 한 덩어리 = 바닥 + 앞뒤 벽 5 t / 옆벽 4 t): 아래 6000 베어링, 레버 축 기둥, 러더 바 창 (닿지 않음), 옆벽에 앞틀 M5 ×4",
    "material": "PLA",
    "size": [
-    12.0,
-    28.0,
-    11.0
-   ],
-   "volume_cm3": 2.3,
-   "grams": 2.9,
-   "orient": "",
-   "file": "stl/stop_Rb.stl"
-  },
-  {
-   "name": "stop_Rf",
-   "group": "fixed",
-   "kind": "print",
-   "note": "레일 위 멈춤 (캐리지 블록이 닿음, 고무 2 mm 붙임) = 페달 ±40 mm",
-   "material": "PLA",
-   "size": [
-    12.0,
-    28.0,
-    11.0
-   ],
-   "volume_cm3": 2.3,
-   "grams": 2.9,
-   "orient": "",
-   "file": "stl/stop_Rf.stl"
-  },
-  {
-   "name": "tower_base",
-   "group": "fixed",
-   "kind": "print",
-   "note": "러더 축 받침 (아래 608 + 레버 축 기둥 + 기둥 4)",
-   "material": "PETG",
-   "size": [
     140.0,
-    140.0,
-    64.0
+    130.0,
+    70.0
    ],
-   "volume_cm3": 194.9,
-   "grams": 160.9,
-   "orient": "바닥을 바닥에, 채움 60 %",
-   "file": "stl/tower_base.stl"
+   "volume_cm3": 261.6,
+   "grams": 209.5,
+   "orient": "바닥을 바닥에, 벽 4 줄 + 채움 25 %",
+   "file": "stl/tower.stl"
   },
   {
    "name": "tower_top",
    "group": "fixed",
    "kind": "print",
-   "note": "러더 축 윗판 (위 608), M5 긴 볼트 4 개로 기둥과 같이 조임",
-   "material": "PETG",
+   "note": "러더 축 뚜껑 (위 6000) + 마찰 패드 판스프링 (뚜껑과 한 몸, M6 손나사가 밀면 펠트가 허브를 누름)",
+   "material": "PLA",
    "size": [
     140.0,
-    140.0,
-    8.0
+    130.0,
+    16.5
    ],
-   "volume_cm3": 124.5,
-   "grams": 94.8,
-   "orient": "그대로",
+   "volume_cm3": 96.3,
+   "grams": 72.6,
+   "orient": "뚜껑 윗면을 바닥에",
    "file": "stl/tower_top.stl"
   },
   {
    "name": "bearing_rock_lo",
    "group": "fixed",
    "kind": "buy",
-   "note": "608-2RS",
+   "note": "6000ZZ (러더 축 Ø10, 아래)",
    "material": "steel",
    "size": [
-    22.0,
-    22.0,
-    7.0
+    26.0,
+    26.0,
+    8.0
    ],
-   "volume_cm3": 2.3,
+   "volume_cm3": 3.6,
    "grams": null,
    "orient": "",
    "file": "stl/bearing_rock_lo.stl"
@@ -188,31 +110,63 @@
    "name": "bearing_rock_hi",
    "group": "fixed",
    "kind": "buy",
-   "note": "608-2RS",
+   "note": "6000ZZ (러더 축 Ø10, 위)",
    "material": "steel",
    "size": [
-    22.0,
-    22.0,
-    7.0
+    26.0,
+    26.0,
+    8.0
    ],
-   "volume_cm3": 2.3,
+   "volume_cm3": 3.6,
    "grams": null,
    "orient": "",
    "file": "stl/bearing_rock_hi.stl"
   },
   {
+   "name": "damper_felt",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "펠트 패드 2 t (붙임) = 마찰 댐퍼. 스틱션이 생기므로 약하게만 (계산: 패드 힘 약 400 N 아래면 가운데로 돌아옴, 추정)",
+   "material": "felt",
+   "size": [
+    2.0,
+    20.0,
+    4.0
+   ],
+   "volume_cm3": 0.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/damper_felt.stl"
+  },
+  {
+   "name": "damper_screw",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "M6 볼트 + 출력 손잡이 (뒤벽 나사 구멍) = 마찰 세기 조절 (0 = 풀어 둠)",
+   "material": "steel",
+   "size": [
+    40.0,
+    18.0,
+    18.0
+   ],
+   "volume_cm3": 2.5,
+   "grams": null,
+   "orient": "",
+   "file": "stl/damper_screw.stl"
+  },
+  {
    "name": "lever_F",
    "group": "fixed",
    "kind": "print",
-   "note": "센터링 롤러 레버 (지렛대 2:1)",
-   "material": "PETG",
+   "note": "센터링 롤러 레버 (PLA, 지렛대 2:1)",
+   "material": "PLA",
    "size": [
     14.0,
     78.0,
     7.0
    ],
    "volume_cm3": 6.9,
-   "grams": 8.8,
+   "grams": 7.1,
    "orient": "눕혀서, 채움 100 %",
    "file": "stl/lever_F.stl"
   },
@@ -236,15 +190,15 @@
    "name": "lever_B",
    "group": "fixed",
    "kind": "print",
-   "note": "센터링 롤러 레버 (지렛대 2:1)",
-   "material": "PETG",
+   "note": "센터링 롤러 레버 (PLA, 지렛대 2:1)",
+   "material": "PLA",
    "size": [
     14.0,
     78.0,
     7.0
    ],
    "volume_cm3": 6.9,
-   "grams": 8.8,
+   "grams": 7.1,
    "orient": "눕혀서, 채움 100 %",
    "file": "stl/lever_B.stl"
   },
@@ -284,7 +238,7 @@
    "name": "rock_eyebolt",
    "group": "fixed",
    "kind": "buy",
-   "note": "M5 아이볼트 + 손잡이 너트 = 가운데 힘 (예압) 조절",
+   "note": "M5 볼트 + 출력 손잡이 너트 = 가운데 힘 (예압) 조절. 안 쓸 때 풀어 둠 (PLA 캠 눌림 방지)",
    "material": "steel",
    "size": [
     38.0,
@@ -316,62 +270,254 @@
    "name": "sensor_mount_rudder",
    "group": "fixed",
    "kind": "print",
-   "note": "러더 AS5600 받침 (윗판 위)",
+   "note": "러더 AS5600 받침 (뚜껑 위)",
    "material": "PLA",
    "size": [
     40.0,
     40.0,
-    15.0
+    17.0
    ],
-   "volume_cm3": 10.6,
-   "grams": 7.2,
+   "volume_cm3": 10.5,
+   "grams": 10.0,
    "orient": "",
    "file": "stl/sensor_mount_rudder.stl"
   },
   {
-   "name": "damper_anchor",
+   "name": "front_frame_L",
    "group": "fixed",
    "kind": "print",
-   "note": "오일 댐퍼 아래 고정점",
+   "note": "앞틀 (PLA): 봉 2 개 앞 끝 + 러더 상자 옆에 M5 ×4 + 4040 T너트 1 + (왼쪽) 인덱스 핀",
+   "material": "PLA",
+   "size": [
+    138.0,
+    100.0,
+    50.0
+   ],
+   "volume_cm3": 148.5,
+   "grams": 81.4,
+   "orient": "바닥을 바닥에",
+   "file": "stl/front_frame_L.stl"
+  },
+  {
+   "name": "rear_block_L",
+   "group": "fixed",
+   "kind": "print",
+   "note": "뒤 봉 받침 (PLA): 봉 2 개 뒤 끝 + 4040 T너트 1",
    "material": "PLA",
    "size": [
     20.0,
-    24.0,
-    58.0
+    100.0,
+    28.0
    ],
-   "volume_cm3": 27.7,
-   "grams": 34.3,
+   "volume_cm3": 50.3,
+   "grams": 29.5,
+   "orient": "바닥을 바닥에",
+   "file": "stl/rear_block_L.stl"
+  },
+  {
+   "name": "rod_Li",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "Ø12 h6 연마봉 294 mm (LM12UU 가 미끄러짐)",
+   "material": "steel",
+   "size": [
+    294.0,
+    12.0,
+    12.0
+   ],
+   "volume_cm3": 33.3,
+   "grams": null,
    "orient": "",
-   "file": "stl/damper_anchor.stl"
+   "file": "stl/rod_Li.stl"
+  },
+  {
+   "name": "rod_Lo",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "Ø12 h6 연마봉 294 mm (LM12UU 가 미끄러짐)",
+   "material": "steel",
+   "size": [
+    294.0,
+    12.0,
+    12.0
+   ],
+   "volume_cm3": 33.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rod_Lo.stl"
+  },
+  {
+   "name": "bumper_Lf",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "고무 패드 2 t (붙임) = 페달 ±40 mm 멈춤 (부싱 상자가 닿음)",
+   "material": "rubber",
+   "size": [
+    2.0,
+    100.0,
+    27.0
+   ],
+   "volume_cm3": 4.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bumper_Lf.stl"
+  },
+  {
+   "name": "bumper_Lb",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "고무 패드 2 t (붙임) = 페달 ±40 mm 멈춤 (부싱 상자가 닿음)",
+   "material": "rubber",
+   "size": [
+    2.0,
+    100.0,
+    27.0
+   ],
+   "volume_cm3": 4.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bumper_Lb.stl"
+  },
+  {
+   "name": "front_frame_R",
+   "group": "fixed",
+   "kind": "print",
+   "note": "앞틀 (PLA): 봉 2 개 앞 끝 + 러더 상자 옆에 M5 ×4 + 4040 T너트 1 + (왼쪽) 인덱스 핀",
+   "material": "PLA",
+   "size": [
+    138.0,
+    100.0,
+    50.0
+   ],
+   "volume_cm3": 148.9,
+   "grams": 81.4,
+   "orient": "바닥을 바닥에",
+   "file": "stl/front_frame_R.stl"
+  },
+  {
+   "name": "rear_block_R",
+   "group": "fixed",
+   "kind": "print",
+   "note": "뒤 봉 받침 (PLA): 봉 2 개 뒤 끝 + 4040 T너트 1",
+   "material": "PLA",
+   "size": [
+    20.0,
+    100.0,
+    28.0
+   ],
+   "volume_cm3": 50.3,
+   "grams": 29.5,
+   "orient": "바닥을 바닥에",
+   "file": "stl/rear_block_R.stl"
+  },
+  {
+   "name": "rod_Ro",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "Ø12 h6 연마봉 294 mm (LM12UU 가 미끄러짐)",
+   "material": "steel",
+   "size": [
+    294.0,
+    12.0,
+    12.0
+   ],
+   "volume_cm3": 33.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rod_Ro.stl"
+  },
+  {
+   "name": "rod_Ri",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "Ø12 h6 연마봉 294 mm (LM12UU 가 미끄러짐)",
+   "material": "steel",
+   "size": [
+    294.0,
+    12.0,
+    12.0
+   ],
+   "volume_cm3": 33.3,
+   "grams": null,
+   "orient": "",
+   "file": "stl/rod_Ri.stl"
+  },
+  {
+   "name": "bumper_Rf",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "고무 패드 2 t (붙임) = 페달 ±40 mm 멈춤 (부싱 상자가 닿음)",
+   "material": "rubber",
+   "size": [
+    2.0,
+    100.0,
+    27.0
+   ],
+   "volume_cm3": 4.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bumper_Rf.stl"
+  },
+  {
+   "name": "bumper_Rb",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "고무 패드 2 t (붙임) = 페달 ±40 mm 멈춤 (부싱 상자가 닿음)",
+   "material": "rubber",
+   "size": [
+    2.0,
+    100.0,
+    27.0
+   ],
+   "volume_cm3": 4.9,
+   "grams": null,
+   "orient": "",
+   "file": "stl/bumper_Rb.stl"
+  },
+  {
+   "name": "index_pin",
+   "group": "fixed",
+   "kind": "buy",
+   "note": "Ø6 인덱스 핀 (다리 길이 25 mm 단위)",
+   "material": "steel",
+   "size": [
+    16.0,
+    16.0,
+    40.0
+   ],
+   "volume_cm3": 2.2,
+   "grams": null,
+   "orient": "",
+   "file": "stl/index_pin.stl"
   },
   {
    "name": "cam_rudder",
    "group": "rocker",
-   "kind": "cut",
-   "note": "러더 캠: 알루미늄 8 t 레이저 절단 (cam_rudder.dxf)",
-   "material": "AL6061",
+   "kind": "print",
+   "note": "러더 캠 (PLA 출력, 바꿔 끼움, 0.12 mm 층, 벽 6 줄). 롤러 면 4 곳에 스테인리스 띠 0.5×8 에폭시",
+   "material": "PLA",
    "size": [
-    77.1,
-    48.7,
+    76.2,
+    48.1,
     8.0
    ],
-   "volume_cm3": 24.5,
-   "grams": null,
-   "orient": "",
+   "volume_cm3": 23.5,
+   "grams": 20.8,
+   "orient": "눕혀서",
    "file": "stl/cam_rudder.stl"
   },
   {
    "name": "rock_shaft",
    "group": "rocker",
    "kind": "buy",
-   "note": "Ø8 h6 연마봉 100 mm, D컷",
+   "note": "Ø10 h6 연마봉 83 mm, D컷",
    "material": "steel",
    "size": [
-    8.0,
-    8.0,
-    81.0
+    10.0,
+    10.0,
+    83.0
    ],
-   "volume_cm3": 4.1,
+   "volume_cm3": 6.5,
    "grams": null,
    "orient": "",
    "file": "stl/rock_shaft.stl"
@@ -380,15 +526,15 @@
    "name": "rock_hub",
    "group": "rocker",
    "kind": "print",
-   "note": "러더 바 허브 (알루미늄 바를 위아래로 물고 M4 ×4, 축은 D컷 + 무두볼트)",
-   "material": "PETG",
+   "note": "러더 바 허브 (PLA): 알루미늄 바를 위아래로 물고 M4 ×4, 축은 D컷 + 무두볼트. 윗 테두리 = 마찰 패드 면",
+   "material": "PLA",
    "size": [
     40.0,
     40.0,
     20.0
    ],
-   "volume_cm3": 15.5,
-   "grams": 19.7,
+   "volume_cm3": 15.2,
+   "grams": 14.7,
    "orient": "",
    "file": "stl/rock_hub.stl"
   },
@@ -403,7 +549,7 @@
     258.0,
     8.0
    ],
-   "volume_cm3": 60.7,
+   "volume_cm3": 60.6,
    "grams": null,
    "orient": "",
    "file": "stl/rock_bar.stl"
@@ -425,50 +571,98 @@
    "file": "stl/magnet_rudder.stl"
   },
   {
-   "name": "carriage_blk_L",
-   "group": "carL",
-   "kind": "buy",
-   "note": "MGN12H 캐리지",
-   "material": "steel",
-   "size": [
-    40.0,
-    27.0,
-    10.0
-   ],
-   "volume_cm3": 10.8,
-   "grams": null,
-   "orient": "",
-   "file": "stl/carriage_blk_L.stl"
-  },
-  {
    "name": "carriage_L",
    "group": "carL",
    "kind": "print",
-   "note": "페달 캐리지 (MGN12H 위, M3 ×4): 가운데 = 발뒤꿈치 경첩 귀, 앞 = 연결봉 귀, 뒤 = 브레이크 스프링 다리",
-   "material": "PETG",
+   "note": "페달 캐리지 (PLA): 아래 = LM12UU 4 개 상자 (봉 2), 가운데 = 발뒤꿈치 경첩 귀, 앞 = 연결봉 귀 + 브레이크 멈춤 기둥 2, 뒤 = 브레이크 스프링 다리",
+   "material": "PLA",
    "size": [
-    170.0,
-    94.0,
-    56.0
+    188.0,
+    100.0,
+    144.7
    ],
-   "volume_cm3": 148.6,
-   "grams": 122.7,
-   "orient": "바닥을 바닥에, 채움 60 %",
+   "volume_cm3": 280.1,
+   "grams": 181.7,
+   "orient": "윗면을 바닥에 (부싱 구멍 위로), 채움 30 %",
    "file": "stl/carriage_L.stl"
+  },
+  {
+   "name": "lmuu_Lib",
+   "group": "carL",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Lib.stl"
+  },
+  {
+   "name": "lmuu_Lif",
+   "group": "carL",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Lif.stl"
+  },
+  {
+   "name": "lmuu_Lob",
+   "group": "carL",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Lob.stl"
+  },
+  {
+   "name": "lmuu_Lof",
+   "group": "carL",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Lof.stl"
   },
   {
    "name": "pedal_L",
    "group": "brkL",
    "kind": "print",
-   "note": "페달 판 230×100 (뒤 갈비 2, 발끝 턱). 발끝으로 누르면 경첩을 중심으로 앞으로 15° = 토 브레이크",
-   "material": "PETG",
+   "note": "페달 판 230×100 (PLA, 뒤 갈비 2 × 22 깊이, 발끝 턱). 발끝으로 누르면 경첩 중심으로 앞으로 15° = 토 브레이크, 끝에서 갈비가 멈춤 기둥에 닿음",
+   "material": "PLA",
    "size": [
-    148.6,
+    158.5,
     100.0,
-    228.0
+    224.6
    ],
-   "volume_cm3": 250.7,
-   "grams": 159.2,
+   "volume_cm3": 170.8,
+   "grams": 149.5,
    "orient": "뒷면 (갈비) 을 위로",
    "file": "stl/pedal_L.stl"
   },
@@ -476,7 +670,7 @@
    "name": "hinge_pin_L",
    "group": "brkL",
    "kind": "buy",
-   "note": "Ø8 h6 핀 108 mm (페달에 고정, 귀의 부싱에서 돎, 끝에 자석)",
+   "note": "Ø8 h6 핀 108 mm (페달에 고정, 귀에서 돎, 끝에 자석)",
    "material": "steel",
    "size": [
     8.0,
@@ -532,55 +726,103 @@
     34.0
    ],
    "volume_cm3": 6.1,
-   "grams": 4.2,
+   "grams": 6.2,
    "orient": "",
    "file": "stl/sensor_mount_L.stl"
-  },
-  {
-   "name": "carriage_blk_R",
-   "group": "carR",
-   "kind": "buy",
-   "note": "MGN12H 캐리지",
-   "material": "steel",
-   "size": [
-    40.0,
-    27.0,
-    10.0
-   ],
-   "volume_cm3": 10.8,
-   "grams": null,
-   "orient": "",
-   "file": "stl/carriage_blk_R.stl"
   },
   {
    "name": "carriage_R",
    "group": "carR",
    "kind": "print",
-   "note": "페달 캐리지 (MGN12H 위, M3 ×4): 가운데 = 발뒤꿈치 경첩 귀, 앞 = 연결봉 귀, 뒤 = 브레이크 스프링 다리",
-   "material": "PETG",
+   "note": "페달 캐리지 (PLA): 아래 = LM12UU 4 개 상자 (봉 2), 가운데 = 발뒤꿈치 경첩 귀, 앞 = 연결봉 귀 + 브레이크 멈춤 기둥 2, 뒤 = 브레이크 스프링 다리",
+   "material": "PLA",
    "size": [
-    170.0,
-    94.0,
-    56.0
+    188.0,
+    100.0,
+    144.7
    ],
-   "volume_cm3": 148.6,
-   "grams": 122.7,
-   "orient": "바닥을 바닥에, 채움 60 %",
+   "volume_cm3": 280.1,
+   "grams": 181.7,
+   "orient": "윗면을 바닥에 (부싱 구멍 위로), 채움 30 %",
    "file": "stl/carriage_R.stl"
+  },
+  {
+   "name": "lmuu_Rob",
+   "group": "carR",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Rob.stl"
+  },
+  {
+   "name": "lmuu_Rof",
+   "group": "carR",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Rof.stl"
+  },
+  {
+   "name": "lmuu_Rib",
+   "group": "carR",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Rib.stl"
+  },
+  {
+   "name": "lmuu_Rif",
+   "group": "carR",
+   "kind": "buy",
+   "note": "LM12UU 볼 부싱",
+   "material": "steel",
+   "size": [
+    30.0,
+    21.0,
+    21.0
+   ],
+   "volume_cm3": 7.0,
+   "grams": null,
+   "orient": "",
+   "file": "stl/lmuu_Rif.stl"
   },
   {
    "name": "pedal_R",
    "group": "brkR",
    "kind": "print",
-   "note": "페달 판 230×100 (뒤 갈비 2, 발끝 턱). 발끝으로 누르면 경첩을 중심으로 앞으로 15° = 토 브레이크",
-   "material": "PETG",
+   "note": "페달 판 230×100 (PLA, 뒤 갈비 2 × 22 깊이, 발끝 턱). 발끝으로 누르면 경첩 중심으로 앞으로 15° = 토 브레이크, 끝에서 갈비가 멈춤 기둥에 닿음",
+   "material": "PLA",
    "size": [
-    148.6,
+    158.5,
     100.0,
-    228.0
+    224.6
    ],
-   "volume_cm3": 250.7,
-   "grams": 159.2,
+   "volume_cm3": 170.8,
+   "grams": 149.5,
    "orient": "뒷면 (갈비) 을 위로",
    "file": "stl/pedal_R.stl"
   },
@@ -588,7 +830,7 @@
    "name": "hinge_pin_R",
    "group": "brkR",
    "kind": "buy",
-   "note": "Ø8 h6 핀 108 mm (페달에 고정, 귀의 부싱에서 돎, 끝에 자석)",
+   "note": "Ø8 h6 핀 108 mm (페달에 고정, 귀에서 돎, 끝에 자석)",
    "material": "steel",
    "size": [
     8.0,
@@ -644,7 +886,7 @@
     34.0
    ],
    "volume_cm3": 6.1,
-   "grams": 4.2,
+   "grams": 6.2,
    "orient": "",
    "file": "stl/sensor_mount_R.stl"
   },
@@ -652,14 +894,14 @@
    "name": "link_L",
    "group": "link",
    "kind": "buy",
-   "note": "연결봉: M6 나사봉 + 로드엔드 2 (길이 조절 = 페달 가운데 맞춤)",
+   "note": "연결봉: M6 나사봉 + 로드엔드 (길이 조절 = 페달 가운데 맞춤)",
    "material": "steel",
    "size": [
-    40.1,
+    85.8,
     6.0,
-    13.4
+    15.3
    ],
-   "volume_cm3": 1.1,
+   "volume_cm3": 2.4,
    "grams": null,
    "orient": "",
    "file": "stl/link_L.stl"
@@ -668,33 +910,17 @@
    "name": "link_R",
    "group": "link",
    "kind": "buy",
-   "note": "연결봉: M6 나사봉 + 로드엔드 2 (길이 조절 = 페달 가운데 맞춤)",
+   "note": "연결봉: M6 나사봉 + 로드엔드 (길이 조절 = 페달 가운데 맞춤)",
    "material": "steel",
    "size": [
-    40.1,
+    85.8,
     6.0,
-    13.4
+    15.3
    ],
-   "volume_cm3": 1.1,
+   "volume_cm3": 2.4,
    "grams": null,
    "orient": "",
    "file": "stl/link_R.stl"
-  },
-  {
-   "name": "damper",
-   "group": "link",
-   "kind": "buy",
-   "note": "RC 카 오일 쇼크 (1/8 버기, 스프링 뺌) = 점성 댐퍼. 오일 점도로 조절 (스틱션 없음)",
-   "material": "alu",
-   "size": [
-    92.0,
-    14.0,
-    14.0
-   ],
-   "volume_cm3": 14.2,
-   "grams": null,
-   "orient": "",
-   "file": "stl/damper.stl"
   }
  ],
  "forces": {
@@ -824,7 +1050,151 @@
    19.34,
    20.35
   ],
-  "note": "한쪽 페달에서 필요한 힘 N (연결봉 · 레일 마찰 · 댐퍼 제외, 추정)"
+  "note": "한쪽 페달에서 필요한 힘 N (부싱 · 로드엔드 마찰과 펠트 마찰 제외, 추정)"
+ },
+ "strength": {
+  "F_panic": 1000.0,
+  "shim_mm": 0.5,
+  "rows": [
+   {
+    "name": "페달 판 굽힘 (멈춤 기둥 위, 판 + 갈비 2)",
+    "load": 21.42,
+    "limit": 50.0,
+    "unit": "MPa",
+    "sf": 2.33,
+    "note": "판을 눕혀 출력 → 굽힘 응력은 층 안"
+   },
+   {
+    "name": "멈춤 기둥 좌굴 (20×20 껍데기만, 2 개)",
+    "load": 708.33,
+    "limit": 5016.5,
+    "unit": "N",
+    "sf": 7.08,
+    "note": ""
+   },
+   {
+    "name": "멈춤 기둥 압축",
+    "load": 1.77,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 33.88,
+    "note": ""
+   },
+   {
+    "name": "LM12UU 정격 (앞 부싱 1 개, 기울임 짝힘 + 아래 힘)",
+    "load": 740.3,
+    "limit": 784,
+    "unit": "N",
+    "sf": 1.06,
+    "note": "LM12UU C0 784 N (영구 눌림 시작, 깨짐 아님). LM12LUU 로 바꾸면 C0 1570"
+   },
+   {
+    "name": "Ø12 봉 굽힘 (부싱 힘이 앞쪽에)",
+    "load": 220.88,
+    "limit": 500,
+    "unit": "MPa",
+    "sf": 2.26,
+    "note": "연마봉 항복 약 500 MPa (추정)"
+   },
+   {
+    "name": "고무 멈춤 → 앞틀 눌림 (부싱 상자 2 면)",
+    "load": 0.89,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 67.07,
+    "note": ""
+   },
+   {
+    "name": "러더 축 Ø10 굽힘 (두 발 버팀)",
+    "load": 225.9,
+    "limit": 500,
+    "unit": "MPa",
+    "sf": 2.21,
+    "note": ""
+   },
+   {
+    "name": "위 6000 정격 (두 발 버팀)",
+    "load": 1386.12,
+    "limit": 2360.0,
+    "unit": "N",
+    "sf": 1.7,
+    "note": ""
+   },
+   {
+    "name": "러더 바 30×8 굽힘 (허브 끝)",
+    "load": 75.53,
+    "limit": 170,
+    "unit": "MPa",
+    "sf": 2.25,
+    "note": "6063 항복 약 170 (추정)"
+   },
+   {
+    "name": "상자 ↔ 앞틀 M5 4 개 눌림 (PLA 구멍)",
+    "load": 7.55,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 7.94,
+    "note": ""
+   },
+   {
+    "name": "T너트 4 개 마찰 (M6 약 5 kN 조임, μ 0.2)",
+    "load": 1812.62,
+    "limit": 4000.0,
+    "unit": "N",
+    "sf": 2.21,
+    "note": ""
+   }
+  ],
+  "creep": [
+   {
+    "name": "캠 접촉압 (가운데, 예압만 = 계속)",
+    "load": 28.45,
+    "limit": 33.0,
+    "unit": "MPa",
+    "sf": 1.16,
+    "note": "국부 접촉 허용 ~33 MPa 로 봄 (추정)"
+   },
+   {
+    "name": "캠 접촉압 (페달 끝, 순간)",
+    "load": 69.64,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 0.86,
+    "note": ""
+   },
+   {
+    "name": "레버 굽힘 (예압, 계속)",
+    "load": 3.36,
+    "limit": 10.0,
+    "unit": "MPa",
+    "sf": 2.98,
+    "note": ""
+   },
+   {
+    "name": "캠 + 띠 0.5×8: PLA 받침 압력 (페달 끝)",
+    "load": 8.97,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 6.69,
+    "note": "띠 굽힘 461 MPa (스테인리스 반경질 ~1000, 추정)"
+   },
+   {
+    "name": "캠 + 띠: PLA 받침 압력 (가운데, 계속)",
+    "load": 1.5,
+    "limit": 10.0,
+    "unit": "MPa",
+    "sf": 6.68,
+    "note": ""
+   }
+  ],
+  "post_force": 1417,
+  "brace_shaft_force": 1813,
+  "friction": {
+   "max_pad_N": 397,
+   "note": "펠트 μ 0.3, 허브 반지름 20 mm. 이보다 세게 누르면 발을 떼도 가운데로 안 돌아옴 (추정)"
+  },
+  "note": "한 발 1000 N (판에 수직, 발볼 = 경첩에서 170 mm, 브레이크 끝까지 눌림) / 두 발 버팀 2 × 906 N. PLA 층 안 50 / 층 사이 20 / 압축 60 MPa (추정)",
+  "brake_stop_deg": 14.9
  },
  "check": [
   {
