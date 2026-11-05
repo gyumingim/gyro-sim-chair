@@ -174,10 +174,10 @@ const INFO={
   side_mount:["사이드스틱 자리 (예비)","볼트 구멍만 뚫어 둔 오른쪽 받침.","알루미늄 판"],
   pedals:["러더 페달 (자작 v2)","평행 슬라이딩 (MGN12 레일) ±40 mm + 앞 러더 바 + 캠 센터링 + 오일 댐퍼, 발끝 브레이크 15°. docs/pedals.html","합판 390×400, 약 3.6 kg"],
   pedal_rail:["페달 거리 조절 레일 (2020 × 2)","페달 받침 전체를 앞뒤 ±100 mm (25 mm 간격 핀) — 키 160~190 cm. 화면에서는 더미 키에 따라 자동으로 옮김.","x 340~880, 앞 기둥 사이로 지나감"],
-  deck:["승강대 발판 (PLA 출력 판)","오른쪽 옆에 대는 계단식 승강대. 꼭대기가 바닥 위 약 0.8 m (축 아래 0.4 m). 발판 = PLA 흰색 220×220×20 판 (프린터 240 안), 위 4040 보 위에 얹고 M5 T너트 4 개. 잠금 핀을 꽂은 0° 에서만 대고, 운행 전에 반드시 치운다. 치웠는지 확인하는 스위치를 달아 치우기 전엔 모터가 안 돌게.","220×220×20 × 6 장 (위 · 아래 6 층 + 자이로이드 25 %), 높이 z −400"],
-  deck_leg:["승강대 다리 (4040)","아래에 잠금 캐스터 (운행 중에는 치워 둠).","4040"],
-  deck_step:["계단 (PLA 발판)","바닥에서 0.27 m 씩 2 단 → 발판. 계단 판도 220×130×20 PLA.","폭 660"],
-  handrail:["손잡이 (4040)","승강대 · 계단 바깥 양옆 기둥 + 비스듬한 손잡이 보. 발판 쪽 가로대는 없앰 (오르내리는 길).","4040, 발판 위 0.9 m"],
+  deck:["승강대 발판 (PLA 리브 판, 출력)","오른쪽 옆에 대는 바퀴 달린 2 단 계단 + 발판. 꼭대기 = 바닥 위 0.81 m (축 아래 0.4 m), 뒤 끝 y −560 (v8.2 와 같음). 발판 = 236×160×45 PLA 판 2 장 — 윗판 3 mm + 2.4 mm 리브 (속 채움 0, 판 240 안). 양옆 PLA 받침 위에 얹고 M5 4 개. 잠금 핀을 꽂은 0° 에서만 대고, 운행 전에 반드시 굴려 치운다. 치웠는지 확인하는 스위치를 달아 치우기 전엔 모터가 안 돌게.","236×160×45 × 2, 높이 z −400"],
+  deck_leg:["승강대 뒤 다리 (4040)","발판 레일 뒤 끝을 받친다. 아래는 PLA 발 → 캐스터.","4040, 약 0.6 m × 2"],
+  deck_step:["계단 (PLA 리브 판)","바닥에서 0.27 m 씩 2 단 → 발판. 계단 판 236×200×45 (윗판 3 + 리브, 속 채움 0) 을 비스듬한 4040 안쪽 면의 PLA 받침에 얹음.","폭 236, 디딤 200"],
+  handrail:["손잡이 기둥 (4040, 바깥쪽)","발판 바깥 (의자 반대쪽) 끝 양옆에 세운 기둥 = 발판 위 0.9 m 손잡이. 아래는 발판 레일 · 비스듬한 계단 보와 이어짐. 발판 쪽 가로대 없음 (오르내리는 길).","4040, 발판 위 0.9 m × 2"],
   vr_tracker:["VR 기준 트래커 (모션 보정용)","VR 모드에서 의자가 기운 만큼 화면을 바로잡는 기준. 케이지에 단단히 고정 (OpenXR Motion Compensation 등). 오른쪽 앞 기둥 바깥, 무게추 길 아래.","컨트롤러·트래커 크기"],
   vr_hook:["VR 헤드셋 걸이 (PLA 출력)","타고 내릴 때 헤드셋을 걸어 두는 곳 (헤드셋은 보유품).","시트 등판 뒤 오른쪽"],
   lock_cage:["pitch 잠금판 (케이지 쪽)","링 쪽 잠금판과 짝.","40×38×60, 구멍 Ø13"],
@@ -194,7 +194,11 @@ const INFO={
   pin_plate:["roll 베어링 판 (알루미늄 10 t)","뒤 기둥 앞면에 M8 해머 T너트 4 개로 댄 판. 여기에 플랜지 베어링 UCF205 (4 볼트) 를 단다 — 축이 판에 직각이라 받침형 (UCP) 대신 플랜지형.","140×140×10, 6061"],
   arc_spacer:["호 레일 스페이서","두 판 사이를 32 mm 로 잡는 알루미늄 부시 + M8 관통 볼트. ±28° (세로 기둥 끝 판이 같이 물림) · ±33° · ±38° 에만.","Ø20 × 32, M8"],
   cradle_post:["롤러 받침대 받침 (4040 짧은 토막)","가운데 바닥 발 위에서 받침판까지 30 mm 를 메우는 4040 토막 2 개.","4040 × 30 mm × 2"],
-  deck_beam:["승강대 틀 (4040, 2 층)","아래 층 = 다리 위 앞뒤 방향 보, 위 층 = 그 위에 얹은 좌우 방향 보 (발판 모서리 아래). 사람 무게가 전부 위에서 누르는 힘. 교차점 = 위 보 관통 M8 볼트 → 아래 보 T너트, 다리 = 끝면 M8 탭 관통 볼트 (용접 없음).","4040"],
+  deck_beam:["승강대 틀 (4040: 발판 레일 + 비스듬한 계단 보)","옆마다 발판 레일 1 (뒤 다리 ↔ 앞 기둥, 0.32 m) + 비스듬한 계단 보 1 (앞 발 → 앞 기둥, 약 0.6 m). 레일 ↔ 다리 · 기둥 = 끝면 M8 탭 + 코너 브래킷, 계단 보 위 끝 = 각도 힌지 브래킷. 앞 · 뒤 발 사이는 M8 전산볼트로 묶어 벌어지지 않게.","4040"],
+  deck_cleat:["발판 받침 (PLA)","4040 안쪽 면에 M8 T너트 2 개로 대는 작은 받침. 발판 판 끝이 여기에 얹힘.","100×20×40 × 8 (벽 4 줄 + 채움 적게)"],
+  deck_foot:["승강대 발 (PLA 리브, 바깥으로 내민 발)","다리 · 계단 보 아래 끝을 받고 캐스터를 바깥 (|x| 290) 에 달아 옆으로 덜 넘어지게 (바퀴 폭 0.58 m). 전산볼트가 지나감.","200×60×45 × 4 (윗 · 아랫판 3 + 리브)"],
+  caster:["캐스터 75 mm (4 개, 2 개 잠금)","개당 정격 150 kg 급 우레탄 (추정, 한 발 × 2 때 앞 2 개가 약 108 kg 씩). 계단 쪽 (앞) 2 개 = 잠금. 탈 때 잠그고, 운행 전에 풀어 굴려 치움.","높이 약 100"],
+  deck_tie:["바닥 묶음 (M8 전산볼트)","앞 · 뒤 발을 묶음 (앞뒤 2, 좌우 2). 계단 보가 앞 발을 밀어내는 힘을 당김으로 받음.","M8, 약 2.5 m"],
   lap_anchor:["랩벨트 고정점 (M8 아이볼트)","시트 받침 4040 보 바깥 홈의 T너트에 아이볼트. 벨트는 시트 허리 벨트 구멍으로 지나간다. 엉덩이 바로 옆 · 조금 뒤라 벨트가 골반 위를 45° 쯤으로 지나감.","M8, 좌우 1 개씩"],
   person:["사람 (175 cm)",`크기 참고용. 무게중심이 축 아래 약 ${100-CZ} mm (v5 와 같음).`,"80 kg 가정"]
 };
@@ -415,26 +419,27 @@ for(const s of S2){
 }
 add(X(CYL("cage","pitch_shaft",[-PX,-362,60],[-PX,362,60],6),{abs:true}));
 add(X(BOX("cage","pitch_motor",-PX-25,-PX+25,-30,30,35,85),{abs:true}));add(X(CYL("cage","pitch_motor",[-PX,0,85],[-PX,0,150],16),{abs:true}));
-// ---- boarding platform (right side = -y), wheeled: 4040 frame in two layers (all deck loads = compression), PLA deck tiles 220 x 220 ----
-const DK0=-1000,DK1=-560,DX=330,DZ=-400,TT=20;     // deck y range, half width, top, PLA tile thickness
-const TX=[-310,-110,110,310];                      // upper-layer beams (along y) under the tile edges (tiles span 220 in x)
-const stage=(k,y0,y1,top,legs)=>{
-  for(const x of TX) add(BOX("board","deck_beam",x-H4,x+H4,y0,y1,top-TT-40,top-TT));
-  for(const y of[y0+H4,y1-H4]) add(BOX("board","deck_beam",-DX,DX,y-H4,y+H4,top-TT-80,top-TT-40));
-  for(const x of TX)for(const y of[y0+H4,y1-H4]) J("board","cross",1,0,"승강대 보 교차");   // crossings
-  for(const x of[-310,310])for(const y of[y0+H4,y1-H4]){add(BOX("board","deck_leg",x-H4,x+H4,y-H4,y+H4,ZG,top-TT-80));
-    J("board","thru",1,0,"승강대 다리 ↔ 보")}
-  for(const x of[-330,-110,110]) for(let ya=y0;ya<y1-1;ya+=220) add(BOX("board",k,x,x+220,ya,Math.min(ya+220,y1),top-TT,top));
-};
-stage("deck",DK0,DK1,DZ,true);
-const SH=(DZ-ZG)/3;   // step height
-stage("deck_step",DK0-260,DK0-130,ZG+SH,false);
-stage("deck_step",DK0-130,DK0,ZG+2*SH,true);
-for(const x of[-DX-H4,DX+H4]){
-  add(BOX("board","handrail",x-H4,x+H4,DK0,DK0+40,DZ-TT-80,DZ+900));
-  add(BOX("board","handrail",x-H4,x+H4,DK0-260,DK0-220,ZG,ZG+SH+900));
-  add(STRAP("board","handrail",[x,DK0-240,ZG+SH+900],[x,DK0+20,DZ+900],40,40,[1,0,0]));
+// ---- boarding platform v8.3 (right side = -y), wheeled step stand: 2 steps + deck, minimal 4040 (2 side frames = leg + deck rail + post + stringer),
+// treads = ribbed PLA tiles (<= 240, no infill) on PLA cleats, PLA outrigger feet with casters, M8 threaded-rod ground ties (no plywood: user 2026-11-05)
+const DK0=-880,DK1=-560,DZ=-400,TT=45;            // deck y range (rear edge / top kept from v8.2), tile height (ribs)
+const BXF=140, TW=118, CH=100, FT=ZG+CH, FH=45;  // side frame centre |x|, tile half width (236 wide), caster height, foot block bottom / height
+const SH=(DZ-ZG)/3;                              // step rise 270
+const YFR=-1250, YRR=-580;                       // front / rear foot (y centre)
+const X0=(a,b)=>[Math.min(a,b),Math.max(a,b)];
+const TREADS=[[DK0,(DK0+DK1)/2,DZ,"deck"],[(DK0+DK1)/2,DK1,DZ,"deck"],[DK0-240,DK0-40,ZG+2*SH,"deck_step"],[DK0-440,DK0-240,ZG+SH,"deck_step"]];
+for(const s of S2){const xc=s*BXF,xo=s*(BXF+H4),xi=s*(BXF-H4),xin=s*(BXF-H4-20);
+  add(BOX("board","deck_leg",...X0(xo,xi),YRR-H4,YRR+H4,FT+FH,DZ-TT-25));                   // rear leg
+  add(BOX("board","deck_beam",...X0(xo,xi),DK0,DK1,DZ-TT-25,DZ-TT+15));                      // deck rail
+  add(BOX("board","handrail",...X0(xo,xi),DK0-40,DK0,-560,DZ+900));                          // front post = handrail, outer side
+  add(STRAP("board","deck_beam",[xc,YFR,FT+FH+20],[xc,DK0-20,-580],40,40,[1,0,0]));          // stringer
+  for(const y of[YFR,YRR]){add(BOX("board","deck_foot",...X0(s*120,s*320),y-30,y+30,FT,FT+FH));  // PLA outrigger foot
+    add(BOX("board","caster",...X0(s*265,s*315),y-25,y+25,ZG,FT))}
+  add(CYL("board","deck_tie",[s*230,YFR,FT+22],[s*230,YRR,FT+22],4));                         // M8 rod, y tie
+  for(const[y0,y1,top]of TREADS) add(BOX("board","deck_cleat",...X0(xi,xin),(y0+y1)/2-50,(y0+y1)/2+50,top-TT-40,top-TT));
 }
+for(const y of[YFR,YRR]) add(CYL("board","deck_tie",[-300,y,FT+8],[300,y,FT+8],4));          // M8 rod, x tie
+for(const[y0,y1,top,k]of TREADS) add(BOX("board",k,-TW,TW,y0,y1,top-TT,top));
+J("board","tap",6,2,"승강대 다리 · 기둥 끝면 탭");J("board","thru",2,2,"승강대 보 ↔ 기둥 (코너 브래킷)");
 // ---- lock pins ----
 for(const s of S2) add(CYL("pins","pin",[270,s*405,-55],[270,s*485,-55],6));
 add(CYL("pins","pin",rotX([XA-62,0,-(ARI+30)],5),rotX([XA+62,0,-(ARI+30)],5),6));
@@ -467,7 +472,7 @@ const colorOf=(p)=>({roll_weight:0xe08a1e,pitch_weight:0xe08a1e,roll_bracket:0x7
 // v8.1 materials: 4040 aluminium = grey gloss (metal), every PLA print = white matte, gym plates = black cast iron
 const ALU_KEYS=new Set(["arc_hanger","arc_strut","ring_side","ring_back","cage_post_b","cage_post_f","floor_long","floor_cross","side_rail",
   "base_spine","base_foot","base_brace","post","roll_stop","cradle_post","seat_col","deck_beam","deck_leg","handrail","pin_plate","arc_rail","arc_spacer","throttle_mount","side_mount"]);
-const PLA_KEYS=new Set(["pla_brace","deck","deck_step","cover","guard_roll","guard_pitch","stick_gimbal","throttle","stick_grip","throttle_grip","pedals","vr_hook"]);
+const PLA_KEYS=new Set(["pla_brace","deck","deck_step","deck_cleat","deck_foot","cover","guard_roll","guard_pitch","stick_gimbal","throttle","stick_grip","throttle_grip","pedals","vr_hook"]);
 {const pm=new THREE.PMREMGenerator(R),es=new THREE.Scene();es.background=new THREE.Color(0x9aa8b8);
  const lb=(c,x,y,z,sx,sy,sz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),new THREE.MeshBasicMaterial({color:c,side:THREE.DoubleSide}));m.position.set(x,y,z);es.add(m)};
  lb(0xffffff,0,6,0,12,0.1,12);lb(0x3a3f46,0,-5,0,30,0.1,30);lb(0xe8eef5,7,1,0,0.1,5,9);lb(0xcfd8e2,-7,1,3,0.1,4,5);lb(0xffffff,0,2,-8,6,3,0.1);
@@ -514,7 +519,7 @@ groups.pins.visible=false;groups.board.visible=false;
 
 // ======================= UI =======================
 const $=id=>document.getElementById(id);
-let sel=null;const NOCOUNT=new Set(["person","arc_rail","roll_belt","pitch_belt","roll_weight","pitch_weight","roll_motor","pitch_motor","cover","deck","deck_step"]);
+let sel=null;const NOCOUNT=new Set(["person","arc_rail","roll_belt","pitch_belt","roll_weight","pitch_weight","roll_motor","pitch_motor","cover","deck","deck_step","deck_cleat","deck_foot","caster","deck_tie"]);
 function setEmis(k,on){for(const m of meshes)if(m.userData.k===k&&m.material.emissive)m.material.emissive.setHex(on?0x664400:0)}
 function select(k){if(sel)setEmis(sel,false);sel=k;setEmis(k,true);
   const p=PARTS.find(q=>q.k===k),i=INFO[k],n=PARTS.filter(q=>q.k===k).length,g=GROUPS[p.g];
@@ -671,12 +676,14 @@ const memberProfile={arc_hanger:"4040",arc_strut:"4040",ring_side:"4040×2",ring
   floor_cross:"4040",post:"4040",seat_col:"4040"};   // section used in the strength tab (doubled members are drawn as two 4040)
 const VOL_DENS={cradle:7850,floor_plate:600,yaw_plate:7850,pin_plate:2700}; // kg/m³ from the drawn volume
 // PLA prints (all white matte): density 1.24 g/cm³ × fill share (walls + infill, 추정)
-const PLA_FILL={pla_brace:0.4,deck:0.35,deck_step:0.35};
+// platform tiles (v8.3): top skin 3 mm + ribs 2.4 mm along the span (x) every <= 50 mm + 2 end walls, no infill -> share of the bounding box
+const RIB=(Lx,Ly,H)=>{const n=Math.ceil(Ly/50)+1;return{n,share:(Lx*Ly*3+n*2.4*(H-3)*Lx+2*2.4*(H-3)*Ly)/(Lx*Ly*H)}};
+const PLA_FILL={pla_brace:0.4,deck:RIB(236,160,45).share,deck_step:RIB(236,200,45).share,deck_cleat:0.35,deck_foot:0.25};
 const FIXED={seat_pan:3.5,backrest:3,seat_wing:0.25,seat_rail:0.8,stick_gimbal:1.9,stick:0.6,stick_grip:0.25,throttle:0.9,throttle_grip:0.2,throttle_mount:0.8,side_mount:0.5,
   pedals:3.8,pedal_rail:0.6,roll_motor:WM.kg/2,pitch_motor:WM.kg/2,roll_pulley:0.15,pitch_pulley:0.15,roll_bracket:0.3,cover:0.3,pitch_shaft:0.7,
   guard_roll:0.15,guard_pitch:0.15,vr_tracker:0.15,vr_hook:0.1,belt_lap:0.3,buckle:0.3,lap_anchor:0.08,arc_spacer:0.08,
   pitch_rubber:0.05,roll_rubber:0.1,lock_ring:0.4,lock_cage:0.4,roller_load:0.15,roller_cap:0.08,roller_side:0.08,roller_axle:0.05,pitch_tab:0.3,
-  pitch_arm:1.2,roll_pin:0.5,pitch_pin:0.5};
+  pitch_arm:1.2,roll_pin:0.5,pitch_pin:0.5,caster:0.35,deck_tie:0.25};
 const BELT_KGM=0.07;
 // FIXED masses are per drawn piece, except these (whole assembly, drawn as several boxes) -> split over the pieces.
 // (fixed in v8: d39ae3a counted e.g. the pedals 7 x 3.8 kg = 26.6 kg instead of 3.8 kg)
@@ -870,14 +877,23 @@ function renderStrength(){
     return{name:n,M,sfBolt:gCapM/M,sB,sfBody:MAT.pla.ft/sB,Fe,sfBuck:gPcr/Fe}});
   for(const r of pj)if(r.cap)r.sf=r.cap/r.D;
   for(const g of gus)pj.push({name:"PLA 빗대: "+g.name,cap:1,D:1,sf:Math.min(g.sfBolt,g.sfBody,g.sfBuck),gus:1});
-  // PLA deck tile 220 x 220 x 20 (6 top / bottom layers 1.2 mm + 25 % gyroid), one-way span 180 between beams, 100 kg x DF on one foot
-  const tileP=100*G*DF, tileL=180, tileI=2*220*1.2*9.4**2+0.25*220*17.6**3/12, tileM=tileP*tileL/4, tileS=tileM/(tileI/10), tileD=tileP*tileL**3/(48*MAT.pla.E*tileI);
+  // v8.3 platform: 100 kg x DF on one foot (추정). Ribbed PLA tile = T-section (skin 3 mm over the tile depth + n ribs 2.4 x 42), span between cleats
+  const tileP=100*G*DF, tileL=226, tileSec=Ly=>{const n=RIB(236,Ly,45).n,As=Ly*3,Ar=n*2.4*42,yb=(As*43.5+Ar*21)/(As+Ar),
+    I=Ly*27/12+As*(43.5-yb)**2+n*2.4*42**3/12+Ar*(21-yb)**2;return{I,yb}};
+  const tw=[160,200].map(Ly=>{const q=tileSec(Ly),M=tileP*tileL/4;return{Ly,s:M*q.yb/q.I,d:tileP*tileL**3/(48*MAT.pla.E*q.I)}}).sort((a,b)=>b.s-a.s)[0];
+  const tileS=tw.s, tileD=tw.d, W4=PROFILES["4040"].W, cS=Math.cos(52.7*Math.PI/180);
+  const plat=[["발판 레일 4040 (다리 ↔ 기둥 0.3 m, 한 발 가운데)",`${f1(tileP*300/4/W4)} MPa`,MAT.al.fy/(tileP*300/4/W4),"항복 205 MPa"],
+    ["비스듬한 계단 보 4040 (0.58 m, 52°, 한 발 가운데)",`${f1(tileP*cS*578/4/W4)} MPa`,MAT.al.fy/(tileP*cS*578/4/W4),"항복 205 MPa"],
+    ["손잡이 기둥 (발판 위 0.9 m 끝을 옆으로 500 N, 배율 없음)",`${f1(500*900/W4)} MPa`,MAT.al.fy/(500*900/W4),"항복 205 MPa"],
+    ["PLA 받침 M8 T너트 2 개 미끄럼 (한 발 무게 다 한쪽)",`${f0(tileP)} N`,4000/tileP,"마찰 약 4 kN (추정)"],
+    ["PLA 발 (캐스터까지 150 mm 내민 보, 앞 2 바퀴가 나눔)",`${f1((tileP+150)/2*150/8640)} MPa`,MAT.pla.ft/((tileP+150)/2*150/8640),`층 방향 ${MAT.pla.ft} MPa`],
+    ["캐스터 (앞 2 개가 나눔)",`${f0((tileP+150)/2/G)} kg`,150/((tileP+150)/2/G),"정격 150 kg (추정)"]];
   const util=(s,al)=>{const u=s/al*100;const c=u>100?"#d33":u>70?"#d9822b":"#1f9d55";return`<b style="color:${c}">${Math.round(u)}%</b>`};
   const sfc=v=>`<b style="color:${v>=SF?"#1f9d55":v>=1?"#d9822b":"#d33"}">${f1(v)}</b>`;
   const kg=N=>f0(N/G)+" kg";
   const al=rows.filter(r=>!r.fixed);const wS=al.reduce((a,r)=>r.s/r.al>a.s/a.al?r:a), wD=al.reduce((a,r)=>r.d/(r.L*1000)>a.d/(a.L*1000)?r:a);
   const wJ=pj.filter(r=>r.cap).reduce((a,r)=>r.sf<a.sf?r:a);
-  STR={wS,wD,wJ,fy:MAT.al.fy,SF,tileS,tileD,pj,gus};
+  STR={wS,wD,wJ,fy:MAT.al.fy,SF,tileS,tileD,pj,gus,plat};
   $("cs").innerHTML=`
   <div class="row" style="margin:6px 0"><label class="chk">동하중 배율 <input id="inDF" type="number" step="0.1" value="${DF}" style="width:46px"></label>
   <label class="chk">안전율 <input id="inSF" type="number" step="0.1" value="${SF}" style="width:46px"></label>
@@ -898,7 +914,10 @@ function renderStrength(){
   ${pj.filter(r=>!r.gus).map(r=>`<tr><td>${r.name}</td><td>${r.dem}</td><td>${r.cap?f0(r.cap)+r.u+" ("+r.how+")":r.how}</td><td>${r.cap?sfc(r.sf):"—"}</td></tr>`).join("")}</table>
   <table class="ct" style="margin-top:6px"><tr><th>PLA 45° 빗대 (삼각 거싯 ${PG.L}×${PG.L}×${PG.th}, × ${DF} 포함, 추정)</th><th>모서리 굽힘</th><th>M5 T너트 당김 (버팀 ${f0(gCapM)} N·m)</th><th>몸통 (층 방향 ${MAT.pla.ft} MPa)</th><th>빗변 좌굴 (${f1(gPcr/1000)} kN)</th></tr>
   ${gus.map(g=>`<tr><td>${g.name}</td><td>${f0(g.M)} N·m</td><td>${sfc(g.sfBolt)}</td><td>${f1(g.sB)} MPa · ${sfc(g.sfBody)}</td><td>${f0(g.Fe)} N · ${sfc(g.sfBuck)}</td></tr>`).join("")}
-  <tr><td>승강대 PLA 발판 220×220×20 (100 kg × ${DF} 한 발, 보 사이 180 mm)</td><td colspan="2">${f1(tileS)} MPa · 처짐 ${f1(tileD)} mm</td><td>층 방향 ${MAT.pla.ft} MPa · ${sfc(MAT.pla.ft/tileS)}</td><td>—</td></tr></table>
+  </table>
+  <table class="ct" style="margin-top:6px"><tr><th>승강대 v8.3 (100 kg × ${DF} 한 발, 추정)</th><th>걸리는 값</th><th>버티는 값</th><th>안전율</th></tr>
+  <tr><td>PLA 리브 발판 236×${tw.Ly}×45 (받침 사이 ${tileL} mm, 리브 = 층 방향 당김)</td><td>${f1(tileS)} MPa · 처짐 ${f1(tileD)} mm</td><td>층 방향 ${MAT.pla.ft} MPa</td><td>${sfc(MAT.pla.ft/tileS)}</td></tr>
+  ${plat.map(([n,v,sf,c])=>`<tr><td>${n}</td><td>${v}</td><td>${c}</td><td>${sfc(sf)}</td></tr>`).join("")}</table>
   <p class="spec"><b>v8.2 이음 판정</b>: 90° 이음은 전부 알루미늄끼리 — 매달리는 이음 (케이지 기둥 위 · 아래) 은 기둥 끝면 M8 탭 + 옆 레일 · 바닥 막대를 뚫은 관통 볼트라 당김을 볼트가 직접 받음 (v8.1 의 T너트 마찰 약점 없어짐).
   누르는 이음 (등뼈 · 시트 기둥 · 승강대) = 끝면 M8 탭 + 숨은 볼트 (머리는 다른 부재 홈 안, 옆 Ø8 구멍으로 조임). 옆으로 미는 힘이 큰 곳 (링 모서리 · 시트 아래 바닥 막대 · 행어 위 · 멈춤 막대) 만 주물 코너 브래킷을 더함.
   <b>PLA 빗대</b> = 짧은 45° 모서리 보강만 (v8.1 의 짧은 알루미늄 빗대 10 개 대신). 이음의 당김 · 누름은 알루미늄이 받고 빗대는 모서리가 꺾이는 것만 받음. 출력: 삼각면을 바닥에 눕혀 (160×160×40, 판 240 안) — 볼트 당김 · 굽힘 · 빗변 힘이 모두 층 방향, 층 사이 (약한 ${MAT.pla.fz} MPa) 로는 안 감. 벽 6 줄 · 자이로이드 30 % (무게 약 ${Math.round(PLA_FILL.pla_brace*100)} %, 추정), 볼트 구멍 둘레는 벽이 감싸게.
@@ -980,16 +999,17 @@ function renderBOM(){
   items.push(["전자","24 V 소형 배터리 백업 + 릴레이 (정전 때 무게추를 수평 자리로)","1식",70000,"웜 모터는 작아서 v8 12만 → 추정"]);
   items.push(["전자","리밋 스위치 6 (레일 끝) + 핀 · 승강대 확인 스위치","1식",30000,""]);
   items.push(["전자","배선 · 커넥터 · 케이블 정리","1식",50000,""]);
-  // boarding platform: real 4040 length + PLA tiles + blocks + screws + cheap casters
+  // boarding platform v8.3: real 4040 length + ribbed PLA tiles / cleats / feet + rods + casters
   const bL=lenBy(p=>isProf(p)&&p.g==="board"), bN=cnt(p=>isProf(p)&&p.g==="board");
-  const gB=plaG(p=>p.g==="board"&&(p.k==="deck"||p.k==="deck_step"));
-  const nTile=cnt(p=>p.k==="deck"||p.k==="deck_step");
-  const nBX=jc(j=>j.g==="board"&&j.type==="cross",j=>j.n), nBT=jc(j=>j.g==="board"&&j.type==="thru",j=>j.n);
-  items.push(["탑승",`승강대 4040 프로파일 — ${bN} 토막`,`${f1(bL*1.1)} m (+10%)`,P4.price*bL*1.1+bN*1000,"23,100원/m + 재단 1,000원/컷"]);
-  items.push(["탑승",`승강대 PLA 발판 ${nTile} 장`,`${f0(gB)} g`,gB*FIL_WON,`${FIL_WON}원/g`]);
-  items.push(["탑승",`이음: 보 교차 M8 관통 + T너트 ${nBX} · 다리 끝면 탭 관통 볼트 ${nBT}`,`${nBX+nBT}`,nBX*800+nBT*2300,"800 · 2,300원, 추정"]);
-  items.push(["탑승","M5 볼트 · 해머 T너트 (발판)",`${nTile*4} 조`,nTile*4*300,"발판 1 장당 4 조"]);
-  items.push(["탑승","잠금 캐스터 (싼 것)","6",6*3000,"추정"]);
+  const gB=plaG(p=>p.g==="board"&&PLA_KEYS.has(p.k));
+  const nTile=cnt(p=>p.k==="deck"||p.k==="deck_step"), nCl=cnt(p=>p.k==="deck_cleat");
+  const nBT=jc(j=>j.g==="board",j=>j.n);
+  items.push(["탑승",`승강대 4040 프로파일 — ${bN} 토막 (${f1(bL)} m)`,`${f1(bL*1.1)} m (+10%)`,P4.price*bL*1.1+bN*1000,"23,100원/m + 재단 1,000원/컷"]);
+  items.push(["탑승",`승강대 PLA (리브 발판 ${nTile} · 받침 ${nCl} · 발 4, 속 채움 최소)`,`${f0(gB)} g`,gB*FIL_WON,`${FIL_WON}원/g`]);
+  items.push(["탑승",`이음: 끝면 M8 탭 ${nBT} + 코너 브래킷 4 + 각도 힌지 브래킷 2 (계단 보 위)`,`${nBT}`,nBT*1800+4*2500+2*4000,"추정"]);
+  items.push(["탑승",`볼트: 받침 M8 T너트 ${nCl*2} · 발판 M5 ${nTile*4}`,`${nCl*2+nTile*4} 조`,nCl*2*500+nTile*4*300,"추정"]);
+  items.push(["탑승","M8 전산볼트 1 m × 3 + 너트 · 와셔 (바닥 묶음)","1식",10000,"추정"]);
+  items.push(["탑승","캐스터 75 mm 우레탄 150 kg 급 (2 개 잠금)","4",4*9000,"추정"]);
   // optional (user decision): aluminium help at the PLA joints that came out weak in the strength tab
   const opt=[];
   const tot=sum(items,x=>x[3]), totO=sum(opt,x=>x[3]);
