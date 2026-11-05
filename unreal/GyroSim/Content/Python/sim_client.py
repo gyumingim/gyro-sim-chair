@@ -196,6 +196,38 @@ PRESETS = {
 }
 
 
+# per-preset lighting look (realism pass 11-05). Monitor has Lumen GI (bounce light fills the cockpit) so the fill
+# light can be low; VR has no GI (sky light + distance-field AO only), so it keeps more fill or the shadows go black.
+# shadow_contrast: local exposure shadow contrast (1 = shadows not lifted), exp_min: lowest EV100 the auto exposure may
+# drop to when looking down into the cockpit (outside view = build_level.EXPOSURE_EV 2.0).
+PRESET_LOOK = {
+    "monitor": dict(fill_cd=0.5, shadow_contrast=0.95, highlight_contrast=0.85, exp_min=0.7, contact_shadow=0.03, vignette=0.2),
+    "vr": dict(fill_cd=1.1, shadow_contrast=0.9, highlight_contrast=0.85, exp_min=0.7, contact_shadow=0.02, vignette=0.0),
+}
+
+
+def apply_look(name, world):
+    lk = PRESET_LOOK.get(name)
+    if not lk or world is None:
+        return
+    try:
+        for a in unreal.GameplayStatics.get_all_actors_with_tag(world, "CockpitFill"):
+            a.point_light_component.set_intensity(lk["fill_cd"])
+        for a in unreal.GameplayStatics.get_all_actors_of_class(world, unreal.DirectionalLight):
+            lc = a.get_component_by_class(unreal.DirectionalLightComponent)
+            lc.set_editor_property("contact_shadow_length", lk["contact_shadow"])
+        for a in unreal.GameplayStatics.get_all_actors_of_class(world, unreal.PostProcessVolume):
+            ps = a.get_editor_property("settings")
+            for k, v in (("local_exposure_shadow_contrast_scale", lk["shadow_contrast"]),
+                         ("local_exposure_highlight_contrast_scale", lk["highlight_contrast"]),
+                         ("auto_exposure_min_brightness", lk["exp_min"]), ("vignette_intensity", lk["vignette"])):
+                ps.set_editor_property("override_" + k, True)
+                ps.set_editor_property(k, v)
+            a.set_editor_property("settings", ps)
+    except Exception as e:
+        _log("look", name, repr(e))
+
+
 def apply_preset(name, world=None):
     p = PRESETS.get(name)
     if not p:
@@ -205,6 +237,7 @@ def apply_preset(name, world=None):
             unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
     for k, v in p.items():
         unreal.SystemLibrary.execute_console_command(world, "%s %s" % (k, v))
+    apply_look(name, world)
     _log("quality preset", name)
     return True
 

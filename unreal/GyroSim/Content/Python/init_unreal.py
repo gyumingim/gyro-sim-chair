@@ -32,3 +32,10 @@ if "-gyrosimfps" in _cmd:
         _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "measure_fps.py")
         exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_fps"})
     _fps["h"] = unreal.register_slate_post_tick_callback(_fps_start)
+
+# Realism screenshots (developer use): launch with  -GyroSimShots  (Scripts/realism_shots.py; label from
+# GYROSIM_SHOTS_LABEL, and the GPU measurement right after it when GYROSIM_FPS_LABEL is set). Leaves the editor open.
+if "-gyrosimshots" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "realism_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_shots"})
