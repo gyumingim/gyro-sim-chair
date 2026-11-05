@@ -144,6 +144,59 @@ Unreal `vworld` 땅 모드 (`sim_client.py`), 점검 `Scripts/vworld_check.py`. 
 - 순서: 전국 z6→z14 → 주요 비행장 20 km 박스 z15–17 → 전국 z15 → 날아 본 곳 z16.
 - 속도 초당 1–2 요청, 밤에만 돌게 해도 됨.
 
+### 구현: 부산 z19 채우기 `sim/vworld_fill.py` (11-05, 사용자 결정 "단계 19로 부산 꽉 채우기")
+
+- **받는 것은 z19 만.** 부산 땅 타일 **229,893 장** (KOSTAT 2013 시도 경계 786 km² + 300 m 띠 + 경계 밖 부산 건물(신항·매립지 9,008 동) 둘레 300 m
+  = 885 km², 바다만인 타일은 뺌). 경계 파일: `https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2013/json/skorea_provinces_geo.json`
+  (계정 없음, `C:\GyroSimTiles\incoming\boundary_dl\`, sha256 은 `fill\busan_tiles.json` meta). 김해공항(강서구)은 부산 안이라 들어감.
+- **z18 → z14 는 내려받지 않고 PC 에서 만듦** (`--derive`, 매 실행 끝에도 자동): 캐시된 자식 4 장(512 px) → Lanczos 로 256 px, V-World JPEG 의
+  양자화표 그대로 저장(같은 화질). 자식 4 장이 다 있을 때만 (바다 `empty` 는 빈 색, 빠진 자식은 그 타일의 옛 판·캐시된 조상에서 잘라 채움, 없으면 안 만듦).
+  색인 상태 `derived`, 한 장마다 `fill\derived.jsonl` 한 줄. 내려받은 진짜 타일(`ok`)은 덮어쓰지 않음. 다시 만들기 `--derive --rebuild`.
+  프록시는 `derived` 를 캐시 타일처럼 내줌 → 중간 거리(z14–18)도 API 호출 없음.
+- **순서**: z14 칸(2 km) 단위, 김해공항·서면·부산역·해운대에 가까운 칸부터.
+- **크기**: 시험 160 장 평균 8.7 KB(공항 옆 들판) → z19 약 2–3.5 GB, 만든 z14–18 (z19 의 약 1/3 장 수) 약 +0.7–1 GB → **합계 약 3–4.5 GB (추정**, 도시는 타일이 더 큼).
+- **같은 키 길**: 모든 요청은 `vworld_proxy.Proxy` (role `fill`) 로 — 같은 캐시·색인·`usage.json`·멈춤 규칙. 키는 Proxy 만 읽고 로그·상태 파일에 없음
+  (시험 후 검사: 키 문자열이 로그·상태·usage 파일에 없음). 이 프로세스 안에서만 `max_online_zoom` 19, 비행 프록시 설정은 그대로.
+  `permanent_cache` 가 꺼져 있으면 실행 거부.
+
+**호출 한도 — 고정 낮은 상한 대신 관찰로 찾기** (사용자 결정 11-05, V-World 실제 한도는 비공개):
+
+| 항목 | 규칙 |
+|---|---|
+| 속도 | 연결 1 개, 초당 3 요청(간격 ±35 % 흔들기). 분당 150 은 안전 상한일 뿐. 실측 분당·시간당 수는 상태 파일에 (`observed_last_min/hour`) |
+| 하루 | 서버가 `OVER_REQUEST_LIMIT` 를 줄 때까지 또는 안전 상한 **30,000 요청/일** (키 전체, 비행 포함). 한도가 나오면 그날 요청 수를 "관찰 한도" 로 기록하고 그날(한국 0시까지) 멈춤. 그 뒤로는 날마다 **관찰 한도의 85 % − 비행용 300** 까지만 |
+| 속도형 오류 | HTTP 429 또는 초·분·too many 를 말하는 제한 문구 → 속도 절반(상태에 저장, 최저 0.2/s) + 기록, 프록시 지수 대기 후 계속 |
+| 키 오류 | `INVALID_KEY`·`UNAVAILABLE_KEY`·"등록되지 않은/사용할 수 없는 인증키" → 즉시 그날 멈춤, 종료 코드 3, 상태 `key_errors` |
+| 그 밖 | 네트워크·5xx → 프록시 대기 1, 2, 4 … 300 초. 연속 20 번 오류 또는 실행 오류율 5 % 넘으면 그 실행 끝 |
+| 비행 우선 | 비행 프록시(127.0.0.1:8790)가 떠 있으면 쉼, 30 분 지나도 있으면 종료 (다음 실행이 이어감). 디스크 여유 20 GB 미만이면 종료 |
+
+설정 바꾸기: git 제외 `Config/vworld_proxy.json` 에 `"fill": {"rate_per_s": 2, "day_ceiling": 20000, ...}` (이름은 `vworld_fill.py` FILL_DEFAULTS).
+
+**비행 예산과 나누기 (프록시 변경)**: `usage.json` 에 `fill_count` 를 따로 셈. 비행 프록시의 `daily_budget`(2,000) 은 **비행 요청만** 셈
+(`count − fill_count`) → 채우기가 하루 수만 건을 써도 비행 예산은 안 줄어듦. 두 프로세스가 따로 돌아도 요청 때마다 `usage.json` 을 다시 읽어
+합침(수·멈춤은 큰 값). 서버가 하루 한도로 키를 멈추면(`OVER_REQUEST_LIMIT`) 그날은 비행도 서버 쪽에서 막힘 — 한도를 처음 찾는 날만 그렇고,
+그 뒤로는 85 % 계획이라 비행용 여유가 남음. 프록시 `--selftest` 에 `fill_counted_apart`·`fill_frees_flight` 추가 (통과).
+
+**실행 / 멈춤** (어느 것이든 언제 다시 해도 안전 — 받은 타일은 건너뜀, 잠금 파일로 한 번에 하나만):
+```
+python sim/vworld_fill.py --build-region        # 타일 목록 (한 번, API 호출 없음)
+pythonw sim/vworld_fill.py --run-until-budget   # 창 없이 백그라운드로, 그날 계획·서버 한도에서 스스로 끝남
+python sim/vworld_fill.py --status              # 진행률·오늘 수·관찰 한도·속도 기록·ETA (API 호출 없음)
+python sim/vworld_fill.py --stop                # 돌고 있는 채우기를 지금 요청 뒤에 멈춤
+python sim/vworld_fill.py --derive [--rebuild]  # z18–z14 만 다시 만들기
+```
+기록: `C:\GyroSimTiles\vworld\fill_busan.log` (실행마다 시작/200 요청마다/끝: 요청·오류·완료/전체·ETA), `fill_busan_status.json`, `fill_busan_state.json`
+(관찰 한도·속도 기록·날짜별 수), `fill\busan_tiles.json`·`busan_region.geojson`.
+
+**매일 자동으로 (선택, 사용자가 직접 실행)**: `powershell -ExecutionPolicy Bypass -File sim\vworld_fill_task_install.ps1` →
+작업 스케줄러 "GyroSim VWorld Busan fill" (현재 사용자, 로그인 중에만, 숨김, pythonw — 창 없음, 매일 03:00 + 1 시간마다 다시 시도, 한 번에 하나).
+지우기 `sim\vworld_fill_task_remove.ps1`. 작업 없이 쓰려면 위 `pythonw ... --run-until-budget` 를 하루 한 번 실행하면 됨 (Claude 에게 시켜도 됨).
+두 스크립트는 만들기만 했고 실행하지 않았다.
+
+**시험 (11-05)**: pythonw(창 없음)로 150 요청 + 이어하기 확인 10 요청 = **V-World 160 회**, 오류 1 회(시간 초과, 다음 실행에서 다시 받음),
+실측 속도 약 1.9–2.0 요청/s (지연 포함), 이어하기 확인(완료 149 → 159), 만든 타일 z18 32 · z17 8 장, 키가 파일에 없음. 오늘 키 사용 685 → 845.
+하루 한도는 아직 관찰 안 됨 → ETA 는 "최소 7.7 일 (안전 상한 기준)", 한도가 나오면 `--status` 가 다시 계산.
+
 ### 크기 · 기간 추정 (모두 **추정**: 한국 면적 약 10 만 km², 타일 평균 15 KB 가정 — 실측 타일은 9–10 KB 였지만 도시는 더 큼)
 
 | 줌 | 타일 한 변 (위도 36.5°) | 전국 타일 수 (육지 위주) | 크기 | 누적 크기 |

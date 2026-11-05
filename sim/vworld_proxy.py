@@ -22,6 +22,8 @@ example: sim/vworld_proxy.example.json):
     until the next 00:00 KST (persisted, survives restarts). FileNotFound / 404 -> remembered as empty, not asked
     again. Other errors / network / HTTP 429 / 5xx -> exponential back-off 1, 2, 4 ... 300 s for all requests, and a
     tile that failed 3 times is not asked again for 24 h.
+  - status 'derived' rows = tiles made locally by sim/vworld_fill.py --derive (2x2 cached children -> 1 parent, no API
+    call); served like cached tiles, never fetched over.
   - when a tile cannot be fetched (budget, back-off, cache-only, zoom > 16 ...): the tile from the cache -> a lower-zoom
     cached tile cut out and upscaled -> a plain blank tile. Fallback replies carry no-store so Cesium asks again later.
     Out of Korea and zoom 0-5 are always the blank tile (no Sentinel-2 or other imagery is ever mixed in: terms 14).
@@ -119,8 +121,10 @@ def tile_lonlat_box(z, y, x):
 
 
 class Proxy:
-    def __init__(self, cfg=None, key=None, upstream=UPSTREAM):
+    def __init__(self, cfg=None, key=None, upstream=UPSTREAM, role="flight"):
         self.cfg = cfg or load_config()
+        self.role = role                     # flight (Unreal) | fill (sim/vworld_fill.py): fill requests are counted apart
+        self.last_rec = None                 # the last upstream request record (usage.jsonl line), for the filler
         self.key = key if key is not None else read_key()
         self.upstream = upstream
         self.dir = self.cfg["cache_dir"]
@@ -157,8 +161,27 @@ class Proxy:
         except (OSError, ValueError):
             u = {}
         if u.get("day") != kst_day():
-            u = dict(day=kst_day(), count=0, errors=0, stop_until=u.get("stop_until", 0), stop_reason=u.get("stop_reason"))
+            u = dict(day=kst_day(), count=0, errors=0, fill_count=0, stop_until=u.get("stop_until", 0), stop_reason=u.get("stop_reason"))
         return u
+
+    def _sync_usage(self):
+        """merge usage.json written by another process (flight proxy + filler run apart): counts and stop take the max."""
+        try:
+            with open(self.usage_path, encoding="utf-8") as f:
+                u = json.load(f)
+        except (OSError, ValueError):
+            return
+        if u.get("day") == self.usage.get("day"):
+            for k in ("count", "errors", "fill_count"):
+                self.usage[k] = max(self.usage.get(k, 0), u.get(k, 0))
+        if u.get("stop_until", 0) > self.usage.get("stop_until", 0):
+            self.usage.update(stop_until=u["stop_until"], stop_reason=u.get("stop_reason"))
+
+    def flight_count(self):
+        """today's requests that count against `daily_budget`: the flight proxy's own (filler requests excluded - the
+        filler has its own day plan from the observed server limit, sim/vworld_fill.py), all of them for the filler."""
+        c = self.usage.get("count", 0)
+        return c - self.usage.get("fill_count", 0) if self.role == "flight" else c
 
     def _save_usage(self):
         tmp = self.usage_path + ".tmp"
@@ -168,7 +191,7 @@ class Proxy:
 
     def _roll_day(self):
         if self.usage.get("day") != kst_day():
-            self.usage.update(day=kst_day(), count=0, errors=0)
+            self.usage.update(day=kst_day(), count=0, errors=0, fill_count=0)
             self._save_usage()
 
     def _path(self, z, y, x):
@@ -188,13 +211,13 @@ class Proxy:
         if self.cfg["permanent_cache"]:
             return 0
         with self.lock:
-            old = self.db.execute("SELECT z, y, x FROM t WHERE status IN ('ok', 'empty') AND fetched + max_age <= ?", (now,)).fetchall()
+            old = self.db.execute("SELECT z, y, x FROM t WHERE status IN ('ok', 'empty', 'derived') AND fetched + max_age <= ?", (now,)).fetchall()
             for z, y, x in old:
                 try:
                     os.remove(self._path(z, y, x))
                 except OSError:
                     pass
-            self.db.execute("DELETE FROM t WHERE status IN ('ok', 'empty') AND fetched + max_age <= ?", (now,))
+            self.db.execute("DELETE FROM t WHERE status IN ('ok', 'empty', 'derived') AND fetched + max_age <= ?", (now,))
             self.db.execute("DELETE FROM t WHERE status = 'fail' AND retry_after < ? AND fails >= 3", (now,))
             self.db.commit()
         if old:
@@ -223,8 +246,8 @@ class Proxy:
             return False, "no key file"
         if self.usage.get("stop_until", 0) > now:
             return False, "stopped for today: %s" % self.usage.get("stop_reason")
-        if self.usage["count"] >= int(self.cfg["daily_budget"]):
-            return False, "daily budget used (%d)" % self.usage["count"]
+        if self.flight_count() >= int(self.cfg["daily_budget"]):
+            return False, "daily budget used (%d)" % self.flight_count()
         if self.backoff_until > now:
             return False, "back-off %.0f s" % (self.backoff_until - now)
         return True, "online"
@@ -254,9 +277,12 @@ class Proxy:
         if self.cfg.get("referer"):
             hdr["Referer"] = self.cfg["referer"]
         with self.lock:                      # check + count in one step (parallel requests must not overrun the budget)
+            self._sync_usage()
             if not self.online_state()[0]:
                 return "skipped", b"", 0.0
             self.usage["count"] += 1
+            if self.role == "fill":
+                self.usage["fill_count"] = self.usage.get("fill_count", 0) + 1
             self.session_api += 1
             self._save_usage()
         t0 = time.monotonic()
@@ -288,7 +314,10 @@ class Proxy:
                 m = re.search(r'code="([^"]+)"|<(?:ows:)?ExceptionText>([^<]{0,80})', txt)
                 note = note or (m.group(1) or m.group(2) if m else "") or ("HTTP %s, %d bytes" % (code, len(data)))
         rec = dict(t=time.strftime("%Y-%m-%d %H:%M:%S"), z=z, y=y, x=x, http=code, kind=kind, bytes=len(data),
-                   ms=round((time.monotonic() - t0) * 1000), note=self._safe(note))
+                   ms=round((time.monotonic() - t0) * 1000), note=self._safe(note), role=self.role)
+        if kind != "tile":                   # error text for the filler's rate / limit check (key masked)
+            rec["text"] = self._safe(re.sub(r"\s+", " ", data[:300].decode("utf-8", "replace")))
+        self.last_rec = rec
         with self.lock:
             if kind in ("stop", "error"):
                 self.usage["errors"] = self.usage.get("errors", 0) + 1
@@ -313,7 +342,7 @@ class Proxy:
                 break
             py, px = y >> dz, x >> dz
             row = self._row(pz, py, px)
-            if row is None or row[2] != "ok" or not self._fresh(row, now):
+            if row is None or row[2] not in ("ok", "derived") or not self._fresh(row, now):
                 continue
             try:
                 im = Image.open(self._path(pz, py, px)).convert("RGB")
@@ -381,12 +410,15 @@ class Proxy:
         return self.blank(), "blank", False
 
     def status(self):
+        with self.lock:
+            self._sync_usage()
         ok, why = self.online_state()
         with self.lock:
-            n = self.db.execute("SELECT COUNT(*) FROM t WHERE status='ok'").fetchone()[0]
+            n = self.db.execute("SELECT COUNT(*) FROM t WHERE status IN ('ok', 'derived')").fetchone()[0]
         u = self.usage
         return dict(service="vworld_proxy", mode=self.cfg["mode"], online=ok, why=why, day=u.get("day"), used_today=u.get("count", 0),
-                    budget=int(self.cfg["daily_budget"]), left=max(0, int(self.cfg["daily_budget"]) - u.get("count", 0)),
+                    budget=int(self.cfg["daily_budget"]), left=max(0, int(self.cfg["daily_budget"]) - self.flight_count()),
+                    fill_today=u.get("fill_count", 0),
                     errors_today=u.get("errors", 0), stop_until=u.get("stop_until", 0), stop_reason=u.get("stop_reason"),
                     session_api=self.session_api, served=dict(self.served), cache_tiles=n, permanent_cache=bool(self.cfg["permanent_cache"]),
                     max_online_zoom=self.cfg["max_online_zoom"], has_key=bool(self.key),
@@ -655,12 +687,15 @@ def selftest():
     f = px.get(15, y, x + 8)
     res["over_limit_stops_day"] = px.usage["stop_until"] > time.time() and len(fake_hits) == n0 + 1 and f[1] != "online"
     px.usage["stop_until"] = 0
+    px._save_usage()                                       # (the proxy merges usage.json from other processes)
     FAKE["mode"] = "jpeg"
     px.usage["count"] = 6
+    px._save_usage()                                       # (the proxy merges usage.json from other processes)
     n0 = len(fake_hits)
     g = px.get(15, y, x + 9); res["budget_stops"] = len(fake_hits) == n0 and g[1] in ("parent", "blank")
     # parallel requests never overrun the budget (2 left, 8 at once -> exactly 2 calls)
     px.usage["count"] = 4
+    px._save_usage()                                       # (the proxy merges usage.json from other processes)
     n0 = len(fake_hits)
     th = [threading.Thread(target=px.get, args=(15, y + 1, x + k)) for k in range(8)]
     [t.start() for t in th]
@@ -678,6 +713,16 @@ def selftest():
         except OSError:
             pass
     res["key_not_in_files"] = "TESTKEY123" not in blob
+    # filler requests (role fill, another process) do not use up the flight budget; the flight proxy sees them via usage.json
+    pf = Proxy(dict(cfg, daily_budget=100), key="TESTKEY123", upstream=px.upstream, role="fill")
+    pf.usage.update(count=50, fill_count=44); pf._save_usage()
+    k = pf.get(15, y + 3, x)
+    with px.lock:
+        px._sync_usage()
+    res["fill_counted_apart"] = k[1] == "online" and px.usage["count"] >= 51 and px.usage["fill_count"] == 45 and px.flight_count() == 6         and not px.online_state()[0] and pf.last_rec["role"] == "fill"
+    px.usage.update(fill_count=46)
+    px._save_usage()                                       # (the proxy merges usage.json from other processes)
+    res["fill_frees_flight"] = px.online_state()[0]
     res["prefetch_refuses_by_default"] = prefetch(dict(DEFAULTS, cache_dir=tmp)) == 1
     up.shutdown()
     ok = all(res.values())
