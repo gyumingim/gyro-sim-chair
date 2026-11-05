@@ -8,6 +8,8 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 | Poly Haven `concrete_pavement` (Charlotte Baglioni) | 활주로 콘크리트 | https://polyhaven.com/a/concrete_pavement | CC0 1.0 | `Scripts/fetch_textures.py` |
 | Poly Haven `asphalt_02` | 유도로 | https://polyhaven.com/a/asphalt_02 | CC0 1.0 | `Scripts/fetch_textures.py` |
 | Poly Haven `leafy_grass` | 활주로 옆 풀 | https://polyhaven.com/a/leafy_grass | CC0 1.0 | `Scripts/fetch_textures.py` |
+| Poly Haven `curly_teddy_natural` (colormass 촬영, Rico Cilliers 처리) | 조종석 좌석 방석 (노멀 맵만, 색은 검정으로) | https://polyhaven.com/a/curly_teddy_natural | CC0 1.0 | `Scripts/fetch_textures.py` (11-05 사실감 작업) |
+| Poly Haven `fabric_leather_02` (Rob Tuytel) | 스틱·스로틀 손잡이 결 (노멀 맵만) | https://polyhaven.com/a/fabric_leather_02 | CC0 1.0 | `Scripts/fetch_textures.py` (11-05) |
 | Sentinel-2 cloudless 2024 (EOX IT Services GmbH) | `photo` 모드일 때만 땅 위성사진 (실행 중 타일로 받음, 기본 격자 모드에선 안 씀) | https://s2maps.eu , 타일 `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/...` | **CC BY-NC-SA 4.0** (비상업 사용만). 표기: "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2024)" | 실행 중 Cesium 이 받음 |
 | Cesium for Unreal 2.31.0 (UE 5.8 빌드) | 지구·지형 표시 | https://github.com/CesiumGS/cesium-unreal | Apache-2.0 | `Scripts/install_cesium.ps1` |
 | Cesium World Terrain + Bing Maps Aerial (Cesium ion asset 1, 2) / Google Photorealistic 3D Tiles (2275207) | 토큰 있을 때 실제 지형·항공사진 | https://ion.cesium.com | Cesium ion 이용약관 (무료 계정, 화면에 출처 표시 — 켜 둠) | 실행 중 Cesium 이 받음 |
@@ -19,7 +21,9 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 
 ## 조종석 안 (우리가 만든 것 — git 에 들어 있음)
 `Art/Cockpit/` (FBX, PNG), `Content/Cockpit/` 는 `Scripts/cockpit/*.py` 가 **처음부터 생성**한 우리 형상·텍스처다 (남의 모델·텍스처를 복사·변환하지 않음).
-글자는 Windows 의 Bahnschrift 글꼴로 그린 그림만 들어간다 (글꼴 파일은 배포하지 않음). 도구: Blender 4.5 LTS (GPL, 도구로만 사용 — 만든 결과물은 우리 것), Pillow.
+글자는 Windows 의 Bahnschrift 글꼴로 그린 그림만 들어간다 (글꼴 파일은 배포하지 않음).
+11-05 사실감 작업: AO·모서리·때 마스크(`tex/T_CkShellMasks.png`, Blender Cycles 로 우리 형상에서 구움), 페인트 결 노멀(`T_CkPaintN`),
+캐노피 긁힘·얼룩(`T_CkCanopyScratch`), 빈 판의 흐린 디테일·경고 줄무늬·명판(`T_CkPanels`) 도 모두 우리 코드가 그린 것. 실물 사진은 텍스처로 쓰지 않음. 도구: Blender 4.5 LTS (GPL, 도구로만 사용 — 만든 결과물은 우리 것), Pillow.
 
 배치·비율을 볼 때 참고한 **공개(public domain) 사진** — 미국 정부 기관 사진, 형태만 참고하고 이미지는 쓰지 않음:
 | 참고 | 출처 |

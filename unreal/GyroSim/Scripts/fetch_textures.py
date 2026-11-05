@@ -11,6 +11,8 @@ ASSETS = {                      # role -> Poly Haven asset id
     "runway": "concrete_pavement",      # RKTU runways are concrete
     "taxiway": "asphalt_02",
     "grass": "leafy_grass",
+    "seat_fleece": "curly_teddy_natural",    # cockpit seat cushions (sheepskin-like pad, photo c06) - normal map only, tinted black
+    "grip_leather": "fabric_leather_02",     # stick / throttle grips - normal map only
 }
 MAPS = {"Diffuse": "diff", "nor_dx": "nor", "Rough": "rough"}
 RES = "2k"

@@ -1,5 +1,5 @@
 {
- "made": "2026-11-05 10:54:05",
+ "made": "2026-11-05 11:04:42",
  "frame": "UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)",
  "pivots": {
   "ADIBall": {
@@ -485,9 +485,9 @@
     8.0
    ]
   ],
-  "seconds": 64.4,
+  "seconds": 66.2,
   "uv_fill": 1.0,
-  "made": "2026-11-05 10:54:05"
+  "made": "2026-11-05 11:04:41"
  },
  "travel": {
   "stick_deg": 20.0,

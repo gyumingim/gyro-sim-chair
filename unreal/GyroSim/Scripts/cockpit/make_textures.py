@@ -408,6 +408,26 @@ def wall_tile(px=12):
             xx = (x0 + 2.5 + k * 5.0) * px
             for yy in (1.4 * px, h - 1.4 * px):
                 dzus(c, xx, yy, 0.3 * px)
+    # our own stencils (realism pass 11-05): yellow / black hazard stripe placard + a small white stencil block of
+    # word-shaped bars (reads as a maintenance placard, nothing to read) on the first panel; a red-bordered plate on the second
+    sx0, sy0, sw, sh = 3.0 * px, 20.5 * px, 7.0 * px, 1.6 * px
+    c.rect(sx0, sy0, sx0 + sw, sy0 + sh, fill=(18, 18, 18))
+    k = 0
+    while k * 0.8 * px < sw + sh:
+        x = sx0 + k * 0.8 * px
+        poly = [(x, sy0), (x + 0.4 * px, sy0), (x + 0.4 * px - sh, sy0 + sh), (x - sh, sy0 + sh)]
+        c.d.polygon([(max(sx0, min(sx0 + sw, a)) * c.ss, b * c.ss) for a, b in poly], fill=(170, 130, 20))
+        k += 1
+    r = np.random.default_rng(77)
+    for j in range(3):
+        xx = 3.0 * px
+        while xx < 10.0 * px:
+            wl = (0.3 + r.random() * 0.8) * px
+            c.rect(xx, (23.0 + j * 0.6) * px, min(xx + wl, 10.0 * px), (23.25 + j * 0.6) * px, fill=(150, 152, 150), radius=0.05 * px)
+            xx += wl + 0.2 * px
+    c.rect(36.0 * px, 6.0 * px, 43.0 * px, 10.0 * px, fill=(40, 42, 44), outline=(120, 30, 26), w=0.25 * px)
+    for j in range(3):
+        c.rect(37.0 * px, (7.0 + j * 0.8) * px, (41.0 + (j % 2)) * px, (7.35 + j * 0.8) * px, fill=(140, 140, 138), radius=0.05 * px)
     return c.done()
 
 

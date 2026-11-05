@@ -275,7 +275,7 @@ def ck_canopy(sun_dir):
         t.set_editor_property("texture", st)
     MEL.connect_material_expressions(t, "", cu, "T")
     MEL.connect_material_expressions(_const3(m, EYE, -1000, 140), "", cu, "Eye")
-    for i, (n, v) in enumerate((("Tile", 1.3), ("Gain", 1.2), ("Base", 0.008), ("FresAmt", 0.12), ("SmudgeAmt", 0.01), ("HaloAmt", 0.03),
+    for i, (n, v) in enumerate((("Tile", 1.3), ("Gain", 1.2), ("Base", 0.008), ("FresAmt", 0.12), ("SmudgeAmt", 0.006), ("HaloAmt", 0.03),
                                 ("HaloGlow", 0.08))):
         MEL.connect_material_expressions(_sparam(m, n, v, -1000, 220 + 60 * i), "", cu, n)
     rgb = _expr(m, unreal.MaterialExpressionComponentMask, -300, -50, r=True, g=True, b=True, a=False)
@@ -333,6 +333,18 @@ def build_cockpit():
         if n in tx:
             tx[n].set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_BC7)
             EAL.save_loaded_asset(tx[n])
+    # CC0 normal maps from Poly Haven (Scripts/fetch_textures.py -> ThirdParty/polyhaven, not in git): seat fleece and
+    # grip leather. Missing -> the slots keep our generated weave normal.
+    for aid, slots in (("curly_teddy_natural", {"CK_Fabric": 1.2}), ("fabric_leather_02", {"CK_Grip": 4.0})):
+        f = os.path.join(PH_SRC, aid, aid + "_nor.jpg")
+        if not os.path.exists(f):
+            log("CC0 texture missing (run Scripts/fetch_textures.py):", f)
+            continue
+        t = import_textures([f], TP + "/polyhaven", {f: "normal"}).get(aid + "_nor")
+        if t:
+            tx[aid + "_nor"] = t
+            for sl, tile in slots.items():
+                CK_SLOTS[sl].update(NormalTex=aid + "_nor", NormalTile=tile, NormalAmt=1.0)
     master = ck_master()
     mats = {}
     for slot, prm in CK_SLOTS.items():

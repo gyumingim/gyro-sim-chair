@@ -88,6 +88,25 @@ def tick(dt):
             log("shot", fn)
             ST["i"] += 1
             ST.update(phase="setup", t=now)
+        elif ph == "end" and el > 1.5 and not ST.get("clip_done"):
+            # HUD clip check: narrow the clip window on the live HUD material (C_Wd 34 -> 14 cm) for one shot
+            ST["clip_done"] = True
+            for a in unreal.GameplayStatics.get_all_actors_with_tag(ues.get_game_world(), "HUD"):
+                mt = a.static_mesh_component.get_material(0)
+                if isinstance(mt, unreal.MaterialInstanceDynamic):
+                    mt.set_scalar_parameter_value("C_Wd", 14.0)
+                    ST["clip_mid"] = mt
+            c.view, c.look_down, c.look_tgt = "cockpit", False, [0.0, 0.0]
+            ST.update(phase="clipshot", t=now)
+        elif ph == "clipshot" and el > 1.5:
+            fn = os.path.join(OUT, "cliptest_hud_14cm.png").replace("\\", "/")
+            cmd("HighResShot 1600x900 filename=%s" % fn)
+            ST["shots"].append(dict(file=os.path.basename(fn), preset=c.preset, view="cliptest"))
+            ST.update(phase="clipreset", t=now)
+        elif ph == "clipreset" and el > 1.5:
+            if ST.get("clip_mid"):
+                ST["clip_mid"].set_scalar_parameter_value("C_Wd", 33.8)
+            ST.update(phase="end", t=now)
         elif ph == "end" and el > 1.5:
             c.override = None
             c.look_down, c.look_tgt, c.view = False, [0.0, 0.0], "cockpit"

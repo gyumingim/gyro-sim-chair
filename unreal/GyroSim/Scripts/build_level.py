@@ -787,7 +787,7 @@ for prop, val in (("dynamic_shadow_distance_movable_light", 40000.0), ("cast_clo
         lc.set_editor_property(prop, val)
     except Exception as e:
         log("skip", prop, e)
-AERIAL_SCALE, MIE_GAIN = 0.6, 1.0
+AERIAL_SCALE, MIE_GAIN = 1.6, 1.8
 sky = eas.spawn_actor_from_class(unreal.SkyAtmosphere, V(0, 0, 0))
 sky.set_actor_label("SkyAtmosphere")
 try:

@@ -788,8 +788,10 @@ def build_consoles():
     P.add(bm, "CK_Panel", uv0=lambda p, nn: region_uv("thr", p[1], p[0]) if nn[2] > 0.9 else None, swatch="sw_panel",
           frame=((0, 0, 0), (0, 1, 0), (1, 0, 0), (0, 0, 1)))
     # side wall trim plates between the frames (riveted panels from the atlas "wall" tile), slightly inside the tub wall
-    for x0, x1 in ((393.5, 412.5), (415.5, 434.5), (437.5, 456.5), (459.5, 478.5), (481.5, 496.0)):
+    WALL_OFF = (0.0, 32.0, 12.0, 41.0, 12.0)     # cm into the 60 cm wall tile per plate: placard / red plate / plain variants
+    for kp, (x0, x1) in enumerate(((393.5, 412.5), (415.5, 434.5), (437.5, 456.5), (459.5, 478.5), (481.5, 496.0))):
         for sgn in (1, -1):
+            off = WALL_OFF[kp] if sgn > 0 else WALL_OFF[(kp + 2) % 5]
             secs = []
             for x in (x0, x1):
                 sec = tub_section(x)
@@ -806,7 +808,8 @@ def build_consoles():
             flip = f0.normal.y * sgn > 0                       # must face the cockpit centre
             zb = min(p[2] for sc in secs for p in sc)
             P.add(bm, "CK_Wall", flip=flip, recalc=False,
-                  uv0=lambda p, nn, x0=x0, zb=zb: region_uv("wall", min(1.0, (p[0] - x0) / 60.0), min(1.0, (p[2] - zb) / 30.0)), swatch="sw_console")
+                  uv0=lambda p, nn, x0=x0, zb=zb, off=off: region_uv("wall", min(1.0, (p[0] - x0 + off) / 60.0), min(1.0, (p[2] - zb) / 30.0)),
+                  swatch="sw_console")
     # side wall details: canopy jettison T-handle (left), map case (right), utility lights
     o = V((418.0, -(L.skin_half_width(418, 56) - L.SKIN_GAP - 0.4), 56.0))
     P.add(bm_box(5.0, 1.2, 3.0, 0.4, 2, c=(0, 0.6, 0)), "CK_Black", frame=(tuple(o), (1, 0, 0), (0, 1, 0), (0, 0, 1)))
