@@ -42,7 +42,7 @@ class Voice:
         self.name = ""
         self.last = ""
         self.p = None
-        if os.name != "nt":
+        if os.name != "nt" or os.environ.get("GYROSIM_MUTE"):     # GYROSIM_MUTE=1: silent automated checks
             return
         try:
             self.p = subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-Command", PS], stdin=subprocess.PIPE,

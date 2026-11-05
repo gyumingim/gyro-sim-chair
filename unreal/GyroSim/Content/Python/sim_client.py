@@ -72,6 +72,10 @@ VW_MAX_LEVEL = 16
 VW_SSE = 4.0                        # raster overlay screen-space error (default 2): half the texel density, ~1/4 of the requests
 VW_ATTRIB_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "vworld_attribution.png"))
 VW_ATTRIB_D, VW_ATTRIB_W = 150.0, 0.30         # cm ahead of the view camera, width as a fraction of the view width
+# local South Korea terrain (Copernicus DEM GLO-30 -> quantized-mesh, sim/terrain_build.py) from the same proxy at
+# /terrain/layer.json: preferred in the vworld mode (before Cesium World Terrain); its credit is on the source plate
+VW_TERRAIN_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_terrain_attribution.png")
+VW_TERRAIN_ATTRIB_W = 0.40
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
@@ -461,6 +465,9 @@ class SimClient:
             lines = []
         kws = [l.lower() for l in lines if l.lower() in GROUND_MODES]
         token = next((l for l in lines if l.lower() not in GROUND_MODES), None)
+        env = os.environ.get("GYROSIM_GROUND", "").strip().lower()      # developer checks: overrides the file's keyword
+        if env in GROUND_MODES:
+            kws.append(env)
         mode = kws[-1] if kws else ("terrain" if token else "grid")
         if mode in ("terrain", "photoreal") and not token:
             mode = "grid"
@@ -533,9 +540,16 @@ class SimClient:
             return None
 
     def _vworld_ground(self, ts, ov, token):
-        """V-World photo overlay (through the local proxy, never Sentinel-2 / Bing) on Cesium World Terrain (token) or
-        the flat ellipsoid raised to the field elevation (no token)."""
-        if token:
+        """V-World photo overlay (through the local proxy, never Sentinel-2 / Bing) on the local South Korea terrain
+        (Copernicus DEM, the proxy's /terrain/layer.json), else Cesium World Terrain (token), else the flat ellipsoid
+        raised to the field elevation."""
+        local = bool((self.vw_stat or {}).get("terrain"))
+        self.vw_local = local
+        if local:
+            ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
+            ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
+            ts.set_editor_property("url", "http://127.0.0.1:%d/terrain/layer.json" % self.vworld_port())
+        elif token:
             ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
             ts.set_editor_property("ion_access_token", token)
             ts.set_editor_property("ion_asset_id", ION_TERRAIN)
@@ -544,7 +558,7 @@ class SimClient:
             h = self.s.get("field_m", 58.2) if self.s else 58.2
             ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
             ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
-        self.vw_terrain = bool(token)
+        self.vw_terrain = local or bool(token)
         if ov:
             ov.set_editor_property("template_url", "http://127.0.0.1:%d/vworld/sat/{z}/{reverseY}/{x}.jpg" % self.vworld_port())
             ov.set_editor_property("minimum_level", 0)                 # the proxy answers 0-5 / outside Korea locally (blank)
@@ -579,6 +593,7 @@ class SimClient:
         gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
         self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
         self.buildings, self.vw_terrain, self.vw_note, self.vw_stat, self.attrib = None, False, None, None, None
+        self.vw_local = False
         token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
             mode = (mode if mode == "fields" else "grid") if self.grid else "none"
@@ -595,13 +610,14 @@ class SimClient:
             _log("ground setup failed", repr(e))
             self.cesium_mode = "error"
         _log("ground mode", self.cesium_mode, "config", TOKEN_FILE, "token" if token else "no token",
-             ("terrain" if self.vw_terrain else "flat ellipsoid (no ion token)") if self.cesium_mode == "vworld" else "")
+             ("local DEM terrain" if self.vw_local else "terrain" if self.vw_terrain else "flat ellipsoid (no ion token)") if self.cesium_mode == "vworld" else "")
         self._attribution()
 
     def _cesium_fallback(self, why):
         """terrain mode failed -> grid ground (tileset off); vworld on terrain -> vworld on the flat ellipsoid."""
         if self.cesium_mode == "vworld":
             _log("vworld terrain failed -> flat ellipsoid:", why)
+            self.vw_stat = dict(self.vw_stat or {}, terrain=False)       # no second try of the local terrain
             try:
                 if getattr(self, "buildings", None):
                     self.buildings.set_actor_hidden_in_game(True)
@@ -702,7 +718,7 @@ class SimClient:
         if f is None or (f.lat0, f.lon0, f.h0) != (s["lat0"], s["lon0"], n):
             f = cls._frame = geo.Frame(s["lat0"], s["lon0"], n)
         fwd, right, up = f.body_axes(s["lat"], s["lon"], s["phi"], s["theta"], s["psi"])
-        x, y, z = f.world(s["lat"], s["lon"], s["alt_m"] + n)
+        x, y, z = f.world(s["lat"], s["lon"], s["alt_m"] + s.get("geoid_here", n))   # DEM mode: EGM2008 N under the aircraft
         loc = unreal.Vector(x, y, z) + unreal.Vector(*up) * Z_OFFSET_CM
         r, p, yw = geo.euler_from_axes(fwd, up)
         return loc, unreal.Rotator(roll=r, pitch=p, yaw=yw)
@@ -917,14 +933,47 @@ class SimClient:
         if wheel:
             self._zoom(WHEEL_STEP ** wheel)
 
+    def _ground_ignore(self):
+        """actors a ground trace must pass through: the aircraft and the camera rig (HUD, panels and the hidden crash /
+        source plates hang on the view camera and have collision - a trace under the camera hit its own red plate)."""
+        ig = getattr(self, "ground_ig", None)
+        if ig is None or getattr(self, "ground_ig_world", None) is not self.world:
+            ig = list(self.trace_ignore)
+            try:
+                if self.camera:
+                    ig += [self.camera] + list(self.camera.get_attached_actors(True, True))
+            except Exception as e:
+                _log("ground ignore", repr(e))
+            self.ground_ig, self.ground_ig_world = ig, self.world
+        return ig
+
+    def _has_terrain(self):
+        return self.cesium_mode in ("terrain", "photoreal") or (self.cesium_mode == "vworld" and getattr(self, "vw_terrain", False))
+
     def _ground_z(self, x, y):
-        """world Z (cm) of the flat ground (field elevation on the curved Earth) under world point x, y."""
+        """world Z (cm) of the ground under world point x, y: the real terrain (Cesium tiles have collision, one line
+        trace) when there is terrain, else the flat field elevation on the curved Earth."""
         f, s = self._frame, self.s or {}
         if f is None:
             return -1e9
         lat = f.lat0 + x / 100.0 / 110950.0
         lon = f.lon0 + y / 100.0 / (111320.0 * math.cos(math.radians(f.lat0)))
-        return f.world(lat, lon, s.get("field_m", 58.2) + s.get("geoid_n", 0.0))[2]
+        flat = f.world(lat, lon, s.get("field_m", 58.2) + s.get("geoid_n", 0.0))[2]
+        if not self._has_terrain() or self.world is None:
+            return flat
+        try:
+            r = unreal.SystemLibrary.line_trace_single(self.world, unreal.Vector(x, y, flat + 1000000.0), unreal.Vector(x, y, flat - 200000.0),
+                                                       unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False, self._ground_ignore(),
+                                                       unreal.DrawDebugTrace.NONE, True)
+            hit = r if isinstance(r, unreal.HitResult) else (r[-1] if isinstance(r, (tuple, list)) else None)
+            t = hit.to_tuple() if hit is not None else None
+            if t and t[0]:
+                return t[4].z
+        except Exception as e:
+            if time.perf_counter() - getattr(self, "gz_log_t", 0.0) > 5.0:
+                self.gz_log_t = time.perf_counter()
+                _log("ground trace", repr(e))
+        return flat
 
     def _look(self, eye, tgt):
         r = unreal.MathLibrary.find_look_at_rotation(eye, tgt)
@@ -1231,6 +1280,30 @@ class SimClient:
             ball = unreal.MathLibrary.compose_rotators(unreal.Rotator(roll=0.0, pitch=-r.pitch, yaw=0.0), unreal.Rotator(roll=r.roll, pitch=0.0, yaw=0.0))
             self.adi.set_actor_relative_rotation(ball, False, True)
 
+    def _fog_follow(self, now):
+        """keep the height fog at sea level under the aircraft, 2 Hz. The world frame is the flat tangent plane at RKTU, so
+        far away the ground lies far below Z = 0 (1.3 km at 170 km, Seoraksan) and the exponential fog (falloff 0.2)
+        became opaque there. Near RKTU this is the old placement (Z = 0)."""
+        if now - getattr(self, "fog_t", 0.0) < 0.5 or not self.s or self._frame is None or self.world is None:
+            return
+        self.fog_t = now
+        try:
+            if getattr(self, "fog_world", None) is not self.world:
+                fogs = unreal.GameplayStatics.get_all_actors_of_class(self.world, unreal.ExponentialHeightFog)
+                self.fog, self.fog_world, self.fog_z = (fogs[0] if fogs else None), self.world, None
+                self.fog_z0 = fogs[0].get_actor_location().z if fogs else 0.0
+            if self.fog is None:
+                return
+            s, f = self.s, self._frame
+            x, y, z = f.world(s["lat"], s["lon"], s.get("geoid_here", s.get("geoid_n", 0.0)))
+            z += self.fog_z0
+            if self.fog_z is None or abs(z - self.fog_z) > 500.0:          # 5 m steps: no per-frame changes
+                self.fog.set_actor_location(unreal.Vector(x, y, z), False, True)
+                self.fog_z = z
+        except Exception as e:
+            if now - self.last_log > 2:
+                _log("fog follow", repr(e))
+
     def _trace(self, now):
         """Height of the wheels above whatever is under the aircraft (Cesium terrain tiles have collision), 10 Hz.
         JSBSim's ground is flat at the field elevation, so with real terrain this is the only hill check: below the
@@ -1246,7 +1319,7 @@ class SimClient:
         start, end = loc + unreal.Vector(0, 0, 200000.0), loc - unreal.Vector(0, 0, 3000000.0)
         try:
             r = unreal.SystemLibrary.line_trace_single(self.world, start, end, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False,
-                                                       self.trace_ignore, unreal.DrawDebugTrace.NONE, True)
+                                                       self._ground_ignore(), unreal.DrawDebugTrace.NONE, True)
             hit = r if isinstance(r, unreal.HitResult) else (r[-1] if isinstance(r, (tuple, list)) else None)
             t = hit.to_tuple() if hit is not None else None
             if t and t[0]:
@@ -1260,8 +1333,9 @@ class SimClient:
             self.radar_m = s.get("agl_m")
             if now - self.last_log > 2:
                 _log("trace", repr(e))
+        # DEM ground (server terrain="dem"): the server sees the same terrain and owns the crash (red screen) - no pause here
         if (not self.crashed and self.radar_m is not None and self.radar_m < -1.0 and not s.get("wow") and s.get("agl_m", 0) > 15
-                and not s.get("paused")):
+                and not s.get("paused") and s.get("terrain") != "dem"):
             self.crashed = True
             self._send({"cmd": "pause"})
             _log("terrain collision at radar %.1f m, JSBSim agl %.1f m" % (self.radar_m, s.get("agl_m", 0)))
@@ -1296,7 +1370,7 @@ class SimClient:
         n, e = rws[0][0], rws[0][1]
         line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "photo": "MAP: SATELLITE PHOTO (FLAT)",
                 "grid": "MAP: GRID (FLAT, 1 KM)", "fields": "MAP: FIELDS (FLAT, DRAWN)",
-                "vworld": "MAP: V-WORLD PHOTO " + ("+ TERRAIN" if getattr(self, "vw_terrain", False) else "(FLAT)"),
+                "vworld": "MAP: V-WORLD PHOTO " + ("+ DEM 30 M" if getattr(self, "vw_local", False) else "+ TERRAIN" if getattr(self, "vw_terrain", False) else "(FLAT)"),
                 "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
         return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 
@@ -1412,12 +1486,13 @@ class SimClient:
                     _log("attribution: no Attribution actor in the map (run build_level.py)")
                     return
                 mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
-                tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, VW_ATTRIB_PNG) if os.path.exists(VW_ATTRIB_PNG) else None
+                png = VW_TERRAIN_ATTRIB_PNG if getattr(self, "vw_local", False) else VW_ATTRIB_PNG     # + Copernicus credit
+                tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, png) if os.path.exists(png) else None
                 if tex and mid:
                     mid.set_texture_parameter_value("Tex", tex)
                     self.attrib_aspect = tex.blueprint_get_size_x() / max(1, tex.blueprint_get_size_y())
                 else:
-                    _log("attribution image missing", VW_ATTRIB_PNG)
+                    _log("attribution image missing", png)
                 self.attrib = a
                 self.attrib_key = None
             a.set_actor_hidden_in_game(False)
@@ -1442,12 +1517,12 @@ class SimClient:
         self.attrib_key = key
         D = VW_ATTRIB_D
         if self.hmd:                                             # VR: low centre, 26 deg down, fixed size (head-locked)
-            hw, w = D * math.tan(math.radians(VIEW_FOV / 2)), 40.0
+            hw, w = D * math.tan(math.radians(VIEW_FOV / 2)), 55.0 if getattr(self, "vw_local", False) else 40.0
             pos = unreal.Vector(D, 0.0, -D * math.tan(math.radians(26.0)))
         else:
             hw = D * math.tan(math.radians(fov / 2))             # half view width at D
             hh = hw / aspect
-            w = 2 * hw * VW_ATTRIB_W
+            w = 2 * hw * (VW_TERRAIN_ATTRIB_W if getattr(self, "vw_local", False) else VW_ATTRIB_W)
             h = w / getattr(self, "attrib_aspect", 1024 / 96)
             m = 0.015 * 2 * hw
             pos = unreal.Vector(D, hw - m - w / 2, -(hh - m - h / 2))
@@ -1497,6 +1572,7 @@ class SimClient:
                 self._place(dt, now)
                 self._controls(dt)
             self._trace(now)
+            self._fog_follow(now)
             self._vworld_poll(now)
             self._overlay(now)
             self._set_view_target()

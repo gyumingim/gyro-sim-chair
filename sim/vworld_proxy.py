@@ -389,10 +389,27 @@ class Proxy:
                     budget=int(self.cfg["daily_budget"]), left=max(0, int(self.cfg["daily_budget"]) - u.get("count", 0)),
                     errors_today=u.get("errors", 0), stop_until=u.get("stop_until", 0), stop_reason=u.get("stop_reason"),
                     session_api=self.session_api, served=dict(self.served), cache_tiles=n, permanent_cache=bool(self.cfg["permanent_cache"]),
-                    max_online_zoom=self.cfg["max_online_zoom"], has_key=bool(self.key))
+                    max_online_zoom=self.cfg["max_online_zoom"], has_key=bool(self.key),
+                    terrain=os.path.exists(os.path.join(TERRAIN_DIR, "layer.json")))
 
 
 TILE_RE = re.compile(r"^/vworld/sat/(\d+)/(\d+)/(\d+)\.jpe?g$")
+TERRAIN_RE = re.compile(r"^/terrain/(\d+)/(\d+)/(\d+)\.terrain$")
+# local South Korea terrain (Copernicus DEM GLO-30 -> quantized-mesh, sim/terrain_build.py), served from disk next to
+# the photos so the Unreal 'vworld' mode needs one local port. No upstream request ever (the files are built offline).
+TERRAIN_DIR = os.path.join(os.environ.get("GYROSIM_TERRAIN", r"C:\GyroSimTiles\terrain"), "tiles")
+
+
+def terrain_file(path):
+    """/terrain/layer.json or /terrain/{z}/{x}/{y}.terrain -> (file, content type) or None (no path tricks possible:
+    only these two patterns, numbers only)."""
+    if path == "/terrain/layer.json":
+        return os.path.join(TERRAIN_DIR, "layer.json"), "application/json"
+    m = TERRAIN_RE.match(path)
+    if m:
+        z, x, y = m.groups()
+        return os.path.join(TERRAIN_DIR, z, x, y + ".terrain"), "application/vnd.quantized-mesh"
+    return None
 
 
 def make_handler(px):
@@ -413,6 +430,17 @@ def make_handler(px):
             try:
                 if path in ("/status", "/vworld/status"):
                     return self._send(200, json.dumps(px.status(), ensure_ascii=False).encode(), "application/json", "no-store")
+                tf = terrain_file(path) if path.startswith("/terrain/") else None
+                if tf:
+                    try:
+                        with open(tf[0], "rb") as f:
+                            body = f.read()
+                    except OSError:
+                        return self._send(404, b"no terrain tile", "text/plain", "no-store")
+                    with px.lock:
+                        px.served["terrain"] = px.served.get("terrain", 0) + 1
+                    # tiles are gzip files sent as they are: Cesium's GunzipAssetAccessor unpacks them (gzip magic)
+                    return self._send(200, body, tf[1], "no-store")
                 m = TILE_RE.match(path)
                 if not m:
                     return self._send(404, b"not found", "text/plain", "no-store")
@@ -467,6 +495,8 @@ def start_in_thread():
 
 
 def ground_mode_is_vworld():
+    if os.environ.get("GYROSIM_GROUND"):             # developer checks: the ground mode without editing Config/cesium_token.txt
+        return os.environ["GYROSIM_GROUND"].strip().lower() == "vworld"
     try:
         with open(os.path.join(UE_CONFIG, "cesium_token.txt"), encoding="utf-8-sig") as f:
             return any(l.strip().lower() == "vworld" for l in f)
@@ -487,6 +517,26 @@ def make_attribution(path=ATTRIB_PNG):
     g = ImageDraw.Draw(im)
     f = ImageFont.truetype(r"C:\Windows\Fonts\malgunbd.ttf", 54)
     g.text((W / 2, H / 2), ATTRIB_TEXT, font=f, fill=(235, 238, 240), anchor="mm")
+    im.save(path)
+    make_terrain_attribution()
+    return path
+
+
+TERRAIN_ATTRIB_PNG = os.path.join(HERE, "vworld_terrain_attribution.png")
+TERRAIN_ATTRIB_LINES = ("지형: Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018",
+                        "provided under COPERNICUS by the European Union and ESA; all rights reserved")
+
+
+def make_terrain_attribution(path=TERRAIN_ATTRIB_PNG):
+    """V-World note + the Copernicus DEM credit (required by its licence) for the vworld mode on the local terrain."""
+    from PIL import ImageDraw, ImageFont
+    W, H = 1600, 200
+    im = Image.new("RGB", (W, H), (10, 12, 14))
+    g = ImageDraw.Draw(im)
+    g.text((W / 2, 48), ATTRIB_TEXT, font=ImageFont.truetype(r"C:\Windows\Fonts\malgunbd.ttf", 54), fill=(235, 238, 240), anchor="mm")
+    f = ImageFont.truetype(r"C:\Windows\Fonts\malgun.ttf", 30)
+    for i, t in enumerate(TERRAIN_ATTRIB_LINES):
+        g.text((W / 2, 116 + 44 * i), t, font=f, fill=(215, 220, 224), anchor="mm")
     im.save(path)
     return path
 

@@ -20,7 +20,7 @@ MODES = ("air", "runway", "approach", "downwind", "air_high")
 ASSIST_BANK, ASSIST_PITCH_UP, ASSIST_PITCH_DN = 45.0, 20.0, -15.0
 
 
-def new_fdm(mode="air"):
+def new_fdm(mode="air", at=None):
     fdm = jsbsim.FGFDMExec(jsbsim.get_default_root_dir())
     fdm.set_debug_level(0)
     fdm.set_dt(DT)
@@ -54,6 +54,12 @@ def new_fdm(mode="air"):
     else:
         fdm["ic/h-sl-ft"] = START["alt_ft"]
         fdm["ic/vc-kts"] = START["kts"]
+        fdm["ic/gamma-deg"] = 0
+    if at:                                       # 'place' (checks / instructor): air start anywhere, dict(lat, lon, alt_m, hdg, kts)
+        fdm["ic/lat-geod-deg"], fdm["ic/long-gc-deg"] = at["lat"], at["lon"]
+        fdm["ic/h-sl-ft"] = at["alt_m"] / 0.3048
+        fdm["ic/psi-true-deg"] = at.get("hdg", 0.0)
+        fdm["ic/vc-kts"] = at.get("kts", 300.0)
         fdm["ic/gamma-deg"] = 0
     fdm.run_ic()
     fdm["propulsion/set-running"] = -1           # start all engines
@@ -96,18 +102,23 @@ class Chair:
 
 class Sim:
     """one flight: fdm + controls + chair. frame() = 1/60 s of real time (2 fdm steps, 1 with the slow-motion assist)."""
-    def __init__(self, mode="air"):
+    def __init__(self, mode="air", terrain=None):
         self.ctrl = dict(ail=0.0, elev=0.0, rud=0.0, thr=0.0, brk_l=0.0, brk_r=0.0, gear=0.0)
+        # terrain: None = JSBSim's ground is the flat field elevation everywhere (default, playtest), or a function
+        # (lat, lon) -> MSL height in m (server.py, vworld ground mode: Copernicus DEM, terrain_dem.py) applied every frame
+        self.terrain = terrain
+        self.terrain_m = None
         self.reset(mode)
 
-    def reset(self, mode):
+    def reset(self, mode, at=None):
         self.mode = mode if mode in MODES else "air"
-        self.fdm = new_fdm(self.mode)
+        self.fdm = new_fdm(self.mode, at if self.mode == "air" else None)
         self.chair = Chair()
         self.ctrl.update(ail=0.0, elev=0.0, rud=0.0, brk_l=0.0, brk_r=0.0)
         self.ctrl["gear"] = 1.0 if self.mode == "runway" else 0.0
         self.ctrl["thr"] = self.thr_init = self.fdm["fcs/throttle-cmd-norm"]
         self.applied = dict(self.ctrl)
+        self.set_terrain()
 
     def apply(self, assist=False):
         f, c = self.fdm, dict(self.ctrl)
@@ -132,8 +143,18 @@ class Sim:
         f["gear/gear-cmd-norm"] = c["gear"]
         self.applied = c
 
+    def set_terrain(self):
+        """JSBSim terrain elevation = DEM height under the aircraft (the ground callback is a level plane at that
+        height, refreshed every frame = 60 Hz; 500 kt moves 4 m per frame, 1/8 of the DEM spacing)."""
+        if self.terrain is None:
+            return
+        f = self.fdm
+        self.terrain_m = float(self.terrain(f["position/lat-geod-deg"], f["position/long-gc-deg"]))
+        f["position/terrain-elevation-asl-ft"] = self.terrain_m / 0.3048
+
     def frame(self, assist=False, slow=False):
         self.apply(assist)
+        self.set_terrain()
         for _ in range(1 if slow else 2):
             self.fdm.run()
 

@@ -25,7 +25,7 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 | `photo` | 평평한 땅 + 위성사진 (Sentinel-2, 10 m 해상도, 인터넷으로 받음 — 처음엔 타일이 하나씩 채워짐) |
 | 토큰 한 줄 | Cesium World Terrain (실제 산) + Bing 항공사진 |
 | 토큰 + `photoreal` | Google 사실적 3D 타일 (더 무거움) |
-| `vworld` (토큰 있어도 됨) | **브이월드(V-World) 항공사진** (한국만). 토큰 있으면 Cesium World Terrain + OSM 건물, 없으면 평평한 땅 (아래 "V-World 모드") |
+| `vworld` (토큰 있어도 됨) | **브이월드(V-World) 항공사진** (한국만) + **대한민국 실제 지형** (Copernicus DEM 30 m, 로컬, 아래 "V-World 모드"). 지형 자료가 없으면 토큰 있을 때 Cesium World Terrain, 없으면 평평한 땅. 토큰 있으면 OSM 건물 |
 
 ### V-World 모드 (11-05, `cesium_token.txt` 에 `vworld` 한 줄)
 근거·약관 정리: `docs/vworld-integration.md`. 구조: 언리얼(Cesium) → **로컬 타일 프록시** `sim/vworld_proxy.py` (127.0.0.1:8790) → api.vworld.kr.
@@ -40,7 +40,13 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   타일은 절대 git 에 넣지 않는다 (`.gitignore` 에 `GyroSimTiles/`, `tile_cache/`). Cesium 자체 캐시에도 안 남게 프록시가 `no-store` 로 보냄.
 - **화면**: 오른쪽 아래에 출처 "지도: 브이월드(V-World), 국토교통부" (13조, `sim/vworld_attribution.png`, VR 에선 아래 가운데). 오른쪽 화면 MAP 줄 = V-WORLD PHOTO.
   Sentinel-2·Bing 사진은 이 모드에서 **섞지 않음** (14조 군사시설 조항 위험). 활주로는 우리 메시 (V-World 는 청주 기지를 숲으로 가림).
-- **지형**: ion 토큰이 있으면 Cesium World Terrain (+ OSM 건물, ion 96188), **없으면 타원체 = 평평한 땅** (산 없음). 토큰 지형·건물은 토큰이 없어 **시험 못 함**.
+- **지형 (11-05)**: **대한민국 Copernicus DEM GLO-30 (30 m)** 을 로컬 Cesium 지형 타일(quantized-mesh)로 만들어 같은 프록시가 `/terrain/layer.json` 으로 줌
+  (인터넷·계정 필요 없음, 자료는 `C:\GyroSimTiles\terrain`, git 밖). 만들기: `python sim/terrain_fetch.py` → `python sim/terrain_build.py --all` (약 1 분 + 받기 약 6 분).
+  **JSBSim 도 같은 DEM 을 땅으로 씀** → 산·바다·들판에 부딪히면 빨간 추락 화면 (비행장 밖에서 바퀴가 땅에 닿아도 추락). 청주 비행장은 DEM 을 공표 표고 58.2 m 로 평평하게 다듬음.
+  3인칭 카메라는 지형 아래로 안 내려감 (선 추적). 지형 자료가 없으면 ion 토큰 → Cesium World Terrain (+ OSM 건물, ion 96188), 없으면 평평한 땅. 자세한 것: `docs/vworld-integration.md` 5절.
+  화면 출처 판에 Copernicus 표기도 같이 (`sim/vworld_terrain_attribution.png`). 오른쪽 화면 MAP 줄 = `V-WORLD PHOTO + DEM 30 M`.
+- 점검 (지형): `-GyroSimVWorldTerrain` (`Scripts/vworld_terrain_check.py`) → 활주로 옆모습, 설악산 시점 3 장, 경사면 카메라 바닥 시험, 설악산 충돌 → 빨간 화면, `Saved/verify/vworld_terrain/`.
+  개발 점검용 환경 변수: `GYROSIM_GROUND=vworld` (설정 파일 대신 땅 모드), `GYROSIM_MUTE=1` (교관 음성 끔), `GYROSIM_TERRAIN=<폴더>` (지형 자료 위치). 서버 명령 `{"cmd":"place","lat":..,"lon":..,"alt_m":..,"hdg":..,"kts":..}` = 아무 곳 공중 시작.
 - 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 
 ### 실제 지형 켜기 — Cesium ion 토큰 (나중에 원하면, 사용자가 할 일)

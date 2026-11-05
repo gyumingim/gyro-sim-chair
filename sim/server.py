@@ -20,7 +20,8 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from websockets.asyncio.server import serve
 from simcore import Sim, START, CHAIR_LIM, CHAIR_RATE
-from airfield import FIELD_FT, GEOID_N, RWY
+from airfield import FIELD_FT, GEOID_N, RWY, LAT0, LON0
+LAT0_LON0 = (LAT0, LON0)
 from training.engine import Trainer
 from voice import Voice
 
@@ -35,15 +36,44 @@ OUT = os.path.join(HERE, "out")
 CONTROLS = os.path.join(HERE, "controls.json")
 
 sim = Sim("air")
+
+
+def terrain_wanted():
+    """real South Korea terrain under JSBSim (Copernicus DEM, terrain_dem.py): in the Unreal 'vworld' ground mode
+    (Config/cesium_token.txt line 'vworld', same switch as the tile proxy), or forced with --terrain / off with --no-terrain."""
+    if "--no-terrain" in sys.argv:
+        return False
+    if "--terrain" in sys.argv:
+        return True
+    try:
+        import vworld_proxy
+        return vworld_proxy.ground_mode_is_vworld()
+    except Exception:
+        return False
+
+
+DEM = None
+if terrain_wanted():
+    try:
+        import terrain_dem
+        DEM = terrain_dem.get()
+    except Exception as e:
+        print("sim: terrain not loaded:", repr(e), flush=True)
+    if DEM:
+        sim.terrain = DEM.height_msl
+        sim.reset("air")
+        print("sim: JSBSim ground = Copernicus DEM (%d cells, %s); field %.1f m at RKTU" % (len(DEM.cells), terrain_dem.ROOT, DEM.height_msl(LAT0_LON0[0], LAT0_LON0[1])), flush=True)
+    else:
+        print("sim: terrain data missing (python sim/terrain_fetch.py && python sim/terrain_build.py --all) - flat field elevation", flush=True)
 state = dict(paused=False, rid=0, snap=None, udp_ctrl_t=-1e9, joy=None, joy_name="", hmd=False, hmd_t=-1e9, t_start=time.time(), crashed=False,
              errors=0)
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 _lock = threading.RLock()                 # sim / trainer are touched from the asyncio loop and the joystick thread
 
 
-def reset(mode):
+def reset(mode, at=None):
     with _lock:
-        sim.reset(mode)
+        sim.reset(mode, at)
         state["rid"] += 1
         state["paused"] = False
         state["crashed"] = False
@@ -55,8 +85,25 @@ voice = Voice()                           # instructor voice (offline Korean SAP
 trainer = Trainer(reset, voice)
 
 
+def terrain_check(s, dt_sim):
+    """DEM ground: below the terrain, or (almost) on the ground away from the airfield (mountain, field, sea) = crash
+    (red screen via the trainer's 'crashed' check). JSBSim's gear would otherwise just stand on the slope."""
+    import terrain_dem
+    s.update(terrain="dem", terrain_m=round(sim.terrain_m or 0.0, 1), geoid_here=round(DEM.geoid_here(s["lat"], s["lon"]), 2))
+    if dt_sim <= 0 or state["crashed"]:
+        return
+    off_field = float(terrain_dem.airfield_weight(s["lat"], s["lon"])) <= 0.0
+    # off the airfield 2.5 m above the ground is already a hit (the trainer's gear-up / hard-landing checks fire at 2.4 m)
+    if s["agl_m"] < -0.5 or (off_field and (s["wow"] or s["agl_m"] < 2.5)):
+        state["crashed"] = True
+        print("sim: terrain hit at %.5f %.5f, terrain %.0f m, agl %.1f m, wow %s, off field %s" % (
+            s["lat"], s["lon"], sim.terrain_m or 0.0, s["agl_m"], s["wow"], off_field), flush=True)
+
+
 def snapshot(dt_sim):
     s = sim.packet(1 / 60 if dt_sim > 0 else 0.0)
+    if DEM:
+        terrain_check(s, dt_sim)
     s.update(lat0=START["lat"], lon0=START["lon"], paused=state["paused"] or trainer.want_pause, user_paused=state["paused"], rid=state["rid"],
              field_m=FIELD_FT * 0.3048, geoid_n=GEOID_N, rwy_hdg=RWY["hdg"], joystick=state["joy_name"],
              src="joystick" if state["joy"] else ("unreal" if udp_fresh() else "browser"),
@@ -93,6 +140,13 @@ def handle_msg(m, src):
             if m.get("user") and not trainer.allow_reset():   # R / T key during a lesson: ask once (no lost lesson by a stray key)
                 return
             reset(m.get("mode", "air"))
+        elif cmd == "place":                     # checks: air start at lat / lon / alt_m (MSL) / hdg / kts, e.g. near a mountain
+            try:
+                at = {k: float(m[k]) for k in ("lat", "lon", "alt_m", "hdg", "kts") if k in m}
+                if "lat" in at and "lon" in at and "alt_m" in at:
+                    reset("air", at)
+            except (TypeError, ValueError):
+                pass
         elif cmd in ("tut", "menu", "voice"):
             trainer.command(m)
         elif cmd == "pause":                     # toggle, or set with {"on": true/false} (Unreal Play start)

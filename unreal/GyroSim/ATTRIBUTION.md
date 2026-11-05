@@ -16,6 +16,8 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 | 활주로 좌표 RKTU 06R/24L, 06L/24R | 활주로 위치·방향 | OpenStreetMap (Overpass `aeroway=runway`) | ODbL (© OpenStreetMap 기여자) | 값만 `sim/airfield.py` 에 적음 |
 | 비행장 표고 191 ft | JSBSim 땅 높이 | OurAirports RKTU, https://en.wikipedia.org/wiki/Cheongju_International_Airport | 공개 데이터 | 값만 |
 | 지오이드 높이 25.08 m (EGM2008) | 해발 ↔ 타원체 높이 | https://geographiclib.sourceforge.io/cgi-bin/GeoidEval?input=36.7154+127.4996 | — | 값만 |
+| **Copernicus DEM GLO-30** (30 m, 2021 판 COG) — 대한민국 땅이 있는 1° 칸 24 장 | `vworld` 모드의 실제 지형(Cesium 지형 타일)과 JSBSim 땅 높이 (산에 부딪히면 추락) | AWS 공개 버킷 https://copernicus-dem-30m.s3.amazonaws.com/ (https://registry.opendata.aws/copernicus-dem/ , 계정 없음) | Copernicus DEM 라이선스 (무료, 출처 표시 의무). 표기: "**© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved**" — 화면 출처 판(`sim/vworld_terrain_attribution.png`)과 지형 `layer.json` 에 넣음. 원본·타일은 저장소에 안 올림 (`C:\GyroSimTiles\terrain`) | `sim/terrain_fetch.py`, `sim/terrain_build.py` |
+| EGM2008 지오이드 2.5′ 격자 (한국 주변 창만) | 해발(DEM) → 타원체 높이(Cesium) 변환 | https://cdn.proj.org/us_nga_egm08_25.tif (PROJ 데이터, NGA 원본) | public domain (NGA) | `sim/terrain_fetch.py` |
 
 로그인 없이 못 받아서 **쓰지 않은** 후보 (사용자가 원하면): Sketchfab / Fab 의 CC-BY F-16·조종석 모델 (다운로드에 계정 필요).
 

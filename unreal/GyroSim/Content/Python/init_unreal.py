@@ -42,7 +42,14 @@ if "-gyrosimshots" in _cmd:
 
 # V-World ground mode check (developer use): launch with  -GyroSimVWorld  (Scripts/vworld_check.py, needs the 'vworld'
 # line in Config/cesium_token.txt and the tile proxy). Leaves the editor open.
-if "-gyrosimvworld" in _cmd:
+if "-gyrosimvworld" in _cmd.replace("-gyrosimvworldterrain", ""):
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_check.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld"})
+
+# V-World photos on the local Copernicus DEM terrain (developer use): launch with  -GyroSimVWorldTerrain
+# (Scripts/vworld_terrain_check.py: runway / Seoraksan views, camera floor, mountain crash). Leaves the editor open.
+if "-gyrosimvworldterrain" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "vworld_terrain_check.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_vworld_terrain"})

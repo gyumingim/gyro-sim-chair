@@ -664,7 +664,10 @@ class Trainer:
         vs, why, say, short = s.get("vs_fpm", 0.0), None, None, None
         on_rwy = abs(s.get("cross_m", 0)) < 24 and -100 < s.get("along_m", 0) < 2750      # 06R: 2744 x 45 m
         agl_ft = s.get("agl_m", 999) / 0.3048
-        if s.get("wow") and vs < -1500:
+        if s.get("crashed"):                         # real terrain (server DEM / Unreal Cesium trace): the real reason first
+            why, say = "지형에 부딪혔어요", "산이나 땅에 부딪혔어요. 고도를 충분히 지켜요."
+            short = "지형에 부딪힘"
+        elif s.get("wow") and vs < -1500:
             why, say = "너무 세게 땅에 닿았어요", "강하율 %.0f fpm 으로 땅에 닿았어요. 다음엔 R 50 (땅까지 50 ft) 에서 스틱을 살짝 당겨 강하를 300 fpm 아래로 줄여요." % -vs
             short = "너무 빠르게 내려옴 %+.0f ft/분" % vs
         elif s.get("wow") and abs(s.get("phi", 0)) > 25:
@@ -685,9 +688,6 @@ class Trainer:
         elif not free and d and d["mode"] in ("air", "air_high") and s.get("agl_m", 999) < 300 and not s.get("wow"):
             why, say = "너무 낮게 내려왔어요", "땅에서 %d ft 까지 내려왔어요. 공중 연습은 안전 고도 1000 ft 위에서 해요. 기수를 조금씩만 내려요." % agl_ft
             short = "너무 낮게 내려옴 (%d ft)" % agl_ft
-        elif s.get("crashed"):
-            why, say = "지형에 부딪혔어요", "산이나 땅에 부딪혔어요. 고도를 충분히 지켜요."
-            short = "지형에 부딪힘"
         return (why, say, short) if why else None
 
     def _enter_crash(self, s, c, phase, step):
