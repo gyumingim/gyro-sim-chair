@@ -72,7 +72,7 @@ button,.chk{font:inherit;font-size:.84rem;padding:5px 9px;border-radius:7px;bord
       <label>고개 숙임 <b><output id="oHd">10</output>°</b></label><input id="dHead" type="range" min="-20" max="40" value="10" oninput="oHd.value=value">
       <label>엉덩이 앞뒤 <b><output id="oHx">0</output> mm</b></label><input id="dHx" type="range" min="-80" max="80" value="0" oninput="oHx.value=value">
       <label>엉덩이 높이 <b><output id="oHz">0</output> mm</b></label><input id="dHz" type="range" min="-40" max="60" value="0" oninput="oHz.value=value">
-      <label>무릎 벌림 <b><output id="oK">15</output></b></label><input id="dKnee" type="range" min="0" max="80" value="15" oninput="oK.value=value">
+      <label>무릎 벌림 <b><output id="oK">50</output></b></label><input id="dKnee" type="range" min="0" max="80" value="50" oninput="oK.value=value">
       <label>팔꿈치 벌림 <b><output id="oE">30</output></b></label><input id="dElbow" type="range" min="0" max="100" value="30" oninput="oE.value=value">
       <div class="row"><label class="chk"><input type="checkbox" id="dHands" checked>손을 스틱·스로틀에 (발은 항상 페달)</label><button id="dReset">기본 자세</button></div>
     </div>
@@ -170,14 +170,15 @@ const INFO={
   seat_wing:["버킷시트 옆 날개","몸이 옆으로 미끄러지지 않게 잡아 주는 부분.","ZETA III 기준"],
   seat_rail:["시트 레일 (PNS 슬라이딩)","교육생 키에 맞춰 시트를 앞뒤로 옮긴다. 시트를 옮기면 앞뒤 균형도 바뀜 → 트림 추 구멍 표는 시트 가운데 기준.","PNS 44,000원 + 사이드브라켓 33,000원"],
   backrest:["버킷시트 등판","약 15° 뒤로 기움. 위쪽 어깨 벨트 구멍으로 4점 벨트가 지나간다.","ZETA III 기준 높이 865"],
-  stick_base:["가운데 스틱 받침 (접이식)","바닥판에서 올라와 두 무릎 사이로 스틱을 받친다. 아래 경첩 핀을 뽑으면 앞으로 눕혀져 타고 내리기 쉽다.","50×50 기둥, 높이 약 0.49 m"],
-  stick_hinge:["접이 경첩 + 고정 핀","받침을 앞으로 눕히는 경첩. 세운 상태는 핀으로 고정.","강철"],
-  stick:["가운데 스틱 (HOTAS 스틱)","오른손. 훈련기 (KT-1, T-50) 와 같은 가운데 위치.","예: VKB Gladiator NXT EVO + 연장대"],
-  throttle:["스로틀 (왼손)","왼쪽 레일에 매단 받침 위. HOTAS 스로틀.","예: WinWing Orion 2, Virpil"],
-  throttle_mount:["스로틀 받침","왼쪽 옆 레일에서 내려오는 판.","알루미늄 판"],
+  stick_gimbal:["스틱 짐벌 상자 (자작 v2)","바닥판 위, 정강이 뒤. 캠 + 롤러 + 스프링으로 가운데를 잡는 2 축 짐벌 (VKB · Virpil 방식). docs/stick.html","188×192×170, 약 1.9 kg"],
+  stick:["가운데 스틱 관 (Ø25 + Ø20)","짐벌 중심에서 손까지 662 mm (실기처럼 긴 스틱). 게이트 roll ±10° · 앞 10° / 뒤 13° = 손에서 ±115 / +115 / −149 mm. 탈 때는 퀵릴리즈 클램프를 풀어 관을 뽑는다.","Ø25×2.5 알루미늄 + 손잡이 관 Ø20×2"],
+  stick_grip:["스틱 손잡이 (자리 표시)","hardware/grips 에서 따로 설계. Ø20 관 위 40 mm 가 손잡이 속.","오른손"],
+  throttle:["스로틀 (자작 v2, 왼손)","레버 = Ø20 관. 컷오프 · AB 는 손잡이를 8 mm 들어 넘김, 마찰 손잡이. docs/throttle.html","레버 63°, 손에서 약 187 mm"],
+  throttle_grip:["스로틀 손잡이 (자리 표시)","hardware/grips 에서 따로 설계.","왼손"],
+  throttle_mount:["스로틀 행거 + 선반","왼쪽 옆 레일에서 내려오는 알루미늄 판 + 선반 (좌석 날개 바깥).","알루미늄 5 t"],
   side_mount:["사이드스틱 자리 (예비)","볼트 구멍만 뚫어 둔 오른쪽 받침.","알루미늄 판"],
-  pedals:["러더 페달 (발끝 브레이크)","발로 좌우 방향(yaw) + 발끝 브레이크. 앞뒤 레일로 거리 조절.","예: MFG Crosswind, Thrustmaster TFRP"],
-  pedal_rail:["페달 거리 조절 레일","페달을 앞뒤로 약 ±75 mm 옮겨 고정.","바닥판 위"],
+  pedals:["러더 페달 (자작 v2)","평행 슬라이딩 (MGN12 레일) ±40 mm + 앞 러더 바 + 캠 센터링 + 오일 댐퍼, 발끝 브레이크 15°. docs/pedals.html","합판 390×400, 약 3.6 kg"],
+  pedal_rail:["페달 거리 조절 레일 (2020 × 2)","페달 받침 전체를 앞뒤 ±100 mm (25 mm 간격 핀) — 키 160~190 cm. 화면에서는 더미 키에 따라 자동으로 옮김.","x 340~880, 앞 기둥 사이로 지나감"],
   deck:["승강대 발판","오른쪽 옆에 대는 계단식 승강대 (바퀴 달린 항공기 사다리처럼). 꼭대기가 바닥 위 약 0.76 m (축 아래 0.4 m) — 링이 무릎 높이. 잠금 핀을 꽂은 0° 에서만 대고, 운행 전에 반드시 치운다. 치웠는지 확인하는 스위치를 달아 치우기 전엔 모터가 안 돌게. pitch 구동은 반대쪽 (왼쪽) 이라 타는 길을 막지 않는다.","660×440, 높이 z −400"],
   deck_leg:["승강대 다리","바퀴를 달아 운행 중에는 치워 둘 수 있게.","40×40"],
   deck_step:["계단","바닥에서 0.3 m 씩 2 단 → 발판.","폭 660"],
@@ -351,21 +352,38 @@ for(const s of S2){const[a0,a1]=ys(s,195,235);add(BOX("cage","seat_wing",-230,23
  for(const s of S2){const o=[70*Math.cos(t),s*275,70*Math.sin(t)];
    add(STRAP("cage","seat_wing",[A[0]+o[0],o[1],A[2]+o[2]],[B[0]+o[0]*0.6,o[1],B[2]-60],40,140,[0,1,0]))}}
 add(BOX("cage","vr_tracker",XF-15,XF+15,-YS-15,-YS+15,20,50));
-// ---- controls (fighter trainer: centre stick, left throttle, pedals) ----
-add(BOX("cage","stick_hinge",280,350,-40,40,-790,-770));
-add(BOX("cage","stick_base",290,340,-25,25,-770,-300));
-add(BOX("cage","stick",295,335,-25,25,-300,-270));
-add(CYL("cage","stick",[315,0,-270],[315,0,-90],12));
-add(BOX("cage","stick",298,338,-20,20,-90,-10));
-add(X(BOX("cage","throttle_mount",80,100,358,378,Math.min(-220+CZ,-20),Math.max(-220+CZ,32)),{noLift:true}));   // short hanger from the rail (shelf is near rail height now)
-add(BOX("cage","throttle_mount",-40,200,280,378,-220,-200));
-add(BOX("cage","throttle",0,160,290,350,-200,-150));
-add(BOX("cage","throttle",60,95,302,338,-150,-70));
+// ---- controls v2 (hardware/stick, throttle, pedals; DIY cam + roller + spring). x,y,z before CAGE_SHIFT / CZ ----
+// stick: gimbal box ON the cage floor behind the shins, long stick like a real fighter (pivot -> hand 662 mm), tube pulls out to board
+const STK={x:250,z:-702,top:647,gate:{roll:10,fwd:10,aft:13}};            // pivot (x, z) and tube top above the pivot (hardware/stick/stick.py)
+add(BOX("cage","stick_gimbal",STK.x-94,STK.x+94,-96,96,-790,-782));
+for(const s of S2){const[a,b]=ys(s,88,96);add(BOX("cage","stick_gimbal",STK.x-82,STK.x+82,a,b,-782,-626))}
+for(const s of S2){add(BOX("cage","stick_gimbal",STK.x+s*82,STK.x+s*94,-96,96,-782,-626))}
+add(BOX("cage","stick_gimbal",STK.x-94,STK.x+94,-96,96,-626,-620));
+add(X(CYL("cage","stick",[STK.x,0,STK.z+6],[STK.x,0,STK.z+STK.top-80],12.5),{stick:1}));
+add(X(CYL("cage","stick",[STK.x,0,STK.z+STK.top-140],[STK.x,0,STK.z+STK.top],10),{stick:1}));
+add(X(BOX("cage","stick_grip",STK.x-24,STK.x+24,-21,21,STK.z+STK.top-40,STK.z+STK.top+85),{stick:1}));
+// throttle: hanger from the left rail down to a shelf beside the seat wing, pivot below the hand (hardware/throttle/throttle.py)
+const THR={x:77,y:320,z:-260};
+add(X(BOX("cage","throttle_mount",THR.x-40,THR.x+40,372,380,THR.z-101+CZ,0),{noLift:true}));
+add(BOX("cage","throttle_mount",THR.x-85,THR.x+100,272,380,THR.z-101,THR.z-95));
+add(BOX("cage","throttle",THR.x-75,THR.x+95,THR.y-45,THR.y+45,THR.z-95,THR.z-89));
+for(const s of S2) add(BOX("cage","throttle",THR.x-55,THR.x+55,THR.y+s*30-4,THR.y+s*30+4,THR.z-89,THR.z+22));
+add(BOX("cage","throttle",THR.x+58,THR.x+93,THR.y-40,THR.y+40,THR.z-89,THR.z-46));
+add(CYL("cage","throttle",[THR.x,THR.y-28,THR.z],[THR.x,THR.y+28,THR.z],30));
+add(CYL("cage","throttle",[THR.x,THR.y,THR.z-66],[THR.x,THR.y,THR.z+155],10));
+add(BOX("cage","throttle_grip",THR.x-22,THR.x+22,THR.y-20,THR.y+20,THR.z+115,THR.z+235));
 add(X(BOX("cage","side_mount",80,100,-378,-358,Math.min(-220+CZ,-20),Math.max(-220+CZ,32)),{noLift:true}));
 add(BOX("cage","side_mount",-40,200,-378,-280,-220,-200));
-add(BOX("cage","pedal_rail",420,XF-25,-180,180,-790,-780));
-for(const s of S2){const[a0,a1]=ys(s,45,155);add(BOX("cage","pedals",565,580,a0,a1,-780,-620))}
-add(BOX("cage","pedals",580,640,-170,170,-780,-750));
+// pedals: parallel sliding pedals on MGN12 rails + front rocker (hardware/pedals/pedals.py). PED0 = plywood underside centre for a 175 cm rider,
+// the whole base slides on two 2020 rails (pin every 25 mm, +-100 mm); the viewer moves it with the mannequin height (pedalDX)
+const PED={x:540,z:-770,y:115,hx:-45,hz:51,lean:65};
+for(const s of S2){const[a,b]=ys(s,140,160);add(BOX("cage","pedal_rail",340,880,a,b,-790,-770))}
+add(X(BOX("cage","pedals",PED.x-150,PED.x+240,-200,200,PED.z,PED.z+18),{ped:1}));
+add(X(BOX("cage","pedals",PED.x+40,PED.x+180,-70,70,PED.z+18,PED.z+98),{ped:1}));
+add(X(BOX("cage","pedals",PED.x+95,PED.x+125,-PED.y-14,PED.y+14,PED.z+64,PED.z+72),{ped:1}));
+for(const s of S2){const y=s*PED.y,t=PED.lean*Math.PI/180,H=[PED.x+PED.hx,y,PED.z+PED.hz];
+  add(X(BOX("cage","pedals",PED.x-115,PED.x+55,y-30,y+30,PED.z+18,PED.z+41),{ped:1}));
+  add(X(STRAP("cage","pedals",[H[0]+15*Math.cos(t),y,H[2]+15*Math.sin(t)],[H[0]+215*Math.cos(t),y,H[2]+215*Math.sin(t)],100,10,[0,1,0]),{ped:1}));}
 add(BOX("cage","vr_hook",-470,-440,-262,-252,240,260));
 for(const s of S2){
   const[l0,l1]=ys(s,400,438);add(BOX("cage","lock_cage",250,290,l0,l1,-80,-20));
@@ -419,7 +437,7 @@ const D3=v=>new THREE.Vector3(v[0],v[2],-v[1]);                   // direction
 const groups={base:new THREE.Group(),ring:new THREE.Group(),cage:new THREE.Group(),pins:new THREE.Group(),person:new THREE.Group(),board:new THREE.Group()};
 scene.add(groups.base);scene.add(groups.ring);groups.ring.add(groups.cage);groups.cage.add(groups.person);scene.add(groups.pins);scene.add(groups.board);
 const mats={};
-const colorOf=(p)=>({trim_weight:0xe08a1e,roll_balance:0xe08a1e,trim_rail:0x6b7079,trim_hole:0x111111,trim_pin:0xd93a3a,pitch_sector:0xc9a227,pitch_clamp:0x777777,roll_seat:0x7f9cc9,roll_clamp:0x777777,roll_idler:0x999999,pitch_idler:0x999999,roll_omega:0x111111,pitch_omega:0x111111,roll_mount:0x6b7079,pitch_mount:0x9aa4ae,ring_back:0x2f6fd6,roll_rubber:0x222222,pitch_rubber:0x222222,monitor:0x111111,deck:0xb9bec5,deck_step:0xb9bec5,deck_leg:0x8a8f98,handrail:0xf2c94c,ballast:0xe08a1e,vr_tracker:0x6c5ce7,stick:0x222222,throttle:0x222222,pedals:0x333333,stick_base:0x8a8f98,stick_hinge:0xd93a3a,vr_hook:0x6c5ce7,pc:0x55595f,
+const colorOf=(p)=>({trim_weight:0xe08a1e,roll_balance:0xe08a1e,trim_rail:0x6b7079,trim_hole:0x111111,trim_pin:0xd93a3a,pitch_sector:0xc9a227,pitch_clamp:0x777777,roll_seat:0x7f9cc9,roll_clamp:0x777777,roll_idler:0x999999,pitch_idler:0x999999,roll_omega:0x111111,pitch_omega:0x111111,roll_mount:0x6b7079,pitch_mount:0x9aa4ae,ring_back:0x2f6fd6,roll_rubber:0x222222,pitch_rubber:0x222222,monitor:0x111111,deck:0xb9bec5,deck_step:0xb9bec5,deck_leg:0x8a8f98,handrail:0xf2c94c,ballast:0xe08a1e,vr_tracker:0x6c5ce7,stick:0xcfd3d7,stick_gimbal:0x3b4149,stick_grip:0x222222,throttle:0x3b4149,throttle_grip:0x222222,throttle_mount:0x8a8f98,pedals:0x4f79b0,pedal_rail:0x8a8f98,vr_hook:0x6c5ce7,pc:0x55595f,
   seat_pan:0x2a2d33,seat_col:0x8a8f98,backrest:0x2a2d33,seat_wing:0x3a3f47,seat_rail:0x555a62,belt_sh:0xd93a3a,belt_lap:0xd93a3a,buckle:0x888888,floor_plate:0xd8d0bc,
   roll_motor:0x222428,pitch_motor:0x222428,roll_belt:0x111111,pitch_belt:0x111111,roll_pulley:0x999999,pitch_pulley:0x999999,roller_axle:0x777777,base_disc:0xb8b3a6,base_spine:0x6b7079,base_foot:0x6b7079,base_brace:0x8a8f98,yaw_plate:0xc9c3b4,person:0x3a9d6a,cover:0x9aa4ae,
   guard_roll:0xf2c94c,guard_pitch:0xf2c94c,arc_rail:0x1f4fa8,arc_hanger:0x2f6fd6,arc_strut:0x2f6fd6,cradle:0x6b7079,roller_load:0x333333,roller_cap:0x333333,roller_side:0x333333,lock_ring:0xd93a3a,lock_cage:0xd93a3a,pin:0xd93a3a})[p.k]??GROUPS[p.g].color;
@@ -486,7 +504,7 @@ function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);ca
 addEventListener("resize",resize);resize();
 {const h=new URLSearchParams(location.hash.slice(1));if(h.has("r")){tr=cr=+h.get("r")}if(h.has("p")){tp=cp=+h.get("p")}if(h.get("sel"))select(h.get("sel"));if(h.has("board")){$("pins").checked=true;groups.pins.visible=groups.board.visible=true}
  if(h.has("xray")){$("xray").checked=true;$("xray").onchange({target:$("xray")})}
- const CAMS={side:[0,-0.25,-2.6],front:[2.6,0.1,0],top:[0.01,3.2,0],fs:[3.3,-0.1,2.3],fr:[4.3,-0.55,0.02],cradle:[[0.75,-0.7,0.55],[0,-0.97,0]],rdrive:[[0.8,-0.85,0.4],[0.08,-1.02,0]],pdrive:[[0.75,0.05,-1.35],[0,-0.25,-0.5]],trim:[[1.5,-1.05,0.9],[0,-0.68,0]],left:[0.3,-0.2,-2.8]};
+ const CAMS={side:[0,-0.25,-2.6],front:[2.6,0.1,0],top:[0.01,3.2,0],fs:[3.3,-0.1,2.3],fr:[4.3,-0.55,0.02],cradle:[[0.75,-0.7,0.55],[0,-0.97,0]],rdrive:[[0.8,-0.85,0.4],[0.08,-1.02,0]],pdrive:[[0.75,0.05,-1.35],[0,-0.25,-0.5]],trim:[[1.5,-1.05,0.9],[0,-0.68,0]],ctl:[[1.35,0.05,-1.25],[0.25,-0.35,-0.05]],ctls:[[0.25,-0.3,-1.55],[0.25,-0.32,0]],ctlf:[[1.9,0.2,0.45],[0.2,-0.3,0]],left:[0.3,-0.2,-2.8]};
  const cv=CAMS[h.get("cam")];if(cv){const[ps,tg]=Array.isArray(cv[0])?cv:[cv,null];cam.position.set(...ps);if(tg)ctl.target.set(...tg);ctl.update()}}
 
 // ======================= COLLISION CHECK =======================
@@ -542,12 +560,47 @@ function runCheck(){
   lines.push(b0.length?"탑승 자세 (0°) 승강대: 겹침 — "+b0.join(", "):"탑승 자세 (0°) 승강대: 겹침 없음");
   for(const sg of[1,-1]){let a0=null;for(let a=1;a<=23;a+=1){if(collide(sg*a,0,boardPairs).length){a0=a;break}}
     lines.push(a0?`승강대를 안 치우고 roll ${sg>0?"+":"−"} 로 기울이면 약 ${a0}° 에서 닿음 → 운행 전 반드시 치우기`:`승강대: roll ${sg>0?"+":"−"} 23° 까지 안 닿음`)}
+  {const bad=[];for(const dx of[-100,100]){placePedals(dx);for(const r of[-22,0,22])for(const p of[-17,0,17]){const c=collide(r,p);if(c.length)bad.push(`페달 ${dx>0?"+":""}${dx} mm, roll ${r}° pitch ${p}°: ${c.join(", ")}`)}}
+   try{placePedals()}catch(e){placePedals(0)}
+   lines.push(bad.length?bad.join("\n"):"페달 거리 조절 양 끝 (−100 / +100 mm) × roll ±22° · pitch ±17° 9 자세: 겹침 없음")}
+  collide(0,0);lines.push(...riderCheck());
   collide(cr,cp);
   document.getElementById("chkout").textContent=lines.join("\n");return lines;
 }
 document.getElementById("chk").onclick=runCheck;
 if(location.hash.includes("check"))runCheck();
 
+// rider legs vs the controls (both ride in the cage -> checked at 0 deg): leg bones as capsules, controls as boxes,
+// the stick tube + grip swept over its gate corners. Needs the mannequin (X Bot); runs for 160 / 175 / 190 cm.
+function riderCheck(){
+  try{if(!dummy.ready)throw 0}catch(e){return["다리 ↔ 조종기: 더미를 아직 불러오지 않아 검사 안 함 (불러온 뒤 다시 실행)"]}
+  const CTL=new Set(["stick_gimbal","throttle","throttle_mount","pedals","pedal_rail"]);
+  const boxDist=(b,P)=>{const q=P.clone().applyMatrix4(b.inv);return Math.hypot(Math.max(b.bb.min.x-q.x,0,q.x-b.bb.max.x),Math.max(b.bb.min.y-q.y,0,q.y-b.bb.max.y),Math.max(b.bb.min.z-q.z,0,q.z-b.bb.max.z))};
+  const N=24,lerp=(a,b,t)=>a.clone().lerp(b,t);
+  const H0=+$("dH").value,K0=$("dKnee").value,out=[],B=dummy.bones;
+  const stickSeg=(r,p)=>{const R=(v)=>{const a=r*Math.PI/180,b=p*Math.PI/180;let[x,y,z]=v;[x,z]=[x*Math.cos(b)+z*Math.sin(b),-x*Math.sin(b)+z*Math.cos(b)];[y,z]=[y*Math.cos(a)-z*Math.sin(a),y*Math.sin(a)+z*Math.cos(a)];return[x,y,z]};
+    const c=[STK.x+CAGE_SHIFT,0,STK.z+CZ],t=R([0,0,STK.top+85]),m=R([0,0,STK.top-40]);return[P_(...c),P_(c[0]+m[0],m[1],c[2]+m[2]),P_(c[0]+t[0],t[1],c[2]+t[2])]};
+  const G=STK.gate,poses=[[0,0],[G.roll,0],[-G.roll,0],[0,G.fwd],[0,-G.aft],[G.roll,G.fwd],[G.roll,-G.aft],[-G.roll,G.fwd],[-G.roll,-G.aft]];
+  $("dKnee").value=PILOT_KNEE;
+  for(const Hc of[160,175,190]){
+    $("dH").value=Hc;poseDummy();scene.updateMatrixWorld(true);const sc=Hc/177.5;let worst=null;
+    const boxes=meshes.filter(m=>CTL.has(m.userData.k)).map(m=>{if(!m.geometry.boundingBox)m.geometry.computeBoundingBox();return{m,inv:new THREE.Matrix4().copy(m.matrixWorld).invert(),bb:m.geometry.boundingBox}});
+    const legs=[];for(const[side,nm]of[["Left","왼"],["Right","오른"]]){      // capsules: name, a, b, radius at a, radius at b (tapered, 추정 for the X Bot size)
+      legs.push([nm+" 허벅지",boneW(B[side+"UpLeg"]),boneW(B[side+"Leg"]),0.085*sc,0.055*sc],[nm+" 정강이",boneW(B[side+"Leg"]),boneW(B[side+"Foot"]),0.055*sc,0.04*sc],[nm+" 발",boneW(B[side+"Foot"]),boneW(B[side+"ToeBase"]),0.045*sc,0.04*sc]);}
+    for(const[ln,a,b,ra,rb]of legs){
+      for(const bx of boxes){if(ln.endsWith("발")&&bx.m.userData.k==="pedals")continue;   // feet stand on the pedals
+        let d=1e9;for(let i=0;i<=N;i++)d=Math.min(d,boxDist(bx,lerp(a,b,i/N))-(ra+(rb-ra)*i/N));
+        if(!worst||d<worst[0])worst=[d,ln,INFO[bx.m.userData.k][0]]}
+      for(const[pr,pp]of poses){const[c,m,t]=stickSeg(pr,pp);let d=1e9;
+        for(let i=0;i<=N;i++){const P=lerp(a,b,i/N),r=ra+(rb-ra)*i/N;for(let j=0;j<=N;j++){d=Math.min(d,P.distanceTo(lerp(c,m,j/N))-0.0125-r,P.distanceTo(lerp(m,t,j/N))-0.024-r)}}
+        if(d<worst[0])worst=[d,ln,`스틱 관 · 손잡이 (roll ${pr}° pitch ${pp}°)`]}
+    }
+    out.push(`키 ${Hc} cm (페달 ${pedalDX()>=0?"+":""}${pedalDX()} mm, 무릎 벌림 ${PILOT_KNEE}): 다리 ↔ 조종기 최소 여유 ${Math.round(worst[0]*1000)} mm (${worst[1]} ↔ ${worst[2]})${worst[0]<0?" ← 겹침":""}`);
+  }
+  $("dH").value=H0;$("dKnee").value=K0;poseDummy();
+  return out;
+}
+const PILOT_KNEE=50;   // knees apart around a centre stick (조종 자세); also the mannequin default
 // ======================= CALCULATIONS (balance / drive, strength, BOM) =======================
 // All numbers are estimates: part masses come from assumed materials, profile section values from typical catalogues.
 const G=9.81;
@@ -561,8 +614,8 @@ const PROFILE_KINDS=["arc_hanger","arc_strut","ring_side","ring_back","cage_post
 const memberProfile={arc_hanger:"40×40",arc_strut:"40×40",ring_side:"40×80",ring_back:"40×80",side_rail:"40×80",floor_long:"40×40",cage_post_b:"40×40",cage_post_f:"40×40",floor_cross:"40×40",brace:"40×40"};
 const STEEL_TUBE={base_spine:5.2,base_foot:5.2,post:3.3,base_brace:1.7,trim_rail:3.4};   // kg/m: 60×60×3, 60×60×3, 40×40×3, 30×30×2, 40×40×3
 const VOL_DENS={cradle:7850,trim_weight:7850,roll_balance:7850,floor_plate:600,yaw_plate:7850,roll_mount:7850,pitch_mount:2700}; // kg/m³ from the drawn volume
-const FIXED={seat_col:1,seat_pan:3.5,backrest:3,seat_wing:0.25,seat_rail:0.8,stick_base:2,stick_hinge:0.5,stick:0.5,throttle:1,throttle_mount:0.5,side_mount:0.5,
-  pedals:1.5,pedal_rail:1.5,roll_motor:AK.kg,pitch_motor:AK.kg,roll_pulley:0.35,pitch_pulley:0.15,roll_idler:0.12,pitch_idler:0.12,roll_omega:0.03,pitch_omega:0.03,trim_pin:0.05,
+const FIXED={seat_col:1,seat_pan:3.5,backrest:3,seat_wing:0.25,seat_rail:0.8,stick_gimbal:1.9,stick:0.6,stick_grip:0.25,throttle:0.9,throttle_grip:0.2,throttle_mount:0.8,side_mount:0.5,
+  pedals:3.8,pedal_rail:0.6,roll_motor:AK.kg,pitch_motor:AK.kg,roll_pulley:0.35,pitch_pulley:0.15,roll_idler:0.12,pitch_idler:0.12,roll_omega:0.03,pitch_omega:0.03,trim_pin:0.05,
   guard_roll:0.3,guard_pitch:0.3,vr_tracker:0.15,vr_hook:0.1,belt_sh:0.3,belt_lap:0.3,buckle:0.3,
   pitch_rubber:0.05,roll_rubber:0.1,roll_stop:4,lock_ring:0.4,lock_cage:0.4,roller_load:0.15,roller_cap:0.08,roller_side:0.08,roller_axle:0.05,pitch_tab:0.3,
   pitch_arm:1.2,roll_pin:0.5,pitch_pin:0.5};
@@ -772,8 +825,10 @@ function renderBOM(){
   items.push(["안전","벨트 고정 L브라켓 (PNS)","2",22000,""]);
   items.push(["좌석","경량 FRP 버킷시트 (11번가, 로고 없는 니트 옵션)","1",192150,"옵션별 19.2~46만"]);
   items.push(["좌석","PNS 슬라이딩 레일 + 사이드브라켓","1식",77000,""]);
-  items.push(["조종","HOTAS (예: Thrustmaster T.16000M FCS)","1",250000,""]);
-  items.push(["조종","러더 페달 (예: Thrustmaster TFRP)","1",170000,""]);
+  items.push(["조종","자작 센터 스틱 v2 (캠 짐벌, 알루미늄 캠 · 608 · 스프링 · AS5600 · 필라멘트)","1",162500,"docs/stick.html, 추정"]);
+  items.push(["조종","자작 스로틀 v2 (+ Pro Micro · TCA9548A 공용 전자)","1",94250,"docs/throttle.html, 추정"]);
+  items.push(["조종","자작 러더 페달 v2 (MGN12 · 오일 댐퍼 · 합판 · 2020 레일)","1",194500,"docs/pedals.html, 추정"]);
+  items.push(["조종","손잡이 2 개 (hardware/grips, 버튼 · 햇 · PCF8574)","1",40000,"추정"]);
   items.push(["VR","VR 헤드셋 (Quest 3 급)","1",700000,""]);
   items.push(["전자","컨트롤러 (STM32) + CAN 트랜시버 + IMU","1식",50000,"AK 모터는 CAN 제어"]);
   items.push(["전자","24 V 15 A 전원","1",50000,""]);
@@ -816,7 +871,10 @@ function twoBone(a,b,c,T,pole){                                      // a->b->c 
   const Bp=A.clone().add(u.clone().multiplyScalar(av)).add(v.multiplyScalar(h));
   aim(a,b,Bp.clone().sub(A));aim(b,c,A.clone().add(u.multiplyScalar(d)).sub(boneW(b)));
 }
+const pedalDX=()=>Math.max(-100,Math.min(100,Math.round((+$("dH").value-175)*3.5/25)*25));   // reach rail hole (25 mm steps) for the rider height (추정)
+function placePedals(mm){const dx=(mm??pedalDX())/1000;for(const m of meshes)if(m.userData.ped){if(m.userData.x0==null)m.userData.x0=m.position.x;m.position.x=m.userData.x0+dx}}
 function poseDummy(){
+  placePedals();
   if(!dummy.ready)return;
   const B=dummy.bones,g=n=>+$(n).value;
   for(const k in B)B[k].quaternion.copy(B[k].userData.q0);
@@ -833,12 +891,14 @@ function poseDummy(){
   // legs -> pedals (knees up/forward), arms -> stick (right) and throttle (left), elbows down/out
   const kneeOut=g("dKnee")/100, elbowOut=g("dElbow")/100;
   for(const[s,side]of[[1,"Left"],[-1,"Right"]]){
-    twoBone(B[side+"UpLeg"],B[side+"Leg"],B[side+"Foot"],P_(530+CAGE_SHIFT,s*100,-690+CZ),fwd.clone().add(P_(0,0,1000).sub(P_(0,0,0)).normalize()).add(out(s).multiplyScalar(kneeOut)));
-    aim(B[side+"Foot"],B[side+"ToeBase"],fwd.clone().multiplyScalar(0.6).add(P_(0,0,1000).sub(P_(0,0,0)).normalize()));
+    // ankle = 50 mm up the pedal plate from the heel hinge + 75 mm off the plate (foot lies on the 65 deg plate)
+    const t=PED.lean*Math.PI/180, ax=PED.x+pedalDX()+PED.hx+50*Math.cos(t)-75*Math.sin(t), az=PED.z+PED.hz+50*Math.sin(t)+75*Math.cos(t);
+    twoBone(B[side+"UpLeg"],B[side+"Leg"],B[side+"Foot"],P_(ax+CAGE_SHIFT,s*PED.y,az+CZ),fwd.clone().add(P_(0,0,1000).sub(P_(0,0,0)).normalize()).add(out(s).multiplyScalar(kneeOut)));
+    aim(B[side+"Foot"],B[side+"ToeBase"],P_(Math.cos(t)*1000,0,Math.sin(t)*1000).sub(P_(0,0,0)).normalize());
   }
   if($("dHands").checked){
-    twoBone(B.RightArm,B.RightForeArm,B.RightHand,P_(318+CAGE_SHIFT,0,-40+CZ),down.clone().add(out(-1).multiplyScalar(elbowOut)));
-    twoBone(B.LeftArm,B.LeftForeArm,B.LeftHand,P_(77+CAGE_SHIFT,320,-90+CZ),down.clone().add(out(1).multiplyScalar(elbowOut)));
+    twoBone(B.RightArm,B.RightForeArm,B.RightHand,P_(STK.x+CAGE_SHIFT,0,STK.z+STK.top+15+CZ),down.clone().add(out(-1).multiplyScalar(elbowOut)));
+    twoBone(B.LeftArm,B.LeftForeArm,B.LeftHand,P_(THR.x+CAGE_SHIFT,THR.y,THR.z+170+CZ),down.clone().add(out(1).multiplyScalar(elbowOut)));
   }else{
     for(const[s,side]of[[1,"Left"],[-1,"Right"]]){aim(B[side+"Arm"],B[side+"ForeArm"],down.clone().add(out(s).multiplyScalar(0.25)));aim(B[side+"ForeArm"],B[side+"Hand"],fwd.clone().add(down))}
   }
@@ -850,11 +910,11 @@ function loadDummy(){
     gl.scene.traverse(o=>{if(o.isBone){const k=o.name.replace("mixamorig","");dummy.bones[k]=o;o.userData.q0=o.quaternion.clone()}
       if(o.isMesh){o.frustumCulled=false;o.userData={g:"person",k:"person",t:"dummy"}}});
     for(const m of meshes)if(m.userData.k==="person")m.visible=false;     // hide the box figure
-    dummy.ready=true;poseDummy();$("dState").textContent="더미 불러옴 (X Bot, 관절은 아래 슬라이더 + 손발 자동 맞춤)";
+    dummy.ready=true;poseDummy();if(location.hash.includes("check"))runCheck();$("dState").textContent="더미 불러옴 (X Bot, 관절은 아래 슬라이더 + 손발 자동 맞춤)";
   },undefined,()=>{$("dState").textContent="더미를 불러오지 못함 (인터넷 확인) — 상자 사람으로 표시"});
 }
 ["dH","dHx","dHz","dBack","dHead","dKnee","dElbow","dHands"].forEach(id=>$(id).addEventListener("input",poseDummy));
-$("dReset").onclick=()=>{for(const[id,v]of[["dH",175],["dHx",0],["dHz",0],["dBack",15],["dHead",10],["dKnee",15],["dElbow",30]])$(id).value=v;$("dHands").checked=true;poseDummy()};
+$("dReset").onclick=()=>{for(const[id,v]of[["dH",175],["dHx",0],["dHz",0],["dBack",15],["dHead",10],["dKnee",50],["dElbow",30]])$(id).value=v;$("dHands").checked=true;poseDummy()};
 loadDummy();
 
 let last=performance.now();
