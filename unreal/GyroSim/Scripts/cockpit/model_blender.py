@@ -472,12 +472,21 @@ def build_canopy_frame():
         secs = []
         for x in xs:
             gy, gz = L.glass_bottom(max(390.0, x)) if x >= 390 else (L.glass_bottom(390)[0], L.glass_bottom(390)[1] + (390 - x) * 0.06)
-            cy, cz = gy - 1.2, gz - 0.6
-            secs.append([(x, sgn * (cy + a), cz + b) for a, b in rrect(2.6, 2.3, 0.5, 2)])
+            cy, cz = gy - 1.4, gz - 0.6
+            secs.append([(x, sgn * (cy + a), cz + b) for a, b in rrect(3.2, 2.4, 0.3, 2)])
         bm = bm_loft(secs, closed=True, cap0=True, cap1=True)
         bm.normal_update()
         flip = sgn < 0
         P.add(bm, "CK_Frame", flip=flip)
+        # canopy sill bolt row on the inner face of the rail (photos d09 / c27: a row of bolts every ~4.5 cm)
+        x = 380.0
+        while x < 505.0:
+            gy, gz = L.glass_bottom(max(390.0, x)) if x >= 390 else (L.glass_bottom(390)[0], L.glass_bottom(390)[1] + (390 - x) * 0.06)
+            cy, cz = gy - 1.4, gz - 0.6
+            fr = ((x, sgn * (cy - 1.6), cz + 0.15), (1, 0, 0), (0, 0, 1), (0, -sgn, 0))
+            P.add(bm_cyl(0.42, 0.16, 6, 0.05), "CK_Metal", frame=fr)
+            P.add(bm_cyl(0.6, 0.05, 12, 0.0, z0=-0.03), "CK_Black", frame=fr)       # washer / dark ring around the head
+            x += 4.5
     # windscreen bow at BOW_X following the glass arch (inset), and the rear arch behind the seat
     arches = [(L.REAR_ARCH_X, [(33.2, 76.0), (32.4, 88.0)] + L.GLASS_ARCH_372, (4.0, 3.0), 1.6)]
     if L.BOW_X:
@@ -534,22 +543,31 @@ def build_glareshield():
     bm = bm_sweep(path, [(1.1 * math.cos(D2R(a)), 1.1 * math.sin(D2R(a))) for a in range(0, 360, 30)], side_hint=(1, 0, 0))
     bm.normal_update()
     P.add(bm, "CK_Rubber")
-    # HUD: projector cap on the glare shield + combiner frame + glass
-    cap = bm_box(12.0, L.HUD_W + 4.5, 2.2, 0.6, 3, c=(506.0, 0, L.HUD_Z0 - 0.2))
-    P.add(cap, "CK_Black")
-    P.add(bm_box(7.0, L.HUD_W, 0.3, 0.1, 1, c=(506.5, 0, L.HUD_Z0 + 0.95)), "CK_HUDExit")
+    # HUD (realism pass 11-05, photos c18 / c21 / c25): thick black HUD body on the coaming + ONE wide tinted combiner
+    # in a heavy frame (thick side cheeks, top bar) - no thin posts. The combiner covers the whole symbology area
+    # (-18 .. +8 deg, +-13.5 deg) so nothing readable is lost; M_HUD clips the symbols to it (ue_cockpit / build_level).
     t = D2R(L.HUD_TILT)
     up = V((-math.sin(t), 0, math.cos(t)))
     fwd = V((math.cos(t), 0, math.sin(t)))
     base = V((L.HUD_X, 0, L.HUD_Z0 + 0.6))
     hh = (L.HUD_Z1 - base.z) / math.cos(t)
-    W = L.HUD_W + 1.6
-    for sgn in (1, -1):
-        o = base + V((0, sgn * W / 2, 0))
-        P.add(bm_box(0.9, 0.55, hh, 0.2, 2, c=(0, 0, hh / 2)), "CK_HUDFrame", frame=(tuple(o), tuple(fwd), (0, 1, 0), tuple(up)))
-        P.add(bm_box(2.4, 1.6, 1.6, 0.4, 2, c=(0.2, -sgn * 0.0, 0.8)), "CK_HUDFrame", frame=(tuple(o), tuple(fwd), (0, 1, 0), tuple(up)))
-    gl = bm_box(0.5, W - 0.8, hh - 1.0, 0.25, 2, c=(-0.2, 0, (hh - 1.0) / 2 + 0.9))
-    part("ck_glass").add(gl, "CK_HUDGlass", frame=(tuple(base), tuple(fwd), (0, 1, 0), tuple(up)))
+    W = L.HUD_W
+    hb = L.HUD_BODY
+    P.add(bm_box(hb["x1"] - hb["x0"], hb["w"], hb["z1"] - hb["z0"], 0.8, 3, c=((hb["x0"] + hb["x1"]) / 2, 0, (hb["z0"] + hb["z1"]) / 2)), "CK_HUDFrame")
+    P.add(bm_box(9.0, W - 6.0, 0.3, 0.1, 1, c=(hb["x0"] + 7.5, 0, hb["z1"] + 0.1)), "CK_HUDExit")          # projector exit window
+    for sx in (-1, 1):                                                                                    # body side ribs
+        P.add(bm_box(hb["x1"] - hb["x0"] - 3.0, 1.0, 1.2, 0.3, 2, c=((hb["x0"] + hb["x1"]) / 2 + 0.5, sx * (hb["w"] / 2 - 2.0), hb["z1"] + 0.5)), "CK_HUDFrame")
+    fr = (tuple(base), tuple(fwd), (0, 1, 0), tuple(up))
+    for sgn in (1, -1):                                                                                   # thick side cheeks
+        P.add(bm_box(3.0, 2.0, hh + 0.6, 0.5, 2, c=(0.6, sgn * (W / 2 + 0.8), (hh + 0.6) / 2 - 0.6)), "CK_HUDFrame", frame=fr)
+        P.add(bm_box(4.0, 2.6, 3.0, 0.6, 2, c=(1.2, sgn * (W / 2 + 0.8), 0.6)), "CK_HUDFrame", frame=fr)         # foot / hinge block
+    P.add(bm_box(1.8, W + 3.6, 1.3, 0.45, 2, c=(0.5, 0, hh + 0.2)), "CK_HUDFrame", frame=fr)                   # top bar
+    P.add(bm_box(2.4, W + 0.4, 1.4, 0.4, 2, c=(0.6, 0, 0.5)), "CK_HUDFrame", frame=fr)                        # bottom rail
+    gl = bm_prism(rrect(W - 0.2, hh - 1.2, 1.6, 3), 0.6, bevel=0.15, seg=1, z0=-0.3)
+    for v in gl.verts:
+        v.co.y += (hh - 1.2) / 2 + 0.9
+    part("ck_glass").add(gl, "CK_HUDGlass", frame=(tuple(base), (0, 1, 0), tuple(up), tuple(fwd)))
+    MANIFEST["hud_combiner"] = dict(base=list(base), fwd=list(fwd), up=list(up), w=W - 0.2, h0=0.9, h1=hh - 0.3, r=1.6)
 
 
 # =====================================================================================================================
@@ -994,6 +1012,9 @@ def build_seat():
 # =====================================================================================================================
 # export
 MANIFEST = dict(made=None, frame="UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)", pivots={}, needles={}, screens={}, parts={})
+BAKED_PARTS = ("ck_shell",)      # parts that get the bevel pass + baked AO / edge / dirt masks on UV2 (T_CkShellMasks)
+SHELL_BEVEL_M = 0.0025           # 2.5 mm (Blender metres)
+BAKE_RES = 2048
 TRAVEL = dict(stick_deg=L.STICK_TRAVEL, throttle_swing_deg=L.THR_SWING, pedal_cm=L.PEDAL_TRAVEL_CM, toe_brake_deg=L.TOE_BRAKE_DEG,
               gear_handle_deg=L.GEAR_HANDLE["travel"])
 
@@ -1026,19 +1047,38 @@ def to_object(P):
         me.set_sharp_from_angle(angle=D2R(38))
     except Exception as e:
         print("[cockpit] sharp from angle", e)
-    # edge wear / cavity mask -> vertex colour R (convex edges bright), G = 0.5 flat
+    ob = bpy.data.objects.new(P.name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    baked = P.name in BAKED_PARTS
+    if baked:
+        # realism pass 11-05: 2.5 mm bevel on every hard edge sharper than 35 deg that is not bevelled yet (big shapes:
+        # sill rails, console rims, panel edges, glare shield end) -> thin highlight lines; applied before the masks
+        bpy.ops.object.select_all(action='DESELECT')
+        ob.select_set(True)
+        bpy.context.view_layer.objects.active = ob
+        bv = ob.modifiers.new("bevel", 'BEVEL')
+        bv.width = SHELL_BEVEL_M
+        bv.segments = 2
+        bv.limit_method = 'ANGLE'
+        bv.angle_limit = D2R(35)
+        bv.profile = 0.5
+        bv.use_clamp_overlap = True
+        bv.harden_normals = True
+        bpy.ops.object.modifier_apply(modifier="bevel")
+        me = ob.data
+    # edge wear / cavity mask -> vertex colour R (convex edges bright), G = 1 on parts with baked masks (UV2)
     bm = bmesh.new()
     bm.from_mesh(me)
     bm.normal_update()
     vals = []
     for v in bm.verts:
-        s, c = 0.0, 0
+        s_, c = 0.0, 0
         for e in v.link_edges:
             d = e.other_vert(v).co - v.co
             if d.length > 1e-9:
-                s += d.normalized().dot(v.normal)
+                s_ += d.normalized().dot(v.normal)
                 c += 1
-        vals.append(s / c if c else 0.0)
+        vals.append(s_ / c if c else 0.0)
     # per face corner: large flat faces stay neutral (otherwise the edge value is interpolated across the whole face
     # and the wear mask smears into cloudy patches); small faces (bevels, edges, details) carry the vertex value.
     # Blender byte colour -> FBX -> Unreal ends up sRGB-encoded twice (flat 0.5 arrived as 0.886, checked in UE), so
@@ -1052,14 +1092,116 @@ def to_object(P):
             loopvals[l.index] = enc(0.5 if isbig else 0.5 - vals[l.vert.index] * 2.2)
     bm.free()
     col = me.color_attributes.new("Col", 'BYTE_COLOR', 'CORNER')
+    flag = 1.0 if baked else 0.0
     for i, w in enumerate(loopvals):
-        col.data[i].color = (w, w, w, 1.0)
-    ob = bpy.data.objects.new(P.name, me)
-    bpy.context.scene.collection.objects.link(ob)
+        col.data[i].color = (w, flag, w, 1.0)
     m = ob.modifiers.new("wn", 'WEIGHTED_NORMAL')
     m.keep_sharp = True
     m.weight = 50
     return ob
+
+
+# touch / wear zones (UE body cm, radius cm): sill tops at the elbows, throttle hand on the left console, right hand rest,
+# heel area in front of the seat, ejection handle area of the seat pan
+TOUCH = [((440.0, -30.0, 70.0), 16.0), ((440.0, 30.0, 70.0), 16.0), ((441.0, -32.0, 40.0), 11.0), ((452.0, 32.0, 40.0), 10.0),
+         ((478.0, -13.0, -11.0), 9.0), ((478.0, 13.0, -11.0), 9.0), ((457.0, 0.0, 24.0), 8.0)]
+
+
+def bake_masks(ob):
+    """UV2 (smart project, uniform texel density) + Cycles bakes -> tex/T_CkShellMasks.png:
+    R = ambient occlusion (8 cm), G = convex edge mask (Bevel node 4 mm vs true normal) + hand-touch zones,
+    B = dirt (wide 30 cm occlusion + low areas). Moving parts are not in the bake scene (their shadows would be wrong)."""
+    import numpy as np, time
+    t0 = time.time()
+    me = ob.data
+    uv2 = me.uv_layers.new(name="UV2")
+    me.uv_layers.active = uv2
+    bpy.ops.object.select_all(action='DESELECT')
+    ob.select_set(True)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=D2R(66), island_margin=0.002)
+    bpy.ops.uv.average_islands_scale()
+    bpy.ops.uv.pack_islands(rotate=True, margin=0.003)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for o in bpy.context.scene.objects:
+        o.hide_render = o is not ob
+    sc = bpy.context.scene
+    sc.render.engine = 'CYCLES'
+    sc.cycles.device = 'CPU'
+    if sc.world is None:
+        sc.world = bpy.data.worlds.new("bake_world")
+    sc.render.bake.margin = 6
+    sc.render.bake.margin_type = 'EXTEND'
+    mat = bpy.data.materials.new("_bake")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(em.outputs[0], out.inputs[0])
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    bev = nt.nodes.new("ShaderNodeBevel")
+    bev.samples = 8
+    bev.inputs["Radius"].default_value = 0.004
+    dot = nt.nodes.new("ShaderNodeVectorMath")
+    dot.operation = 'DOT_PRODUCT'
+    nt.links.new(bev.outputs[0], dot.inputs[0])
+    nt.links.new(geo.outputs["Normal"], dot.inputs[1])
+    inv = nt.nodes.new("ShaderNodeMath")
+    inv.operation = 'SUBTRACT'
+    inv.inputs[0].default_value = 1.0
+    nt.links.new(dot.outputs["Value"], inv.inputs[1])
+    gain = nt.nodes.new("ShaderNodeMath")
+    gain.operation = 'MULTIPLY'
+    gain.use_clamp = True
+    gain.inputs[1].default_value = 7.0
+    nt.links.new(inv.outputs[0], gain.inputs[0])
+    nt.links.new(gain.outputs[0], em.inputs["Color"])
+    tn = nt.nodes.new("ShaderNodeTexImage")
+    nt.nodes.active = tn
+    orig = [m for m in me.materials]
+    for i in range(len(me.materials)):
+        me.materials[i] = mat
+    R = BAKE_RES
+    res = {}
+    for name, kind, samples, dist in (("ao", 'AO', 96, 0.08), ("wide", 'AO', 48, 0.30), ("edge", 'EMIT', 24, None), ("pos", 'POSITION', 1, None)):
+        img = bpy.data.images.new("_bk_" + name, R, R, float_buffer=True)
+        img.colorspace_settings.name = 'Non-Color'
+        tn.image = img
+        sc.cycles.samples = samples
+        if dist:
+            sc.world.light_settings.distance = dist
+        bpy.ops.object.bake(type=kind, uv_layer="UV2", use_clear=True, margin=6, margin_type='EXTEND')
+        a = np.empty(R * R * 4, np.float32)
+        img.pixels.foreach_get(a)
+        res[name] = a.reshape(R, R, 4)
+        print("[cockpit] baked", name, "%.1f s" % (time.time() - t0))
+    for i, m in enumerate(orig):
+        me.materials[i] = m
+    for o in bpy.context.scene.objects:
+        o.hide_render = False
+    ao = res["ao"][..., 0]
+    edge = res["edge"][..., 0] * np.clip((ao - 0.55) / 0.3, 0, 1)            # convex only (concave corners are occluded)
+    pos = res["pos"][..., :3] * 100.0                                        # Blender m -> cm, y mirrored
+    touch = np.zeros((R, R), np.float32)
+    for (x, y, z), r in TOUCH:
+        d2 = (pos[..., 0] - x) ** 2 + (pos[..., 1] + y) ** 2 + (pos[..., 2] - z) ** 2
+        touch = np.maximum(touch, np.exp(-d2 / (r * r)))
+    low = np.clip((45.0 - pos[..., 2]) / 60.0, 0, 1)                         # floor / lower walls collect dirt
+    dirt = np.clip((1.0 - res["wide"][..., 0]) * 0.9 + low * 0.35, 0, 1)
+    rgba = np.stack([ao, np.maximum(edge, touch * 0.4), dirt, np.ones_like(ao)], -1).astype(np.float32)
+    outimg = bpy.data.images.new("T_CkShellMasks", R, R, alpha=False)
+    outimg.colorspace_settings.name = 'Non-Color'
+    outimg.pixels.foreach_set(np.clip(rgba, 0, 1).ravel())
+    outimg.filepath_raw = os.path.join(TEX, "T_CkShellMasks.png")
+    outimg.file_format = 'PNG'
+    outimg.save()
+    filled = float((res["pos"][..., 3] > 0).mean()) if res["pos"].shape[-1] == 4 else None
+    MANIFEST["masks"] = dict(file="tex/T_CkShellMasks.png", res=R, part=ob.name, ao_cm=8, wide_cm=30, bevel_node_mm=4, touch=TOUCH,
+                             seconds=round(time.time() - t0, 1), uv_fill=filled, made=time.strftime("%Y-%m-%d %H:%M:%S"))
+    print("[cockpit] masks done %.1f s" % (time.time() - t0))
 
 
 def export(ob, path):
@@ -1181,6 +1323,8 @@ def main():
     for name, P in PARTS.items():
         ob = to_object(P)
         objs[name] = ob
+        if name in BAKED_PARTS and "--no-bake" not in ARGS:
+            bake_masks(ob)
         path = os.path.join(ART, name + ".fbx")
         export(ob, path)
         MANIFEST["parts"][name] = dict(fbx=name + ".fbx", slots=list(P.slots), tris=sum(len(f) - 2 for f in P.F))

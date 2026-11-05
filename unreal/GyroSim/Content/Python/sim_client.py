@@ -201,8 +201,8 @@ PRESETS = {
 # shadow_contrast: local exposure shadow contrast (1 = shadows not lifted), exp_min: lowest EV100 the auto exposure may
 # drop to when looking down into the cockpit (outside view = build_level.EXPOSURE_EV 2.0).
 PRESET_LOOK = {
-    "monitor": dict(fill_cd=0.5, shadow_contrast=0.95, highlight_contrast=0.85, exp_min=0.7, contact_shadow=0.03, vignette=0.2),
-    "vr": dict(fill_cd=1.1, shadow_contrast=0.9, highlight_contrast=0.85, exp_min=0.7, contact_shadow=0.02, vignette=0.0),
+    "monitor": dict(fill_cd=0.5, shadow_contrast=0.95, highlight_contrast=0.85, exp_min=0.3, contact_shadow=0.03, vignette=0.2),
+    "vr": dict(fill_cd=1.1, shadow_contrast=0.9, highlight_contrast=0.85, exp_min=0.3, contact_shadow=0.02, vignette=0.0),
 }
 
 

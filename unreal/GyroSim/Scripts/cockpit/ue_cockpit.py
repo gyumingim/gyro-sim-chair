@@ -14,74 +14,93 @@ def _vrgb(m, name, c, x, y):
 
 
 def ck_master():
-    """M_CkSurface: atlas colour x Tint, backlit legends (atlas alpha), edge wear / cavity from the vertex colour (R),
-    grunge (UV1) on roughness / albedo, optional tiling normal map (fabric)."""
+    """M_CkSurface: atlas colour x Tint, backlit legends (atlas alpha), grunge (UV1), detail / fabric normal (UV1) and,
+    on parts with baked masks (vertex colour G = 1, ck_shell): T_CkShellMasks on UV2 (R = AO, G = convex edges + hand
+    touch zones, B = dirt). Parts without masks keep the old per-vertex edge / cavity values (vertex colour R).
+    Realism pass 11-05: wider grunge breakup (albedo 0.85..1.10, roughness +-RoughVar/2), AO on BaseColor and Specular,
+    dirt layer, worn paint = bare aluminium (metal 1), edge wear thresholded with the grunge (no soft cloudy blend)."""
     m = _new_material("M_CkSurface", CK + "/Materials")
-    uv0 = _expr(m, unreal.MaterialExpressionTextureCoordinate, -2200, -200)
-    uv1 = _expr(m, unreal.MaterialExpressionTextureCoordinate, -2200, 400, coordinate_index=1)
+    E, O, C, SP = unreal.MaterialExpressionComponentMask, _op, _const, _sparam
+    MUL, ADD, SUB, LERP = (unreal.MaterialExpressionMultiply, unreal.MaterialExpressionAdd, unreal.MaterialExpressionSubtract,
+                           unreal.MaterialExpressionLinearInterpolate)
+
+    def mask(src, ch, x, y):
+        k = _expr(m, E, x, y, r=ch == "r", g=ch == "g", b=ch == "b", a=ch == "a")
+        MEL.connect_material_expressions(src, "", k, "")
+        return k
+
+    def sat(src, x, y):
+        k = _expr(m, unreal.MaterialExpressionSaturate, x, y)
+        MEL.connect_material_expressions(src, "", k, "")
+        return k
+
+    def lerp(a, b, t, x, y):
+        k = _expr(m, LERP, x, y)
+        for pin, v in (("A", a), ("B", b), ("Alpha", t)):
+            MEL.connect_material_expressions(v, "", k, pin)
+        return k
+
+    uv0 = _expr(m, unreal.MaterialExpressionTextureCoordinate, -3000, -200)
+    uv1 = _expr(m, unreal.MaterialExpressionTextureCoordinate, -3000, 400, coordinate_index=1)
+    uv2 = _expr(m, unreal.MaterialExpressionTextureCoordinate, -3000, 1100, coordinate_index=2)
     white = unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture")
-    tex = _tex_sample(m, white, uv0, -1900, -300, "Tex")
-    trgb = tex                                   # texture sample "" output = RGB, alpha on pin "A"
-    base = _op(m, unreal.MaterialExpressionMultiply, trgb, _vrgb(m, "Tint", (1, 1, 1), -1900, -450), -1650, -350)
+    tex = _tex_sample(m, white, uv0, -2700, -300, "Tex")
+    base = O(m, MUL, tex, _vrgb(m, "Tint", (1, 1, 1), -2700, -450), -2400, -350)
     gr = unreal.load_asset(CK + "/Textures/T_CkGrunge")
-    g = _tex_sample(m, gr, _op(m, unreal.MaterialExpressionMultiply, uv1, _sparam(m, "GrungeTile", 2.5, -2200, 520), -2000, 450), -1800, 400)
-    gR = _expr(m, unreal.MaterialExpressionComponentMask, -1600, 400, r=True, g=False, b=False, a=False)
-    MEL.connect_material_expressions(g, "", gR, "")
-    vc = _expr(m, unreal.MaterialExpressionVertexColor, -2200, 150)
-    # wear = saturate((vc.R - WearLo) * 8) * saturate(grunge * 2 - 0.4) * Wear
-    w0 = _expr(m, unreal.MaterialExpressionSaturate, -1500, 150)
-    MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionMultiply,
-                                         _op(m, unreal.MaterialExpressionSubtract, vc, _sparam(m, "WearLo", 0.56, -2000, 250), -1800, 150, "R"),
-                                         _const(m, 8.0, -1800, 250), -1650, 150), "", w0, "")
-    gm = _expr(m, unreal.MaterialExpressionSaturate, -1350, 330)
-    MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionSubtract, _op(m, unreal.MaterialExpressionMultiply, gR, _const(m, 2.0, -1500, 480), -1450, 400),
-                                         _const(m, 0.4, -1500, 560), -1400, 330), "", gm, "")
-    wear = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, w0, gm, -1250, 200), _sparam(m, "Wear", 0.0, -1400, 260), -1100, 200)
-    cav = _expr(m, unreal.MaterialExpressionSaturate, -1500, 0)
-    MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionMultiply,
-                                         _op(m, unreal.MaterialExpressionSubtract, _const(m, 0.45, -2000, 50), vc, -1800, 0, "", "R"),
-                                         _const(m, 5.0, -1800, 80), -1650, 0), "", cav, "")
-    shade = _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -1300, 60),
-                _op(m, unreal.MaterialExpressionMultiply, cav, _sparam(m, "Cavity", 0.5, -1450, 100), -1350, 0), -1200, 0)
-    gvar = _expr(m, unreal.MaterialExpressionLinearInterpolate, -1300, -120)       # subtle albedo variation from the grunge
-    MEL.connect_material_expressions(_const(m, 0.97, -1450, -160), "", gvar, "A")
-    MEL.connect_material_expressions(_const(m, 1.02, -1450, -120), "", gvar, "B")
-    MEL.connect_material_expressions(gR, "", gvar, "Alpha")
-    b1 = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, base, shade, -1100, -250), gvar, -950, -250)
-    bw = _expr(m, unreal.MaterialExpressionLinearInterpolate, -800, -250)
-    MEL.connect_material_expressions(b1, "", bw, "A")
-    MEL.connect_material_expressions(_vrgb(m, "WearColor", (0.22, 0.22, 0.21), -1000, -350), "", bw, "B")
-    MEL.connect_material_expressions(wear, "", bw, "Alpha")
+    g = _tex_sample(m, gr, O(m, MUL, uv1, SP(m, "GrungeTile", 2.5, -3000, 520), -2800, 450), -2600, 400)
+    gR = mask(g, "r", -2400, 400)
+    vc = _expr(m, unreal.MaterialExpressionVertexColor, -3000, 150)
+    vR, vG = mask(vc, "r", -2800, 120), mask(vc, "g", -2800, 200)
+    mt = unreal.load_asset(CK + "/Textures/T_CkShellMasks")
+    mk = _tex_sample(m, mt if mt else white, uv2, -2700, 1100)
+    mR, mG, mB = mask(mk, "r", -2400, 1000), mask(mk, "g", -2400, 1080), mask(mk, "b", -2400, 1160)
+    one = C(m, 1.0, -2400, 900)
+    # AO: baked (flagged parts) or the old vertex cavity (others)
+    vcav = O(m, MUL, sat(O(m, MUL, O(m, SUB, C(m, 0.45, -2600, 40), vR, -2500, 0), C(m, 5.0, -2500, 80), -2400, 0), -2300, 0),
+             SP(m, "Cavity", 0.5, -2400, 60), -2200, 0)
+    ao_old = O(m, SUB, one, vcav, -2100, 0)
+    ao_bk = lerp(one, mR, SP(m, "AOAmt", 1.0, -2300, 1240), -2100, 1050)
+    ao = lerp(ao_old, ao_bk, vG, -1900, 300)
+    # edges: vertex edge value (bevel faces) and baked edge / touch mask (flagged parts)
+    vedge = sat(O(m, MUL, O(m, SUB, vR, SP(m, "WearLo", 0.56, -2600, 250), -2500, 220), C(m, 8.0, -2500, 300), -2400, 230), -2300, 230)
+    edge = _expr(m, unreal.MaterialExpressionMax, -2100, 600)
+    MEL.connect_material_expressions(vedge, "", edge, "A")
+    MEL.connect_material_expressions(O(m, MUL, O(m, MUL, mG, vG, -2300, 1300), SP(m, "EdgeGain", 1.0, -2500, 1350), -2200, 1300), "", edge, "B")
+    # wear = saturate((edge + (grunge - 0.5) * 0.8 - (1 - Wear)) * 6)  -> sharp-edged chips, grunge breaks the line up
+    wearin = O(m, SUB, O(m, ADD, edge, O(m, MUL, O(m, SUB, gR, C(m, 0.5, -2300, 470), -2200, 440), C(m, 0.8, -2200, 520), -2100, 450), -1950, 500),
+               O(m, SUB, one, SP(m, "Wear", 0.0, -2200, 660), -2050, 640), -1800, 520)
+    wear = sat(O(m, MUL, wearin, C(m, 6.0, -1800, 600), -1650, 520), -1500, 520)
+    # dirt (flagged parts): saturate((maskB * Dirt + grunge * 0.5 - 0.55) * 3)
+    dirt = sat(O(m, MUL, O(m, SUB, O(m, ADD, O(m, MUL, O(m, MUL, mB, vG, -2300, 1400), SP(m, "Dirt", 0.0, -2300, 1480), -2200, 1420),
+                                      O(m, MUL, gR, C(m, 0.5, -2300, 1560), -2200, 1540), -2100, 1450), C(m, 0.55, -2100, 1560), -2000, 1460),
+                    C(m, 3.0, -2000, 1560), -1900, 1460), -1800, 1460)
+    # base colour: tint x grunge variation (0.85..1.10), dirt, AO, then worn paint -> bare metal
+    gvar = lerp(C(m, 0.85, -2200, -160), C(m, 1.10, -2200, -120), gR, -2000, -140)
+    b1 = O(m, MUL, base, gvar, -1800, -250)
+    b2 = lerp(b1, _vrgb(m, "DirtColor", (0.045, 0.040, 0.032), -1900, -60), O(m, MUL, dirt, C(m, 0.6, -1800, 30), -1700, 0), -1600, -200)
+    b3 = O(m, MUL, b2, ao, -1450, -200)
+    bw = lerp(b3, _vrgb(m, "WearColor", (0.55, 0.56, 0.57), -1500, -350), wear, -1250, -250)
     MEL.connect_material_property(bw, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    rv = _expr(m, unreal.MaterialExpressionLinearInterpolate, -1000, 500)
-    MEL.connect_material_expressions(_const(m, 0.95, -1200, 480), "", rv, "A")
-    MEL.connect_material_expressions(_const(m, 1.05, -1200, 540), "", rv, "B")
-    MEL.connect_material_expressions(gR, "", rv, "Alpha")
-    rough = _op(m, unreal.MaterialExpressionSubtract, _op(m, unreal.MaterialExpressionMultiply, _sparam(m, "Rough", 0.6, -1000, 420), rv, -850, 450),
-                _op(m, unreal.MaterialExpressionMultiply, wear, _const(m, 0.25, -1000, 620), -850, 560), -700, 480)
-    rc = _expr(m, unreal.MaterialExpressionClamp, -550, 480)
-    MEL.connect_material_expressions(rough, "", rc, "")
+    MEL.connect_material_property(O(m, MUL, C(m, 0.5, -1300, 1000), ao, -1150, 1000), "", unreal.MaterialProperty.MP_SPECULAR)
+    # roughness = clamp(Rough + (grunge - 0.5) * RoughVar + dirt * 0.15 - wear * 0.25)
+    r1 = O(m, ADD, SP(m, "Rough", 0.6, -1500, 700), O(m, MUL, O(m, SUB, gR, C(m, 0.5, -1700, 800), -1600, 780), SP(m, "RoughVar", 0.3, -1700, 860), -1450, 800), -1300, 720)
+    r2 = O(m, SUB, O(m, ADD, r1, O(m, MUL, dirt, C(m, 0.15, -1400, 900), -1300, 880), -1200, 760), O(m, MUL, wear, C(m, 0.25, -1400, 980), -1300, 960), -1100, 800)
+    rc = _expr(m, unreal.MaterialExpressionClamp, -950, 800, min_default=0.05, max_default=1.0)
+    MEL.connect_material_expressions(r2, "", rc, "")
     MEL.connect_material_property(rc, "", unreal.MaterialProperty.MP_ROUGHNESS)
-    mt = _expr(m, unreal.MaterialExpressionLinearInterpolate, -700, 650)
-    MEL.connect_material_expressions(_sparam(m, "Metal", 0.0, -900, 650), "", mt, "A")
-    MEL.connect_material_expressions(_sparam(m, "WearMetal", 0.6, -900, 720), "", mt, "B")
-    MEL.connect_material_expressions(wear, "", mt, "Alpha")
-    MEL.connect_material_property(mt, "", unreal.MaterialProperty.MP_METALLIC)
+    MEL.connect_material_property(lerp(SP(m, "Metal", 0.0, -1300, 1100), SP(m, "WearMetal", 1.0, -1300, 1160), wear, -1100, 1100), "",
+                                  unreal.MaterialProperty.MP_METALLIC)
     # emissive: backlit legends (atlas alpha) + self emission
-    bl = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, trgb, tex, -1400, -650, "", "A"),
-             _op(m, unreal.MaterialExpressionMultiply, _sparam(m, "Backlight", 0.0, -1600, -500), _vrgb(m, "BacklightColor", (0.85, 1.0, 0.75), -1600, -420), -1400, -480),
-             -1200, -600)
-    em = _op(m, unreal.MaterialExpressionAdd, bl, _op(m, unreal.MaterialExpressionMultiply, base, _sparam(m, "Emissive", 0.0, -1400, -360), -1200, -400), -1000, -550)
+    bl = O(m, MUL, O(m, MUL, tex, tex, -2200, -650, "", "A"),
+           O(m, MUL, SP(m, "Backlight", 0.0, -2400, -500), _vrgb(m, "BacklightColor", (0.85, 1.0, 0.75), -2400, -420), -2200, -480), -2000, -600)
+    em = O(m, ADD, bl, O(m, MUL, base, SP(m, "Emissive", 0.0, -2200, -360), -2000, -400), -1800, -550)
     MEL.connect_material_property(em, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    # normal: tiling map on UV1, strength NormalAmt (0 = flat)
+    # normal: tiling map on UV1 (fabric / grip weave, or the paint detail normal), strength NormalAmt (0 = flat)
     nt = unreal.load_asset(CK + "/Textures/T_CkFabricN")
-    nn = _tex_sample(m, nt, _op(m, unreal.MaterialExpressionMultiply, uv1, _sparam(m, "NormalTile", 4.0, -2200, 800), -2000, 760), -1800, 760, "NormalTex")
-    nl = _expr(m, unreal.MaterialExpressionLinearInterpolate, -1500, 760)
-    nrgb = _expr(m, unreal.MaterialExpressionComponentMask, -1650, 760, r=True, g=True, b=True, a=False)
+    nn = _tex_sample(m, nt, O(m, MUL, uv1, SP(m, "NormalTile", 4.0, -3000, 1800), -2800, 1760), -2600, 1760, "NormalTex")
+    nrgb = _expr(m, E, -2400, 1760, r=True, g=True, b=True, a=False)
     MEL.connect_material_expressions(nn, "", nrgb, "")
-    MEL.connect_material_expressions(_const3(m, (0, 0, 1), -1700, 900), "", nl, "A")
-    MEL.connect_material_expressions(nrgb, "", nl, "B")
-    MEL.connect_material_expressions(_sparam(m, "NormalAmt", 0.0, -1700, 960), "", nl, "Alpha")
+    nl = lerp(_const3(m, (0, 0, 1), -2400, 1900), nrgb, SP(m, "NormalAmt", 0.0, -2400, 1960), -2200, 1800)
     MEL.connect_material_property(nl, "", unreal.MaterialProperty.MP_NORMAL)
     m = _finish(m)
     st = MEL.get_statistics(m)
@@ -106,43 +125,47 @@ def ck_glass(name, rgb, opacity):
     return _finish(m)
 
 
-# slot -> parameters (colours linear)
+# slot -> parameters (colours linear). Realism pass 11-05 (docs/cockpit-modeling-guide.md 5-6, photos c06 / c28 / d03):
+# tub / walls FS 36231 dark gull grey, panels / consoles matte black >= 0.016 (PBR floor), worn paint = bare aluminium,
+# Wear = how readily edges chip (0 none, 1 every edge), Dirt = dirt layer amount, PN = hard-surface detail normal.
+PN = dict(NormalTex="T_CkPaintN", NormalAmt=0.2, NormalTile=7.0)
 CK_SLOTS = {
-    "CK_Panel": dict(tex="T_CkPanels", Rough=0.82, Backlight=2.6, Wear=0.35, Cavity=0.5),
-    "CK_Dial": dict(tex="T_CkDials", Rough=0.45, Backlight=2.2, Wear=0.0, Cavity=0.0),
-    "CK_ADI": dict(tex="T_CkADI", Rough=0.3, Wear=0.0, Cavity=0.0),
-    "CK_Paint": dict(Tint=(0.040, 0.043, 0.047), Rough=0.7, Wear=0.5),
-    "CK_Paint2": dict(Tint=(0.026, 0.028, 0.030), Rough=0.6, Wear=0.8),
-    "CK_Black": dict(Tint=(0.012, 0.012, 0.013), Rough=0.5, Wear=0.6),
-    "CK_AntiGlare": dict(Tint=(0.007, 0.007, 0.008), Rough=0.95, Wear=0.15),
-    "CK_Metal": dict(Tint=(0.42, 0.43, 0.44), Metal=1.0, Rough=0.38),
-    "CK_Chrome": dict(Tint=(0.8, 0.8, 0.8), Metal=1.0, Rough=0.16),
-    "CK_Frame": dict(Tint=(0.032, 0.034, 0.037), Rough=0.45, Wear=1.0),
-    "CK_Rubber": dict(Tint=(0.014, 0.014, 0.014), Rough=0.85),
-    "CK_Grip": dict(Tint=(0.018, 0.018, 0.019), Rough=0.72, Wear=0.25, NormalAmt=0.5, NormalTile=10.0),
-    "CK_Fabric": dict(Tint=(0.028, 0.032, 0.020), Rough=0.95, NormalAmt=1.0, NormalTile=5.0),
-    "CK_Webbing": dict(Tint=(0.055, 0.060, 0.032), Rough=0.9, NormalAmt=1.0, NormalTile=9.0),
-    "CK_Seat": dict(Tint=(0.016, 0.017, 0.018), Rough=0.55, Wear=0.8),
+    "CK_Panel": dict(tex="T_CkPanels", Rough=0.82, RoughVar=0.25, Backlight=2.6, Wear=0.35, Dirt=0.35, **PN),
+    "CK_Dial": dict(tex="T_CkDials", Rough=0.45, RoughVar=0.1, Backlight=2.2, Cavity=0.0),
+    "CK_ADI": dict(tex="T_CkADI", Rough=0.3, RoughVar=0.05, Cavity=0.0),
+    "CK_Paint": dict(Tint=(0.13, 0.14, 0.14), Rough=0.62, RoughVar=0.3, Wear=0.45, Dirt=0.55, **PN),
+    "CK_Paint2": dict(Tint=(0.030, 0.032, 0.034), Rough=0.6, RoughVar=0.25, Wear=0.6, Dirt=0.4, **PN),
+    "CK_Black": dict(Tint=(0.018, 0.018, 0.019), Rough=0.55, RoughVar=0.25, Wear=0.5, Dirt=0.3, **PN),
+    "CK_AntiGlare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.93, RoughVar=0.1, Wear=0.1, Dirt=0.25, EdgeGain=0.5, NormalTex="T_CkPaintN",
+                         NormalAmt=0.2, NormalTile=7.0),
+    "CK_Metal": dict(Tint=(0.55, 0.56, 0.57), Metal=1.0, Rough=0.4, RoughVar=0.2, Dirt=0.3),
+    "CK_Chrome": dict(Tint=(0.8, 0.8, 0.8), Metal=1.0, Rough=0.18, RoughVar=0.1),
+    "CK_Frame": dict(Tint=(0.03, 0.032, 0.035), Rough=0.62, RoughVar=0.3, Wear=0.5, EdgeGain=1.0, Dirt=0.3, **PN),
+    "CK_Rubber": dict(Tint=(0.02, 0.02, 0.02), Rough=0.85, RoughVar=0.15, Dirt=0.4),
+    "CK_Grip": dict(Tint=(0.02, 0.02, 0.021), Rough=0.7, RoughVar=0.2, Wear=0.25, NormalAmt=0.5, NormalTile=10.0),
+    "CK_Fabric": dict(Tint=(0.028, 0.032, 0.020), Rough=0.95, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=5.0),
+    "CK_Webbing": dict(Tint=(0.055, 0.060, 0.032), Rough=0.9, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=9.0),
+    "CK_Seat": dict(Tint=(0.022, 0.023, 0.024), Rough=0.55, RoughVar=0.3, Wear=0.6, Dirt=0.4, **PN),
     "CK_Red": dict(Tint=(0.32, 0.012, 0.010), Rough=0.4, Wear=0.4),
     "CK_RedGuard": dict(Tint=(0.30, 0.014, 0.008), Rough=0.35, Wear=0.6),
     "CK_White": dict(Tint=(0.7, 0.7, 0.68), Rough=0.5),
-    "CK_Knob": dict(Tint=(0.012, 0.012, 0.013), Rough=0.4, Wear=0.5),
-    "CK_Needle": dict(Tint=(0.85, 0.85, 0.82), Rough=0.5, Emissive=0.5),
+    "CK_Knob": dict(Tint=(0.016, 0.016, 0.017), Rough=0.4, Wear=0.5),
+    "CK_Needle": dict(Tint=(0.85, 0.85, 0.82), Rough=0.5, RoughVar=0.0, Emissive=0.5),
     "CK_Orange": dict(Tint=(0.8, 0.22, 0.01), Rough=0.5, Emissive=0.4),
-    "CK_LensG": dict(Tint=(0.01, 0.05, 0.015), Rough=0.08, Emissive=0.15),
-    "CK_LensA": dict(Tint=(0.08, 0.04, 0.003), Rough=0.08, Emissive=0.15),
-    "CK_LensR": dict(Tint=(0.08, 0.005, 0.003), Rough=0.08, Emissive=0.15),
-    "CK_LightG": dict(Tint=(0.15, 1.0, 0.3), Rough=0.1, Emissive=8.0),
-    "CK_Hole": dict(Tint=(0.0, 0.0, 0.0), Rough=1.0),
+    "CK_LensG": dict(Tint=(0.01, 0.05, 0.015), Rough=0.08, RoughVar=0.05, Emissive=0.15),
+    "CK_LensA": dict(Tint=(0.08, 0.04, 0.003), Rough=0.08, RoughVar=0.05, Emissive=0.15),
+    "CK_LensR": dict(Tint=(0.08, 0.005, 0.003), Rough=0.08, RoughVar=0.05, Emissive=0.15),
+    "CK_LightG": dict(Tint=(0.15, 1.0, 0.3), Rough=0.1, RoughVar=0.0, Emissive=8.0),
+    "CK_Hole": dict(Tint=(0.0, 0.0, 0.0), Rough=1.0, RoughVar=0.0),
     "CK_GearKnob": dict(Tint=(0.72, 0.71, 0.67), Rough=0.35, Wear=0.3),
-    "CK_HUDFrame": dict(Tint=(0.03, 0.03, 0.032), Metal=0.6, Rough=0.35, Wear=0.6),
-    "CK_HUDExit": dict(Tint=(0.0, 0.01, 0.005), Rough=0.05),
-    "CK_Mirror": dict(Tint=(0.6, 0.62, 0.64), Metal=1.0, Rough=0.12),
-    "CK_Bezel": dict(Tint=(0.010, 0.010, 0.011), Rough=0.32, Wear=0.5, Cavity=0.4),
-    "CK_LightLit": dict(tex="T_CkPanels", Rough=0.2, Emissive=7.0),
-    "CK_Wall": dict(tex="T_CkPanels", Rough=0.68, Wear=0.6, Cavity=0.5, GrungeTile=2.0),
+    "CK_HUDFrame": dict(Tint=(0.016, 0.016, 0.017), Rough=0.5, RoughVar=0.25, Wear=0.45, Dirt=0.3, **PN),
+    "CK_HUDExit": dict(Tint=(0.0, 0.01, 0.005), Rough=0.05, RoughVar=0.0),
+    "CK_Mirror": dict(Tint=(0.6, 0.62, 0.64), Metal=1.0, Rough=0.12, RoughVar=0.0),
+    "CK_Bezel": dict(Tint=(0.016, 0.016, 0.017), Rough=0.4, RoughVar=0.2, Wear=0.4, Cavity=0.4, **PN),
+    "CK_LightLit": dict(tex="T_CkPanels", Rough=0.2, RoughVar=0.0, Emissive=7.0),
+    "CK_Wall": dict(tex="T_CkPanels", Rough=0.66, RoughVar=0.3, Wear=0.45, Dirt=0.55, Cavity=0.5, GrungeTile=2.0, **PN),
 }
-CK_GLASS = {"CK_Glass": ("M_CkInstGlass", (0.6, 0.65, 0.7), 0.05), "CK_HUDGlass": ("M_CkHUDGlass", (0.45, 0.7, 0.55), 0.07),
+CK_GLASS = {"CK_Glass": ("M_CkInstGlass", (0.6, 0.65, 0.7), 0.05), "CK_HUDGlass": ("M_CkHUDGlass", (0.5, 0.78, 0.5), 0.09),
             "CK_DispGlass": ("M_CkDispGlass", (0.55, 0.6, 0.65), 0.03)}
 
 
@@ -200,6 +223,70 @@ def ck_label():
     return _finish(m)
 
 
+CANOPY_HLSL = """
+float3 d = LP - Eye;
+float az = atan2(d.y, d.x);
+float el = atan2(d.z, length(d.xy));
+float2 uv = float2(az, -el) * Tile;
+float4 t = Texture2DSample(T, TSampler, uv);
+float scr = t.r;
+float smu = t.g;
+float c = saturate(dot(normalize(-CV), normalize(Sun)));
+float glint = pow(c, 28.0);            // scratches light up only around the sun direction (arcs around the sun, photo d09)
+float halo = pow(c, 4.0);              // dust / haze on the glass veils the view toward the sun
+float fr = pow(1.0 - saturate(abs(dot(normalize(CV), normalize(N)))), 4.0);
+float op = Base + fr * FresAmt + smu * SmudgeAmt * (0.3 + 0.7 * halo) + scr * glint * 0.12 + halo * HaloAmt * smu;
+op = saturate(op);
+float3 e = SunCol * (scr * glint * Gain + smu * halo * HaloGlow);
+return float4(e / max(op, 0.02), op);
+"""
+
+
+def ck_canopy(sun_dir):
+    """M_CkCanopy (on the F-16 canopy glass): nearly clear polycarbonate with fine circular polishing scratches that only
+    light up around the sun (fake glint: scratch mask x (view . sun)^12, photos d09 / v2), smudges / dust that veil the
+    view toward the sun, Fresnel at grazing angles. Scratch mapping = view angles from the design eye (no UVs needed).
+    Translucency volume lighting (cheap) - the glints are emissive."""
+    m = _new_material("M_CkCanopy", CK + "/Materials")
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    m.set_editor_property("two_sided", True)
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    cu = _expr(m, unreal.MaterialExpressionCustom, -600, 0)
+    cu.set_editor_property("code", CANOPY_HLSL)
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT4)
+    names = ("LP", "CV", "N", "Sun", "SunCol", "T", "Eye", "Tile", "Gain", "Base", "FresAmt", "SmudgeAmt", "HaloAmt", "HaloGlow")
+    ins = []
+    for n in names:
+        ci = unreal.CustomInput()
+        ci.set_editor_property("input_name", n)
+        ins.append(ci)
+    cu.set_editor_property("inputs", ins)
+    lp = _expr(m, unreal.MaterialExpressionTransformPosition, -1000, -300, transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
+               transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+    MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionWorldPosition, -1200, -300), "", lp, "")
+    MEL.connect_material_expressions(lp, "", cu, "LP")
+    MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionCameraVectorWS, -1000, -220), "", cu, "CV")
+    MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionVertexNormalWS, -1000, -160), "", cu, "N")
+    MEL.connect_material_expressions(_vrgb(m, "SunDir", sun_dir, -1200, -100), "", cu, "Sun")
+    MEL.connect_material_expressions(_vrgb(m, "SunColor", (1.0, 0.96, 0.9), -1200, -20), "", cu, "SunCol")
+    t = _expr(m, unreal.MaterialExpressionTextureObjectParameter, -1000, 60, parameter_name="Scratch")
+    st = unreal.load_asset(CK + "/Textures/T_CkCanopyScratch")
+    if st:
+        t.set_editor_property("texture", st)
+    MEL.connect_material_expressions(t, "", cu, "T")
+    MEL.connect_material_expressions(_const3(m, EYE, -1000, 140), "", cu, "Eye")
+    for i, (n, v) in enumerate((("Tile", 1.3), ("Gain", 1.2), ("Base", 0.008), ("FresAmt", 0.12), ("SmudgeAmt", 0.01), ("HaloAmt", 0.03),
+                                ("HaloGlow", 0.08))):
+        MEL.connect_material_expressions(_sparam(m, n, v, -1000, 220 + 60 * i), "", cu, n)
+    rgb = _expr(m, unreal.MaterialExpressionComponentMask, -300, -50, r=True, g=True, b=True, a=False)
+    MEL.connect_material_expressions(cu, "", rgb, "")
+    a = _expr(m, unreal.MaterialExpressionComponentMask, -300, 80, r=False, g=False, b=False, a=True)
+    MEL.connect_material_expressions(cu, "", a, "")
+    MEL.connect_material_property(rgb, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(a, "", unreal.MaterialProperty.MP_OPACITY)
+    return _finish(m)
+
+
 CK_FILL_LOC, CK_FILL_CD = (452.0, 0.0, 92.0), 1.6     # cockpit fill light (cd): lifts the shadowed interior a little
 
 
@@ -231,9 +318,17 @@ def ck_import_mesh(fbx, dest):
 def build_cockpit():
     man = json.load(open(os.path.join(CK_SRC, "manifest.json"), encoding="utf-8"))
     tdir = os.path.join(CK_SRC, "tex")
-    names = ("T_CkPanels.png", "T_CkDials.png", "T_CkADI.png", "T_CkGrunge.png", "T_CkFabricN.png")
+    names = ("T_CkPanels.png", "T_CkDials.png", "T_CkADI.png", "T_CkGrunge.png", "T_CkFabricN.png", "T_CkPaintN.png", "T_CkShellMasks.png",
+             "T_CkCanopyScratch.png")
+    names = [n for n in names if os.path.exists(os.path.join(tdir, n))]
     tx = import_textures([os.path.join(tdir, f) for f in names], CK + "/Textures",
-                         {os.path.join(tdir, "T_CkGrunge.png"): "linear", os.path.join(tdir, "T_CkFabricN.png"): "normal"})
+                         {os.path.join(tdir, "T_CkGrunge.png"): "linear", os.path.join(tdir, "T_CkFabricN.png"): "normal",
+                          os.path.join(tdir, "T_CkPaintN.png"): "normal", os.path.join(tdir, "T_CkShellMasks.png"): "linear",
+                          os.path.join(tdir, "T_CkCanopyScratch.png"): "linear"})
+    for n in ("T_CkShellMasks", "T_CkCanopyScratch"):       # masks: no sRGB, BC1-class mask compression
+        if n in tx:
+            tx[n].set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_MASKS)
+            EAL.save_loaded_asset(tx[n])
     for n in ("T_CkPanels", "T_CkDials"):
         if n in tx:
             tx[n].set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_BC7)
@@ -244,6 +339,8 @@ def build_cockpit():
         sc = {k: v for k, v in prm.items() if isinstance(v, (int, float))}
         co = {k: v for k, v in prm.items() if isinstance(v, tuple)}
         te = {"Tex": tx[prm["tex"]]} if prm.get("tex") in tx else {}
+        if prm.get("NormalTex") in tx:
+            te["NormalTex"] = tx[prm["NormalTex"]]
         mats[slot] = instance("MI_" + slot[3:], master, sc, co, te, folder=CK + "/Materials")
     for slot, (name, rgb, op) in CK_GLASS.items():
         mats[slot] = ck_glass(name, rgb, op)
@@ -253,6 +350,12 @@ def build_cockpit():
         if not sm:
             log("cockpit import failed", name)
             continue
+        if name == "ck_shell":
+            try:
+                n_uv = unreal.EditorStaticMeshLibrary.get_num_uv_channels(sm, 0)
+            except Exception as e:
+                n_uv = repr(e)
+            log("ck_shell UV channels:", n_uv, "(3 = baked mask UV2 present)")
         for i, sl in enumerate(sm.static_materials):
             sn = str(sl.material_slot_name)
             key = sn if sn in mats else next((k for k in sorted(mats, key=len, reverse=True) if sn.startswith(k)), None)
@@ -299,6 +402,18 @@ def build_cockpit():
             log("fill light", k, e)
     fl.tags = [unreal.Name("AircraftPart"), unreal.Name("CockpitFill")]
     attach(fl, root)
+    # canopy glass (the F-16 exterior's glass mesh, placed by build_level before this file): our scratch / glint material
+    try:
+        sg = (globals().get("F16") or {}).get("F16_Glass")
+        if sg:
+            sd = sun.get_actor_forward_vector()
+            cm = ck_canopy((-sd.x, -sd.y, -sd.z))
+            for i, sl in enumerate(sg.static_materials):
+                log("canopy slot", i, sl.material_slot_name)
+                sg.set_material(i, cm)
+            EAL.save_loaded_asset(sg)
+    except Exception as e:
+        log("canopy material failed", repr(e))
     disp = ck_display()
     for tag, s in SC.items():
         r = unreal.MathLibrary.make_rot_from_zx(V(*s["normal"]), V(0, 1, 0))

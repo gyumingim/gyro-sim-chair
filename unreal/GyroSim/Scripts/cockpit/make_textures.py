@@ -50,8 +50,8 @@ def font(px, weight="SemiBold Condensed"):
 
 
 # ---- colours (sRGB 0..255) --------------------------------------------------------------------------------------------
-PANEL = (27, 28, 30)          # panel face paint (near black, F-16 / T-50 style)
-CONSOLE = (52, 55, 58)        # console / wall paint (dark gull grey)
+PANEL = (36, 37, 39)          # panel face paint (matte black FS 37038, kept above the PBR albedo floor; was (27, 28, 30))
+CONSOLE = (96, 102, 100)      # console / wall paint (FS 36231 dark gull grey, realism pass 11-05: was (52, 55, 58))
 LEGEND = (226, 228, 222)      # legend paint (white), backlit through the alpha mask
 DIALF = (12, 12, 13)
 
@@ -213,11 +213,51 @@ def console_panel(name, u0, u1, v0, v1, title, elems, px=L.PX_CONSOLE):
     for fx, fy in ((0.55, 0.55), (w / px - 0.55, 0.55), (0.55, h / px - 0.55), (w / px - 0.55, h / px - 0.55)):
         dzus(c, fx * px, fy * px, 0.33 * px)
     # title bar (backlit) at the forward edge
-    c.text(w / 2, 0.75 * px, title, 0.44 * px)
-    c.line([(1.3 * px, 1.3 * px), (w - 1.3 * px, 1.3 * px)], 0.06 * px)
+    if title:                       # (an empty title used to leave a lone backlit line = the "white line" on the consoles)
+        c.text(w / 2, 0.75 * px, title, 0.44 * px)
+        c.line([(1.3 * px, 1.3 * px), (w - 1.3 * px, 1.3 * px)], 0.06 * px)
     for kind, u, v, label, opts in elems:
         draw_element(c, kind, X(u), Y(v), label, opts, px)
+    if not elems:
+        ghost_detail(c, w, h, px, sum(map(ord, name)))
     return c.done()
+
+
+def ghost_detail(c, w, h, px, seed):
+    """faint, NON-readable detail for empty panels (user decision 11-05: no fake switches): sub-panel seams with
+    fasteners, illegible placard blocks (word-shaped bars, no letters), blanking plugs. Low contrast, never backlit."""
+    r = np.random.default_rng(seed)
+    dark, lite, ink = (13, 13, 14), (40, 41, 44), (46, 47, 50)
+    # split into 1-3 sub-panels along the long side
+    n = 1 + int(r.integers(0, 3)) if h > 10 * px else 1
+    cuts = sorted(r.uniform(0.3, 0.7, n - 1)) if n > 1 else []
+    edges = [0.0] + [k * h for k in cuts] + [float(h)]
+    for k in range(len(edges) - 1):
+        y0, y1 = edges[k] + 0.35 * px, edges[k + 1] - 0.35 * px
+        x0, x1 = 0.9 * px, w - 0.9 * px
+        if y1 - y0 < 3 * px:
+            continue
+        c.rect(x0, y0, x1, y1, outline=dark, w=0.1 * px)
+        c.rect(x0 + 0.1 * px, y0 + 0.1 * px, x1 - 0.1 * px, y1 - 0.1 * px, outline=lite, w=0.05 * px)
+        for fx, fy in ((x0 + 0.5 * px, y0 + 0.5 * px), (x1 - 0.5 * px, y0 + 0.5 * px), (x0 + 0.5 * px, y1 - 0.5 * px), (x1 - 0.5 * px, y1 - 0.5 * px)):
+            dzus(c, fx, fy, 0.26 * px)
+        # placard: a few rows of word-shaped bars (looks like small print from a distance, nothing to read)
+        if r.random() < 0.8:
+            pw = min(x1 - x0 - 1.6 * px, (4.0 + r.random() * 4.0) * px)
+            px0 = x0 + 0.8 * px + r.random() * max(0.0, x1 - x0 - 1.6 * px - pw)
+            py0 = y0 + 1.0 * px + r.random() * max(0.0, (y1 - y0) - 4.0 * px)
+            rows = 2 + int(r.integers(0, 4))
+            for j in range(rows):
+                xx = px0
+                yy = py0 + j * 0.55 * px
+                while xx < px0 + pw * (0.6 + 0.4 * r.random()):
+                    wl = (0.25 + r.random() * 0.9) * px
+                    c.rect(xx, yy, min(xx + wl, px0 + pw), yy + 0.2 * px, fill=ink, radius=0.05 * px)
+                    xx += wl + 0.18 * px
+        # blanking plugs / unused holes
+        for _ in range(int(r.integers(0, 3))):
+            bx, by = r.uniform(x0 + 1.5 * px, x1 - 1.5 * px), r.uniform(y0 + 1.5 * px, y1 - 1.5 * px)
+            c.circle(bx, by, 0.45 * px, fill=(18, 18, 19), outline=lite, w=0.05 * px)
 
 
 def thr_housing(px=L.PX_CONSOLE):
@@ -623,11 +663,76 @@ def build_fabric_normal():
     Image.fromarray((rgb * 255).astype(np.uint8)).save(os.path.join(OUT, "T_CkFabricN.png"), optimize=True)
 
 
+def tile_blend(arr):
+    """make a non-tiling array tile: cross-fade with a half-offset copy near the borders (as in build_grunge)."""
+    S0, S1 = arr.shape[:2]
+    sh = np.roll(np.roll(arr, S0 // 2, 0), S1 // 2, 1)
+    wx = np.abs(np.linspace(-1, 1, S1))[None, :]
+    wy = np.abs(np.linspace(-1, 1, S0))[:, None]
+    wgt = np.clip(np.maximum(wx, wy) * 1.6 - 0.6, 0, 1)
+    return arr * (1 - wgt) + sh * wgt
+
+
+def build_paint_normal():
+    """T_CkPaintN: hard-surface detail normal (tiles every ~6 cm): faint orange peel + fine scratches / scuffs."""
+    S = 1024
+    h = noise(S, S, 18, 0.5, 31) + noise(S, S, 6, 0.25, 32)
+    img = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(img)
+    r = np.random.default_rng(33)
+    for _ in range(420):
+        x, y = r.random(2) * S
+        ang = r.normal(0.0, 0.35) + (math.pi / 2 if r.random() < 0.3 else 0.0)
+        l = 10 + r.random() * 90
+        d.line([(x, y), (x + math.cos(ang) * l, y + math.sin(ang) * l)], fill=int(120 + r.random() * 135), width=1)
+    sc = np.asarray(img, np.float32) / 255.0
+    h = tile_blend(h - sc * 1.2)
+    gx = np.roll(h, -1, 1) - np.roll(h, 1, 1)
+    gy = np.roll(h, -1, 0) - np.roll(h, 1, 0)
+    s_ = 0.9
+    nx, ny, nz = -gx * s_, gy * s_, np.ones_like(h)
+    ln = np.sqrt(nx * nx + ny * ny + nz * nz)
+    rgb = np.stack([nx / ln, ny / ln, nz / ln], -1) * 0.5 + 0.5
+    Image.fromarray((rgb * 255).astype(np.uint8)).save(os.path.join(OUT, "T_CkPaintN.png"), optimize=True)
+
+
+def build_canopy_scratch():
+    """T_CkCanopyScratch (mapped by view angle from the eye, see ue_cockpit.ck_canopy): R = fine circular polishing
+    marks (arcs around several centres, like real canopy glass in the sun, photos d09 / v2), G = smudges / dust."""
+    S = 1024
+    img = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(img)
+    r = np.random.default_rng(41)
+    for _ in range(9):                                    # polishing centres, each leaves a family of arcs
+        cx, cy = r.random(2) * S
+        for _ in range(int(r.integers(12, 30))):
+            rad = r.uniform(20, 420)
+            a0 = r.uniform(0, 360)
+            span = r.uniform(15, 80)
+            v = int(r.uniform(40, 200))
+            for ox in (-S, 0, S):                         # wrap so the texture tiles
+                for oy in (-S, 0, S):
+                    b = (cx + ox - rad, cy + oy - rad, cx + ox + rad, cy + oy + rad)
+                    d.arc(b, a0, a0 + span, fill=v, width=1)
+    for _ in range(220):                                  # short random hairline scratches
+        x, y = r.random(2) * S
+        ang = r.random() * math.pi
+        l = 4 + r.random() * 30
+        d.line([(x, y), (x + math.cos(ang) * l, y + math.sin(ang) * l)], fill=int(r.uniform(40, 160)), width=1)
+    sc = np.asarray(img, np.float32)
+    sm = np.clip((noise(S, S, 90, 0.5, 42) + noise(S, S, 25, 0.35, 43) + 0.05) * 1.4, 0, 1) * 255
+    sm = tile_blend(sm)
+    rgb = np.stack([sc, sm, np.zeros_like(sc)], -1)
+    Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8)).save(os.path.join(OUT, "T_CkCanopyScratch.png"), optimize=True)
+
+
 if __name__ == "__main__":
     build_atlas()
     build_dials()
     build_adi()
     build_grunge()
     build_fabric_normal()
+    build_paint_normal()
+    build_canopy_scratch()
     for f in sorted(os.listdir(OUT)):
         print(f, os.path.getsize(os.path.join(OUT, f)) // 1024, "KB")

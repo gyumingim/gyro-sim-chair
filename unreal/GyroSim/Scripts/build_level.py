@@ -181,6 +181,36 @@ return float2((az + AzMax) / (2.0 * AzMax), (90.0 - el) / 180.0);
 
 HUD_PLATE = 0.12          # must match hud.HUD_PLATE (grey of the backing plates behind HUD text)
 
+# HUD symbols clipped to the combiner glass (realism pass 11-05): the ray camera -> HUD pixel (20 m plane) must pass
+# through the combiner (rounded rectangle on a plane tilted back, from Art/Cockpit/manifest.json "hud_combiner").
+# Per eye in VR (camera position), so the clip edge sits on the glass edge from any head position. Sides and top only:
+# below the glass is the HUD body / coaming (the heading tape keeps showing there, as before).
+HUDCLIP_HLSL = """
+float u = (2.0 * UV.x - 1.0) * T;
+float w = T0 + (1.0 - 2.0 * UV.y) * T;
+float3 P = float3(D, D * u, D * w);
+float s = LocalScaled > 0.5 ? S : 1.0;
+float3 C = float3(D, 0.0, D * T0) + float3(-CL.z, CL.x * s, -CL.y * s);
+float3 dir = P - C;
+float den = dot(dir, Fw);
+if (abs(den) < 1e-4) return 0.0;
+float t = dot(B - C, Fw) / den;
+float3 X = C + dir * t - B;
+float h = dot(X, Up);
+float hc = 0.5 * (H0 + H1);
+float2 c = float2(X.y, max(h - hc, 0.0));
+float2 q = abs(c) - float2(0.5 * Wd, 0.5 * (H1 - H0)) + R;
+float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - R;
+return saturate(0.5 - sd / Soft);
+"""
+
+
+def _hud_combiner():
+    try:
+        return json.load(open(os.path.join(CK_SRC, "manifest.json"), encoding="utf-8")).get("hud_combiner")
+    except Exception:
+        return None
+
 
 def screen_material(name, no_depth=False, bright=1.0, ladder=False):
     """Unlit screen: emissive = texture parameter 'Tex' (tutorial PNG / canvas render target) x Brightness,
@@ -235,6 +265,39 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
         MEL.connect_material_expressions(sub, "", sat, "")
         em = _op(m, unreal.MaterialExpressionMultiply, sat, _const(m, 1.0 / (1.0 - HUD_PLATE), -650, 140), -450, 80)
     e = _op(m, unreal.MaterialExpressionMultiply, em, _sparam(m, "Brightness", bright, -800, 250), -500, 0)
+    clip = None
+    hc = _hud_combiner() if ladder else None
+    if hc:
+        cu = _expr(m, unreal.MaterialExpressionCustom, -1300, 700)
+        cu.set_editor_property("code", HUDCLIP_HLSL)
+        cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT1)
+        names = ("UV", "CL", "T", "T0", "D", "S", "LocalScaled", "B", "Fw", "Up", "Wd", "H0", "H1", "R", "Soft")
+        ins = []
+        for n in names:
+            ci = unreal.CustomInput()
+            ci.set_editor_property("input_name", n)
+            ins.append(ci)
+        cu.set_editor_property("inputs", ins)
+        MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionTextureCoordinate, -1600, 600), "", cu, "UV")
+        cl = _expr(m, unreal.MaterialExpressionTransformPosition, -1600, 660,
+                   transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
+                   transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+        MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionCameraPositionWS, -1800, 660), "", cl, "")
+        MEL.connect_material_expressions(cl, "", cu, "CL")
+        Dh, Th, T0h = 2000.0, math.tan(math.radians(14.0)), math.tan(math.radians(-6.0))      # = HUD_D, HUD_HALF, HUD_EL0 below
+        Sh = 2 * Dh * Th / 100.0
+        rel = lambda p: (p[0] - EYE[0], p[1] - EYE[1], p[2] - EYE[2])
+        for i, (n, v) in enumerate((("T", Th), ("T0", T0h), ("D", Dh), ("S", Sh), ("LocalScaled", 1.0), ("Wd", hc["w"]), ("H0", hc["h0"]),
+                                    ("H1", hc["h1"]), ("R", hc["r"]), ("Soft", 0.35))):
+            MEL.connect_material_expressions(_sparam(m, "Clip" + n if n in ("LocalScaled", "Soft") else "C_" + n, v, -1600, 720 + 50 * i), "", cu, n)
+        MEL.connect_material_expressions(_const3(m, rel(hc["base"]), -1600, 1250), "", cu, "B")
+        MEL.connect_material_expressions(_const3(m, hc["fwd"], -1600, 1300), "", cu, "Fw")
+        MEL.connect_material_expressions(_const3(m, hc["up"], -1600, 1350), "", cu, "Up")
+        clip = _expr(m, unreal.MaterialExpressionLinearInterpolate, -1100, 750)       # ClipOn 0 = old unclipped look
+        MEL.connect_material_expressions(_const(m, 1.0, -1300, 960), "", clip, "A")
+        MEL.connect_material_expressions(cu, "", clip, "B")
+        MEL.connect_material_expressions(_sparam(m, "ClipOn", 1.0, -1300, 900), "", clip, "Alpha")
+        e = _op(m, unreal.MaterialExpressionMultiply, e, clip, -400, 0)
     MEL.connect_material_property(e, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     # coverage from colour (canvas text does not write alpha): saturate((r + g + b) * 2)
     t3 = _expr(m, unreal.MaterialExpressionComponentMask, -700, 380, r=True, g=True, b=True, a=False)
@@ -247,6 +310,8 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
     MEL.connect_material_expressions(cov, "", a, "B")
     MEL.connect_material_expressions(_sparam(m, "TexAlpha", 0.0, -800, 450), "", a, "Alpha")
     op = _op(m, unreal.MaterialExpressionMultiply, a, _sparam(m, "Opacity", 1.0, -800, 550), -300, 300)
+    if clip is not None:
+        op = _op(m, unreal.MaterialExpressionMultiply, op, clip, -200, 350)
     MEL.connect_material_property(op, "", unreal.MaterialProperty.MP_OPACITY)
     return _finish(m)
 
@@ -722,10 +787,15 @@ for prop, val in (("dynamic_shadow_distance_movable_light", 40000.0), ("cast_clo
         lc.set_editor_property(prop, val)
     except Exception as e:
         log("skip", prop, e)
+AERIAL_SCALE, MIE_GAIN = 0.6, 1.0
 sky = eas.spawn_actor_from_class(unreal.SkyAtmosphere, V(0, 0, 0))
 sky.set_actor_label("SkyAtmosphere")
 try:
-    sky.get_component_by_class(unreal.SkyAtmosphereComponent).set_editor_property("aerial_pespective_view_distance_scale", 0.6)  # sic
+    skc = sky.get_component_by_class(unreal.SkyAtmosphereComponent)
+    # realism pass 11-05: thicker air toward the horizon (real cockpit footage: the horizon goes milky white, distant
+    # ground fades blue-grey). Was 0.6 (thinner than the default 1.0); Mie (haze) up a little for a whiter horizon band.
+    skc.set_editor_property("aerial_pespective_view_distance_scale", AERIAL_SCALE)  # sic
+    skc.set_editor_property("mie_scattering_scale", skc.get_editor_property("mie_scattering_scale") * MIE_GAIN)
 except Exception as e:
     log("aerial perspective scale skipped", e)
 sl = eas.spawn_actor_from_class(unreal.SkyLight, V(0, 0, 20000))

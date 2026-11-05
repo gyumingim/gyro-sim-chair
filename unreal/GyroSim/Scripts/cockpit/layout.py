@@ -154,7 +154,10 @@ def panel_pt(u, v, off=0.0):
 
 
 # HUD: combiner frame on the glare shield, tilted back (top toward the pilot)
-HUD_X, HUD_Z0, HUD_Z1, HUD_W, HUD_TILT = 500.5, 77.6, 108.0, 22.0, 18.0   # combiner top ~ +8 deg: the symbology (-20..+8 deg) sits on the glass
+HUD_X, HUD_Z0, HUD_Z1, HUD_W, HUD_TILT = 500.5, 77.6, 108.0, 34.0, 18.0   # combiner top ~ +8 deg: the symbology (-20..+8 deg) sits on the glass
+# realism pass 11-05: one wide combiner (34 cm = +-13.5 deg at 70 cm: the widest symbology / instructor line fits, the
+# HUD material clips the symbols to the glass) in a heavy frame on a thick HUD body (was: 22 cm glass on thin posts)
+HUD_BODY = dict(x0=501.0, x1=521.0, w=30.0, z0=73.5, z1=79.2)
 BOW_X = None                           # no forward windscreen bow (F-16 / T-7 style one-piece canopy: nothing in the forward view)
 MIRRORS = []                          # rear-view mirrors removed (review 11-04: read as stray paddles on the sill)
 REAR_ARCH_X = 372.0
