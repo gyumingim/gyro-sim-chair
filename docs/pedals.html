@@ -63,12 +63,12 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script src="js/ctl_viewer.js"></script>
 <script>
-const PY=115,XR=175,ARM=(18+46+18+54)/2,HX=-45,HZ=51;
+const PY=115,XR=110,ARM=(18+46+18+54)/2,HX=-45,HZ=51;
 const phi=s=>Math.asin(Math.max(-1,Math.min(1,s.rud/PY)))*180/Math.PI;      // + rud = right pedal forward = left back
 const BUY=[["MGN12H 레일 220 mm + 캐리지",2,36000,"알리 기준, 추정"],["608 베어링",4,4000,"러더 축 2 + 롤러 2"],["Ø8 h6 연마봉 (러더 축 100 + 핀 2 × 108)",1,10000,""],
  ["알루미늄 캠 레이저 절단 8 t",1,18000,"cam_rudder.dxf, 추정"],["알루미늄 평철 30×8, 258 mm",1,6000,"러더 바"],["M6 로드엔드 4 + 나사봉",1,10000,"연결봉 2"],
  ["인장 스프링 3 종 + M5 아이볼트 + 손잡이 너트",1,10000,""],["RC 1/8 버기 오일 쇼크 (스프링 뺌) + 실리콘 오일",1,15000,"점성 댐퍼"],
- ["토 브레이크 압축 스프링 OD 14 + M6 나사",2,4000,""],["AS5600 + 자석",3,12000,"러더 + 브레이크 2"],["자작나무 합판 18 t 450×400",1,15000,"재단"],
+ ["토 브레이크 압축 스프링 OD 14 + M6 나사",2,4000,""],["AS5600 + 자석",3,12000,"러더 + 브레이크 2"],["자작나무 합판 18 t 390×400",1,15000,"재단"],
  ["2020 알루미늄 프로파일 500 mm + T너트 + 인덱스 핀",2,16000,"다리 길이 조절 레일"],["M3 · M4 · M6 볼트 + 인서트",1,12000,""]];
 const col=p=>{const n=p.name;if(p.kind==="cut")return 0xd5d9de;if(n==="plywood")return 0xc8a77a;if(/^tower|^stop|damper_anchor/.test(n))return 0x3b4149;
  if(/^carriage_[LR]$/.test(n))return 0x4f79b0;if(/^pedal_/.test(n))return 0x2b3036;if(/^lever/.test(n))return 0xc0392b;if(n==="rock_hub")return 0xd9822b;
@@ -94,7 +94,7 @@ let V=CtlViewer({base:"../hardware/pedals/",color:col,skip:p=>/^link_|^damper$/.
   const v=f.variants;
   const kv=[["러더 이동",`±${m.travel_mm} mm (러더 바 ±${m.rocker_deg}°)`],["페달 힘 (추정)",`기본: 2 mm ${v.default.pedal_N[1]} N → 끝 ${v.default.pedal_N[20]} N · 조절 ${v.light.pedal_N[20]}~${v.heavy.pedal_N[20]} N`],
    ["토 브레이크",`0~${m.brake_deg}° (발끝에서 약 45 mm), 끝 힘 약 30 N 기본 (추정)`],["페달 판",`230 × 100, 바닥에서 ${m.lean_deg}° 기울어짐, 간격 ${2*m.pedal_y} mm`],
-   ["다리 길이 조절",`±${m.reach_adjust_mm} mm (25 mm 간격 핀)`],["크기","합판 450 × 400, 높이 약 0.25 m"]];
+   ["다리 길이 조절",`±${m.reach_adjust_mm} mm (25 mm 간격 핀)`],["크기","합판 390 × 400, 높이 약 0.25 m"]];
   document.getElementById("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
   ctlChart(document.getElementById("chart"),[{name:"기본",color:"#d9822b",pts:f.travel_mm.map((x,i)=>[x,v.default.pedal_N[i]])},
    {name:"가벼움",color:"#4f79b0",dash:1,pts:f.travel_mm.map((x,i)=>[x,v.light.pedal_N[i]])},{name:"무거움",color:"#c0392b",dash:1,pts:f.travel_mm.map((x,i)=>[x,v.heavy.pedal_N[i]])}],"페달 이동 (mm)","페달 힘 (N)");

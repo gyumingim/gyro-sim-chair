@@ -22,26 +22,26 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # ---------------- parameters ----------------
 PZ = 88                       # gimbal centre height above the base underside
 TRAVEL = 20                   # mechanism capability (deg, each axis, gate removed)
-GATE = dict(roll=15, fwd=16, aft=20)   # default gate (deg): F-5E gear-down roll ~ +-4.0 in at the grip (see docs/stick.html)
-TUBE_TOP = 415                # stick tube top above the pivot (grip socket mouth = TUBE_TOP - 40). set for chair v6
+GATE = dict(roll=10, fwd=10, aft=13)   # default gate (deg): at L_HAND 662 -> roll +-115 mm (F-5E gear-down +-4.0 in), fwd 115 / aft 149 mm
+TUBE_TOP = 647                # stick top above the pivot. Base sits ON the cage floor behind the shins (chair v7): long stick like a real fighter
 L_HAND = TUBE_TOP - 40 + 55   # pivot -> centre of the hand on the grip (grip frame: palm centre ~55 above the mouth, 추정)
 BASE_X, BASE_Y = 94, 96       # base plate half sizes
 WF0, WF1 = 82, 94             # front wall x range (back wall mirrored)
 SW0, SW1 = 88, 96             # side walls |y| range
 GZ = PZ + 76                  # gate plate bottom (6 thick)
-COLLAR = (PZ + 70, PZ + 100, 30)  # TPU stop collar z0, z1, OD (reaches above the gate top at full tilt)
+COLLAR = (PZ + 70, PZ + 100, 36)  # TPU stop collar z0, z1, OD (reaches above the gate top at full tilt)
 # roll centring
 R_CAM = dict(r0=48, a=28, c=math.radians(2.5), dmax=math.radians(32), r_hub=30, x0=60, t=10)
 R_ROLL_X = 65                 # roller (608) centre plane
 R_LEV = (72, 78)              # roll lever plate x range
 R_PIV, R_SPR = 40, 40         # pivot below / spring above the roller line (lever ratio 2)
-R_SPRING = dict(k=2.4, pre=8.0)        # N/mm, mm (default) -> see force table
+R_SPRING = dict(k=5.0, pre=5.0)        # N/mm, mm (default) -> see force table
 # pitch centring
 P_CAM = dict(r0=34, a=22, c=math.radians(2.5), dmax=math.radians(32), r_hub=24, y1=49, t=8)
 P_ROLL_Y = 45
 P_LEV = (51, 58)
 P_PIV, P_SPR = 30, 32         # pivot at x = -30, spring at x = +32 (ratio ~2)
-P_SPRING = dict(k=5.3, pre=6.0)
+P_SPRING = dict(k=9.0, pre=4.0)
 
 parts = {}
 def part(name, shape, group, kind="print", note="", material="PLA", orient="", fill=0.55):
@@ -110,10 +110,11 @@ def gate_opening(roll, fwd, aft, z_top):
     return w(aft), w(fwd), w(roll)
 GA, GF, GR = gate_opening(GATE["roll"], GATE["fwd"], GATE["aft"], GZ + 6)
 gate = box(-WF1, WF1, -SW1, SW1, GZ, GZ + 6)
-op = box(-GA + 10, GF - 10, -GR, GR, GZ - 1, GZ + 7) + box(-GA, GF, -GR + 10, GR - 10, GZ - 1, GZ + 7)
-for x in (-GA + 10, GF - 10):
-    for y in (-GR + 10, GR - 10):
-        op += cz(x, y, GZ - 1, GZ + 7, 20)
+GCR = 25                      # gate corner radius: diagonal (roll + aft) a bit less than the full corner -> thigh clearance
+op = box(-GA + GCR, GF - GCR, -GR, GR, GZ - 1, GZ + 7) + box(-GA, GF, -GR + GCR, GR - GCR, GZ - 1, GZ + 7)
+for x in (-GA + GCR, GF - GCR):
+    for y in (-GR + GCR, GR - GCR):
+        op += cz(x, y, GZ - 1, GZ + 7, 2 * GCR)
 gate -= op
 for x in (-(WF0 + WF1) / 2, (WF0 + WF1) / 2):
     for y in (-70, 70):
@@ -201,23 +202,25 @@ part("as5600_pitch", box(-11.5, 11.5, -48.6, -47, PZ - 11.5, PZ + 11.5), "roll",
 part("magnet_pitch", cy(0, PZ, -46, -42.5, 8), "pitch", kind="buy", material="NdFeB", note="자석 Ø6×2.5 + 축 끝 컵")
 
 # ---------------- inner block + tube (pitch group) ----------------
-ib = box(-16, 16, -24, 24, PZ - 22, PZ + 22) + cz(0, 0, PZ + 10, PZ + 60, 34)
-ib += box(-28, -14, -9, 9, PZ + 28, PZ + 58)                   # clamp ears
+ib = box(-16, 16, -24, 24, PZ - 22, PZ + 22) + cz(0, 0, PZ + 10, PZ + 60, 40)
+ib += box(-32, -18, -9, 9, PZ + 28, PZ + 58)                   # clamp ears
 ib += cz(0, 0, PZ - 50, PZ - 20, 16)                           # FFB / damper stub below the pivot
 ib -= cy(0, PZ, -25, 25, 8.1)
 for x in (-8, 8):
     ib -= cz(x, 10, PZ, PZ + 23, 3.3)                          # M4 set screws onto the D-flat
-ib -= cz(0, 0, PZ + 6, PZ + 61, 20.2)                          # tube socket 55 deep
-ib -= box(-29, -8, -1, 1, PZ + 24, PZ + 61)                    # clamp slit
+ib -= cz(0, 0, PZ + 6, PZ + 61, 25.2)                          # Ø25 tube socket 55 deep
+ib -= box(-33, -10, -1, 1, PZ + 24, PZ + 61)                    # clamp slit
 for z in (PZ + 36, PZ + 51):
-    ib -= cy(-22, z, -10, 10, 5.5)
+    ib -= cy(-26, z, -10, 10, 5.5)
 ib -= cz(0, 0, PZ - 51, PZ - 22, 6)                            # cable from the grip goes down the tube and out here
 ib -= cy(0, PZ - 43, -9, 9, 5.5)                               # M5 cross hole (push-rod eye)
-part("inner_block", ib, "pitch", material="PETG", note="안쪽 블록 (pitch 로 돎): Ø20 관 소켓 55 mm + M5 클램프 2, 아래 = FFB 막대 고리 / 배선 출구", orient="소켓을 위로, 채움 100 %", fill=1.0)
+part("inner_block", ib, "pitch", material="PETG", note="안쪽 블록 (pitch 로 돎): Ø25 관 소켓 55 mm + 퀵릴리즈 클램프 (M5 캠 레버 2), 아래 = FFB 막대 고리 / 배선 출구", orient="소켓을 위로, 채움 100 %", fill=1.0)
 part("pitch_shaft", cy(0, PZ, -46, P_CAM["y1"] + 1, 8), "pitch", kind="buy", material="steel", note="Ø8 h6 연마봉 96 mm, D컷 (블록 + 캠 고정)")
-part("stick_tube", tube("z", (0, 0), PZ + 6, PZ + TUBE_TOP, 20, 16), "pitch", kind="buy", material="AL6061",
-     note=f"알루미늄 관 Ø20×2t, 길이 {TUBE_TOP - 6} mm. 위 40 mm 가 손잡이 속 (M4 가로볼트, 뒤쪽 4×6 홈)")
-part("stop_collar", tube("z", (0, 0), COLLAR[0], COLLAR[1], COLLAR[2], 20.2), "pitch", material="TPU",
+part("stick_tube", tube("z", (0, 0), PZ + 6, PZ + TUBE_TOP - 80, 25, 20), "pitch", kind="buy", material="AL6061",
+     note=f"아래 관: 알루미늄 Ø25×2.5t (속 Ø20), 길이 {TUBE_TOP - 86} mm. 퀵릴리즈 클램프로 소켓에 → 탈 때 뽑음. 100 N 에 끝 처짐 약 12 mm (Ø20 하나면 30 mm)")
+part("grip_tube", tube("z", (0, 0), PZ + TUBE_TOP - 140, PZ + TUBE_TOP, 20, 16), "pitch", kind="buy", material="AL6061",
+     note="위 관 (손잡이 규격): Ø20×2t, 140 mm. 아래 60 mm 가 Ø25 관 속 (M5 가로볼트), 위 40 mm 가 손잡이 속 (M4 가로볼트, 뒤쪽 4×6 홈)")
+part("stop_collar", tube("z", (0, 0), COLLAR[0], COLLAR[1], COLLAR[2], 25.2), "pitch", material="TPU",
      note="TPU 멈춤 링 (게이트에 닿아 부드럽게 멈춤), M3 무두볼트 고정", orient="그대로", fill=1.0)
 
 # ---------------- pose + checks ----------------
@@ -232,7 +235,7 @@ MATES = [("pitch_shaft", "inner_block"), ("pitch_shaft", "cam_pitch"), ("pitch_s
          ("roll_shaft_front", "cradle"), ("roll_shaft_back", "cradle"), ("roll_shaft_front", "cam_roll"), ("roll_shaft_front", "cam_hub_roll"),
          ("roll_shaft_front", "bearing_roll_front"), ("roll_shaft_back", "bearing_roll_back"), ("roll_shaft_back", "roll_clutch"),
          ("roll_shaft_back", "magnet_roll"), ("bearing_roll_front", "wall_front"), ("bearing_roll_back", "wall_back"),
-         ("roll_shaft_front", "wall_front"), ("roll_shaft_back", "wall_back"), ("stick_tube", "inner_block"), ("stick_tube", "stop_collar"),
+         ("roll_shaft_front", "wall_front"), ("roll_shaft_back", "wall_back"), ("stick_tube", "inner_block"), ("stick_tube", "stop_collar"), ("stick_tube", "grip_tube"),
          ("cam_hub_roll", "cam_roll"), ("cam_hub_roll", "cradle"), ("pitch_clutch", "cam_pitch"), ("pitch_clutch", "cradle"),
          ("pitch_bracket", "cradle"), ("pitch_shaft", "cradle"), ("magnet_roll", "roll_clutch"), ("roll_clutch", "wall_back"), ("roll_clutch", "sensor_mount_roll"),
          ("roll_spring", "roll_eyebolt")]

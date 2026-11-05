@@ -21,7 +21,7 @@ PLY = 18                      # plywood base thickness
 PY = 115                      # pedal centre |y| (= rocker arm length, links run along x)
 TRAVEL = 40                   # pedal travel +-mm along x (F/A-18 +-1 in, mechanical trainers more; 추정 sim middle ground)
 PHI = math.degrees(math.asin(TRAVEL / PY))   # rocker angle at full travel
-XR = 175                      # rocker shaft x
+XR = 110                      # rocker shaft x (link 62 mm from the carriage ear)
 RAIL_Z = PLY                  # MGN12 rail bottom
 CAR_Z = PLY + 13              # MGN12H carriage top
 HX, HZ = -45, CAR_Z + 20      # toe-brake hinge (heel) axis, x / z (along y)
@@ -39,8 +39,8 @@ def part(name, shape, group, kind="print", note="", material="PLA", orient="", f
     parts[name] = dict(shape=shape, group=group, kind=kind, note=note, material=material, orient=orient, fill=fill)
 
 # ---------------- base ----------------
-part("plywood", box(-150, 300, -200, 200, 0, PLY) - cz(XR, 0, -1, PLY + 1, 30), "fixed", kind="buy", material="plywood",
-     note="자작나무 합판 18 t, 450×400 (재단 주문). 아래에 2020 프로파일 2 줄 레일 클램프")
+part("plywood", box(-150, 240, -200, 200, 0, PLY) - cz(XR, 0, -1, PLY + 1, 30), "fixed", kind="buy", material="plywood",
+     note="자작나무 합판 18 t, 390×400 (재단 주문). 아래에 2020 프로파일 2 줄 레일 클램프")
 for s in (1, -1):
     part(f"rail_{'L' if s > 0 else 'R'}", box(-110, 110, s * PY - 6, s * PY + 6, RAIL_Z, RAIL_Z + 8), "fixed", kind="buy", material="steel",
          note="MGN12 리니어 레일 220 mm")

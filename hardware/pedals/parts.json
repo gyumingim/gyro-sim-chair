@@ -1,10 +1,10 @@
 {
  "meta": {
-  "created": "2026-11-05T17:36:06",
+  "created": "2026-11-05T18:02:06",
   "travel_mm": 40,
   "rocker_deg": 20.35,
   "pedal_y": 115,
-  "rocker_x": 175,
+  "rocker_x": 110,
   "hinge": [
    -45,
    51
@@ -28,14 +28,14 @@
    "name": "plywood",
    "group": "fixed",
    "kind": "buy",
-   "note": "자작나무 합판 18 t, 450×400 (재단 주문). 아래에 2020 프로파일 2 줄 레일 클램프",
+   "note": "자작나무 합판 18 t, 390×400 (재단 주문). 아래에 2020 프로파일 2 줄 레일 클램프",
    "material": "plywood",
    "size": [
-    450.0,
+    390.0,
     400.0,
     18.0
    ],
-   "volume_cm3": 3227.3,
+   "volume_cm3": 2795.3,
    "grams": null,
    "orient": "",
    "file": "stl/plywood.stl"
@@ -655,11 +655,11 @@
    "note": "연결봉: M6 나사봉 + 로드엔드 2 (길이 조절 = 페달 가운데 맞춤)",
    "material": "steel",
    "size": [
-    104.2,
+    40.1,
     6.0,
-    15.7
+    13.4
    ],
-   "volume_cm3": 2.9,
+   "volume_cm3": 1.1,
    "grams": null,
    "orient": "",
    "file": "stl/link_L.stl"
@@ -671,11 +671,11 @@
    "note": "연결봉: M6 나사봉 + 로드엔드 2 (길이 조절 = 페달 가운데 맞춤)",
    "material": "steel",
    "size": [
-    104.2,
+    40.1,
     6.0,
-    15.7
+    13.4
    ],
-   "volume_cm3": 2.9,
+   "volume_cm3": 1.1,
    "grams": null,
    "orient": "",
    "file": "stl/link_R.stl"

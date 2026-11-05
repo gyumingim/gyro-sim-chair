@@ -32,6 +32,7 @@ ol li,ul li{margin:3px 0}
 <main>
 <h1>조종기 펌웨어 — 스틱 · 스로틀 · 페달을 USB 조이스틱 하나로</h1>
 <p class="small">2026-11-05. 코드: <code>firmware/controls/</code> (PlatformIO). 기구: <a href="stick.html">스틱</a> · <a href="throttle.html">스로틀</a> · <a href="pedals.html">페달</a>.</p>
+<p class="small"><b>기구 v2 (2026-11-05)</b>: 센서 배치는 그대로 (AS5600 6 개, 채널 0~5 같음). 스로틀의 컷오프 · 아이들 · MIL · AB 는 따로 스위치 없이 각도로 판별 — 모델 기준 컷오프 ≤ −31°, 아이들 −25°, MIL 18°, AB ≥ 27° (CAL 로 실물 각도 다시 잼). 스틱은 짐벌 ±20° 중 게이트가 roll ±10° · pitch +10/−13° 만 쓰므로 CAL 의 끝값이 게이트 기준.</p>
 
 <div class="card concl">
 <b>결론</b>

@@ -34,10 +34,12 @@
       <li><b>가운데 잡기</b>: 캠 모양 r = r0 + a(√(θ²+c²) − c). 가운데가 둥근 V 라서 <b>홈에 '딸깍' 걸리지 않고</b> 또렷한 중심 (c = 2.5°) 다음에 고른 기울기. 롤러 2 개가 맞은편에서 누르니 축에 옆 힘이 안 걸림.</li>
       <li><b>무게감 조절</b>: ① 손잡이 너트 (M5 아이볼트) = 예압 = 이탈력, ② 스프링 3 종 교체 = 기울기, ③ 캠 교체 (DXF 수정) = 느낌 자체 (가운데 없음 / 부드러움).</li>
       <li><b>댐핑</b>: 축마다 건식 마찰 클러치 (PTFE + 마찰 와셔 + 웨이브 스프링 + 나일록). 정지 마찰이 미세 조작을 방해하므로 <b>약하게만</b> 건다.</li>
-      <li><b>멈춤</b>: 윗판 = 게이트. TPU 링이 게이트 가장자리에 닿아 부드럽게 멈춤. 기본 roll ±15° (손에서 약 ±110 mm, F-5E 기어 내림 ±4.0 in 과 비슷), pitch 앞 16° / 뒤 20°. 짐벌 자체는 ±20° 까지 겹침 없음.</li>
-      <li><b>센서</b>: AS5600 12 bit (0.088°) × 2 → 손에서 약 0.7 mm. roll 은 뒤 축 끝, pitch 는 −y 축 끝.</li>
+      <li><b>긴 스틱</b>: 짐벌 상자를 의자 바닥판 위 (정강이 뒤) 에 두고 짐벌 중심 → 손 662 mm. 실기 센터 스틱처럼 축이 바닥 근처에 있어 손이 큰 호를 그린다. 아래 관 Ø25×2.5 (속 Ø20) + 위 관 Ø20 (손잡이 규격) 을 겹쳐 끼움 → 100 N 에 끝 처짐 약 12 mm (Ø20 하나면 약 30 mm, 계산 추정).</li>
+      <li><b>멈춤</b>: 윗판 = 게이트. TPU 링이 게이트 가장자리에 닿아 부드럽게 멈춤. 기본 roll ±10° (손에서 ±115 mm ≈ F-5E 기어 내림 ±4.0 in), pitch 앞 10° / 뒤 13° (손에서 +115 / −149 mm). 짐벌 자체는 ±20° 까지 겹침 없음 → 게이트판만 바꾸면 이동을 늘릴 수 있다.</li>
+      <li><b>타고 내리기</b>: 소켓 클램프를 퀵릴리즈 (자전거 시트포스트 레버) 로 → 관을 뽑고 탄다. 손잡이 배선은 관 아래 GX12 커넥터.</li>
+      <li><b>센서</b>: AS5600 12 bit (0.088°) × 2 → 손에서 약 1 mm. roll 은 뒤 축 끝, pitch 는 −y 축 끝.</li>
       <li><b>FFB 준비</b>: 앞 축이 벽 밖으로 18 mm (풀리 자리) + M4 ×4 모터 자리, 안쪽 블록 아래에 밀대 고리 (M5). 나중에 모터 2 개를 바닥에 고정하고 밀대로 연결.</li>
-      <li><b>손잡이 연결</b> (hardware/grips): Ø20×2t 관 위 40 mm 가 손잡이 속, 위 끝에서 15 mm 아래 M4 가로볼트, 뒤쪽 4×6 홈 = 돌아감 막기. 배선은 관 속 → 안쪽 블록 아래 구멍.</li>
+      <li><b>손잡이 연결</b> (hardware/grips): 위 관 Ø20×2t 의 위 40 mm 가 손잡이 속, 위 끝에서 15 mm 아래 M4 가로볼트, 뒤쪽 4×6 홈 = 돌아감 막기. 배선은 관 속 → 안쪽 블록 아래 구멍.</li>
     </ul>
 
     <h2>조사 요약 (출처)</h2>
@@ -71,7 +73,8 @@
       <li>가운데 복귀 정밀도: 손 놓고 20 번 → AS5600 값 흩어짐 (목표 ±0.2° 이내).</li>
       <li>이탈력 · 끝 힘: 손잡이에 전자 저울 (러기지 스케일) 걸고 1° · 10° · 끝 힘 측정 → 위 그래프와 비교, 스프링 · 예압 정함.</li>
       <li>덜걱거림: 가운데서 손잡이를 앞뒤 · 좌우로 흔들어 축 유격 (0.1 mm 다이얼 게이지 또는 센서 값).</li>
-      <li>멈춤 링이 게이트에 닿는 각도 (계산 roll 15.25°, 앞 16.25°, 뒤 20.25°).</li>
+      <li>멈춤 링이 게이트에 닿는 각도 (모델 roll 10.25°, 앞 10.25°, 뒤 13.25°).</li>
+      <li>관 처짐: 손잡이에 50 N 걸고 끝 이동 (계산 약 6 mm).</li>
       <li>마찰 클러치를 조였을 때 가운데로 돌아오는지 (너무 세면 안 돌아옴 — MFG 페달 댐퍼와 같은 문제).</li>
     </ul>
     <p class="muted">모델: <code>hardware/stick/stick.py</code> (공통: <code>hardware/ctl_lib.py</code>) · 만든 시각 <span id="mt"></span> · 겹침 검사: roll·pitch ±20° 9 자세 <span id="chk"></span></p>
@@ -84,7 +87,7 @@
 <script>
 const BUY=[["608 베어링 (축 4 + 롤러 4)",8,8000,"608-2RS"],["Ø8 h6 연마봉 300 mm (3 토막, D컷)",1,12000,"축"],["알루미늄 캠 레이저 절단 (6061 10 t + 8 t)",2,35000,"DXF 주문, 추정"],
  ["인장 스프링 (OD 8~10, 축마다 3 종)",6,15000,"가벼움 · 기본 · 무거움"],["M5 아이볼트 + 손잡이 너트",2,6000,"예압 조절"],["M6 어깨볼트",4,8000,"레버 축"],
- ["AS5600 보드 + 직경 자석",2,8000,""],["알루미늄 관 Ø20×2t, 500 mm",1,6000,"스틱"],["마찰 클러치 (PTFE · 마찰 와셔 · 웨이브 스프링 · 나일록)",2,8000,""],
+ ["AS5600 보드 + 직경 자석",2,8000,""],["알루미늄 관 Ø25×2.5t 600 mm + Ø20×2t 140 mm",1,12000,"스틱 (겹쳐 끼움)"],["퀵릴리즈 클램프 (시트포스트용 Ø34.9 → 출력 소켓에 맞춤) + GX12 4 핀 커넥터",1,9000,"탈 때 관 뽑기"],["마찰 클러치 (PTFE · 마찰 와셔 · 웨이브 스프링 · 나일록)",2,8000,""],
  ["M3 · M4 · M5 볼트 + 황동 인서트",1,12000,""],["고무 부츠",1,8000,"게이트 위"]];
 const col=p=>{const n=p.name;if(p.kind==="cut")return 0xd5d9de;
  if(/^wall|^base/.test(n))return 0x3b4149;if(n==="gate_plate")return 0x1f2226;if(/cradle|cam_hub|pitch_bracket/.test(n))return 0x4f79b0;
@@ -105,12 +108,12 @@ V=CtlViewer({base:"../hardware/stick/",color:col,
  target:[0,0,150],camDir:[1.0,-0.85,0.62],dist:1150,
  sliders:[{id:"roll",val:0,fmt:v=>v+"°"},{id:"pitch",val:0,fmt:v=>v+"°"}],
  onData:d=>{
-  const m=d.meta,f=d.forces;document.getElementById("mt").textContent=m.created;document.getElementById("lh").textContent=m.l_hand;
+  const m=d.meta,f=d.forces,GR_=m.gate_deg.roll,GA_=m.gate_deg.aft;document.getElementById("mt").textContent=m.created;document.getElementById("lh").textContent=m.l_hand;
   const bad=d.check.filter(c=>c.hits.length).length;document.getElementById("chk").textContent=bad?`겹침 ${bad} 자세`:"겹침 없음";
   const kv=[["이동 (게이트)",`roll ±${m.gate_deg.roll}° · 앞 ${m.gate_deg.fwd}° · 뒤 ${m.gate_deg.aft}° (짐벌 ±${m.travel_deg}°)`],
    ["손에서 이동",`roll ±${Math.round(m.l_hand*Math.sin(m.gate_deg.roll*Math.PI/180))} mm · 앞 ${Math.round(m.l_hand*Math.sin(m.gate_deg.fwd*Math.PI/180))} / 뒤 ${Math.round(m.l_hand*Math.sin(m.gate_deg.aft*Math.PI/180))} mm`],
-   ["힘 (기본, 추정)",`roll 1° ${f.variants.default.roll_N[1]} N → 15° ${f.variants.default.roll_N[15]} N · pitch 1° ${f.variants.default.pitch_N[1]} N → 20° ${f.variants.default.pitch_N[20]} N`],
-   ["조절 범위 (추정)",`끝 힘 roll ${f.variants.light.roll_N[15]}~${f.variants.heavy.roll_N[15]} N · pitch ${f.variants.light.pitch_N[20]}~${f.variants.heavy.pitch_N[20]} N`],
+   ["힘 (기본, 추정)",`roll 1° ${f.variants.default.roll_N[1]} N → ${GR_}° ${f.variants.default.roll_N[GR_]} N · pitch 1° ${f.variants.default.pitch_N[1]} N → 뒤 ${GA_}° ${f.variants.default.pitch_N[GA_]} N`],
+   ["조절 범위 (추정)",`게이트 끝 힘 roll ${f.variants.light.roll_N[GR_]}~${f.variants.heavy.roll_N[GR_]} N · pitch ${f.variants.light.pitch_N[GA_]}~${f.variants.heavy.pitch_N[GA_]} N`],
    ["짐벌 중심",`바닥판 아래면에서 ${m.pivot[2]} mm · 관 위끝 = 중심 위 ${m.tube_top} mm`],["크기","바닥판 188 × 192, 높이 170 (게이트 윗면)"]];
   document.getElementById("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
   const A=f.angles;ctlChart(document.getElementById("chart"),[
