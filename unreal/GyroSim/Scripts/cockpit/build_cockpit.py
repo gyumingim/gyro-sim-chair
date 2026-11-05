@@ -2,6 +2,8 @@
     python Scripts/cockpit/build_cockpit.py [--blender <path to blender.exe>] [--no-preview]
 Blender 4.5 LTS (portable zip is fine, no install): https://download.blender.org/release/Blender4.5/
 Default path: $BLENDER or C:/Users/<you>/tools/blender/blender-4.5.*/blender.exe or blender on PATH.
+model_blender.py writes to the STAGING folder Art/Cockpit_v2 by default (cockpit v3, 11-05; the live Art/Cockpit is
+only replaced by hand, see IMPORT.md); --out <dir> passes an output folder through (e.g. --out ../../Art/Cockpit).
 Then import into Unreal: editor CLOSED -> build_level.py (README), or for asset-only changes in the open editor:
     exec(open(r"<project>/Scripts/cockpit/ck_reimport.py").read())
 """
@@ -27,6 +29,9 @@ if __name__ == "__main__":
     if not b:
         sys.exit("Blender not found (--blender <path> or BLENDER env var)")
     args = [b, "-b", "--factory-startup", "-P", os.path.join(HERE, "model_blender.py"), "--"]
-    if "--no-preview" in sys.argv:
-        args.append("--no-preview")
+    for flag in ("--no-preview", "--no-bake"):
+        if flag in sys.argv:
+            args.append(flag)
+    if "--out" in sys.argv:
+        args += ["--out", os.path.abspath(sys.argv[sys.argv.index("--out") + 1])]
     subprocess.check_call(args)

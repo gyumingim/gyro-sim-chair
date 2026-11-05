@@ -1,9 +1,13 @@
 """GyroSim cockpit - procedural model, run inside Blender 4.5 (background):
-    blender -b --factory-startup -P model_blender.py -- [--no-preview]
+    blender -b --factory-startup -P model_blender.py -- [--no-preview] [--no-bake] [--out <dir>] [--shots <dir>]
 (build_cockpit.py runs make_textures.py first, then this.)
 
 Builds our own fighter-trainer cockpit (geometry 100 % generated here, see layout.py for every dimension) and writes
-unreal/GyroSim/Art/Cockpit/:
+the STAGING folder unreal/GyroSim/Art/Cockpit_v2/ (or --out; textures are read from Art/Cockpit/tex, the baked mask goes
+to <out>/tex) - copied into Art/Cockpit by hand with the editor closed (IMPORT.md). Renders -> docs/img/cockpit_v2_*.png.
+v3 (11-05): glare shield hood with a U-shaped lip, HUD pedestal + octagonal combiner on a thin metal rim and two struts,
+MFD bezels with push-button rows, UFC key blocks, folded panel wings, centre pedestal. Part names, pivots, needle / ADI
+frames, screen rectangles and the HUD optical plane are unchanged. Files:
   ck_shell.fbx      static opaque interior (tub, consoles, panels, switches, seat, HUD frame, canopy frame ...)
   ck_glass.fbx      static translucent (instrument glass, HUD combiner)
   ck_<part>.fbx     moving parts, mesh origin = pivot: stick, throttle, pedal_l, pedal_r, gearhandle, gearlights,
@@ -24,10 +28,16 @@ sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..", "..", "Content", "P
 import layout as L            # noqa: E402
 import cockpit_gauges as G    # noqa: E402
 
-ART = os.path.normpath(os.path.join(HERE, "..", "..", "Art", "Cockpit"))
+ART = os.path.normpath(os.path.join(HERE, "..", "..", "Art", "Cockpit"))      # live assets (textures READ from here)
 TEX = os.path.join(ART, "tex")
 ATL = json.load(open(os.path.join(TEX, "atlas.json")))
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+# cockpit v3 (11-05): output goes to a STAGING folder (default Art/Cockpit_v2) so the assets the open editor uses are
+# never overwritten; IMPORT.md copies it into Art/Cockpit once the editor is closed. --out <dir> to override.
+OUT = os.path.abspath(ARGS[ARGS.index("--out") + 1]) if "--out" in ARGS else os.path.normpath(os.path.join(HERE, "..", "..", "Art", "Cockpit_v2"))
+REPO = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))
+SHOTS = os.path.abspath(ARGS[ARGS.index("--shots") + 1]) if "--shots" in ARGS else os.path.join(REPO, "docs", "img")
+os.makedirs(os.path.join(OUT, "tex"), exist_ok=True)
 V = Vector
 D2R = math.radians
 
@@ -517,78 +527,206 @@ def build_canopy_frame():
 
 
 # =====================================================================================================================
-# 2. glare shield + HUD
-def glare_section(x):
-    gy, gz = L.glass_bottom(min(540.0, x))
-    ys = min(L.LIP_Y + 0.5, gy - 1.3)
-    zs = L.LIP_Z0 - 0.4 - max(0.0, x - 500) * 0.06
-    zt = min(L.LIP_ZC + 0.6 - max(0.0, x - 500) * 0.11, L.glass_top(x) - 2.6)
-    pts = []
-    for k in range(25):
-        t = D2R(-90 + 180 * k / 24)
-        pts.append((ys * math.sin(t), zs + (zt - zs) * math.cos(t)))
-    return pts
+# 2. glare shield hood + HUD  (cockpit v3, 11-05, reference photos F-16 / F/A-18 / F-15E / Gripen)
+# Hood: a rounded coaming projecting aft over the panel; seen from above its leading edge is a U (centre furthest aft,
+# sides swept forward onto the panel ends), its section a flat-topped arch (superellipse), matte anti-glare black, with a
+# rubber bumper along the edge. The panel face sits recessed under it (closed by the hood underside).
+HOOD_X0 = 491.0        # lip x at the centre (aft-most point, was a straight lip at x 498)
+HOOD_XS = 14.5         # lip runs this much further forward at the sides (U seen from above)
+HOOD_ZT0 = 81.8        # hood top at the lip centre (-16.6 deg from the eye; the MFD_C bezel top stays just visible)
+HOOD_YW = 27.0         # hood half width (inside the canopy glass bottom edge)
+HOOD_SLOPE = 0.13      # top drops this much per cm forward
+HOOD_POW = 0.55        # section shape: z = zs + (zt - zs) * cos(a)^POW  (< 1 = flatter top, steeper shoulders)
+HOOD_UNDER = 2.6       # underside this far below the lip top (= thickness of the lip face)
+HOOD_NT, HOOD_NX = 32, 14
+
+
+def hood_lip_x(s):
+    """s = sin(a) across the hood (-1 .. 1)."""
+    return HOOD_X0 + HOOD_XS * s * s
+
+
+def hood_pt(x, a):
+    gy, _gz = L.glass_bottom(min(540.0, max(390.0, x)))
+    ys = min(HOOD_YW, gy - 1.3)
+    zs = L.LIP_Z0 - 0.4 - max(0.0, x - 500.0) * 0.06
+    zt = min(HOOD_ZT0 - max(0.0, x - HOOD_X0) * HOOD_SLOPE, L.glass_top(x) - 2.6)
+    c = max(0.0, math.cos(a))
+    return (x, ys * math.sin(a), zs + (zt - zs) * c ** HOOD_POW)
+
+
+def hood_angles():
+    return [-math.pi / 2 + math.pi * j / HOOD_NT for j in range(HOOD_NT + 1)]
+
+
+def hood_under_z(u):
+    """z of the hood underside above panel column u (the panel outline top follows it)."""
+    s = max(-1.0, min(1.0, u / HOOD_YW))
+    a = math.asin(s)
+    return hood_pt(hood_lip_x(s), a)[2] - HOOD_UNDER
+
+
+def _mid_face(bm):
+    bm.faces.ensure_lookup_table()
+    return bm.faces[len(bm.faces) // 2]
 
 
 def build_glareshield():
     P = part("ck_shell")
-    xs = [498.0, 500.0, 505.0, 512.0, 520.0, 530.0, 540.0, L.GLARE_X1]
-    secs = [[(x, y, z) for y, z in glare_section(x)] for x in xs]
+    angs = hood_angles()
+    # top skin: rows from the lip forward to GLARE_X1, denser near the lip
+    rows = []
+    for k in range(HOOD_NX + 1):
+        f = (k / HOOD_NX) ** 1.6
+        row = []
+        for a in angs:
+            xl = hood_lip_x(math.sin(a))
+            row.append(hood_pt(xl + (L.GLARE_X1 - xl) * f, a))
+        rows.append(row)
+    bm = bm_loft(rows)
+    bm.normal_update()
+    top = max(bm.faces, key=lambda f_: f_.calc_center_median().z)
+    P.add(bm, "CK_AntiGlare", flip=top.normal.z < 0)
+    # underside: from the lip straight forward to the panel face (closes the recess above the panel)
+    lip = [hood_pt(hood_lip_x(math.sin(a)), a) for a in angs]
+    secs = []
+    for d in (0.0, 1.0):
+        sec = []
+        for (x, y, z) in lip:
+            zu = z - HOOD_UNDER
+            xp = max(x + 0.4, L.panel_x(zu) - 0.3)
+            sec.append((x + 0.4 + (xp - x - 0.4) * d, y * 0.995, zu))
+        secs.append(sec)
     bm = bm_loft(secs)
     bm.normal_update()
-    top = max(bm.faces, key=lambda f: f.calc_center_median().z)
-    P.add(bm, "CK_AntiGlare", flip=top.normal.z < 0)
-    # rounded lip (rubber bumper) along the front edge
-    path = [(498.6, y, z - 0.2) for y, z in glare_section(498.0)]
-    bm = bm_sweep(path, [(1.1 * math.cos(D2R(a)), 1.1 * math.sin(D2R(a))) for a in range(0, 360, 30)], side_hint=(1, 0, 0))
+    P.add(bm, "CK_AntiGlare", flip=_mid_face(bm).normal.z > 0, recalc=False)
+    # lip face (between the top skin edge and the underside) + rubber bumper along the U edge
+    bm = bm_loft([[(x, y, z) for (x, y, z) in lip], [(x + 0.4, y * 0.995, z - HOOD_UNDER) for (x, y, z) in lip]])
+    bm.normal_update()
+    P.add(bm, "CK_AntiGlare", flip=_mid_face(bm).normal.x > 0, recalc=False)
+    path = [(x + 0.25, y, z - 0.75) for (x, y, z) in lip[1:-1]]
+    bm = bm_sweep(path, [(0.95 * math.cos(D2R(a)), 0.95 * math.sin(D2R(a))) for a in range(0, 360, 30)], side_hint=(1, 0, 0))
     bm.normal_update()
     P.add(bm, "CK_Rubber")
-    # HUD (realism pass 11-05, photos c18 / c21 / c25): thick black HUD body on the coaming + ONE wide tinted combiner
-    # in a heavy frame (thick side cheeks, top bar) - no thin posts. The combiner covers the whole symbology area
-    # (-18 .. +8 deg, +-13.5 deg) so nothing readable is lost; M_HUD clips the symbols to it (ue_cockpit / build_level).
+    build_hud()
+
+
+# HUD: projector body (pedestal) on the hood centre + ONE wide tilted combiner with a thin metal rim held by two slim
+# struts (Gripen / F-15E / F/A-18 style). The optical plane (base, fwd, up) and the glass bounding rectangle are the same
+# as before (manifest hud_combiner w / h0 / h1 / r unchanged -> the HUD clip in build_level.py stays valid); the glass
+# outline is now an octagon (narrower foot, chamfered top corners), given as hud_combiner.poly for a tighter clip.
+HUD_PED = dict(x0=496.0, x1=521.0, w0=22.0, w1=19.0, zt0=82.6, zt1=81.6, zb=76.0)
+
+
+def hud_poly(W, hh, h0=0.9):
+    h1 = hh - 0.3
+    hw = W / 2 - 0.1
+    return [(-hw + 3.3, h0), (hw - 3.3, h0), (hw, h0 + 7.0), (hw, h1 - 7.0), (hw - 5.6, h1), (-hw + 5.6, h1), (-hw, h1 - 7.0), (-hw, h0 + 7.0)]
+
+
+def build_hud():
+    P = part("ck_shell")
     t = D2R(L.HUD_TILT)
     up = V((-math.sin(t), 0, math.cos(t)))
     fwd = V((math.cos(t), 0, math.sin(t)))
     base = V((L.HUD_X, 0, L.HUD_Z0 + 0.6))
     hh = (L.HUD_Z1 - base.z) / math.cos(t)
     W = L.HUD_W
-    hb = L.HUD_BODY
-    P.add(bm_box(hb["x1"] - hb["x0"], hb["w"], hb["z1"] - hb["z0"], 0.8, 3, c=((hb["x0"] + hb["x1"]) / 2, 0, (hb["z0"] + hb["z1"]) / 2)), "CK_HUDFrame")
-    P.add(bm_box(9.0, W - 6.0, 0.3, 0.1, 1, c=(hb["x0"] + 7.5, 0, hb["z1"] + 0.1)), "CK_HUDExit")          # projector exit window
-    for sx in (-1, 1):                                                                                    # body side ribs
-        P.add(bm_box(hb["x1"] - hb["x0"] - 3.0, 1.0, 1.2, 0.3, 2, c=((hb["x0"] + hb["x1"]) / 2 + 0.5, sx * (hb["w"] / 2 - 2.0), hb["z1"] + 0.5)), "CK_HUDFrame")
-    fr = (tuple(base), tuple(fwd), (0, 1, 0), tuple(up))
-    for sgn in (1, -1):                                                                                   # thick side cheeks
-        P.add(bm_box(2.0, 1.2, hh + 0.4, 0.35, 2, c=(0.5, sgn * (W / 2 + 0.4), (hh + 0.4) / 2 - 0.4)), "CK_HUDFrame", frame=fr)
-        P.add(bm_box(4.0, 2.6, 3.0, 0.6, 2, c=(1.2, sgn * (W / 2 + 0.8), 0.6)), "CK_HUDFrame", frame=fr)         # foot / hinge block
-    P.add(bm_box(1.4, W + 2.0, 0.8, 0.3, 2, c=(0.4, 0, hh + 0.05)), "CK_HUDFrame", frame=fr)                   # top bar
-    # (no bottom rail: it cut through the heading tape - review 11-05; the glass foot sits in the HUD body)
-    gl = bm_prism(rrect(W - 0.2, hh - 1.2, 1.6, 3), 0.6, bevel=0.15, seg=1, z0=-0.3)
-    for v in gl.verts:
-        v.co.y += (hh - 1.2) / 2 + 0.9
-    part("ck_glass").add(gl, "CK_HUDGlass", frame=(tuple(base), (0, 1, 0), tuple(up), tuple(fwd)))
-    MANIFEST["hud_combiner"] = dict(base=list(base), fwd=list(fwd), up=list(up), w=W - 0.2, h0=0.9, h1=hh - 0.3, r=1.6)
+    # pedestal: side profile (x, z) extruded across y, narrower at the top; bevelled
+    hp = HUD_PED
+    prof = [(hp["x0"] + 1.2, hp["zb"]), (hp["x1"], hp["zb"]), (hp["x1"], hp["zt1"]), (hp["x0"] + 3.0, hp["zt0"]), (hp["x0"], hp["zt0"] - 1.6)]
+    bm = bm_prism([(x, z) for x, z in prof], hp["w0"], bevel=0.7, seg=3, z0=-hp["w0"] / 2)
+    for v in bm.verts:                                   # taper toward the top
+        k = (v.co.y - hp["zb"]) / (hp["zt0"] - hp["zb"])
+        v.co.z *= 1.0 - (1.0 - hp["w1"] / hp["w0"]) * max(0.0, min(1.0, k))
+    P.add(bm, "CK_HUDFrame", frame=((0, 0, 0), (1, 0, 0), (0, 0, 1), (0, -1, 0)))
+    # projector exit window on the top (forward of the glass foot)
+    xe = 509.0
+    ze = hp["zt0"] + (xe - hp["x0"] - 3.0) * (hp["zt1"] - hp["zt0"]) / (hp["x1"] - hp["x0"] - 3.0)
+    P.add(bm_box(9.0, hp["w1"] - 4.0, 0.3, 0.1, 1, c=(xe, 0, ze)), "CK_HUDExit")
+    # aft face: two small HUD knobs (brightness / mode) like the F-16 / F-18 HUD body
+    for yy in (-6.5, 6.5):
+        fr = ((hp["x0"] + 0.25, yy, hp["zt0"] - 3.2), (0, 1, 0), (0, 0, 1), (-1, 0, 0))
+        knob(P, fr, small=True)
+    gf = (tuple(base), (0, 1, 0), tuple(up), tuple(fwd))           # glass frame: x = across, y = up the glass, z = fwd
+    h_foot = (hp["zt0"] - 0.2 - base.z) / math.cos(t)                # glass foot sits on the pedestal top
+    poly = hud_poly(W, hh, h_foot)
+    gl = bm_prism(poly, 0.6, z0=-0.3)
+    part("ck_glass").add(gl, "CK_HUDGlass", frame=gf)
+    # thin metal rim swept around the glass edge (rounded corners)
+    loop = poly + poly[:2]
+    ring = fillet_poly(loop, 0.9, 3)[1:-1]
+    ring = ring + ring[:1]
+    path = [tuple(base + V((0, s, 0)) + up * h) for s, h in ring]
+    bm = bm_sweep(path, [(0.26 * math.cos(D2R(a)), 0.34 * math.sin(D2R(a))) for a in range(0, 360, 45)], side_hint=tuple(fwd), caps=False)
+    P.add(bm, "CK_Metal", recalc=False)
+    # struts: from the pedestal shoulders up to the glass sides (two slim rods + hinge blocks)
+    hw = W / 2 - 0.1
+    for sgn in (1, -1):
+        p_top = base + V((0, sgn * (hw + 0.35), 0)) + up * 11.5 + fwd * 0.5
+        p_bot = V((hp["x0"] + 6.0, sgn * (hp["w1"] / 2 - 0.4), hp["zt0"] - 0.9))
+        p_mid = p_bot + (p_top - p_bot) * 0.5 + fwd * 0.6
+        P.add(bm_sweep([tuple(p_bot), tuple(p_mid), tuple(p_top)], [(0.42 * math.cos(D2R(a)), 0.42 * math.sin(D2R(a))) for a in range(0, 360, 45)],
+                       side_hint=(1, 0, 0)), "CK_HUDFrame")
+        P.add(bm_box(2.4, 1.8, 1.8, 0.45, 2), "CK_HUDFrame", frame=(tuple(p_bot), (1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        P.add(bm_box(1.3, 1.1, 2.2, 0.3, 2), "CK_HUDFrame", frame=(tuple(p_top), (0, sgn, 0), tuple(fwd), tuple(up)))
+    MANIFEST["hud_combiner"] = dict(base=list(base), fwd=list(fwd), up=list(up), w=W - 0.2, h0=0.9, h1=hh - 0.3, r=1.6,
+                                    poly=[list(p) for p in poly])
 
 
 # =====================================================================================================================
-# 3. main instrument panel
+# 3. main instrument panel  (cockpit v3, 11-05)
+# The face stays the same plane as before (texture / screens / instruments / callouts keep their (u, v)), but: its top now
+# tucks under the glare shield hood, the outer parts beyond |u| = WING_U fold 30 deg toward the pilot (side "wings", F-16 /
+# F-18 style, instead of one flat wall-to-wall slab), the displays get MFD bezels with rows of square push buttons, small
+# UFC key blocks flank the centre display, a narrow centre pedestal runs down between the legs (stick / leg clearance kept).
+WING_U, WING_DEG = 39.5, 30.0
+# display bezel margins around the screen opening (left, right, bottom, top), cm - checked against KEEP_OUT below
+DISP_MARGIN = {"MFD_L": (2.3, 2.3, 1.9, 1.2), "MFD_R": (2.3, 2.3, 1.9, 1.2), "MFD_C": (2.2, 2.2, 1.25, 1.1)}
+DECOR_KEYS = True       # OSB rows, UFC key blocks, HUD knobs (no function: they are what the reference panels look like)
+PEDESTAL = dict(w=7.0, v0=L.PANEL_Z0, v1=23.4, d0=5.5, d1=2.2)    # half width, bottom / top v, depth toward the pilot
+
+
+def panel_fold(u, v, h):
+    """panel local (u, v, h toward the pilot) -> UE point, with the wings folded toward the pilot."""
+    a = abs(u) - WING_U
+    if a <= 0:
+        return V(L.panel_pt(u, v, h))
+    s = 1.0 if u > 0 else -1.0
+    w = D2R(WING_DEG)
+    return V(L.panel_pt(s * (WING_U + a * math.cos(w) - h * math.sin(w)), v, a * math.sin(w) + h * math.cos(w)))
+
+
+def wing_outer_u(v):
+    """unfolded |u| of the panel edge at height v so that the folded wing reaches the tub wall."""
+    w = D2R(WING_DEG)
+    x0 = L.panel_x(v)
+    lim = lambda x: L.skin_half_width(x, v) - L.SKIN_GAP - 0.6
+    if lim(x0) <= WING_U:
+        return lim(x0)
+    a = lim(x0) - WING_U
+    for _ in range(8):
+        x = x0 + L.PANEL_N[0] * a * math.sin(w)
+        a = max(0.0, (lim(x) - WING_U) / math.cos(w))
+    return WING_U + a
+
+
 def panel_outline():
-    """(u, v) outline of the panel face, CCW seen from the pilot side (u right, v up)."""
+    """(u, v) outline of the panel face (unfolded), CCW seen from the pilot side (u right, v up)."""
     right = []
-    for k in range(13):                                   # lip, top centre -> right
-        u = L.LIP_Y * k / 12
-        right.append((u, L.lip_z(u) - 0.4))
-    v = L.LIP_Z0 - 0.4
+    for k in range(17):                                   # top: under the hood, centre -> right
+        u = (HOOD_YW - 0.6) * math.sin(0.5 * math.pi * k / 16)
+        right.append((u, hood_under_z(u) + 0.3))
+    v = right[-1][1]
     while v > L.CONSOLE_Z + 0.5:
-        v -= 2.5
+        v -= 2.0
         vv = max(v, L.CONSOLE_Z)
-        right.append((L.skin_half_width(L.panel_x(vv), vv) - L.SKIN_GAP - 0.6, vv))
+        right.append((max(right[-1][0] if vv > 60 else 0.0, wing_outer_u(vv)), vv))
     right.append((L.CONSOLE_IN, L.CONSOLE_Z))
     right.append((L.CONSOLE_IN, L.PANEL_Z0))
     right.append((0.0, L.PANEL_Z0))
-    # right goes clockwise (top -> down the right side). Full CCW (seen from the pilot, u to the right):
     left = [(-u, v) for u, v in right[1:-1]]
-    pts = right[::-1] + left           # bottom centre -> up right side -> top centre -> down left side
+    pts = right[::-1] + left
     out = []
     for p in pts:
         if not out or (abs(out[-1][0] - p[0]) > 1e-4 or abs(out[-1][1] - p[1]) > 1e-4):
@@ -596,6 +734,85 @@ def panel_outline():
     if abs(out[0][0] - out[-1][0]) < 1e-4 and abs(out[0][1] - out[-1][1]) < 1e-4:
         out.pop()
     return out
+
+
+def keep_out():
+    """(name, u0, u1, v0, v1) panel areas that bezels / keys must not cover (live parts, callouts, painted legends)."""
+    ko = []
+    for n, (u, v, w, h, _c, _l) in L.LIGHTS.items():
+        ko.append(("light " + n, u - w / 2 - 0.35, u + w / 2 + 0.35, v - h / 2 - 0.35, v + h / 2 + 0.35))
+    for n, (u, v, d, _dial) in L.GAUGES.items():
+        ko.append(("gauge " + n, u - d / 2 - 1.0, u + d / 2 + 0.2, v - d / 2 - 1.0, v + d / 2 + 0.2))
+    try:
+        cos = json.load(open(os.path.join(TEX, "callouts.json"), encoding="utf-8"))
+    except Exception:
+        cos = {}
+    for k, (u, v) in L.CALLOUT_POS.items():
+        if k in cos:
+            ko.append(("callout " + k, u - cos[k]["w"] / 2, u + cos[k]["w"] / 2, v - cos[k]["h"] / 2, v + cos[k]["h"] / 2))
+    g = L.GEAR_HANDLE
+    ko.append(("gear handle", g["u"] - 1.4, g["u"] + 1.4, g["v"] - 2.8, g["v"] + 4.8))
+    for u, v in L.GEAR_LIGHTS:
+        ko.append(("gear light", u - 0.9, u + 0.9, v - 0.9, v + 0.9))
+    ko.append(("WHEELS legend", -21.5, -16.5, 36.0, 36.7))
+    return ko
+
+
+def _overlap(a, b):
+    return a[0] < b[1] and b[0] < a[1] and a[2] < b[3] and b[2] < a[3]
+
+
+def check_rect(name, r, ko):
+    for k in ko:
+        if _overlap(r, k[1:]):
+            print("[cockpit] WARNING", name, "overlaps", k[0])
+            MANIFEST.setdefault("warnings", []).append("%s overlaps %s" % (name, k[0]))
+            return False
+    return True
+
+
+def mfd_bezel(P, tag, u, v, SW, SH, ml, mr, mb, mt):
+    """MFD bezel: four bevelled frame bars around the opening, recessed back plate, square push buttons (OSB) along
+    every side with room, two rocker switches at the bottom corners."""
+    fr = panel_frame(u, v)
+    D = 1.8
+    gx, gy = SW / 2 + 0.15, SH / 2 + 0.15
+    bars = [(-gx - ml, -gx, -gy - mb, gy + mt), (gx, gx + mr, -gy - mb, gy + mt), (-gx, gx, -gy - mb, -gy), (-gx, gx, gy, gy + mt)]
+    for x0, x1, y0, y1 in bars:
+        P.add(bm_box(x1 - x0, y1 - y0, D, 0.3, 1, c=((x0 + x1) / 2, (y0 + y1) / 2, D / 2)), "CK_Bezel", frame=fr)
+    P.add(bm_box(2 * gx + 0.2, 2 * gy + 0.2, 1.0, 0.0, 1, c=(0, 0, 0.5)), "CK_Black", frame=fr)       # recess floor
+    if not DECOR_KEYS:
+        return
+    n_lr = 5 if SH < 16 else 6
+    n_tb = 5 if SW < 20 else 6
+
+    def osb(x, y, w, h):
+        P.add(bm_box(w, h, 0.5, c=(x, y, D + 0.18)), "CK_Paint", frame=fr)     # plain box: the shell bevel pass rounds it
+    for k in range(n_lr):
+        y = -SH / 2 + SH * (k + 0.5) / n_lr
+        for x, m in ((-gx - ml / 2, ml), (gx + mr / 2, mr)):
+            if m >= 1.0:
+                osb(x, y, min(1.25, m - 0.55), 1.2)
+    for k in range(n_tb):
+        x = -SW / 2 + SW * (k + 0.5) / n_tb
+        for y, m in ((-gy - mb / 2, mb), (gy + mt / 2, mt)):
+            if m >= 1.0:
+                osb(x, y, 1.25, min(1.2, m - 0.4))
+    if mb >= 1.6 and min(ml, mr) >= 1.6:
+        for sx in (-1, 1):
+            x = sx * (gx + (ml if sx < 0 else mr) / 2)
+            P.add(bm_box(0.9, 1.0, 0.55, c=(x, -gy - mb / 2, D + 0.2)), "CK_Paint", frame=fr)
+
+
+def ufc_block(P, u, v, cols=3, rows=3, key=1.45, pitch=1.85):
+    fr = panel_frame(u, v)
+    w, h = cols * pitch + 0.5, rows * pitch + 0.5
+    P.add(bm_box(w, h, 0.7, 0.25, 2, c=(0, 0, 0.35)), "CK_Bezel", frame=fr)
+    for i in range(cols):
+        for j in range(rows):
+            x = (i - (cols - 1) / 2) * pitch
+            y = (j - (rows - 1) / 2) * pitch
+            P.add(bm_box(key, key * 0.85, 0.5, c=(x, y, 0.85)), "CK_Paint", frame=fr)
 
 
 def build_panel():
@@ -607,7 +824,7 @@ def build_panel():
     pb = [bm.verts.new((u, v, -2.0)) for u, v in poly]
     n = len(poly)
     area = sum(poly[i][0] * poly[(i + 1) % n][1] - poly[(i + 1) % n][0] * poly[i][1] for i in range(n))
-    fr = bm.faces.new(pf if area > 0 else pf[::-1])
+    bm.faces.new(pf if area > 0 else pf[::-1])
     bm.faces.new(pb[::-1] if area > 0 else pb)
     for i in range(n):
         j = (i + 1) % n
@@ -615,29 +832,72 @@ def build_panel():
         bm.faces.new(q)
     front_edges = [e for e in bm.edges if all(abs(v.co.z) < 1e-6 for v in e.verts)]
     bmesh.ops.bevel(bm, geom=front_edges, offset=0.35, offset_type='OFFSET', segments=2, profile=0.5, affect='EDGES', clamp_overlap=True)
+    for s in (1, -1):                                     # cut at the wing fold lines
+        bmesh.ops.bisect_plane(bm, geom=list(bm.verts) + list(bm.edges) + list(bm.faces), dist=1e-4, plane_co=(s * WING_U, 0, 0),
+                               plane_no=(1, 0, 0))
     bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
-    # map local (u, v, h) -> panel frame; local z = toward the pilot
     for v_ in bm.verts:
         u, vv, h = v_.co
-        v_.co = V(L.panel_pt(u, vv, h))
+        v_.co = panel_fold(u, vv, h)
     bm.normal_update()
     big = max(bm.faces, key=lambda f: f.calc_area())
     P.add(bm, "CK_Panel", flip=big.normal.x > 0, recalc=False, uv0=lambda p, nn: region_uv("main", p[1], p[2]) if nn[0] < -0.8 else None, swatch="sw_panel")
 
-    # glass displays (screens are Unreal render-target planes at the recess, see manifest): bevelled bezel, recess,
-    # anti-glare glass pane in front (ck_glass), a thin bright frame line around the glass
+    ko = keep_out()
+    # centre pedestal between the legs (F-16 style): front face slopes from d0 (bottom) to d1 (top) toward the pilot
+    pd = PEDESTAL
+    prof = [(0.0, pd["v0"]), (pd["d0"], pd["v0"]), (pd["d1"], pd["v1"]), (0.0, pd["v1"] + 0.5)]
+    bm = bm_prism(prof, 2 * pd["w"], bevel=0.5, seg=2, z0=-pd["w"])
+    for v_ in bm.verts:
+        h, vv, u = v_.co
+        v_.co = V(L.panel_pt(u, vv, h - 0.2))
+    P.add(bm, "CK_Panel", uv0=lambda p, nn: region_uv("main", p[1], p[2]) if nn[0] < -0.8 else None, swatch="sw_panel")
+    check_rect("pedestal", (-pd["w"], pd["w"], pd["v0"], pd["v1"] + 0.5), [k for k in ko if not k[0].startswith("light")])
+
+    # glass displays (screens are Unreal render-target planes at the recess, see manifest): MFD bezel with push buttons,
+    # anti-glare glass pane in front (ck_glass)
     for tag, (u, v, BW, BH, SW, SH, pw, ph) in L.DISPLAYS.items():
+        ml, mr, mb, mt = DISP_MARGIN.get(tag, ((BW - SW) / 2,) * 2 + ((BH - SH) / 2,) * 2)
+        r = (u - SW / 2 - 0.15 - ml, u + SW / 2 + 0.15 + mr, v - SH / 2 - 0.15 - mb, v + SH / 2 + 0.15 + mt)
+        check_rect("bezel " + tag, r, ko)
+        if r[3] > hood_under_z(abs(u) + (SW / 2 + mr)) - 0.3:
+            print("[cockpit] WARNING bezel", tag, "top above the hood underside")
+        mfd_bezel(P, tag, u, v, SW, SH, ml, mr, mb, mt)
         fr = panel_frame(u, v)
-        o, X, Y, Z = fr
-        bm = bm_box(BW, BH, 1.8, 0.6, 4, c=(0, 0, 0.9))
-        front = [f for f in bm.faces if f.normal.z > 0.99]
-        tx, ty = (BW - SW) / 2 - 0.35, (BH - SH) / 2 - 0.35
-        bmesh.ops.inset_region(bm, faces=front, thickness=min(tx, ty), depth=0.0)
-        bmesh.ops.inset_region(bm, faces=front, thickness=0.2, depth=-0.7)
-        P.add(bm, "CK_Bezel", swatch="sw_black", frame=fr)
         part("ck_glass").add(bm_box(SW + 0.3, SH + 0.3, 0.08, 0.02, 1, c=(0, 0, 1.8 - 0.7 + 0.25)), "CK_DispGlass", frame=fr)
         MANIFEST["screens"][tag] = dict(center=list(L.panel_pt(u, v, 1.8 - 0.7 + 0.03)), normal=list(L.PANEL_N), up=list(L.PANEL_UP),
                                         size=[SW, SH], px=[pw, ph])
+        ko.append(("bezel " + tag, r[0], r[1], r[2], r[3]))
+    # UFC key blocks flanking the centre display, above the MASTER CAUTION / WARNING lights (under the hood)
+    if DECOR_KEYS:
+        for sgn in (-1, 1):
+            u = sgn * 19.6
+            w = 3 * 1.85 + 0.5
+            v0 = max(k[4] for k in ko if k[0] in ("light MC", "light WARN")) + 0.4
+            v1 = hood_under_z(abs(u) + w / 2) - 0.6
+            if v1 - v0 >= 3 * 1.85 + 0.5:
+                vc = v0 + (3 * 1.85 + 0.5) / 2
+                if check_rect("ufc keys", (u - w / 2, u + w / 2, vc - w / 2, vc + w / 2), ko):
+                    ufc_block(P, u, vc)
+            elif v1 - v0 >= 2 * 1.85 + 0.5:
+                vc = v0 + (2 * 1.85 + 0.5) / 2
+                if check_rect("ufc keys", (u - w / 2, u + w / 2, vc - 2.1, vc + 2.1), ko):
+                    ufc_block(P, u, vc, rows=2)
+            else:
+                print("[cockpit] no room for UFC keys", v0, v1)
+    # yellow / black striped emergency handle on the left wing (F/A-18 style accent)
+    uh, vh = -(WING_U + 2.6), 44.5
+    if wing_outer_u(vh) > abs(uh) + 1.6:
+        o = panel_fold(uh, vh, 0.0)
+        X = (panel_fold(uh + 0.05, vh, 0.0) - panel_fold(uh - 0.05, vh, 0.0)).normalized()
+        Y = V(L.PANEL_UP)
+        Z = Y.cross(X).normalized()
+        fr = (tuple(o), tuple(X), tuple(Y), tuple(Z))
+        P.add(bm_box(3.2, 5.6, 0.5, 0.2, 2, c=(0, 0, 0.25)), "CK_Black", frame=fr)
+        path = [(0.0, 2.0 * math.cos(D2R(a)), 0.5 + 1.6 * math.sin(D2R(-a))) for a in range(-180, 1, 15)]
+        bm = bm_sweep(path, [(0.45 * math.cos(D2R(a)), 0.45 * math.sin(D2R(a))) for a in range(0, 360, 45)], side_hint=(1, 0, 0))
+        P.add(bm, "CK_Dial", uv0=lambda p, n: stripe_uv(p), frame=fr)
+
 
     # live lights: bezel + tinted lens (legend from the atlas) in the shell; lit overlay = own part (world coords)
     for name, (u, v, w, h, col, legend) in L.LIGHTS.items():
@@ -1198,7 +1458,7 @@ def bake_masks(ob):
     outimg = bpy.data.images.new("T_CkShellMasks", R, R, alpha=False)
     outimg.colorspace_settings.name = 'Non-Color'
     outimg.pixels.foreach_set(np.clip(rgba, 0, 1).ravel())
-    outimg.filepath_raw = os.path.join(TEX, "T_CkShellMasks.png")
+    outimg.filepath_raw = os.path.join(OUT, "tex", "T_CkShellMasks.png")
     outimg.file_format = 'PNG'
     outimg.save()
     filled = float((res["pos"][..., 3] > 0).mean()) if res["pos"].shape[-1] == 4 else None
@@ -1230,7 +1490,8 @@ def preview_materials():
                 CK_LensG=(0.02, 0.15, 0.04, 0.1, 0), CK_LensA=(0.3, 0.15, 0.01, 0.1, 0), CK_LensR=(0.3, 0.02, 0.01, 0.1, 0),
                 CK_LightG=(0.1, 1.0, 0.25, 0.1, 0), CK_Hole=(0.0, 0.0, 0.0, 0.9, 0), CK_GearKnob=(0.85, 0.85, 0.82, 0.35, 0),
                 CK_HUDFrame=(0.03, 0.03, 0.032, 0.4, 1), CK_HUDExit=(0.0, 0.02, 0.01, 0.1, 0), CK_Mirror=(0.9, 0.9, 0.9, 0.02, 1),
-                CK_Glass=(0.8, 0.85, 0.9, 0.02, 0), CK_HUDGlass=(0.6, 0.8, 0.7, 0.02, 0))
+                CK_Glass=(0.8, 0.85, 0.9, 0.02, 0), CK_HUDGlass=(0.6, 0.8, 0.7, 0.02, 0),
+                CK_DispGlass=(0.006, 0.012, 0.009, 0.08, 0), CK_Bezel=(0.016, 0.016, 0.017, 0.4, 0))
     for m in bpy.data.materials:
         m.use_nodes = True
         nt = m.node_tree
@@ -1273,7 +1534,7 @@ def preview_render(objs, outdir):
         sc.render.engine = 'BLENDER_EEVEE_NEXT'
     except Exception:
         sc.render.engine = 'BLENDER_EEVEE'
-    sc.render.resolution_x, sc.render.resolution_y = 1280, 720
+    sc.render.resolution_x, sc.render.resolution_y = 1600, 900
     w = bpy.data.worlds.new("w")
     w.use_nodes = True
     w.node_tree.nodes["Background"].inputs[0].default_value = (0.45, 0.6, 0.85, 1)
@@ -1296,17 +1557,28 @@ def preview_render(objs, outdir):
     except Exception:
         pass
     ex, ey, ez = L.EYE
-    for name, pitch, yaw in (("fwd", -12, 0), ("down", -42, 0), ("left", -38, 58), ("right", -38, -58)):
+
+    def look(cam_ue, tgt_ue, fov):
+        c = V((cam_ue[0] / 100, -cam_ue[1] / 100, cam_ue[2] / 100))
+        t = V((tgt_ue[0] / 100, -tgt_ue[1] / 100, tgt_ue[2] / 100))
+        co.location = c
+        co.rotation_euler = (t - c).to_track_quat('-Z', 'Y').to_euler()
+        cam.angle = D2R(fov)
+    # v3 shots (docs/img/cockpit_v2_*.png): from the eye straight ahead and 30 deg down (90 deg horizontal FOV, like the
+    # monitor view), outside 3/4 from behind-left-above, side view for the hood / HUD profile
+    for name, pitch, yaw in (("eye_fwd", 0, 0), ("eye_down30", -30, 0)):
         co.location = (ex / 100, -ey / 100, ez / 100)
-        # blender camera looks down -Z; rotate: x = 90 + pitch, z = -90 + yaw (looking along +X)
         co.rotation_euler = (D2R(90 + pitch), 0, D2R(-90 + yaw))
-        sc.render.filepath = os.path.join(outdir, name + ".png")
+        cam.angle = D2R(90)
+        sc.render.filepath = os.path.join(outdir, PREFIX + name + ".png")
         bpy.ops.render.render(write_still=True)
-    # outside 3/4 view
-    co.location = (6.6, 1.2, 2.2)
-    co.rotation_euler = (D2R(62), 0, D2R(108))
-    sc.render.filepath = os.path.join(outdir, "outside.png")
-    bpy.ops.render.render(write_still=True)
+    for name, cpos, tgt, fov in (("out34", (330.0, -95.0, 215.0), (495.0, 0.0, 62.0), 46), ("side", (488.0, -150.0, 92.0), (500.0, 0.0, 78.0), 40)):
+        look(cpos, tgt, fov)
+        sc.render.filepath = os.path.join(outdir, PREFIX + name + ".png")
+        bpy.ops.render.render(write_still=True)
+
+
+PREFIX = "cockpit_v2_"
 
 
 def main():
@@ -1328,14 +1600,16 @@ def main():
         objs[name] = ob
         if name in BAKED_PARTS and "--no-bake" not in ARGS:
             bake_masks(ob)
-        path = os.path.join(ART, name + ".fbx")
+        path = os.path.join(OUT, name + ".fbx")
         export(ob, path)
-        MANIFEST["parts"][name] = dict(fbx=name + ".fbx", slots=list(P.slots), tris=sum(len(f) - 2 for f in P.F))
+        ob.data.calc_loop_triangles()
+        MANIFEST["parts"][name] = dict(fbx=name + ".fbx", slots=list(P.slots), tris=sum(len(f) - 2 for f in P.F),
+                                       tris_export=len(ob.data.loop_triangles))
         print("[cockpit] exported", name, "verts", len(P.V), "faces", len(P.F), "slots", P.slots)
     MANIFEST["made"] = time.strftime("%Y-%m-%d %H:%M:%S")
     MANIFEST["travel"] = TRAVEL
     MANIFEST["inputs"] = dict(layout="Scripts/cockpit/layout.py", rig_eye_mm=list(L.RIG_EYE), eye=list(L.EYE))
-    json.dump(MANIFEST, open(os.path.join(ART, "manifest.json"), "w"), indent=1)
+    json.dump(MANIFEST, open(os.path.join(OUT, "manifest.json"), "w"), indent=1)
     print("[cockpit] built in %.1f s, total tris %d" % (time.time() - t0, sum(p["tris"] for p in MANIFEST["parts"].values())))
     if "--no-preview" not in ARGS:
         preview_materials()
@@ -1366,7 +1640,7 @@ def main():
                 ob.matrix_world = Matrix.Translation(ob.location) @ Matrix((x, y, z)).transposed().to_4x4()
             if pv:
                 ob.location = (pv[0] / 100, -pv[1] / 100, pv[2] / 100)
-        preview_render(objs, os.path.join(ART, "preview"))
+        preview_render(objs, SHOTS)
 
 
 main()

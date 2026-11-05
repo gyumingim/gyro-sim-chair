@@ -1,0 +1,566 @@
+{
+ "made": "2026-11-05 21:57:37",
+ "frame": "UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)",
+ "pivots": {
+  "ADIBall": {
+   "center": [
+    508.66521209402856,
+    0.0,
+    50.10382545128343
+   ],
+   "x_axis": [
+    -1.0,
+    0.0,
+    0.0
+   ],
+   "z_axis": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  "GearHandle": [
+   507.6842738969078,
+   -36.5,
+   45.92851286762894
+  ],
+  "StickPivot": [
+   464.5,
+   0.0,
+   35.0
+  ],
+  "ThrottlePivot": [
+   441.0,
+   -32.0,
+   43.5
+  ],
+  "PedalL": [
+   489.9,
+   -13.5,
+   -12.0
+  ],
+  "PedalR": [
+   489.9,
+   13.5,
+   -12.0
+  ]
+ },
+ "needles": {
+  "asi": {
+   "center": [
+    508.6669917278355,
+    -6.4,
+    39.24995900734026
+   ],
+   "x_axis": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "z_axis": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ]
+  },
+  "alt": {
+   "center": [
+    508.6669917278355,
+    6.4,
+    39.24995900734026
+   ],
+   "x_axis": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "z_axis": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ]
+  },
+  "alt10k": {
+   "center": [
+    508.74642187491446,
+    6.4,
+    39.25949062498973
+   ],
+   "x_axis": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "z_axis": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ]
+  },
+  "vsi": {
+   "center": [
+    509.8189917278355,
+    0.0,
+    29.649959007340257
+   ],
+   "x_axis": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "z_axis": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ]
+  }
+ },
+ "screens": {
+  "MFD_C": {
+   "center": [
+    504.8060491725098,
+    0.0,
+    65.46536590070117
+   ],
+   "normal": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "up": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ],
+   "size": [
+    24.0,
+    15.0
+   ],
+   "px": [
+    1280,
+    800
+   ]
+  },
+  "MFD_L": {
+   "center": [
+    507.11004917250983,
+    -22.5,
+    46.26536590070117
+   ],
+   "normal": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "up": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ],
+   "size": [
+    15.0,
+    15.0
+   ],
+   "px": [
+    1024,
+    1024
+   ]
+  },
+  "MFD_R": {
+   "center": [
+    507.11004917250983,
+    22.5,
+    46.26536590070117
+   ],
+   "normal": [
+    -0.9928768384869221,
+    0.0,
+    -0.11914522061843064
+   ],
+   "up": [
+    -0.11914522061843064,
+    0.0,
+    0.9928768384869221
+   ],
+   "size": [
+    15.0,
+    15.0
+   ],
+   "px": [
+    1024,
+    1024
+   ]
+  }
+ },
+ "parts": {
+  "ck_shell": {
+   "fbx": "ck_shell.fbx",
+   "slots": [
+    "CK_Paint",
+    "CK_Frame",
+    "CK_Metal",
+    "CK_AntiGlare",
+    "CK_Rubber",
+    "CK_HUDFrame",
+    "CK_HUDExit",
+    "CK_Black",
+    "CK_Knob",
+    "CK_White",
+    "CK_Panel",
+    "CK_Bezel",
+    "CK_Dial",
+    "CK_Orange",
+    "CK_Hole",
+    "CK_LensG",
+    "CK_Wall",
+    "CK_Paint2",
+    "CK_Seat",
+    "CK_Fabric",
+    "CK_Webbing",
+    "CK_Chrome"
+   ],
+   "tris": 39674,
+   "tris_export": 90941
+  },
+  "ck_glass": {
+   "fbx": "ck_glass.fbx",
+   "slots": [
+    "CK_HUDGlass",
+    "CK_DispGlass",
+    "CK_Glass"
+   ],
+   "tris": 320,
+   "tris_export": 320
+  },
+  "ck_lt_MC": {
+   "fbx": "ck_lt_MC.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44,
+   "tris_export": 44
+  },
+  "ck_lt_WARN": {
+   "fbx": "ck_lt_WARN.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44,
+   "tris_export": 44
+  },
+  "ck_lt_BRAKE": {
+   "fbx": "ck_lt_BRAKE.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44,
+   "tris_export": 44
+  },
+  "ck_lt_ASSIST": {
+   "fbx": "ck_lt_ASSIST.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44,
+   "tris_export": 44
+  },
+  "ck_lt_SLOW": {
+   "fbx": "ck_lt_SLOW.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44,
+   "tris_export": 44
+  },
+  "ck_lt_VOICE": {
+   "fbx": "ck_lt_VOICE.fbx",
+   "slots": [
+    "CK_LightLit"
+   ],
+   "tris": 44,
+   "tris_export": 44
+  },
+  "ck_adi_ball": {
+   "fbx": "ck_adi_ball.fbx",
+   "slots": [
+    "CK_ADI"
+   ],
+   "tris": 2208,
+   "tris_export": 2208
+  },
+  "ck_needle_asi": {
+   "fbx": "ck_needle_asi.fbx",
+   "slots": [
+    "CK_Needle",
+    "CK_Black"
+   ],
+   "tris": 216,
+   "tris_export": 216
+  },
+  "ck_needle_alt": {
+   "fbx": "ck_needle_alt.fbx",
+   "slots": [
+    "CK_Needle",
+    "CK_Black"
+   ],
+   "tris": 216,
+   "tris_export": 216
+  },
+  "ck_needle_alt10k": {
+   "fbx": "ck_needle_alt10k.fbx",
+   "slots": [
+    "CK_Needle"
+   ],
+   "tris": 24,
+   "tris_export": 24
+  },
+  "ck_needle_vsi": {
+   "fbx": "ck_needle_vsi.fbx",
+   "slots": [
+    "CK_Needle",
+    "CK_Black"
+   ],
+   "tris": 216,
+   "tris_export": 216
+  },
+  "ck_gearhandle": {
+   "fbx": "ck_gearhandle.fbx",
+   "slots": [
+    "CK_Chrome",
+    "CK_GearKnob"
+   ],
+   "tris": 448,
+   "tris_export": 448
+  },
+  "ck_gearlights": {
+   "fbx": "ck_gearlights.fbx",
+   "slots": [
+    "CK_LightG"
+   ],
+   "tris": 144,
+   "tris_export": 144
+  },
+  "ck_stick": {
+   "fbx": "ck_stick.fbx",
+   "slots": [
+    "CK_Rubber",
+    "CK_Chrome",
+    "CK_Black",
+    "CK_Grip",
+    "CK_Red"
+   ],
+   "tris": 4032,
+   "tris_export": 4032
+  },
+  "ck_throttle": {
+   "fbx": "ck_throttle.fbx",
+   "slots": [
+    "CK_Black",
+    "CK_Chrome",
+    "CK_Grip",
+    "CK_Rubber",
+    "CK_Red"
+   ],
+   "tris": 2796,
+   "tris_export": 2796
+  },
+  "ck_pedal_l": {
+   "fbx": "ck_pedal_l.fbx",
+   "slots": [
+    "CK_Metal",
+    "CK_Rubber",
+    "CK_Chrome",
+    "CK_Paint2"
+   ],
+   "tris": 1000,
+   "tris_export": 1000
+  },
+  "ck_pedal_r": {
+   "fbx": "ck_pedal_r.fbx",
+   "slots": [
+    "CK_Metal",
+    "CK_Rubber",
+    "CK_Chrome",
+    "CK_Paint2"
+   ],
+   "tris": 1000,
+   "tris_export": 1000
+  }
+ },
+ "hud_combiner": {
+  "base": [
+   500.5,
+   0.0,
+   78.19999694824219
+  ],
+  "fwd": [
+   0.9510565400123596,
+   0.0,
+   0.30901700258255005
+  ],
+  "up": [
+   -0.30901700258255005,
+   0.0,
+   0.9510565400123596
+  ],
+  "w": 33.8,
+  "h0": 0.9,
+  "h1": 31.03357749110842,
+  "r": 1.6,
+  "poly": [
+   [
+    -13.599999999999998,
+    4.416144550608771
+   ],
+   [
+    13.599999999999998,
+    4.416144550608771
+   ],
+   [
+    16.9,
+    11.41614455060877
+   ],
+   [
+    16.9,
+    24.03357749110842
+   ],
+   [
+    11.299999999999999,
+    31.03357749110842
+   ],
+   [
+    -11.299999999999999,
+    31.03357749110842
+   ],
+   [
+    -16.9,
+    24.03357749110842
+   ],
+   [
+    -16.9,
+    11.41614455060877
+   ]
+  ]
+ },
+ "lights": {
+  "MC": {
+   "part": "ck_lt_MC",
+   "color": "amber",
+   "legend": "MASTER CAUTION"
+  },
+  "WARN": {
+   "part": "ck_lt_WARN",
+   "color": "red",
+   "legend": "WARNING"
+  },
+  "BRAKE": {
+   "part": "ck_lt_BRAKE",
+   "color": "amber",
+   "legend": "BRAKE"
+  },
+  "ASSIST": {
+   "part": "ck_lt_ASSIST",
+   "color": "green",
+   "legend": "ASSIST"
+  },
+  "SLOW": {
+   "part": "ck_lt_SLOW",
+   "color": "green",
+   "legend": "SLOW"
+  },
+  "VOICE": {
+   "part": "ck_lt_VOICE",
+   "color": "green",
+   "legend": "VOICE"
+  }
+ },
+ "masks": {
+  "file": "tex/T_CkShellMasks.png",
+  "res": 2048,
+  "part": "ck_shell",
+  "ao_cm": 8,
+  "wide_cm": 30,
+  "bevel_node_mm": 4,
+  "touch": [
+   [
+    [
+     440.0,
+     -30.0,
+     70.0
+    ],
+    16.0
+   ],
+   [
+    [
+     440.0,
+     30.0,
+     70.0
+    ],
+    16.0
+   ],
+   [
+    [
+     441.0,
+     -32.0,
+     40.0
+    ],
+    11.0
+   ],
+   [
+    [
+     452.0,
+     32.0,
+     40.0
+    ],
+    10.0
+   ],
+   [
+    [
+     478.0,
+     -13.0,
+     -11.0
+    ],
+    9.0
+   ],
+   [
+    [
+     478.0,
+     13.0,
+     -11.0
+    ],
+    9.0
+   ],
+   [
+    [
+     457.0,
+     0.0,
+     24.0
+    ],
+    8.0
+   ]
+  ],
+  "seconds": 76.1,
+  "uv_fill": 1.0,
+  "made": "2026-11-05 21:57:36"
+ },
+ "travel": {
+  "stick_deg": 20.0,
+  "throttle_swing_deg": 30.0,
+  "pedal_cm": 4.617271934896528,
+  "toe_brake_deg": 15.0,
+  "gear_handle_deg": 16.0
+ },
+ "inputs": {
+  "layout": "Scripts/cockpit/layout.py",
+  "rig_eye_mm": [
+   -79.0,
+   0.0,
+   410.0
+  ],
+  "eye": [
+   430.0,
+   0.0,
+   100.0
+  ]
+ }
+}
