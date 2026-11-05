@@ -39,6 +39,7 @@ BOLD = os.environ.get("GYROSIM_NO_BOLD") != "1"     # A/B switch for the frame-t
 HUD_PLATE = 0.12                 # grey of the backing plates behind HUD text (M_HUD maps it to "dark, no light": build_level.HUD_PLATE)
 PLATE = unreal.LinearColor(HUD_PLATE, HUD_PLATE, HUD_PLATE, 1.0)
 HUD_BIG, HUD_NUM = 1.5, 1.15     # HUD numbers (x ts 1.6): speed / altitude boxes, other values (was 1.3 / 0.8-0.9)
+LINE_MAXW = 740.0                # instructor line max width (px): the 28 cm combiner foot is ~ +-10.2 deg (Scripts/cockpit/layout.py HUD_W)
 HUD_LBL = 44                     # HUD Korean labels (was 34; symbology callouts 0.85 x)
 D_TITLE, D_LBL, D_VAL, D_SUB = 84, 72, 5.6, 2.4    # displays: title / row label height (px), big value / small value size
 LBL_COL = unreal.LinearColor(0.72, 0.78, 0.84, 1.0)    # row labels (was GREY 0.45 - too dim)
@@ -292,14 +293,15 @@ class Painter:
             except Exception:
                 iw, ih = 800.0, 56.0
             if iw > 8:
-                sc = min(1.0, 1000.0 / iw)
+                sc = min(1.0, LINE_MAXW / iw)
                 w2, h2 = iw * sc, ih * sc
                 x0, y1 = C - w2 / 2, 812
                 self.fill(x0, y1 - h2, w2, h2, PLATE)
                 self.image(lt, x0, y1 - h2, w2, h2, additive=True)
         note = ex.get("note")
-        if note:
-            self.text(note, C, 120, 0.8, AMBER, plate=True)
+        if note:                                     # fitted to the glass (28 cm combiner: the top chamfer narrows it here)
+            nw = self.tsize(note, 0.8)[0]
+            self.text(note, C, 120, 0.8 * min(1.0, 440.0 / max(1.0, nw)), AMBER, plate=True)
 
     # ---- displays ---------------------------------------------------------------------------------------------------
     def draw_display(self, tag, s, ex):

@@ -203,6 +203,13 @@ float hc = 0.5 * (H0 + H1);
 float2 c = float2(X.y, max(h - hc, 0.0));
 float2 q = abs(c) - float2(0.5 * Wd, 0.5 * (H1 - H0)) + R;
 float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - R;
+if (O2.z > 0.5) {                // octagon glass (manifest hud_combiner.poly): chamfered top and foot corners
+    float hw = 0.5 * Wd;
+    float ax = abs(X.y);
+    float dt = dot(float2(ax - (hw - O2.x), h - H1), normalize(float2(O2.y, O2.x)));
+    float df = dot(float2(ax - (hw - O1.x), h - O1.z), normalize(float2(O1.y, -O1.x)));
+    sd = max(sd, max(dt, df));
+}
 return saturate(0.5 - sd / Soft);
 """
 
@@ -273,7 +280,7 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
         cu = _expr(m, unreal.MaterialExpressionCustom, -1300, 700)
         cu.set_editor_property("code", HUDCLIP_HLSL)
         cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT1)
-        names = ("UV", "CL", "T", "T0", "D", "S", "LocalScaled", "B", "Fw", "Up", "Wd", "H0", "H1", "R", "Soft")
+        names = ("UV", "CL", "T", "T0", "D", "S", "LocalScaled", "B", "Fw", "Up", "Wd", "H0", "H1", "R", "Soft", "O1", "O2")
         ins = []
         for n in names:
             ci = unreal.CustomInput()
@@ -295,6 +302,15 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
         MEL.connect_material_expressions(_const3(m, rel(hc["base"]), -1600, 1250), "", cu, "B")
         MEL.connect_material_expressions(_const3(m, hc["fwd"], -1600, 1300), "", cu, "Fw")
         MEL.connect_material_expressions(_const3(m, hc["up"], -1600, 1350), "", cu, "Up")
+        # octagon: O1 = (foot chamfer across, foot chamfer up, foot height), O2 = (top chamfer across, top chamfer down, on)
+        pg = hc.get("poly")
+        if pg and len(pg) == 8:
+            hwp = pg[2][0]
+            o1, o2 = (hwp - pg[1][0], pg[2][1] - pg[1][1], pg[1][1]), (hwp - pg[4][0], pg[4][1] - pg[3][1], 1.0)
+        else:
+            o1, o2 = (1.0, 1.0, 0.0), (1.0, 1.0, 0.0)
+        MEL.connect_material_expressions(_const3(m, o1, -1600, 1400), "", cu, "O1")
+        MEL.connect_material_expressions(_const3(m, o2, -1600, 1450), "", cu, "O2")
         clip = _expr(m, unreal.MaterialExpressionLinearInterpolate, -1100, 750)       # ClipOn 0 = old unclipped look
         MEL.connect_material_expressions(_const(m, 1.0, -1300, 960), "", clip, "A")
         MEL.connect_material_expressions(cu, "", clip, "B")

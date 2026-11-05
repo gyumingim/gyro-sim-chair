@@ -107,6 +107,12 @@ Stop-Process -Id $srv.Id
 
 ---
 
+## 3.1 실행 결과 (11-05 밤, 조종석 v3 와 같이 넣음)
+- 레벨 다시 빌드 + VR 훅 (`sim_client.apply_look` 끝 `_realism_v2`) 넣음 → VR 프리셋 그림에 별무늬·렌즈 고스트 없음 확인.
+- 고친 버그: `unreal.KismetMaterialLibrary` → `unreal.MaterialLibrary` (실행 중 구름 밀도 v1/v2 전환이 안 됐음), 헤드리스(-nullrhi) 빌드에선 명령 수가 늘 0 이라 캐노피가 상수 하늘색으로 잘못 내려가던 것.
+- GPU ms (`Saved/verify/fps_before_old.json` / `fps_v2ab_v1.json` / `fps_v2ab.json`, 각 1회, 잡음 ~0.2~0.3): 조종석 1080p 3.71 (옛 조종석+v1) → 4.00 (새 조종석+v1) → 4.13 (새+v2); VR 픽셀 흉내 4.74 → 4.97 → 5.09.
+- 남은 것: 바다·땅 색(1.6·1.7), 캐노피 하늘 반사는 그림에서 거의 안 보임(값 키울지 판단 필요), 해 쪽 하늘의 네모 경계선(v1 부터 있음).
+
 ## 4. 2단계로 미룬 것 / 위험
 
 - **VR 훅**(2.2): `sim_client.apply_look` 끝에 `realism_v2.apply_profile(name, world)` (Scripts 경로 추가) 또는 `init_unreal.py` 에서 `install_hook`. 이것 전에는 VR 에서 모니터 값이 쓰임.

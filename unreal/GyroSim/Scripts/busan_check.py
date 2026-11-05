@@ -24,10 +24,12 @@ CRUISE = dict(HOLD, brk_l=0.0, brk_r=0.0, thr=0.75)
 STATION_300 = dict(lat=35.1000, lon=129.0480, alt_m=300.0, hdg=12.0, kts=250.0)      # over 부산역 / port, toward 서면
 HAEUNDAE = dict(lat=35.1440, lon=129.1700, alt_m=350.0, hdg=340.0, kts=250.0)        # over the sea, toward the beach towers
 SEOMYEON = dict(lat=35.1578, lon=129.0600, alt_m=250.0, hdg=0.0, kts=250.0)
-# (name, start, view, orbit [yaw, el, dist cm] or None)
+SUN_300 = dict(STATION_300, hdg=322.0)                                               # same spot, nose toward the sun (az ~322, 38 deg up)
+# (name, start, view, orbit [yaw, el, dist cm] or None[, cockpit look [pitch, yaw] deg])
 SHOTS = [("busan_rkpk_runway_cockpit", "runway", "cockpit", None),
          ("busan_rkpk_runway_side", "runway", "orbit", [90.0, 2.0, 6000.0]),
          ("busan_cockpit_300m_to_seomyeon", STATION_300, "cockpit", None),
+         ("busan_cockpit_300m_sun", SUN_300, "cockpit", None, [20.0, 0.0]),     # sun glare / canopy reflection (realism v2)
          ("busan_haeundae_chase", HAEUNDAE, "chase", None),
          ("busan_seomyeon_top", SEOMYEON, "orbit", [0.0, 80.0, 45000.0]),
          ("busan_seomyeon_top_close", SEOMYEON, "orbit", [0.0, 85.0, 12000.0])]
@@ -143,18 +145,19 @@ def tick(dt):
             if ST["i"] >= len(SHOTS):
                 ST.update(phase="end", t=now)
                 return
-            name, spec, view, orb = SHOTS[ST["i"]]
+            name, spec, view, orb = SHOTS[ST["i"]][:4]
             key = spec if not isinstance(spec, dict) else json.dumps(spec, sort_keys=True)
             if ST["start"] != key:
                 start(spec)
                 ST["start"] = key
             c.override = dict(HOLD if spec == "runway" else CRUISE)
             c.set_view(view)
+            c.look_tgt = list(SHOTS[ST["i"]][4]) if len(SHOTS[ST["i"]]) > 4 else [0.0, 0.0]
             if orb is not None:
                 c.orbit[view] = list(orb)
             ST.update(phase="load", t=now)
         elif ph == "load":
-            name, spec, view, orb = SHOTS[ST["i"]]
+            name, spec, view, orb = SHOTS[ST["i"]][:4]
             if orb is not None:
                 c.orbit[view] = list(orb)
             p1, p2 = progress(c.tileset), progress(getattr(c, "buildings", None))
@@ -162,7 +165,7 @@ def tick(dt):
                 ST["load"] = dict(load_s=round(el, 1), terrain_progress=p1, buildings_progress=p2)
                 ST.update(phase="shoot", t=now)
         elif ph == "shoot" and el > 2.0:
-            name, spec, view, orb = SHOTS[ST["i"]]
+            name, spec, view, orb = SHOTS[ST["i"]][:4]
             shot(name)
             s = c.s or {}
             r = ST["res"].setdefault(name, {})
@@ -176,6 +179,7 @@ def tick(dt):
             ST.update(phase="setup", t=now)
         elif ph == "end" and el > 3.0:
             c.override = None
+            c.look_tgt = [0.0, 0.0]
             c.set_view("cockpit")
             SAY({"cmd": "tut", "op": "free"})
             r = checks(c)

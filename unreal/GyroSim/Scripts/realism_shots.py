@@ -110,6 +110,12 @@ def tick(dt):
             for a in unreal.GameplayStatics.get_all_actors_with_tag(ues.get_game_world(), "HUD"):
                 mt = a.static_mesh_component.get_material(0)
                 if isinstance(mt, unreal.MaterialInstanceDynamic):
+                    for fn_ in ("k2_get_scalar_parameter_value", "get_scalar_parameter_value"):
+                        try:
+                            ST["clip_wd"] = getattr(mt, fn_)("C_Wd")
+                            break
+                        except Exception:
+                            pass
                     mt.set_scalar_parameter_value("C_Wd", 14.0)
                     ST["clip_mid"] = mt
             c.view, c.look_down, c.look_tgt = "cockpit", False, [0.0, 0.0]
@@ -121,7 +127,7 @@ def tick(dt):
             ST.update(phase="clipreset", t=now)
         elif ph == "clipreset" and el > 1.5:
             if ST.get("clip_mid"):
-                ST["clip_mid"].set_scalar_parameter_value("C_Wd", 33.8)
+                ST["clip_mid"].set_scalar_parameter_value("C_Wd", ST.get("clip_wd") or 33.8)
             ST.update(phase="end", t=now)
         elif ph == "end" and el > 1.5:
             c.override = None
@@ -140,7 +146,7 @@ def tick(dt):
             fps_runs = []
             if os.environ.get("GYROSIM_FPS_LABEL"):
                 base = os.environ["GYROSIM_FPS_LABEL"]
-                fps_runs = [(base, True)] + ([(base + "_v1", False)] if os.environ.get("GYROSIM_FPS_V2_AB") == "1" else [])
+                fps_runs = [(base, V2STATES[-1])] + ([(base + "_v1", False)] if os.environ.get("GYROSIM_FPS_V2_AB") == "1" else [])
             ST2 = dict(t=time.monotonic(), h=None, runs=fps_runs, wait=None)
             vdir = os.path.join(unreal.Paths.project_saved_dir(), "verify")
 

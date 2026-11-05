@@ -35,6 +35,14 @@ copy /Y unreal\GyroSim\Art\Cockpit_v2\tex\T_CkShellMasks.png unreal\GyroSim\Art\
 5. 초보자 모드 한글 이름표 (adi·asi·alt·vsi·gear·wheels·lights) 가 버튼·테두리에 안 가리는지 (스크립트가 겹침 검사함: 경고 0 개).
 6. `Scripts/measure_fps.py` 로 GPU / 게임 스레드 시간 (삼각형 +23%) — README 성능 표와 비교.
 
+## 11-05 밤 적용 때 바꾼 것
+- 장식 키패드·테두리 버튼·HUD 손잡이 끔 (`DECOR_KEYS = False`, 사용자 결정 — 11-04 가짜 키패드 제거와 같은 뜻).
+- HUD 유리 34 → 28 cm (`layout.HUD_W`; 눈에서 약 69 cm → ±11.4°, 실제 전투기 HUD 전체 시야 약 25° 정도), 아래 모서리 깎임 3.3 → 1.5 cm,
+  금속 테두리 단면 0.26×0.34 → 0.16×0.22 cm, 버팀대 반지름 0.42 → 0.3 cm.
+  속도·고도 상자(±9.8°)는 유리 안. 교관 한 줄 그림은 유리 발치 폭(±10.2°)에 맞게 최대 740 px 로 줄임 (`hud.LINE_MAXW`, 전엔 1000 px) — 긴 줄은 글자가 조금 작아짐.
+- HUD 자르기가 팔각형을 따름: `build_level.py` `HUDCLIP_HLSL` 이 `hud_combiner.poly` 로 위·아래 모서리 깎인 선도 자름 (poly 없으면 예전 둥근 사각형).
+- 옛 `Art/Cockpit` 백업: `C:\GyroSimTiles\backup\Cockpit_old_20261105` (git 으로도 되돌릴 수 있음, 위 "되돌리기").
+
 ## 남은 선택 (안 한 것)
 - HUD 자르기를 팔각형에 정확히 맞추려면 `build_level.py` 의 `HUDCLIP_HLSL` 을 `hud_combiner.poly` (유리면 좌표 (가로, 위로) cm, base 기준) 로
   다각형 안팎 판정하도록 바꾸면 된다. 지금은 바깥 사각형 그대로라 글자가 잘리는 일은 없고, 모서리에서 유리 밖에 조금 보일 수만 있다.

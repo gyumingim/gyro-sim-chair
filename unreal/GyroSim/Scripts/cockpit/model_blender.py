@@ -621,7 +621,8 @@ HUD_PED = dict(x0=496.0, x1=521.0, w0=22.0, w1=19.0, zt0=82.6, zt1=81.6, zb=76.0
 def hud_poly(W, hh, h0=0.9):
     h1 = hh - 0.3
     hw = W / 2 - 0.1
-    return [(-hw + 3.3, h0), (hw - 3.3, h0), (hw, h0 + 7.0), (hw, h1 - 7.0), (hw - 5.6, h1), (-hw + 5.6, h1), (-hw, h1 - 7.0), (-hw, h0 + 7.0)]
+    cf = 1.5            # foot chamfer (was 3.3 on the 34 cm glass): the instructor line sits at the glass foot
+    return [(-hw + cf, h0), (hw - cf, h0), (hw, h0 + 7.0), (hw, h1 - 7.0), (hw - 5.6, h1), (-hw + 5.6, h1), (-hw, h1 - 7.0), (-hw, h0 + 7.0)]
 
 
 def build_hud():
@@ -645,7 +646,7 @@ def build_hud():
     ze = hp["zt0"] + (xe - hp["x0"] - 3.0) * (hp["zt1"] - hp["zt0"]) / (hp["x1"] - hp["x0"] - 3.0)
     P.add(bm_box(9.0, hp["w1"] - 4.0, 0.3, 0.1, 1, c=(xe, 0, ze)), "CK_HUDExit")
     # aft face: two small HUD knobs (brightness / mode) like the F-16 / F-18 HUD body
-    for yy in (-6.5, 6.5):
+    for yy in ((-6.5, 6.5) if DECOR_KEYS else ()):
         fr = ((hp["x0"] + 0.25, yy, hp["zt0"] - 3.2), (0, 1, 0), (0, 0, 1), (-1, 0, 0))
         knob(P, fr, small=True)
     gf = (tuple(base), (0, 1, 0), tuple(up), tuple(fwd))           # glass frame: x = across, y = up the glass, z = fwd
@@ -658,7 +659,7 @@ def build_hud():
     ring = fillet_poly(loop, 0.9, 3)[1:-1]
     ring = ring + ring[:1]
     path = [tuple(base + V((0, s, 0)) + up * h) for s, h in ring]
-    bm = bm_sweep(path, [(0.26 * math.cos(D2R(a)), 0.34 * math.sin(D2R(a))) for a in range(0, 360, 45)], side_hint=tuple(fwd), caps=False)
+    bm = bm_sweep(path, [(0.16 * math.cos(D2R(a)), 0.22 * math.sin(D2R(a))) for a in range(0, 360, 45)], side_hint=tuple(fwd), caps=False)   # thin rim (11-05: was 0.26 x 0.34)
     P.add(bm, "CK_Metal", recalc=False)
     # struts: from the pedestal shoulders up to the glass sides (two slim rods + hinge blocks)
     hw = W / 2 - 0.1
@@ -666,7 +667,7 @@ def build_hud():
         p_top = base + V((0, sgn * (hw + 0.35), 0)) + up * 11.5 + fwd * 0.5
         p_bot = V((hp["x0"] + 6.0, sgn * (hp["w1"] / 2 - 0.4), hp["zt0"] - 0.9))
         p_mid = p_bot + (p_top - p_bot) * 0.5 + fwd * 0.6
-        P.add(bm_sweep([tuple(p_bot), tuple(p_mid), tuple(p_top)], [(0.42 * math.cos(D2R(a)), 0.42 * math.sin(D2R(a))) for a in range(0, 360, 45)],
+        P.add(bm_sweep([tuple(p_bot), tuple(p_mid), tuple(p_top)], [(0.3 * math.cos(D2R(a)), 0.3 * math.sin(D2R(a))) for a in range(0, 360, 45)],
                        side_hint=(1, 0, 0)), "CK_HUDFrame")
         P.add(bm_box(2.4, 1.8, 1.8, 0.45, 2), "CK_HUDFrame", frame=(tuple(p_bot), (1, 0, 0), (0, 1, 0), (0, 0, 1)))
         P.add(bm_box(1.3, 1.1, 2.2, 0.3, 2), "CK_HUDFrame", frame=(tuple(p_top), (0, sgn, 0), tuple(fwd), tuple(up)))
@@ -683,7 +684,7 @@ def build_hud():
 WING_U, WING_DEG = 39.5, 30.0
 # display bezel margins around the screen opening (left, right, bottom, top), cm - checked against KEEP_OUT below
 DISP_MARGIN = {"MFD_L": (2.3, 2.3, 1.9, 1.2), "MFD_R": (2.3, 2.3, 1.9, 1.2), "MFD_C": (2.2, 2.2, 1.25, 1.1)}
-DECOR_KEYS = True       # OSB rows, UFC key blocks, HUD knobs (no function: they are what the reference panels look like)
+DECOR_KEYS = False      # OSB rows, UFC key blocks, HUD knobs (no function) - off: user decision 11-05 (as 11-04: no fake keypads)
 PEDESTAL = dict(w=7.0, v0=L.PANEL_Z0, v1=23.4, d0=5.5, d1=2.2)    # half width, bottom / top v, depth toward the pilot
 
 

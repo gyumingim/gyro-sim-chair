@@ -274,6 +274,24 @@ def apply_look(name, world):
             a.set_editor_property("settings", ps)
     except Exception as e:
         _log("look", name, repr(e))
+    _realism_v2(name, world)
+
+
+def _realism_v2(name, world):
+    """realism v2 profile per preset (Scripts/realism_v2.py, docs/realism-v2-plan.md 2.2): VR gets standard bloom and no
+    lens flare instead of the monitor values baked into the level."""
+    try:
+        import sys
+        sd = os.path.join(unreal.Paths.project_dir(), "Scripts")
+        if sd not in sys.path:
+            sys.path.insert(0, sd)
+        import realism_v2
+        realism_v2.apply_profile(name, world)
+    except Exception as e:
+        _log("realism_v2", name, repr(e))
+
+
+apply_look._realism_v2 = True          # realism_v2.install_hook: already built in, nothing to wrap
 
 
 def apply_preset(name, world=None):

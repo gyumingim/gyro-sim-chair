@@ -364,7 +364,10 @@ def build_cockpit():
             continue
         if name == "ck_shell":
             try:
-                n_uv = unreal.EditorStaticMeshLibrary.get_num_uv_channels(sm, 0)
+                sms = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)      # None in the -nullrhi commandlet
+                n_uv = (sms or unreal.EditorStaticMeshLibrary).get_num_uv_channels(sm, 0)
+                # note: the deprecated EditorStaticMeshLibrary call reported 0 in the 11-05 commandlet build although the
+                # FBX has the same 3 UV layers as before
             except Exception as e:
                 n_uv = repr(e)
             log("ck_shell UV channels:", n_uv, "(3 = baked mask UV2 present)")

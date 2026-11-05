@@ -177,7 +177,8 @@ def _canopy_v2(g, sun_dir, use_env=True):
         n = -1
         log("canopy stats", repr(ex))
     log("M_CkCanopyV2 compiled: pixel instructions", n, "env", use_env)
-    if n == 0 and use_env:                       # compile failed (e.g. node not allowed here) -> constant sky colour
+    nullrhi = "-nullrhi" in unreal.SystemLibrary.get_command_line().lower()   # headless build: no shader compile -> 0
+    if n == 0 and use_env and not nullrhi:       # compile failed (e.g. node not allowed here) -> constant sky colour
         return _canopy_v2(g, sun_dir, use_env=False)
     return m
 
@@ -292,7 +293,7 @@ def _cloud_density(world, comp, dens):
             parent = unreal.load_asset(CLOUD_MI)
             if not parent:
                 return
-            mid = unreal.KismetMaterialLibrary.create_dynamic_material_instance(world, parent)
+            mid = unreal.MaterialLibrary.create_dynamic_material_instance(world, parent)
             STATE["mids"]["cloud"] = mid
             try:
                 comp.set_material(mid)
