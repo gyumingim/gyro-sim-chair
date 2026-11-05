@@ -47,7 +47,7 @@ button,.chk{font:inherit;font-size:.84rem;padding:5px 9px;border-radius:7px;bord
 <div id="app">
   <div id="view"><div id="hud">드래그 = 돌리기 · 오른쪽 드래그 = 이동 · 휠 = 확대 · 부품 클릭 = 설명</div><div id="tip"></div></div>
   <aside>
-    <h1>자이로 의자 v4 · VR 전용 (웹 모델)</h1>
+    <h1>자이로 의자 v5 · VR 전용 (웹 모델) · roll 앞쪽 = 호 레일 + 롤러</h1>
     <p class="sub">무게추로 기울이는 비행 시뮬레이터 의자. 치수는 이 파일의 PARTS 표가 원본입니다 (mm, x = 앞, y = 왼쪽, z = 위, 원점 = 두 회전축이 만나는 점).</p>
     <div class="box" id="info"><h3>부품을 클릭하세요</h3><p class="spec">3D 화면이나 아래 목록에서 고르면 이름 · 하는 일 · 치수가 나옵니다.</p></div>
     <div class="box">
@@ -105,25 +105,31 @@ const GROUPS={
   person:{name:"사람 (크기 참고)",color:0x3a9d6a}
 };
 const INFO={
-  base_spine:["바닥 등뼈 (고정)","앞·뒤 기둥을 잇는 바닥 막대. yaw 없이 바닥에 고정 (원판 대신).","강철 각관 60×60, 길이 약 2.1 m"],
-  base_foot:["바닥 발 (좌우)","기둥 아래와 가운데에서 좌우로 넓게 벌려 옆으로 넘어지지 않게.","60×60 × 1.3 m"],
-  base_brace:["기둥 보강대","기둥과 바닥 틀을 비스듬히 잇는다 (좌우 · 안쪽).","30×30"],
+  base_spine:["바닥 등뼈 (고정)","뒤 기둥 · 가운데 롤러 받침 · 앞 발을 잇는 바닥 막대. yaw 없이 바닥에 고정 (원판 대신).","강철 각관 60×60, 길이 약 2.1 m"],
+  base_foot:["바닥 발 (좌우)","뒤 기둥 아래 · 가운데 (롤러 받침 아래) · 앞 끝에서 좌우로 넓게 벌려 옆으로 넘어지지 않게. 앞 발은 앞 기둥이 없어져도 넘어짐 방지용으로 남김.","60×60 × 1.3 m"],
+  base_brace:["기둥 보강대","뒤 기둥과 바닥 틀을 비스듬히 잇는다 (좌우 · 안쪽).","30×30"],
   yaw_plate:["yaw 예비 자리 (볼트 판)","지금은 yaw 없음. 나중에 선회 베어링을 끼울 수 있게 볼트 구멍만 낸 판.","300×300×10"],
-  post:["roll 기둥","roll 회전축을 받치는 기둥 2개 (앞·뒤). 기둥 꼭대기 핀에 링이 매달려 좌우로 돈다.","40×40, 바닥 틀 위로 약 1.3 m, 앞 x = +1180 / 뒤 x = −900"],
-  roll_pin:["roll 회전축","링이 이 축을 중심으로 좌우로 기운다. 실물은 필로우블록 베어링 권장.","Ø40 핀, 축 높이 = 원점"],
+  post:["roll 기둥 (뒤 하나만)","roll 회전축 뒤쪽 끝을 받치는 기둥. 앞 기둥은 없앴다 — 앞쪽 하중은 가운데 호 레일 + 롤러가 받는다 (앞이 트여 교관 시야·출입이 좋아짐).","40×40, 바닥 틀 위로 약 1.3 m, x = −900"],
+  roll_pin:["roll 회전축 (뒤 핀)","링 뒤 막대와 뒤 기둥 사이 핀. 축 위치를 잡고 앞뒤(x) 힘을 받는다. 위아래 하중은 대부분 호 레일이 받아서 작다 (계산 탭). 실물은 자동조심 필로우블록 (UCP) 권장.","Ø40 핀 (계산은 Ø25), 축 높이 = 원점"],
   guard_roll:["끼임 방지 덮개 (roll 축)","도는 링과 고정 기둥 사이 틈에 손가락이 끼지 않게 막는 통.","Ø90 / 안 Ø46"],
+  arc_rail:["roll 호 레일 (반원 레일, ㄷ자)","링에 붙은 큰 원호. 중심이 roll 축과 정확히 같아서 링이 기울면 이 호가 바닥 가운데 롤러 위로 미끄러지듯 지나간다 = 앞 기둥 대신 앞쪽 하중을 받는 회전 지지. pitch 축 바로 아래 (x = 0) 라 케이지 + 탑승자 무게가 곧장 롤러로 내려간다. 단면은 바깥쪽 (바닥 쪽) 이 트인 ㄷ자 (립 채널) — 롤러가 안에 들어가 달린다. 그래서 고정 부품이 모두 반지름 1125 바깥에 있어, pitch 31° + roll 을 같이 해도 케이지 바닥 모서리 (반지름 약 1090 까지 내려옴) 와 안 닿는다. 호 범위 ±48° = 롤러 ±11° + roll ±31° + 여유 약 6°.","알루미늄 6061-T6 립 채널 60 (앞뒤) × 60 (반지름) × 4, 트임 24, 안쪽 반지름 1120 / 바깥 1180, ±48° (길이 약 1.9 m, 약 4 kg)"],
+  arc_hanger:["호 레일 세로 기둥 (행어)","링 옆 막대 (pitch 핀 바로 옆) 에서 호 레일 안쪽 면까지 내려오는 기둥. 케이지보다 바깥 (y ±460~500) 이라 케이지와 안 닿고, 레일 안쪽 면에 붙으므로 롤러 (레일 속) 와도 안 만난다.","40×40 프로파일 약 0.96 m, y = ±480"],
+  arc_strut:["호 레일 빗대","세로 기둥 중간과 호 끝 (±46°) 을 비스듬히 이어 호 · 기둥 · 빗대가 삼각형이 되게 (호 끝이 흔들리지 않게). 승강대 발판 아래를 지나간다.","40×40 프로파일"],
+  cradle:["롤러 받침대 (고정)","바닥 가운데 발 위 받침판. 얇은 판 (두께 8) 3 장이 호 레일 트임 (폭 24) 으로 올라가 레일 속 롤러 축을 잡는다 (±10° 받침, 0° 붙잡이). +5° 에는 잠금 핀 귀 (양옆).","받침판 140×520×12 + 축판 8 mm × 3 + 핀 귀 2, 강"],
+  roller_load:["받침 롤러 (레일 속)","레일 속에서 안쪽 벽 (web) 을 받친다 = 링 앞쪽 무게를 받는 롤러. ±10° 에 한 쌍씩이라 링이 옆(y) 으로도 못 밀린다. 축판 양옆에 하나씩.","Ø40 × 폭 18 트랙 롤러 (KR40 / 608·6202 베어링 롤러 급), 축 Ø12, 모델은 2 mm 띄움"],
+  roller_cap:["붙잡이 롤러 (레일 속)","레일 바깥 립 (트임 양옆 턱) 안쪽에 닿아 링이 들리지 못하게 (사람이 들썩이거나 무게가 앞으로 몰릴 때). 0° 에 축판 양옆 하나씩.","Ø30 × 폭 12, 축 Ø12, 모델은 2 mm 띄움"],
+  roller_axle:["롤러 축","축판을 꿰는 축. 양쪽에 롤러가 하나씩.","Ø12 강"],
+  roller_side:["옆 안내 롤러","레일 앞·뒤 바깥 벽을 잡는 롤러 (축이 반지름 방향). 호가 앞뒤(x) 로 흔들리거나 비틀리지 않게 — 앞뒤 힘을 뒤 핀과 나눠 받는다.","Ø30 × 폭 14, 0°, 앞·뒤 각 1 개 + 받침"],
   roll_stop:["roll 멈춤쇠 막대","링 뒤 막대 아래 고정 막대. 위에 고무가 있다.","120×640×40, z −272…−232"],
   roll_rubber:["roll 고무 멈춤쇠","링이 ±30.5° 까지 기울면 링 뒤 막대가 여기에 닿아 멈춘다 (Fusion 회전 시험으로 확인).","30×70×20 고무"],
-  lock_post:["roll 잠금판 (기둥 쪽)","탈 때 링 쪽 잠금판과 구멍을 맞춰 핀을 꽂으면 roll 이 0° 에 고정된다.","18×40×90, 구멍 Ø13"],
-  lock_roll_ring:["roll 잠금판 (링 쪽)","기둥 쪽 잠금판과 구멍을 맞춰 핀을 꽂는다.","18×40×90, 구멍 Ø13"],
   ring_side:["roll 링 옆 막대","링의 왼쪽·오른쪽 막대. 가운데에서 pitch 축 핀을 잡는다.","40×80 (세로), 길이 1940, y = ±480"],
   roll_rail:["roll 레일 (링 뒤 막대)","무게추가 이 막대 위를 좌우(y) 로 ±0.59 m 미끄러지며 roll 을 기울인다. 바깥쪽 벨트가 무게추를 끈다. 아래에는 roll 고무 멈춤쇠가 닿는다.","40×80 (세로), 길이 1280, x = −800"],
   roll_belt:["roll 타이밍 벨트 (HTD 5M, 폭 15)","링 뒤 막대 바깥쪽에서 무게추를 좌우로 끄는 벨트. 무게추 팔이 위쪽 벨트에 물려 있다.","HTD5M 15 mm, 둘레 약 2.8 m"],
   roll_pulley:["roll 벨트 풀리","한쪽은 모터 축 (구동), 반대쪽은 아이들러 (헛도는 바퀴).","HTD5M 20T, 피치원 Ø31.8 (1회전 100 mm)"],
   roll_bracket:["풀리 받침","레일 끝에 붙여 풀리를 잡는 판.","8 mm 판"],
-  ring_back:["링 앞 막대 (뼈대)","무게추 없음 (앞쪽은 교관·견학 시야용으로 비워 둠). 링을 닫는 뼈대.","40×80 (세로), 길이 1000, x = +1100"],
+  ring_back:["링 앞 막대 (뼈대)","무게추 없음. 링을 닫는 뼈대. 앞 기둥이 없어져서 지금은 아무 데도 안 걸려 있다 (호 레일 앞으로 1.1 m 나온 끝).","40×80 (세로), 길이 1000, x = +1100"],
   roll_motor:["roll 웜기어 모터","24 V 웜기어 DC 모터 (예: 모터뱅크 WGM40C-315724, 감속비 1/218 ≈ 25 rpm, 추정). 웜기어가 저절로 잠겨 전원이 꺼져도 무게추를 붙잡는다.","약 25 rpm × 100 mm = 초속 4.2 cm (추정)"],
-  roll_weight:["roll 무게추 약 18.6 kg","강철 블록. roll 20° 에 약 17.6 kg 필요 (계산 탭, 추정, 레일 끝 ±0.565 m).","68×150×232 강철 ≈ 18.6 kg"],
+  roll_weight:["roll 무게추 약 23 kg","강철 블록. 호 레일 · 행어가 축 아래 약 1 m 에 붙어 roll 되돌아오는 힘이 커져서 (27.6 → 약 33 kg·m) 18.6 → 23.2 kg 로 키움 (높이 232 → 290). roll 20° 에 약 22 kg 필요 (계산 탭, 추정, 레일 끝 ±0.565 m).","68×150×290 강철 ≈ 23.2 kg"],
   pitch_pin:["pitch 회전축","케이지가 이 축을 중심으로 앞뒤로 기운다. 링 옆 막대에 붙어 있다.","Ø40, y = ±440"],
   guard_pitch:["끼임 방지 덮개 (pitch 축)","도는 케이지와 링 사이 틈을 막는 통.","Ø90 / 안 Ø46"],
   pitch_arm:["pitch 멈춤쇠 팔","링에 붙은 세로 막대 (위아래 32 cm). 케이지 돌기가 ±30.5° 에서 이 팔의 고무에 닿는다.","40×18×640"],
@@ -172,7 +178,7 @@ const INFO={
   pitch_pulley:["pitch 벨트 풀리","뒤 = 구동 (가로축), 앞 = 아이들러.","HTD5M 20T"],
   cover:["끼임 방지 덮개 (벨트)","벨트 위를 덮는 덮개 (반투명으로 그림). 손가락이 벨트·풀리에 끼지 않게.","얇은 판"],
   brace:["모서리 보강대","지붕을 뺀 대신 기둥과 가로대를 비스듬히 이어 상자를 단단하게.","40×40, 45°"],
-  pin:["잠금 핀","탈 때·내릴 때만 꽂는다. 무게추 가운데 → 핀 꽂기 → 타기 → 벨트 → 핀 뽑기.","Ø12"],
+  pin:["잠금 핀","탈 때·내릴 때만 꽂는다. 무게추 가운데 → 핀 꽂기 → 타기 → 벨트 → 핀 뽑기. roll 핀은 받침대 핀 귀 → 호 레일 양쪽 벽 구멍 (+5°) → 반대쪽 귀로 꽂는다 (pitch 핀 2 개는 링 옆). 핀이 꽂혀 있으면 모터가 안 돌게 스위치.","Ø12"],
   person:["사람 (175 cm)","크기 참고용. 무게중심이 축 아래 약 10 cm.","80 kg 가정"]
 };
 const BOX=(g,k,x0,x1,y0,y1,z0,z1)=>({g,k,t:"box",a:[x0,x1,y0,y1,z0,z1]});
@@ -194,7 +200,7 @@ function shiftX(p,dx){
 const add=p=>{if((p.g==="cage"||p.g==="person")&&!NO_SHIFT.has(p.k))shiftX(p,CAGE_SHIFT);PARTS.push(p)};
 const S2=[1,-1], ys=(s,a,b)=>s>0?[a,b]:[-b,-a];
 // ---- main dimensions (VR-only compact, 2026-10-29) ----
-const PF=1180,PB=-900;          // base post centres (front / back)
+const PF=1180,PB=-900;          // base front foot (no front post since the arc rail) / back post centre
 const RF=1100,RB=-800;          // roll ring front / back member centres
 const XF=740,XB=-380,YS=400;    // cage front / back post centres, side rail y
 const XR=-720;                  // side rails stick out behind the back posts to here (pitch weight travel)
@@ -204,18 +210,39 @@ const ZG=-1320, BT=60;                        // ground level, steel tube size
 add(BOX("base","base_spine",PB-30,PF+30,-BT/2,BT/2,ZG,ZG+BT));
 for(const x of[PF,PB,0]) add(BOX("base","base_foot",x-BT/2,x+BT/2,-650,650,ZG,ZG+BT));
 add(BOX("base","yaw_plate",-150,150,-150,150,ZG+BT,ZG+BT+10));
-for(const s of S2){
-  add(STRAP("base","base_brace",[PF,0,-1000],[PF,s*450,ZG+BT],30,30,[1,0,0]));
-  add(STRAP("base","base_brace",[PB,0,-1000],[PB,s*450,ZG+BT],30,30,[1,0,0]));
-}
-add(STRAP("base","base_brace",[PF,0,-1000],[PF-300,0,ZG+BT],30,30,[0,1,0]));
+// front post removed (2026-11-05): the front of the ring is carried by the arc rail (ring) on rollers (base) at x = XA
+for(const s of S2) add(STRAP("base","base_brace",[PB,0,-1000],[PB,s*450,ZG+BT],30,30,[1,0,0]));
 add(STRAP("base","base_brace",[PB,0,-1000],[PB+300,0,ZG+BT],30,30,[0,1,0]));
-for(const x of[PF,PB]) add(BOX("base","post",x-20,x+20,-20,20,ZG+BT,40));
-add(CYL("base","roll_pin",[RF+20,0,0],[PF-20,0,0],20));add(CYL("base","roll_pin",[PB+20,0,0],[RB-20,0,0],20));
-add(TUBE("base","guard_roll",[RF+22,0,0],[PF-22,0,0],45,23));add(TUBE("base","guard_roll",[PB+22,0,0],[RB-22,0,0],45,23));
+add(BOX("base","post",PB-20,PB+20,-20,20,ZG+BT,40));
+add(CYL("base","roll_pin",[PB+20,0,0],[RB-20,0,0],20));
+add(TUBE("base","guard_roll",[PB+22,0,0],[RB-22,0,0],45,23));
 add(BOX("base","roll_stop",PB-20,RB+20,-320,320,-295,-255));
 for(const s of S2){const[y0,y1]=ys(s,250,320);add(BOX("base","roll_rubber",RB-15,RB+15,y0,y1,-255,-235))}
-add(BOX("base","lock_post",PF-38,PF-20,-20,20,-150,-60));
+// ---- roll arc rail (on the ring) + roller cradle (on the base) ----
+// Arc in the y-z plane at x = XA, centred on the roll axis. x = 0 = right under the pitch pins (cage + rider load goes straight
+// down to the rollers) and where the cage reaches least deep when pitched. The rail is a lipped channel ("C") with the slot
+// facing away from the axis: rollers run INSIDE it on axles carried by thin plates that come up through the slot, so every
+// fixed part stays outside radius ~1125. That matters because the cage, pitched 31 deg AND rolled, sweeps down to radius
+// ~1090 (floor corner) near x = 0..30 -- rollers riding on the inner face of the arc would be hit.
+const XA=0, ARI=1120, ARO=1180, AT=4, AHW=30, ASL=12, AMAX=48, ASEG=3, AGAP=2;  // web inner / lip outer radius, wall, half width, half slot, half angle, segment deg, model gap
+const ARC_KGM=2.16;             // kg/m: aluminium 6061-T6 lipped channel 60 x 60 x 4 (area 800 mm2); steel would be 6.3 kg/m
+const RLA=10;                   // load-roller trucks at +-10 deg; capture truck + side guides at 0 deg; lock pin at +5 deg
+const RL_R=ARI+AT+AGAP+20, RC_R=ARO-AT-AGAP-15;   // axle radius: load rollers (D40, on the web) / capture rollers (D30, under the lips)
+const rotX=(v,deg)=>{const a=deg*Math.PI/180,c=Math.cos(a),s=Math.sin(a);return[v[0],v[1]*c-v[2]*s,v[1]*s+v[2]*c]};
+const RBOX=(g,k,a,deg,extra)=>Object.assign({g,k,t:"rbox",a,rx:deg},extra||{});   // box a (local, 0 deg = bottom) turned about the roll axis
+const ZC=ZG+BT+22;              // cradle plate top
+add(BOX("base","cradle",XA-70,XA+70,-260,260,ZG+BT+10,ZC));
+const truck=(ph,k,r,rr,x0,x1)=>{   // fin plate up through the slot + axle + two rollers (one each side of the fin)
+  add(RBOX("base","cradle",[XA-4,XA+4,-24,24,-1250,-(r-12)],ph));
+  add(CYL("base","roller_axle",rotX([XA-x1,0,-r],ph),rotX([XA+x1,0,-r],ph),6));
+  for(const sx of S2){const[a0,a1]=ys(sx,x0,x1);add(CYL("base",k,rotX([XA+a0,0,-r],ph),rotX([XA+a1,0,-r],ph),rr))}};
+for(const sa of S2) truck(sa*RLA,"roller_load",RL_R,20,5,23);
+truck(0,"roller_cap",RC_R,15,12,24);
+for(const sx of S2){const xg=AHW+AGAP+15,[b0,b1]=ys(sx,34,62),[l0,l1]=ys(sx,34,56);
+  add(CYL("base","roller_side",[XA+sx*xg,0,-1143],[XA+sx*xg,0,-1157],15));         // radial axis, rolls on the channel wall
+  add(BOX("base","cradle",XA+b0,XA+b1,-20,20,ZC,-1159));                             // side-guide bracket from the cradle plate
+  add(RBOX("base","cradle",[XA+l0,XA+l1,-15,15,-1240,-1138],5));                     // lock-pin lugs (+5 deg)
+}
 // ---- roll ring ----
 for(const s of S2){const[y0,y1]=ys(s,460,500);add(BOX("ring","ring_side",RB-20,RF+20,y0,y1,-40,40))}
 add(BOX("ring","ring_back",RF-20,RF+20,-500,500,-40,40));   // front member: only as wide as the ring (no weight here)
@@ -228,8 +255,19 @@ add(BOX("ring","roll_weight",RB-40,RB-18,-15,15,RBZ+RPR-4,RBZ+RPR+3)); // clamp 
 add(BOX("ring","roll_motor",RB-95,RB-55,-705,-655,RBZ-25,RBZ+25));   // on the right end: offsets the left-hand throttle
 add(CYL("ring","roll_motor",[RB-75,-705,RBZ],[RB-75,-785,RBZ],18));
 add(BOX("ring","cover",RBX0-5,RBX1+5,-700,700,RBZ+RPR+4,RBZ+RPR+7));
-add(BOX("ring","roll_weight",RB-18,RB+50,-75,75,40,272));   // stays clear of the back pivot pin/guard
-add(BOX("ring","lock_roll_ring",RF+20,RF+38,-20,20,-150,-60));
+add(BOX("ring","roll_weight",RB-18,RB+50,-75,75,40,330));   // stays clear of the back pivot pin/guard; 330 (was 272): +4.6 kg for the arc rail below the axis
+// arc rail: ASEG-degree straight segments of the lipped channel (web, two walls, two lips), hangers from the ring sides, struts to the arc ends
+{const t=ASEG/2*Math.PI/180, hy=r=>r*Math.tan(t), segL=(ARI+ARO)/2*ASEG*Math.PI/180/1000, ws=[60*AT,2*AT*(ARO-ARI-AT),2*AT*(AHW-AT-ASL)], wt=ws[0]+ws[1]+ws[2];
+ const m=f=>({mass:ARC_KGM*segL*f/wt});
+ for(let ph=-AMAX+ASEG/2;ph<AMAX;ph+=ASEG){
+  add(RBOX("ring","arc_rail",[XA-AHW,XA+AHW,-hy(ARI+AT),hy(ARI+AT),-(ARI+AT),-ARI],ph,m(ws[0])));            // web (faces the cage)
+  for(const sx of S2){const[w0,w1]=ys(sx,AHW-AT,AHW),[l0,l1]=ys(sx,ASL,AHW-AT);
+   add(RBOX("ring","arc_rail",[XA+w0,XA+w1,-hy(ARO),hy(ARO),-ARO,-(ARI+AT)],ph,m(ws[1]/2)));                   // wall
+   add(RBOX("ring","arc_rail",[XA+l0,XA+l1,-hy(ARO),hy(ARO),-ARO,-(ARO-AT)],ph,m(ws[2]/2)))}}}               // lip
+for(const s of S2){const[y0,y1]=ys(s,460,500);
+  add(BOX("ring","arc_hanger",XA-20,XA+20,y0,y1,-1004,-40));     // bottom stays inside radius 1122 (web), never enters the channel
+  const e=rotX([XA,0,-ARI],s*(AMAX-2));add(STRAP("ring","arc_strut",[XA,s*480,-520],e,40,40,[1,0,0]));
+}
 for(const s of S2){
   add(CYL("ring","pitch_pin",[0,s*420,0],[0,s*460,0],20));
   add(TUBE("ring","guard_pitch",[0,s*422,0],[0,s*458,0],45,23));
@@ -305,7 +343,7 @@ for(const x of[-DX+15,DX-15]){add(CYL("board","handrail",[x,DK0+15,DZ],[x,DK0+15
 add(CYL("board","handrail",[-DX+15,DK0+15,DZ+900],[DX-15,DK0+15,DZ+900],15));
 // ---- lock pins ----
 for(const s of S2) add(CYL("pins","pin",[600,s*405,-55],[600,s*485,-55],6));
-add(CYL("pins","pin",[RF+12,0,-105],[PF-22,0,-105],6));
+add(CYL("pins","pin",rotX([XA-62,0,-1150],5),rotX([XA+62,0,-1150],5),6));   // roll lock: lug -> both channel walls (+5 deg hole) -> lug
 // ---- person (seated, faces +x) ----
 const PSN=(x0,x1,y0,y1,z0,z1)=>add(BOX("person","person",x0,x1,y0,y1,z0,z1));
 PSN(-220,40,-180,180,-330,-230);
@@ -330,8 +368,8 @@ scene.add(groups.base);scene.add(groups.ring);groups.ring.add(groups.cage);group
 const mats={};
 const colorOf=(p)=>({roll_weight:0xe08a1e,pitch_weight:0xe08a1e,roll_rubber:0x222222,pitch_rubber:0x222222,monitor:0x111111,deck:0xb9bec5,deck_step:0xb9bec5,deck_leg:0x8a8f98,handrail:0xf2c94c,ballast:0xe08a1e,vr_tracker:0x6c5ce7,stick:0x222222,throttle:0x222222,pedals:0x333333,stick_base:0x8a8f98,stick_hinge:0xd93a3a,vr_hook:0x6c5ce7,pc:0x55595f,
   seat_pan:0x2a2d33,seat_col:0x8a8f98,backrest:0x2a2d33,seat_wing:0x3a3f47,seat_rail:0x555a62,belt_sh:0xd93a3a,belt_lap:0xd93a3a,buckle:0x888888,floor_plate:0xd8d0bc,
-  roll_motor:0x222428,pitch_motor:0x222428,roll_belt:0x111111,pitch_belt:0x111111,roll_pulley:0x999999,pitch_pulley:0x999999,pitch_shaft:0x777777,roll_bracket:0x777777,base_disc:0xb8b3a6,base_spine:0x6b7079,base_foot:0x6b7079,base_brace:0x8a8f98,yaw_plate:0xc9c3b4,person:0x3a9d6a,cover:0x9aa4ae,
-  guard_roll:0xf2c94c,guard_pitch:0xf2c94c,lock_post:0xd93a3a,lock_roll_ring:0xd93a3a,lock_ring:0xd93a3a,lock_cage:0xd93a3a,pin:0xd93a3a})[p.k]??GROUPS[p.g].color;
+  roll_motor:0x222428,pitch_motor:0x222428,roll_belt:0x111111,pitch_belt:0x111111,roll_pulley:0x999999,pitch_pulley:0x999999,pitch_shaft:0x777777,roller_axle:0x777777,roll_bracket:0x777777,base_disc:0xb8b3a6,base_spine:0x6b7079,base_foot:0x6b7079,base_brace:0x8a8f98,yaw_plate:0xc9c3b4,person:0x3a9d6a,cover:0x9aa4ae,
+  guard_roll:0xf2c94c,guard_pitch:0xf2c94c,arc_rail:0x1f4fa8,arc_hanger:0x2f6fd6,arc_strut:0x2f6fd6,cradle:0x6b7079,roller_load:0x333333,roller_cap:0x333333,roller_side:0x333333,lock_ring:0xd93a3a,lock_cage:0xd93a3a,pin:0xd93a3a})[p.k]??GROUPS[p.g].color;
 function mat(p){const c=colorOf(p),key=c+"_"+(p.k==="cover");if(!mats[key])mats[key]=new THREE.MeshLambertMaterial({color:c,transparent:p.k==="cover",opacity:p.k==="cover"?0.35:1});return mats[key].clone()}
 function alignTo(mesh,a,b){const A=V3(...a),B=V3(...b),d=B.clone().sub(A);mesh.position.copy(A.add(B).multiplyScalar(0.5));mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());return d.length()}
 const meshes=[];
@@ -342,6 +380,8 @@ for(const p of PARTS){
   else if(p.t==="tube"){const L=V3(...p.a).distanceTo(V3(...p.b));const sh=new THREE.Shape();sh.absarc(0,0,p.r/1000,0,Math.PI*2);const h=new THREE.Path();h.absarc(0,0,p.ri/1000,0,Math.PI*2,true);sh.holes.push(h);
     const g=new THREE.ExtrudeGeometry(sh,{depth:L,bevelEnabled:false,curveSegments:32});g.translate(0,0,-L/2);g.rotateX(-Math.PI/2);m=new THREE.Mesh(g,mat(p));alignTo(m,p.a,p.b)}
   else if(p.t==="sph"){m=new THREE.Mesh(new THREE.SphereGeometry(p.r/1000,24,16),new THREE.MeshLambertMaterial({color:0xf0c8a0}));m.position.copy(V3(...p.c))}
+  else if(p.t==="rbox"){const[x0,x1,y0,y1,z0,z1]=p.a;m=new THREE.Mesh(new THREE.BoxGeometry((x1-x0)/1000,(z1-z0)/1000,(y1-y0)/1000),mat(p));
+    m.position.copy(V3(...rotX([(x0+x1)/2,(y0+y1)/2,(z0+z1)/2],p.rx)));m.rotation.x=p.rx*Math.PI/180}
   else if(p.t==="strap"){const d=[0,1,2].map(i=>p.B[i]-p.A[i]);const L=Math.hypot(...d);const dn=d.map(v=>v/L);
     const k=p.wd[0]*dn[0]+p.wd[1]*dn[1]+p.wd[2]*dn[2];let w=p.wd.map((v,i)=>v-k*dn[i]);const n=Math.hypot(...w);w=w.map(v=>v/n);
     const X=D3(dn),Y=D3(w),Z=new THREE.Vector3().crossVectors(X,Y);
@@ -359,18 +399,18 @@ groups.pins.visible=false;groups.board.visible=false;
 
 // ======================= UI =======================
 const $=id=>document.getElementById(id);
-let sel=null;
+let sel=null;const NOCOUNT=new Set(["person","arc_rail"]);
 function setEmis(k,on){for(const m of meshes)if(m.userData.k===k&&m.material.emissive)m.material.emissive.setHex(on?0x664400:0)}
 function select(k){if(sel)setEmis(sel,false);sel=k;setEmis(k,true);
   const p=PARTS.find(q=>q.k===k),i=INFO[k],n=PARTS.filter(q=>q.k===k).length,g=GROUPS[p.g];
-  $("info").innerHTML=`<span class="tag" style="background:#${g.color.toString(16).padStart(6,"0")}">${g.name}</span><h3>${i[0]}${n>1&&k!=="person"?` × ${n}`:""}</h3><p>${i[1]}</p><p class="spec">치수: ${i[2]}</p>`;
+  $("info").innerHTML=`<span class="tag" style="background:#${g.color.toString(16).padStart(6,"0")}">${g.name}</span><h3>${i[0]}${n>1&&!NOCOUNT.has(k)?` × ${n}`:""}</h3><p>${i[1]}</p><p class="spec">치수: ${i[2]}</p>`;
   document.querySelectorAll(".item").forEach(b=>b.classList.toggle("on",b.dataset.k===k));
   if((p.g==="pins"||p.g==="board")&&!$("pins").checked){$("pins").checked=true;groups.pins.visible=groups.board.visible=true}
 }
 // list
 let html="";for(const g in GROUPS){const ks=[...new Set(PARTS.filter(p=>p.g===g).map(p=>p.k))];
   html+=`<div class="grp"><span class="sw" style="background:#${GROUPS[g].color.toString(16).padStart(6,"0")}"></span>${GROUPS[g].name}</div>`;
-  for(const k of ks){const n=PARTS.filter(p=>p.k===k).length;html+=`<button class="item" data-k="${k}">${INFO[k][0]}${n>1&&k!=="person"?` ×${n}`:""}</button>`}}
+  for(const k of ks){const n=PARTS.filter(p=>p.k===k).length;html+=`<button class="item" data-k="${k}">${INFO[k][0]}${n>1&&!NOCOUNT.has(k)?` ×${n}`:""}</button>`}}
 $("list").innerHTML=html;document.querySelectorAll(".item").forEach(b=>b.onclick=()=>select(b.dataset.k));
 // picking
 const ray=new THREE.Raycaster(),mp=new THREE.Vector2();let down=null;
@@ -390,8 +430,9 @@ document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{tr=+b.dataset.r;
 $("roll").oninput=e=>tr=+e.target.value;$("pitch").oninput=e=>tp=+e.target.value;
 function resize(){const w=view.clientWidth,h=view.clientHeight;R.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}
 addEventListener("resize",resize);resize();
-{const h=new URLSearchParams(location.hash.slice(1));if(h.has("r")){tr=cr=+h.get("r")}if(h.has("p")){tp=cp=+h.get("p")}if(h.get("sel"))select(h.get("sel"));
- const CAMS={side:[0,-0.25,-2.6],front:[2.6,0.1,0],top:[0.01,3.2,0]};if(CAMS[h.get("cam")]){cam.position.set(...CAMS[h.get("cam")]);ctl.update()}}
+{const h=new URLSearchParams(location.hash.slice(1));if(h.has("r")){tr=cr=+h.get("r")}if(h.has("p")){tp=cp=+h.get("p")}if(h.get("sel"))select(h.get("sel"));if(h.has("board")){$("pins").checked=true;groups.pins.visible=groups.board.visible=true}
+ const CAMS={side:[0,-0.25,-2.6],front:[2.6,0.1,0],top:[0.01,3.2,0],fs:[3.3,-0.1,2.3],fr:[4.3,-0.55,0.02],cradle:[[0.75,-0.85,0.55],[0,-1.15,0]]};
+ const cv=CAMS[h.get("cam")];if(cv){const[ps,tg]=Array.isArray(cv[0])?cv:[cv,null];cam.position.set(...ps);if(tg)ctl.target.set(...tg);ctl.update()}}
 
 // ======================= COLLISION CHECK =======================
 function obbOf(m){
@@ -415,14 +456,17 @@ function obbsOf(m){
     out.push({c:o.c,ax:[X,o.ax[1],Z],h:[o.h[0],o.h[1],o.h[2]]})}
   return out;
 }
-function hitAll(LA,LB){for(const a of LA)for(const b of LB)if(!hit(a,b))return false;return true}
+function hitAll(LA,LB){const A=LA[0],B=LB[0],rA=Math.hypot(...A.h),rB=Math.hypot(...B.h);if(A.c.distanceTo(B.c)>rA+rB)return false;   // bounding-sphere quick reject
+  for(const a of LA)for(const b of LB)if(!hit(a,b))return false;return true}
 function hit(A,B){const L=[...A.ax,...B.ax];for(const a of A.ax)for(const b of B.ax)L.push(new THREE.Vector3().crossVectors(a,b));
   for(const l of L)if(sep(A,B,l.clone()))return false;return true}
+// rollers run inside the arc rail by design (model gap 2 mm; the box test makes round parts up to ~18 % fatter) -> not counted
+const MATED=(k1,k2)=>{const R=["roller_load","roller_cap","roller_side","roller_axle"];return (R.includes(k1)&&k2==="arc_rail")||(R.includes(k2)&&k1==="arc_rail")};
 const pairs=[["base","ring"],["base","cage"],["ring","cage"]];const boardPairs=[["board","ring"],["board","cage"]];
 function collide(r,p,pp){pp=pp||pairs;
   groups.ring.rotation.x=r*Math.PI/180;groups.cage.rotation.z=p*Math.PI/180;scene.updateMatrixWorld(true);
   const by={base:[],ring:[],cage:[],board:[]};for(const m of meshes)if(by[m.userData.g])by[m.userData.g].push({m,o:obbsOf(m)});
-  const out=[];for(const[g1,g2]of pp)for(const a of by[g1])for(const b of by[g2])if(hitAll(a.o,b.o))out.push(INFO[a.m.userData.k][0]+" ↔ "+INFO[b.m.userData.k][0]);
+  const out=[];for(const[g1,g2]of pp)for(const a of by[g1])for(const b of by[g2]){if(MATED(a.m.userData.k,b.m.userData.k))continue;if(hitAll(a.o,b.o))out.push(INFO[a.m.userData.k][0]+" ↔ "+INFO[b.m.userData.k][0])}
   return [...new Set(out)];
 }
 function runCheck(){
@@ -433,6 +477,8 @@ function runCheck(){
     lines.push(first?`${ax} + 방향 처음 닿는 각도 ≈ ${first[0]}° (${first[1].join(", ")})`:`${ax} + 방향 45° 까지 닿는 곳 없음`);
     let firstN=null;for(let a=25;a<=45;a+=0.5){const c=ax==="roll"?collide(-a,0):collide(0,-a);if(c.length){firstN=[a,c];break}}
     lines.push(firstN?`${ax} − 방향 처음 닿는 각도 ≈ ${firstN[0]}° (${firstN[1].join(", ")})`:`${ax} − 방향 45° 까지 닿는 곳 없음`);}
+  {const rr=Math.max(RLA+20/RL_R*180/Math.PI, 15/RC_R*180/Math.PI, 5+6/1150*180/Math.PI);   // outermost roller edge (deg)
+   lines.push(`호 레일 끝 여유: roll 31° 에서 호 끝 (±${AMAX}°) 이 가장 바깥 롤러 (±${rr.toFixed(1)}°) 보다 ${(AMAX-31-rr).toFixed(1)}° 더 나가 있음 (롤러 ↔ 호 레일 은 맞닿는 짝이라 위 검사에서 뺌)`)}
   const b0=collide(0,0,boardPairs);
   lines.push(b0.length?"탑승 자세 (0°) 승강대: 겹침 — "+b0.join(", "):"탑승 자세 (0°) 승강대: 겹침 없음");
   for(const sg of[1,-1]){let a0=null;for(let a=1;a<=31;a+=1){if(collide(sg*a,0,boardPairs).length){a0=a;break}}
@@ -452,23 +498,25 @@ const PROFILES={ // aluminium T-slot profile, bending about the vertical-load ax
   "40×80":{kgm:2.7,I:55e4,W:13.8e3,price:16000},
   "45×90":{kgm:3.3,I:80e4,W:17.8e3,price:20000}
 };
-const PROFILE_KINDS=["ring_side","roll_rail","ring_back","cage_post_b","cage_post_f","floor_long","floor_cross","side_rail","brace"];
-const memberProfile={ring_side:"40×80",roll_rail:"40×80",ring_back:"40×80",side_rail:"40×80",floor_long:"40×40",cage_post_b:"40×40",cage_post_f:"40×40",floor_cross:"40×40",brace:"40×40"};
+const PROFILE_KINDS=["arc_hanger","arc_strut","ring_side","roll_rail","ring_back","cage_post_b","cage_post_f","floor_long","floor_cross","side_rail","brace"];
+const memberProfile={arc_hanger:"40×40",arc_strut:"40×40",ring_side:"40×80",roll_rail:"40×80",ring_back:"40×80",side_rail:"40×80",floor_long:"40×40",cage_post_b:"40×40",cage_post_f:"40×40",floor_cross:"40×40",brace:"40×40"};
 const STEEL_TUBE={base_spine:5.2,base_foot:5.2,post:3.3,base_brace:1.7};   // kg/m: 60×60×3, 60×60×3, 40×40×3, 30×30×2
-const VOL_DENS={roll_weight:7850,pitch_weight:7850,floor_plate:600,yaw_plate:7850,ballast:7850}; // kg/m³ from the drawn volume
+const VOL_DENS={cradle:7850,roll_weight:7850,pitch_weight:7850,floor_plate:600,yaw_plate:7850,ballast:7850}; // kg/m³ from the drawn volume
 const FIXED={seat_col:1,seat_pan:3.5,backrest:3,seat_wing:0.25,seat_rail:0.8,stick_base:2,stick_hinge:0.5,stick:0.5,throttle:1,throttle_mount:0.5,side_mount:0.5,
   pedals:1.5,pedal_rail:1.5,roll_motor:0.6,pitch_motor:0.6,roll_pulley:0.15,pitch_pulley:0.15,cover:0.3,roll_bracket:0.3,
   guard_roll:0.3,guard_pitch:0.3,pitch_shaft:0.7,vr_tracker:0.15,vr_hook:0.1,belt_sh:0.3,belt_lap:0.3,buckle:0.3,
-  pitch_rubber:0.05,roll_rubber:0.1,roll_stop:4,lock_ring:0.4,lock_cage:0.4,lock_post:0.3,lock_roll_ring:0.3,pitch_tab:0.3,
+  pitch_rubber:0.05,roll_rubber:0.1,roll_stop:4,lock_ring:0.4,lock_cage:0.4,roller_load:0.15,roller_cap:0.08,roller_side:0.08,roller_axle:0.05,pitch_tab:0.3,
   pitch_arm:1.2,roll_pin:0.5,pitch_pin:0.5};
 const BELT_KGM=0.07;
 function partGeom(p){ // returns {len (mm, longest), vol (mm³), c:[x,y,z]}
   if(p.t==="box"){const[x0,x1,y0,y1,z0,z1]=p.a,d=[x1-x0,y1-y0,z1-z0];return{len:Math.max(...d),vol:d[0]*d[1]*d[2],c:[(x0+x1)/2,(y0+y1)/2,(z0+z1)/2]}}
+  if(p.t==="rbox"){const[x0,x1,y0,y1,z0,z1]=p.a,d=[x1-x0,y1-y0,z1-z0];return{len:p.k==="arc_rail"?d[1]:Math.max(...d),vol:d[0]*d[1]*d[2],c:rotX([(x0+x1)/2,(y0+y1)/2,(z0+z1)/2],p.rx)}}
   if(p.t==="strap"){const L=Math.hypot(...[0,1,2].map(i=>p.B[i]-p.A[i]))+30;return{len:L,vol:L*p.w*p.h,c:[0,1,2].map(i=>(p.A[i]+p.B[i])/2)}}
   if(p.t==="cyl"||p.t==="tube"){const L=Math.hypot(...[0,1,2].map(i=>p.b[i]-p.a[i]));const ri=p.t==="tube"?p.ri:0;return{len:L,vol:Math.PI*(p.r*p.r-ri*ri)*L,c:[0,1,2].map(i=>(p.a[i]+p.b[i])/2)}}
   return{len:0,vol:0,c:p.c||[0,0,0]};
 }
 function partMass(p){
+  if(p.mass!=null)return p.mass;
   const g=partGeom(p);
   if(PROFILE_KINDS.includes(p.k))return PROFILES[memberProfile[p.k]].kgm*g.len/1000;
   if(STEEL_TUBE[p.k])return STEEL_TUBE[p.k]*g.len/1000;
@@ -524,53 +572,83 @@ function renderWeights(){
   무게추 합계는 양쪽 레일 합. 쉴 때 기울기는 조립 후 초기 캘리브레이션으로 0 에 맞춤. 링 단면은 강도 탭 선택값을 따름.</p>`;
 }
 // ---------------- strength ----------------
-const MAT={al:{name:"알루미늄 6063-T5",fy:145,E:69000},st:{name:"강 SS400",fy:235,E:205000}};
+const MAT={al:{name:"알루미늄 6063-T5",fy:145,E:69000},al61:{name:"알루미늄 6061-T6",fy:240,E:69000},st:{name:"강 SS400",fy:235,E:205000}};
+const ARC_SEC={W:11.6e3,I:3.86e5};  // 60 x 60 x 4 lipped channel (slot 24), bending in the arc plane: centroid 26.6 mm from the web, I 386 000 mm4
 function renderStrength(){
   const B=balance(), DF=+($("inDF")?.value||2), SF=+($("inSF")?.value||1.5);
   const Wc=sum(B.T.cage,x=>x.m)*G, Wr=sum(B.T.ring,x=>x.m)*G;
-  const L1=(RF-RB)/1000, a1=-RB/1000, b1=RF/1000;           // ring side: supports at back/front member, load at x=0
+  // ---- supports: back pin (x = PB) + arc rail rollers (x = XA). The ring is a beam on these two supports.
+  const all=[...B.T.cage,...B.T.ring], Mall=sum(all,x=>x.m), Wall=Mall*G;
+  const x0=sum(all,x=>x.m*x.c[0])/Mall/1000, dxw=B.mp*B.xmax/Mall;         // CG x (m), CG shift when the pitch weights go to one end
+  const span=(XA-PB)/1000;
+  const split=xc=>{const Fb=Wall*(XA/1000-xc)/span;return[Fb,Wall-Fb]};     // static N [back pin, arc]
+  const S0=split(x0), SR=split(x0-dxw), SFw=split(x0+dxw);                 // weights centre / rear end / front end
+  const FbMax=Math.max(S0[0],SR[0],SFw[0])*DF, FbMin=Math.min(S0[0],SR[0],SFw[0])*DF, Farc=Math.max(S0[1],SR[1],SFw[1])*DF;
+  const Fb=Math.max(Math.abs(FbMax),Math.abs(FbMin));
   const P1=Wc/2*DF;                                         // per side (pitch pin)
-  const Rb=P1*b1/L1, Rf=P1*a1/L1;                           // reactions at back / front member (per side)
   const L2=(XF-XB)/1000, a2=-XB/1000, b2=XF/1000;           // cage side rail: pin at x=0, cage hangs from the posts
-  const seatW=((+$("inM").value||80)+10)*G*DF;                     // rider + seat on the floor members
+  const seatW=((+$("inM").value||80)+10)*G*DF;              // rider + seat on the floor members
   const rows=[];
-  const beam=(name,prof,P,a,b,L)=>{const S=PROFILES[prof],M=P*a*b/L,s=M*1e3/S.W,d=P*a*a*b*b/(3*MAT.al.E*S.I*L)*1e9;return{name,sec:prof+" 알루미늄",M,s,al:MAT.al.fy/SF,d}};
-  const cant=(name,prof,F,arm,extraM)=>{const S=PROFILES[prof],M=F*arm+(extraM||0),s=M*1e3/S.W,d=(F*arm**3/3+(extraM||0)*arm**2/2)/(MAT.al.E*S.I)*1e9;return{name,sec:prof+" 알루미늄",M,s,al:MAT.al.fy/SF,d}};
-  rows.push(beam("링 옆 막대 (pitch 축 하중)",memberProfile.ring_side,P1,a1,b1,L1));
-  rows.push(cant("링 뒤 막대 (roll 레일, 반쪽)",memberProfile.roll_rail,Rb,0.48,B.mr*G*DF*B.ymax));
-  rows.push(cant("링 앞 막대 (반쪽)",memberProfile.ring_back,Rf,0.48));
-  rows.push(beam("케이지 옆 레일 (pitch 축)",memberProfile.side_rail,P1,a2,b2,L2));
-  rows.push(beam("바닥 틀 앞뒤 막대 (좌석)",memberProfile.floor_long,seatW/2,a2,b2,L2));
+  const beam=(name,key,P,a,b,L)=>{const prof=memberProfile[key],S=PROFILES[prof],M=P*a*b/L,s=M*1e3/S.W,d=P*a*a*b*b/(3*MAT.al.E*S.I*L)*1e9;return{name,key,sec:prof,M,s,al:MAT.al.fy/SF,d}};
+  const cant=(name,key,F,arm,extraM)=>{const prof=memberProfile[key],S=PROFILES[prof],M=F*arm+(extraM||0),s=M*1e3/S.W,d=(F*arm**3/3+(extraM||0)*arm**2/2)/(MAT.al.E*S.I)*1e9;return{name,key,sec:prof,M,s,al:MAT.al.fy/SF,d}};
+  // ring side: the pitch pin sits right above the hanger, so the cage load goes straight down; the side only carries the
+  // back-pin shear (conservative: whole back-pin force / 2) over hanger -> back member, and the front member as an overhang
+  const Wfront=sum(B.T.ring.filter(x=>x.k==="ring_back"),x=>x.m)*G*DF;
+  rows.push(cant("링 옆 막대 (행어 ↔ 뒤 막대)","ring_side",Fb/2,(XA-RB)/1000));
+  rows.push(cant("링 옆 막대 앞 외팔보 (행어 → 앞 막대)","ring_side",Wfront/2,(RF-XA)/1000));
+  rows.push(cant("링 뒤 막대 (roll 레일, 반쪽)","roll_rail",Fb/2,0.48,B.mr*G*DF*B.ymax));
+  rows.push(beam("케이지 옆 레일 (pitch 축)","side_rail",P1,a2,b2,L2));
+  rows.push(beam("바닥 틀 앞뒤 막대 (좌석)","floor_long",seatW/2,a2,b2,L2));
   {const ball=sum(B.T.cage.filter(x=>x.k==="ballast"),x=>x.m)/2, pw=B.mp/2, back=-XB/1000;
-   rows.push(cant("케이지 옆 레일 뒤 외팔보 (무게추가 뒤 끝일 때)",memberProfile.side_rail,0,0,(ball*(-XR/1000-back)+pw*(B.xmax-back))*G*DF));}
+   rows.push(cant("케이지 옆 레일 뒤 외팔보 (무게추가 뒤 끝일 때)","side_rail",0,0,(ball*(-XR/1000-back)+pw*(B.xmax-back))*G*DF));}
+  // hanger: front-back (x) push from the side-guide rollers = half of 20 % of the moving weight, two hangers, 0.89 m long
+  const H=0.2*(Wc+Wr)/2;                                    // per support (back pin / arc), sideways or front-back
+  rows.push(cant("호 레일 세로 기둥 앞뒤 굽힘 (한쪽)","arc_hanger",H/2,0.89));
+  // arc rail between the two hangers (straight beam, span 2 x 480), two load rollers at +-RLA deg, roll 0 = worst
+  {const Ls=0.96, yr=RL_R*Math.sin(RLA*Math.PI/180)/1000, a=Ls/2-yr, F=Farc/2, M=F*a, s=M*1e3/ARC_SEC.W,
+    d=F*a*(3*Ls*Ls-4*a*a)/(24*MAT.al61.E*ARC_SEC.I)*1e9;
+   rows.push({name:"호 레일 굽힘 (두 세로 기둥 사이, 롤러가 가운데)",fixed:"알루미늄 6061-T6 립 채널 60×60×4",M,s,al:MAT.al61.fy/SF,d});}
   // pins (single shear) and pillow-block static load
   const d=+($("inPin")?.value||25), Apin=Math.PI*d*d/4;
-  const all=[...B.T.cage,...B.T.ring], Mall=sum(all,x=>x.m);
-  const xcg=sum(all,x=>x.m*x.c[0])/Mall/1000 - B.mp*B.xmax/Mall;          // pitch weights at the rear end (worst for the back post)
-  const Ftot=(Wc+Wr)*DF, Fback=Ftot*(PF/1000-xcg)/((PF-PB)/1000), Ffront=Ftot-Fback;
   const Wpin=Math.PI*d**3/32;
-  const pinRows=[["pitch 축 핀 (한쪽)",P1,40],["roll 축 핀 (뒤)",Fback,RB-PB-40],["roll 축 핀 (앞)",Ffront,PF-RF-40]].flatMap(([n,F,gap])=>{
+  const pinRows=[["pitch 축 핀 (한쪽)",P1,40],["roll 축 핀 (뒤, 하나)",Fb,RB-PB-40]].flatMap(([n,F,gap])=>{
     const tau=F/Apin, M=F*(gap/2+15)/1000, sb=M*1e3/Wpin;
     return[{name:n+" 전단",F,tau,al:0.577*MAT.st.fy/SF,kind:"전단"},{name:n+` 굽힘 (틈 ${gap} mm)`,F,tau:sb,al:MAT.st.fy/SF,kind:"굽힘",M}]});
-  // base posts: axial + Euler buckling (cantilever, K=2)
+  // back post: axial + Euler buckling (cantilever, K=2); hanger: axial (Euler, K=1)
   const Lp=(40-(-1260))/1000, Ip=(40**4-34**4)/12, Ap=40*40-34*34;
-  const post=[["뒤 기둥",Fback],["앞 기둥",Ffront]].map(([n,F])=>({name:n,F,s:F/Ap,Pcr:Math.PI**2*MAT.st.E*Ip/((2*Lp*1000)**2)}));
-  const H=0.2*(Wc+Wr)/2, Mpost=H*1.04, spost=Mpost*1e3/(Ip/20);       // 20 % of the moving weight sideways, per post, 1.04 m above the braces
+  const post=[{name:"뒤 기둥 (좌굴)",sec:"강 각관 40×40×3",F:Fb,s:Fb/Ap,al:MAT.st.fy/SF,Pcr:Math.PI**2*MAT.st.E*Ip/((2*Lp*1000)**2)},
+    {name:"호 레일 세로 기둥 (한쪽, 좌굴)",sec:"40×40 알루미늄",F:Farc/2,s:Farc/2/556,al:MAT.al.fy/SF,Pcr:Math.PI**2*MAT.al.E*PROFILES["40×40"].I/(890**2)}];
+  const Mpost=H*1.04, spost=Mpost*1e3/(Ip/20);              // 1.04 m above the braces
+  // rollers: load (2) carry the arc force + sideways (y) force through the +-RLA wedge; capture (4) = uplift assumption; side (4)
+  const cs=Math.cos(RLA*Math.PI/180), sn=Math.sin(RLA*Math.PI/180);
+  const FL=(Farc/(2*cs)+H/(2*sn))/2, U=0.3*S0[1]*DF, FC=U/2, FS=H;   // per roller: 2 per load truck, 2 capture, 1 side guide per face
+  const hz=(F,L,R)=>Math.sqrt(F*57700/(Math.PI*L*R));      // line contact pressure, steel roller on aluminium (E* 57.7 GPa)
+  const rol=[["받침 롤러 (1 개, 옆 힘 포함)","Ø40×18",FL,6000,hz(FL,18,1/(1/20+1/(ARI+AT)))],["붙잡이 롤러 (1 개)","Ø30×12",FC,4000,hz(FC,9,1/(1/15-1/(ARO-AT)))],["옆 안내 롤러 (1 개)","Ø30×14",FS,4000,hz(FS,14,15)]];
   const util=(s,al)=>{const u=s/al*100;const c=u>100?"var(--bad)":u>70?"#d9822b":"#1f9d55";return`<b style="color:${c}">${Math.round(u)}%</b>`};
+  const kg=N=>f0(N/G)+" kg";
   $("cs").innerHTML=`
   <div class="row" style="margin:6px 0"><label class="chk">동하중 배율 <input id="inDF" type="number" step="0.1" value="${DF}" style="width:46px"></label>
   <label class="chk">안전율 <input id="inSF" type="number" step="0.1" value="${SF}" style="width:46px"></label>
   <label class="chk">핀 지름 <input id="inPin" type="number" value="${d}" style="width:46px"> mm</label></div>
-  <table class="ct"><tr><th>부재</th><th>단면</th><th>굽힘 N·m</th><th>응력/허용 MPa</th><th>사용률</th><th>처짐</th></tr>
-  ${rows.map(r=>`<tr><td>${r.name}</td><td><select data-k="${r.name}">${Object.keys(PROFILES).map(k=>`<option${k===r.sec.split(" ")[0]?" selected":""}>${k}</option>`).join("")}</select></td><td>${f0(r.M)}</td><td>${f0(r.s)} / ${f0(r.al)}</td><td>${util(r.s,r.al)}</td><td>${r.d.toFixed(1)} mm</td></tr>`).join("")}
+  <table class="ct"><tr><th>지지 하중 (정하중, 추정)</th><th>뒤 핀 (x ${PB})</th><th>호 레일 롤러 (x ${XA})</th></tr>
+  <tr><td>움직이는 무게 ${f0(Mall)} kg, pitch 무게추 가운데</td><td>${kg(S0[0])}</td><td>${kg(S0[1])}</td></tr>
+  <tr><td>pitch 무게추 뒤 끝</td><td>${kg(SR[0])}</td><td>${kg(SR[1])}</td></tr>
+  <tr><td>pitch 무게추 앞 끝</td><td>${kg(SFw[0])}</td><td>${kg(SFw[1])}</td></tr></table>
+  <table class="ct" style="margin-top:6px"><tr><th>부재</th><th>단면</th><th>굽힘 N·m</th><th>응력/허용 MPa</th><th>사용률</th><th>처짐</th></tr>
+  ${rows.map(r=>`<tr><td>${r.name}</td><td>${r.fixed?r.fixed:`<select data-k="${r.key}">${Object.keys(PROFILES).map(k=>`<option${k===r.sec?" selected":""}>${k}</option>`).join("")}</select>`}</td><td>${f0(r.M)}</td><td>${f0(r.s)} / ${f0(r.al)}</td><td>${util(r.s,r.al)}</td><td>${r.d.toFixed(1)} mm</td></tr>`).join("")}
   ${pinRows.map(r=>`<tr><td>${r.name}</td><td>강 Ø${d}</td><td>${r.kind==="굽힘"?f0(r.M):"힘 "+f0(r.F)+" N"}</td><td>${f1(r.tau)} / ${f0(r.al)}</td><td>${util(r.tau,r.al)}</td><td>—</td></tr>`).join("")}
-  ${post.map(r=>`<tr><td>${r.name} (좌굴)</td><td>강 각관 40×40×3</td><td>축력 ${f0(r.F)} N</td><td>${f1(r.s)} / ${f0(MAT.st.fy/SF)}</td><td>${util(r.F,r.Pcr/SF)}</td><td>좌굴 ${f0(r.Pcr)} N</td></tr>`).join("")}
-  <tr><td>기둥 옆 굽힘 (옆·앞뒤로 미는 힘 = 움직이는 무게의 20 %)</td><td>강 각관 40×40×3</td><td>${f0(Mpost)}</td><td>${f0(spost)} / ${f0(MAT.st.fy/SF)}</td><td>${util(spost,MAT.st.fy/SF)}</td><td>—</td></tr>
+  ${post.map(r=>`<tr><td>${r.name}</td><td>${r.sec}</td><td>축력 ${f0(r.F)} N</td><td>${f1(r.s)} / ${f0(r.al)}</td><td>${util(r.F,r.Pcr/SF)}</td><td>좌굴 ${f0(r.Pcr)} N</td></tr>`).join("")}
+  <tr><td>뒤 기둥 옆 굽힘 (움직이는 무게의 20 % 를 뒤 기둥 · 호 레일이 반씩)</td><td>강 각관 40×40×3</td><td>${f0(Mpost)}</td><td>${f0(spost)} / ${f0(MAT.st.fy/SF)}</td><td>${util(spost,MAT.st.fy/SF)}</td><td>—</td></tr>
   </table>
+  <table class="ct" style="margin-top:6px"><tr><th>롤러 (설계 하중 = 정하중 × ${DF})</th><th>크기</th><th>힘</th><th>정격 가정</th><th>사용률</th><th>알루미늄 접촉압</th></tr>
+  ${rol.map(([n,sz,F,C,p])=>`<tr><td>${n}</td><td>${sz}</td><td>${f0(F)} N</td><td>${f0(C)} N</td><td>${util(F,C/SF)}</td><td>${f0(p)} MPa</td></tr>`).join("")}</table>
   <p class="spec">조건: 탑승자 ${$("inM").value} kg, 정하중 × 동하중 배율 ${DF} (덜컹·급정지·사람이 몸을 세게 움직임), 허용 응력 = 항복 / 안전율 ${SF}.
-  알루미늄 항복 145 MPa (6063-T5), 강 235 MPa. 프로파일 단면값은 일반 카탈로그 근사 — 제조사 표로 바꿀 것. 접합부(코너 브래킷·볼트)와 용접은 따로 확인.
-  필로우블록 UCP205 (Ø25) 정격 정하중 약 7.9 kN — 위 핀 힘이 이보다 작으면 통과 (추정). 핀 굽힘은 두 부품 사이 틈 + 베어링 안쪽 15 mm 를 팔 길이로 봄. 앞뒤 기둥 하중은 무게추가 뒤 끝에 있을 때 무게중심 기준. 주기는 탑승자를 점으로 봐서 약 10 % 짧게 나올 수 있음.</p>`;
-  $("cs").querySelectorAll("select").forEach(sel=>sel.onchange=()=>{const map={"링 옆 막대 (pitch 축 하중)":"ring_side","링 뒤 막대 (roll 레일, 반쪽)":"roll_rail","링 앞 막대 (반쪽)":"ring_back","케이지 옆 레일 (pitch 축)":"side_rail","바닥 틀 앞뒤 막대 (좌석)":"floor_long"};memberProfile[map[sel.dataset.k]]=sel.value;renderCalc()});
+  알루미늄 항복 145 MPa (6063-T5 프로파일) / 240 MPa (6061-T6 호 레일), 강 235 MPa. 프로파일 단면값은 일반 카탈로그 근사 — 제조사 표로 바꿀 것. 접합부(코너 브래킷·볼트)와 용접은 따로 확인.
+  링 = 뒤 핀과 호 레일 두 곳에 얹힌 보 (외팔보 아님). 호 레일이 pitch 핀 바로 아래 (x = 0) 라 케이지·탑승자 무게는 거의 다 롤러로 가고, 뒤 핀은 링 뒤쪽 (roll 무게추·모터) 몫만 받는다. 무게중심이 x = 0 보다 앞으로 가면 뒤 핀 힘이 음수 (= 링이 뒤 핀을 위로 당김) — 필로우블록은 위아래 다 받으므로 문제 없음.
+  롤러 힘 (한 개): 받침 = [호 하중 / (2 cos ${RLA}°) + 옆(y) 힘이 ±${RLA}° 쐐기로 커진 몫] / 2 (한 축에 2 개; 옆 힘 = 움직이는 무게의 20 % 의 절반, 한쪽 축에 몰린다고 봄), 붙잡이 = 들리는 힘을 정하중의 30 % 로 가정 (사람이 들썩임) / 2 개, 옆 안내 = 앞뒤 힘 (20 % 의 절반) 을 한 면 1 개가 받음.
+  롤러 정격 (Ø40 급 약 6 kN, Ø30 급 약 4 kN) 과 알루미늄 레일 접촉압 (6061-T6 은 정하중 약 400 MPa 까지로 봄, 붙잡이는 립 폭 9 mm 만 닿음) 은 추정 — 제조사 표 확인. 접촉압이 걱정되면 롤러가 닿는 면에 강 띠판 (2~3 mm) 을 덧댐.
+  필로우블록 UCP205 (Ø25) 정격 정하중 약 7.9 kN — 위 핀 힘이 이보다 작으면 통과 (추정). 핀 굽힘은 두 부품 사이 틈 + 베어링 안쪽 15 mm 를 팔 길이로 봄. 호 레일 굽힘은 곧은 보로 봐서 보수적. 주기는 탑승자를 점으로 봐서 약 10 % 짧게 나올 수 있음.</p>`;
+  $("cs").querySelectorAll("select").forEach(sel=>sel.onchange=()=>{memberProfile[sel.dataset.k]=sel.value;renderCalc()});
   ["inDF","inSF","inPin"].forEach(id=>$(id).onchange=renderCalc);
 }
 // ---------------- BOM & cost ----------------
@@ -581,12 +659,17 @@ function renderBOM(){
   const items=[];
   for(const s in prof)items.push(["프레임","알루미늄 프로파일 "+s,`${f1(prof[s]*1.1)} m (+10% 여유)`,PROFILES[s].price*prof[s]*1.1,"재단 주문"]);
   items.push(["프레임","강철 각관 60×60×3 (바닥 틀)",`${f1(lenBy(p=>p.k==="base_spine"||p.k==="base_foot"))} m`,12000*lenBy(p=>p.k==="base_spine"||p.k==="base_foot"),""]);
-  items.push(["프레임","강철 각관 40×40×3 (기둥)",`${f1(lenBy(p=>p.k==="post"))} m`,8000*lenBy(p=>p.k==="post"),""]);
+  items.push(["프레임","강철 각관 40×40×3 (뒤 기둥)",`${f1(lenBy(p=>p.k==="post"))} m`,8000*lenBy(p=>p.k==="post"),""]);
   items.push(["프레임","강철 각관 30×30×2 (보강)",`${f1(lenBy(p=>p.k==="base_brace"))} m`,5000*lenBy(p=>p.k==="base_brace"),""]);
   items.push(["프레임","코너 브래킷 · T너트 · 볼트 세트","1식",150000,"프로파일 연결"]);
   items.push(["프레임","합판 바닥판 10 mm","1",20000,""]);
-  items.push(["회전축","필로우블록 UCP205 (Ø25)","4",4*14000,"roll 2 + pitch 2"]);
-  items.push(["회전축","축 핀 Ø25 S45C","4",4*12000,"뒤 roll 핀은 굽힘이 커서 Ø25 (Ø20 이면 허용의 약 90 %)"]);
+  items.push(["회전축","필로우블록 UCP205 (Ø25)","3",3*14000,"roll 뒤 1 + pitch 2 (앞 기둥 없앰)"]);
+  items.push(["회전축","축 핀 Ø25 S45C","3",3*12000,""]);
+  const arcL=lenBy(p=>p.k==="arc_rail")/5;   // 5 boxes per segment (web, 2 walls, 2 lips)
+  items.push(["회전축",`roll 호 레일: 알루미늄 립 채널 60×60×4, R1120~1180, ±${AMAX}° (${f1(arcL)} m)`,"1",250000,"레이저 절단 옆판 2 + 롤 벤딩 띠판 볼트·용접, 또는 채널 롤 벤딩 (가격 추정)"]);
+  items.push(["회전축","받침 롤러 Ø40 (레일 속)","4",4*12000,"추정"]);
+  items.push(["회전축","붙잡이 · 옆 안내 롤러 Ø30","4",4*10000,"추정"]);
+  items.push(["회전축","롤러 받침대 (강판 레이저 절단 + 용접, 축 Ø12 3 개)","1식",100000,"추정"]);
   items.push(["구동","웜기어 모터 WGM40C-315724 1/218 (24 V)","2",2*50700,"모터뱅크"]);
   items.push(["구동","HTD5M 20T 풀리","6",6*12000,""]);
   const beltM=lenBy(p=>p.k==="roll_belt"||p.k==="pitch_belt");
@@ -594,7 +677,7 @@ function renderBOM(){
   items.push(["구동","pitch 구동축 Ø12 + 베어링 2","1식",25000,""]);
   items.push(["구동","무게추 받침 (V휠 슬라이드)","3",3*30000,""]);
   items.push(["구동",`강철 무게추 (roll ${f1(B.mr)} + pitch ${f1(B.mp)} kg)`,`${f1(B.mr+B.mp)} kg`,4000*(B.mr+B.mp),"철재상 재단"]);
-  items.push(["안전","잠금 핀 + 잠금판","3",30000,""]);
+  items.push(["안전","잠금 핀 + 잠금판","3",30000,"pitch 2 + roll 1 (받침대 핀 귀 → 호 레일 +5° 구멍)"]);
   items.push(["안전","고무 멈춤쇠","4",20000,""]);
   items.push(["안전","끼임 방지 덮개 (아크릴/PLA)","1식",40000,""]);
   items.push(["안전","비상 정지 버튼","2",30000,"교육생 + 교관"]);
