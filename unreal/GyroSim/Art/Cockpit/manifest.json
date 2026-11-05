@@ -1,5 +1,5 @@
 {
- "made": "2026-11-05 11:04:42",
+ "made": "2026-11-05 11:14:54",
  "frame": "UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)",
  "pivots": {
   "ADIBall": {
@@ -199,13 +199,13 @@
     "CK_Paint",
     "CK_Frame",
     "CK_Metal",
-    "CK_Black",
     "CK_AntiGlare",
     "CK_Rubber",
     "CK_HUDFrame",
     "CK_HUDExit",
     "CK_Panel",
     "CK_Bezel",
+    "CK_Black",
     "CK_Dial",
     "CK_Orange",
     "CK_Knob",
@@ -218,7 +218,7 @@
     "CK_Webbing",
     "CK_Chrome"
    ],
-   "tris": 30318
+   "tris": 36258
   },
   "ck_glass": {
    "fbx": "ck_glass.fbx",
@@ -485,9 +485,9 @@
     8.0
    ]
   ],
-  "seconds": 66.2,
+  "seconds": 68.3,
   "uv_fill": 1.0,
-  "made": "2026-11-05 11:04:41"
+  "made": "2026-11-05 11:14:53"
  },
  "travel": {
   "stick_deg": 20.0,

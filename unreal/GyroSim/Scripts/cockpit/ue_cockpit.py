@@ -133,14 +133,14 @@ CK_SLOTS = {
     "CK_Panel": dict(tex="T_CkPanels", Rough=0.82, RoughVar=0.25, Backlight=2.6, Wear=0.35, Dirt=0.35, **PN),
     "CK_Dial": dict(tex="T_CkDials", Rough=0.45, RoughVar=0.1, Backlight=2.2, Cavity=0.0),
     "CK_ADI": dict(tex="T_CkADI", Rough=0.3, RoughVar=0.05, Cavity=0.0),
-    "CK_Paint": dict(Tint=(0.13, 0.14, 0.14), Rough=0.62, RoughVar=0.3, Wear=0.45, Dirt=0.55, **PN),
+    "CK_Paint": dict(Tint=(0.13, 0.14, 0.14), Rough=0.62, RoughVar=0.3, Wear=0.4, Dirt=0.35, **PN),
     "CK_Paint2": dict(Tint=(0.030, 0.032, 0.034), Rough=0.6, RoughVar=0.25, Wear=0.6, Dirt=0.4, **PN),
     "CK_Black": dict(Tint=(0.018, 0.018, 0.019), Rough=0.55, RoughVar=0.25, Wear=0.5, Dirt=0.3, **PN),
     "CK_AntiGlare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.93, RoughVar=0.1, Wear=0.1, Dirt=0.25, EdgeGain=0.5, NormalTex="T_CkPaintN",
                          NormalAmt=0.2, NormalTile=7.0),
     "CK_Metal": dict(Tint=(0.55, 0.56, 0.57), Metal=1.0, Rough=0.4, RoughVar=0.2, Dirt=0.3),
     "CK_Chrome": dict(Tint=(0.8, 0.8, 0.8), Metal=1.0, Rough=0.18, RoughVar=0.1),
-    "CK_Frame": dict(Tint=(0.03, 0.032, 0.035), Rough=0.62, RoughVar=0.3, Wear=0.5, EdgeGain=1.0, Dirt=0.3, **PN),
+    "CK_Frame": dict(Tint=(0.03, 0.032, 0.035), Rough=0.62, RoughVar=0.3, Wear=0.3, EdgeGain=1.0, Dirt=0.3, WearColor=(0.30, 0.31, 0.32), **PN),
     "CK_Rubber": dict(Tint=(0.02, 0.02, 0.02), Rough=0.85, RoughVar=0.15, Dirt=0.4),
     "CK_Grip": dict(Tint=(0.02, 0.02, 0.021), Rough=0.7, RoughVar=0.2, Wear=0.25, NormalAmt=0.5, NormalTile=10.0),
     "CK_Fabric": dict(Tint=(0.028, 0.032, 0.020), Rough=0.95, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=5.0),
@@ -163,7 +163,7 @@ CK_SLOTS = {
     "CK_Mirror": dict(Tint=(0.6, 0.62, 0.64), Metal=1.0, Rough=0.12, RoughVar=0.0),
     "CK_Bezel": dict(Tint=(0.016, 0.016, 0.017), Rough=0.4, RoughVar=0.2, Wear=0.4, Cavity=0.4, **PN),
     "CK_LightLit": dict(tex="T_CkPanels", Rough=0.2, RoughVar=0.0, Emissive=7.0),
-    "CK_Wall": dict(tex="T_CkPanels", Rough=0.66, RoughVar=0.3, Wear=0.45, Dirt=0.55, Cavity=0.5, GrungeTile=2.0, **PN),
+    "CK_Wall": dict(tex="T_CkPanels", Rough=0.66, RoughVar=0.3, Wear=0.4, Dirt=0.35, Cavity=0.5, GrungeTile=2.0, **PN),
 }
 CK_GLASS = {"CK_Glass": ("M_CkInstGlass", (0.6, 0.65, 0.7), 0.05), "CK_HUDGlass": ("M_CkHUDGlass", (0.5, 0.78, 0.5), 0.09),
             "CK_DispGlass": ("M_CkDispGlass", (0.55, 0.6, 0.65), 0.03)}
@@ -232,7 +232,7 @@ float4 t = Texture2DSample(T, TSampler, uv);
 float scr = t.r;
 float smu = t.g;
 float c = saturate(dot(normalize(-CV), normalize(Sun)));
-float glint = pow(c, 28.0);            // scratches light up only around the sun direction (arcs around the sun, photo d09)
+float glint = pow(c, 40.0);            // scratches light up only around the sun direction (arcs around the sun, photo d09)
 float halo = pow(c, 4.0);              // dust / haze on the glass veils the view toward the sun
 float fr = pow(1.0 - saturate(abs(dot(normalize(CV), normalize(N)))), 4.0);
 float op = Base + fr * FresAmt + smu * SmudgeAmt * (0.3 + 0.7 * halo) + scr * glint * 0.12 + halo * HaloAmt * smu;
@@ -275,7 +275,7 @@ def ck_canopy(sun_dir):
         t.set_editor_property("texture", st)
     MEL.connect_material_expressions(t, "", cu, "T")
     MEL.connect_material_expressions(_const3(m, EYE, -1000, 140), "", cu, "Eye")
-    for i, (n, v) in enumerate((("Tile", 1.3), ("Gain", 1.2), ("Base", 0.008), ("FresAmt", 0.12), ("SmudgeAmt", 0.006), ("HaloAmt", 0.03),
+    for i, (n, v) in enumerate((("Tile", 1.3), ("Gain", 0.7), ("Base", 0.008), ("FresAmt", 0.12), ("SmudgeAmt", 0.003), ("HaloAmt", 0.012),
                                 ("HaloGlow", 0.08))):
         MEL.connect_material_expressions(_sparam(m, n, v, -1000, 220 + 60 * i), "", cu, n)
     rgb = _expr(m, unreal.MaterialExpressionComponentMask, -300, -50, r=True, g=True, b=True, a=False)

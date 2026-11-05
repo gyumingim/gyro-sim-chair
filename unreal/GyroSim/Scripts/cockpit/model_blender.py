@@ -484,8 +484,8 @@ def build_canopy_frame():
             gy, gz = L.glass_bottom(max(390.0, x)) if x >= 390 else (L.glass_bottom(390)[0], L.glass_bottom(390)[1] + (390 - x) * 0.06)
             cy, cz = gy - 1.4, gz - 0.6
             fr = ((x, sgn * (cy - 1.6), cz + 0.15), (1, 0, 0), (0, 0, 1), (0, -sgn, 0))
-            P.add(bm_cyl(0.42, 0.16, 6, 0.05), "CK_Metal", frame=fr)
-            P.add(bm_cyl(0.6, 0.05, 12, 0.0, z0=-0.03), "CK_Black", frame=fr)       # washer / dark ring around the head
+            P.add(bm_cyl(0.5, 0.12, 12, 0.03), "CK_Metal", frame=fr)                                    # washer
+            P.add(bm_lathe([(0.0, 0.42), (0.2, 0.4), (0.34, 0.3), (0.4, 0.12), (0.4, 0.1)], 12), "CK_Metal", frame=fr)   # domed head
             x += 4.5
     # windscreen bow at BOW_X following the glass arch (inset), and the rear arch behind the seat
     arches = [(L.REAR_ARCH_X, [(33.2, 76.0), (32.4, 88.0)] + L.GLASS_ARCH_372, (4.0, 3.0), 1.6)]
@@ -559,10 +559,10 @@ def build_glareshield():
         P.add(bm_box(hb["x1"] - hb["x0"] - 3.0, 1.0, 1.2, 0.3, 2, c=((hb["x0"] + hb["x1"]) / 2 + 0.5, sx * (hb["w"] / 2 - 2.0), hb["z1"] + 0.5)), "CK_HUDFrame")
     fr = (tuple(base), tuple(fwd), (0, 1, 0), tuple(up))
     for sgn in (1, -1):                                                                                   # thick side cheeks
-        P.add(bm_box(3.0, 2.0, hh + 0.6, 0.5, 2, c=(0.6, sgn * (W / 2 + 0.8), (hh + 0.6) / 2 - 0.6)), "CK_HUDFrame", frame=fr)
+        P.add(bm_box(2.0, 1.2, hh + 0.4, 0.35, 2, c=(0.5, sgn * (W / 2 + 0.4), (hh + 0.4) / 2 - 0.4)), "CK_HUDFrame", frame=fr)
         P.add(bm_box(4.0, 2.6, 3.0, 0.6, 2, c=(1.2, sgn * (W / 2 + 0.8), 0.6)), "CK_HUDFrame", frame=fr)         # foot / hinge block
-    P.add(bm_box(1.8, W + 3.6, 1.3, 0.45, 2, c=(0.5, 0, hh + 0.2)), "CK_HUDFrame", frame=fr)                   # top bar
-    P.add(bm_box(2.4, W + 0.4, 1.4, 0.4, 2, c=(0.6, 0, 0.5)), "CK_HUDFrame", frame=fr)                        # bottom rail
+    P.add(bm_box(1.4, W + 2.0, 0.8, 0.3, 2, c=(0.4, 0, hh + 0.05)), "CK_HUDFrame", frame=fr)                   # top bar
+    # (no bottom rail: it cut through the heading tape - review 11-05; the glass foot sits in the HUD body)
     gl = bm_prism(rrect(W - 0.2, hh - 1.2, 1.6, 3), 0.6, bevel=0.15, seg=1, z0=-0.3)
     for v in gl.verts:
         v.co.y += (hh - 1.2) / 2 + 0.9
@@ -1194,7 +1194,7 @@ def bake_masks(ob):
         touch = np.maximum(touch, np.exp(-d2 / (r * r)))
     low = np.clip((45.0 - pos[..., 2]) / 60.0, 0, 1)                         # floor / lower walls collect dirt
     dirt = np.clip((1.0 - res["wide"][..., 0]) * 0.9 + low * 0.35, 0, 1)
-    rgba = np.stack([ao, np.maximum(edge, touch * 0.4), dirt, np.ones_like(ao)], -1).astype(np.float32)
+    rgba = np.stack([ao, np.maximum(edge, touch * 0.25), dirt, np.ones_like(ao)], -1).astype(np.float32)
     outimg = bpy.data.images.new("T_CkShellMasks", R, R, alpha=False)
     outimg.colorspace_settings.name = 'Non-Color'
     outimg.pixels.foreach_set(np.clip(rgba, 0, 1).ravel())
