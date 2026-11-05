@@ -47,6 +47,8 @@ def reset(mode):
         state["rid"] += 1
         state["paused"] = False
         state["crashed"] = False
+        if "trainer" in globals():
+            trainer.free_t0 = trainer.clock          # free flight: crash check starts 1 s after a (re)start
 
 
 voice = Voice()                           # instructor voice (offline Korean SAPI), text only if unavailable
@@ -85,6 +87,9 @@ def handle_msg(m, src):
     with _lock:
         cmd = m.get("cmd")
         if cmd == "reset":
+            if m.get("user") and trainer.phase == "crash":      # crash screen: R = retry (same step / same start)
+                trainer.command({"cmd": "tut", "op": "retry"})
+                return
             if m.get("user") and not trainer.allow_reset():   # R / T key during a lesson: ask once (no lost lesson by a stray key)
                 return
             reset(m.get("mode", "air"))

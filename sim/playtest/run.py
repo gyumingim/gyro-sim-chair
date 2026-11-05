@@ -144,6 +144,7 @@ def run(bot, li, assist="off", max_min=25.0, retries=2, seed=1, trace=False):
     In practice the bot presses N (skip) when a step is still not done 30 s after its timeout hint, like a beginner would."""
     sim = Sim("air")
     tr = Trainer(sim.reset, profiles_dir=os.path.join(HERE, "_profiles"), render=False)
+    tr.crash_lock_s = 0.0                   # crash-screen input lock is wall time; the bot runs ~600x faster (waits 0.8 sim-s)
     tr.prof.load("bot_%s" % bot)
     tr.prof.cur["lessons"] = {}
     tr.prof.cur["settings"]["assist"] = assist
@@ -217,7 +218,7 @@ def run(bot, li, assist="off", max_min=25.0, retries=2, seed=1, trace=False):
                first_try=bool(results and results[0]["passed"]), practice_skips=skips, wrong_end=stu.wrong_end,
                coach_fix=sum(1 for x in said if "—" in x["text"] and x["phase"] == "practice" and x["text"] not in instr),
                praise=sum(1 for x in said if x["text"].startswith("좋아요")), crashes=sum(1 for p in phases if p[1] == "crash"),
-               crash_why=sorted(set(x["text"].split(". ")[1] for x in said if x["phase"] == "crash" and x["text"].startswith("괜찮아요"))))
+               crash_why=sorted(set(x["text"].split(". ")[1] for x in said if x["phase"] == "crash" and x["text"].startswith(("괜찮아요", "추락했어요")))))
     if trace:
         out["trace_cols"] = ["t", "phase", "step"] + list(TRACE_KEYS)
         out["trace"] = rows

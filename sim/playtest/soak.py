@@ -106,6 +106,8 @@ async def lesson(c, i, log):
     if deb == "crash":                                                       # a crash is a valid outcome: retry must work
         log[-1]["crash"] = True
         await c.cmd({"cmd": "tut", "op": "retry"}, 0.8)
+        if c.T().get("phase") == "crash":                                    # pressed inside the 1 s crash-screen lock: again
+            await c.cmd({"cmd": "tut", "op": "retry"}, 0.8)
         log[-1]["after_retry"] = c.T().get("phase")
         return c.T().get("phase") in ("practice", "solo", "demo")
     return deb == "debrief"

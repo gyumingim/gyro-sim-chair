@@ -53,7 +53,7 @@ KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_fu
 
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
-          K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
+          LBUTTON=0x01, K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
           **{"K%d" % i: 0x30 + i for i in range(0, 10)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
@@ -64,6 +64,9 @@ RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
 STICK_ROLL, STICK_PITCH, THR_SWING, PEDAL_CM, TOE_DEG, GEAR_HANDLE_DEG = 20.0, 20.0, 30.0, 4.62, 15.0, 16.0
 NEEDLES = ("asi", "alt", "alt10k", "vsi")
 HUD_BRIGHT, MFD_BRIGHT = 2.0, 1.2
+CRASH_BG = unreal.LinearColor(0.305, 0.0052, 0.0052, 1.0)     # = render.py CRASH_BG (150, 16, 16) sRGB, linear
+CRASH_BTN = dict(retry=(60 / 1024, 430 / 640, 492 / 1024, 590 / 640), menu=(532 / 1024, 430 / 640, 964 / 1024, 590 / 640))  # = render.py
+CRASH_W, CRASH_H = 160.0, 100.0          # CrashPanel plane size, cm (build_level)
 CENTER = 3.0
 THR_RATE = 0.35
 BRK_RATE = 4.0
@@ -336,6 +339,16 @@ class SimClient:
                 self.panel_mid = self.panel.static_mesh_component.create_and_set_material_instance_dynamic(0)
             except Exception as e:
                 _log("panel material", e)
+        # crash screen (red back plane + the server's crash picture, on the view camera, hidden until a crash)
+        self.crash_back, self.crash_panel, self.crash_mid, self.crash_shown = self._find("CrashBack"), self._find("CrashPanel"), None, None
+        try:
+            if self.crash_back:
+                red = unreal.RenderingLibrary.create_render_target2d(world, 4, 4, unreal.TextureRenderTargetFormat.RTF_RGBA8, CRASH_BG)
+                self.crash_back.static_mesh_component.create_and_set_material_instance_dynamic(0).set_texture_parameter_value("Tex", red)
+            if self.crash_panel:
+                self.crash_mid = self.crash_panel.static_mesh_component.create_and_set_material_instance_dynamic(0)
+        except Exception as e:
+            _log("crash screen", repr(e))
         self.keys_shown = None
         self.keys_tex = False
         if self.key_panel:                              # key guide (sim/key_panel.png, made by sim/key_panel.py)
@@ -563,6 +576,21 @@ class SimClient:
             self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
             return
 
+        if tut.get("phase") == "crash":                     # red crash screen: sim frozen, only retry / menu
+            op = None
+            if kb.pressed("RETURN") or kb.pressed("SPACE") or kb.pressed("R") or kb.pressed("N") or kb.pressed("M"):
+                op = "retry"
+            if kb.pressed("F1"):
+                op = "menu"
+            if kb.pressed("LBUTTON"):
+                op = self.crash_click() or op
+            for k in ("Z", "Y", "L", "I", "T", "P", "G"):
+                kb.pressed(k)
+            if op:
+                self._send({"cmd": "tut", "op": op})
+            self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
+            return
+
         def axis(name, pos, neg):
             a, b = kb.down(pos), kb.down(neg)
             v = c[name]
@@ -632,6 +660,62 @@ class SimClient:
         self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
 
     # ---------------------------------------------------------------------------------------------------------------
+    def crash_uv(self, sx=None, sy=None):
+        """viewport pixel (default: the mouse) -> (u, v) on the crash picture, or None."""
+        if not self.crash_panel or self.world is None:
+            return None
+        pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
+        if pc is None:
+            return None
+        if sx is None:
+            m = pc.get_mouse_position()
+            m = [x for x in (m if isinstance(m, (tuple, list)) else (m,)) if not isinstance(x, bool)]
+            if len(m) < 2:
+                return None
+            sx, sy = m[0], m[1]
+        r = pc.deproject_screen_position_to_world(sx, sy)
+        r = [x for x in (r if isinstance(r, (tuple, list)) else (r,)) if not isinstance(x, bool)]
+        if len(r) < 2:
+            return None
+        o, d = r[0], r[1]
+        a = self.crash_panel
+        P, n = a.get_actor_location(), a.get_actor_up_vector()
+        den = d.x * n.x + d.y * n.y + d.z * n.z
+        if abs(den) < 1e-6:
+            return None
+        t = ((P.x - o.x) * n.x + (P.y - o.y) * n.y + (P.z - o.z) * n.z) / den
+        h = unreal.Vector(o.x + d.x * t - P.x, o.y + d.y * t - P.y, o.z + d.z * t - P.z)
+        fx, ry = a.get_actor_forward_vector(), a.get_actor_right_vector()     # plane local X = picture right, local Y = picture down
+        u = 0.5 + (h.x * fx.x + h.y * fx.y + h.z * fx.z) / CRASH_W
+        v = 0.5 + (h.x * ry.x + h.y * ry.y + h.z * ry.z) / CRASH_H
+        return u, v
+
+    def crash_click(self, sx=None, sy=None):
+        uv = self.crash_uv(sx, sy)
+        if not uv:
+            return None
+        for op, (u0, v0, u1, v1) in CRASH_BTN.items():
+            if u0 <= uv[0] <= u1 and v0 <= uv[1] <= v1:
+                return op
+        return None
+
+    def _crash_screen(self, tut):
+        on = tut.get("phase") == "crash" and self.panel_tex is not None and self.crash_panel is not None
+        if on and self.crash_mid is not None:
+            self.crash_mid.set_texture_parameter_value("Tex", self.panel_tex)
+        if on == self.crash_shown:
+            return
+        self.crash_shown = on
+        for a in (self.crash_back, self.crash_panel):
+            if a:
+                a.set_actor_hidden_in_game(not on)
+        try:                                                  # mouse cursor for the buttons (monitor)
+            pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
+            if pc and not self.hmd:
+                pc.set_editor_property("show_mouse_cursor", on)
+        except Exception as e:
+            _log("crash cursor", repr(e))
+
     def _check_hmd(self, now):
         if now - self.hmd_check_t < 1.0 and self.preset is not None:
             return
@@ -690,8 +774,13 @@ class SimClient:
         if not self.hmd:                                            # monitor head look (C = look down, Q/E = left/right)
             k = min(1.0, 6.0 * dt)
             changed = False
+            tgt = self.look_tgt if self.view == "cockpit" else (0.0, 0.0)   # chase: camera aims at the aircraft (centred)
+            if self.view != getattr(self, "_look_view", None):
+                self._look_view = self.view
+                self.look = [float(tgt[0]), float(tgt[1])]               # snap on a view change (no swing across)
+                changed = True
             for i in (0, 1):
-                nv = self.look[i] + (self.look_tgt[i] - self.look[i]) * k
+                nv = self.look[i] + (tgt[i] - self.look[i]) * k
                 changed |= abs(nv - self.look[i]) > 1e-3
                 self.look[i] = nv
             if changed or self.frames < 3:
@@ -835,6 +924,7 @@ class SimClient:
             ex["warn"] = "TERRAIN  -  R / T RESTART"
         elif w:
             ex["warn"] = hud.WARN_TXT[w[0]][0]
+            ex["warn_key"] = w[0]
         ex.update(beginner=bool(tut.get("beginner", True)), line_tex=self.line_tex, menu=tut.get("phase") == "menu",
                   line_on=tut.get("phase") in ("practice", "solo", "demo", "brief", "crash"))
         if not self.startup_done:
@@ -937,12 +1027,14 @@ class SimClient:
                 self.mfd_t = 0.0
             except Exception as e:
                 _log("tut image", repr(e))
-        # world-space lesson panel (lower left): in VR (the displays are small there), in the menu, and in the chase view
-        show = bool(tut.get("on")) and self.panel_tex is not None and self.panel_on and (self.hmd or tut.get("phase") == "menu" or self.view == "chase")
+        # world-space lesson panel (lower left): VR only (11-05: on the monitor it floated over the view; the centre
+        # training display shows the same picture there)
+        show = bool(tut.get("on")) and self.panel_tex is not None and self.panel_on and self.hmd
         if self.panel:
             if self.panel_shown != show:
                 self.panel_shown = show
                 self.panel.set_actor_hidden_in_game(not show)
+        self._crash_screen(tut)
         # beginner callouts on the panel
         beg = bool(tut.get("beginner", True)) and self.view == "cockpit"
         if beg != self.beg_shown:

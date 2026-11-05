@@ -193,6 +193,13 @@ def check_warning_logic():
     log("warning_logic", json.dumps(out))
 
 
+def panel_hidden(name):
+    """the floating lesson panel is VR only (monitor: the centre training display shows the same picture)."""
+    c = C()
+    hid = bool(c.panel.get_editor_property("hidden")) if c.panel else None
+    RESULT[name] = dict(hmd=c.hmd, panel_shown=c.panel_shown, actor_hidden=hid, ok=(not c.hmd) and not c.panel_shown and hid is not False)
+
+
 def light_state():
     c = C()
     return {k: (not bool(a.get_editor_property("hidden"))) for k, a in c.lights.items()}
@@ -211,6 +218,7 @@ def menu_start():
 def c_menu():
     t = TUT()
     RESULT["menu_at_start"] = dict(phase=t.get("phase"), items=t.get("items"), paused=C().s.get("paused"), ok=t.get("phase") == "menu" and C().s.get("paused"))
+    panel_hidden("panel_hidden_monitor_menu")
     look(-24.0, 0.0, 50)
 
 @at(3)
@@ -357,11 +365,17 @@ def s_kbd():
                                      ok=t.get("phase") == "practice" and "키" in (t.get("instr") or ""))
     check_displays("displays_practice")
     shot("3a_hud_instruction_keyboard")
+
+@at(23.3)
+def s_kbd_look():
     look(-24.0, 0.0, 50)
 
 @at(24.5)
 def s_kbd_disp():
     shot("3b_training_display_keyboard")
+
+@at(24.8)
+def s_mode_rig():
     SAY({"cmd": "tut", "op": "mode"})          # auto(kbd) -> kbd forced
     SAY({"cmd": "tut", "op": "mode"})          # -> rig
 
@@ -370,35 +384,53 @@ def s_rig_disp():
     t = TUT()
     RESULT["instruction_rig"] = dict(mode=t.get("mode"), instr=t.get("instr"), ok=t.get("mode") == "rig" and "손" in (t.get("instr") or ""))
     shot("3c_training_display_rig")
+
+@at(26.3)
+def s_rig_look():
     look(-32.0, -18.0, 32)
 
 @at(27.5)
 def s_pfd():
     check_displays("displays_pfd")
     shot("3d_flight_display_closeup")
+
+@at(27.8)
+def s_pfd_look():
     look(-32.0, 18.0, 32)
 
 @at(29)
 def s_session():
     shot("3e_chair_display_closeup")
+
+@at(29.3)
+def s_session_look():
     look(-36.0, 0.0, 34)
 
 @at(30.5)
 def s_gauges():
     check_cockpit("cockpit_gauges_air")
     shot("3f_standby_gauges_beginner_labels")
+
+@at(30.8)
+def s_beg_off():
     SAY({"cmd": "tut", "op": "beginner", "on": False})
 
 @at(31.5)
 def s_expert():
     RESULT["beginner_labels_off"] = dict(hidden=[bool(a.get_editor_property("hidden")) for a in C().beg_labels][:3], ok=all(bool(a.get_editor_property("hidden")) for a in C().beg_labels) and bool(C().beg_labels))
     shot("3g_standby_gauges_expert")
+
+@at(31.8)
+def s_expert_look():
     look(0.0, 0.0)
     SAY({"cmd": "tut", "op": "mode"})          # rig -> auto
 
 @at(32.5)
 def s_hud_expert():
     shot("3h_hud_expert")
+
+@at(32.8)
+def s_beg_on():
     SAY({"cmd": "tut", "op": "beginner", "on": True})
 
 @at(33.5)
@@ -481,12 +513,19 @@ def c_clear():
 @at(60.5)
 def s_clouds():
     shot("6a_clouds_from_cockpit")
+
+@at(60.8)
+def s_to_chase():
     look(0.0, 0.0)
     C().view = "chase"; C().chase_yaw = None
 
 @at(63.5)
 def c_chase():
     check("air_chase"); shot("6b_chase_near_clouds")
+    panel_hidden("panel_hidden_monitor_chase")
+
+@at(63.8)
+def s_to_runway():
     C().view = "cockpit"
     SAY({"cmd": "reset", "mode": "runway"})
 
@@ -497,9 +536,90 @@ def c_rw():
 @at(70.5)
 def c_rw2():
     check("runway_chase"); shot("7_chase_runway")
+
+@at(70.8)
+def s_rw_back():
     C().view = "cockpit"
 
+# ---- crash in free flight: dive into the ground -> red crash screen (sim frozen, input locked 1 s, buttons map to
+# clicks) -> retry -> flying again from the same start ------------------------------------------------------------
+@at(71.0)
+def crash_setup():
+    c = C()
+    SAY({"cmd": "tut", "op": "free"})
+    c.look_tgt = [0.0, 0.0]
+
 @at(72.5)
+def crash_dive():
+    SAY({"cmd": "reset", "mode": "approach"})
+    C().override = {"ail": 0.0, "elev": 0.6, "rud": 0.0, "gear": 0.0, "thr": 0.6}
+
+CR = dict(t0=None, st=0)
+
+def _crash_btn_click(op):
+    """screen point of a button centre on the crash picture -> crash_click() (same path as a mouse click)."""
+    c = C()
+    u0, v0, u1, v1 = sim_client.CRASH_BTN[op]
+    a = c.crash_panel
+    P, fx, ry = a.get_actor_location(), a.get_actor_forward_vector(), a.get_actor_right_vector()
+    du, dv = ((u0 + u1) / 2 - 0.5) * sim_client.CRASH_W, ((v0 + v1) / 2 - 0.5) * sim_client.CRASH_H
+    wp = unreal.Vector(P.x + fx.x * du + ry.x * dv, P.y + fx.y * du + ry.y * dv, P.z + fx.z * du + ry.z * dv)
+    pc = unreal.GameplayStatics.get_player_controller(c.world, 0)
+    r = pc.project_world_location_to_screen(wp)
+    r = [x for x in (r if isinstance(r, (tuple, list)) else (r,)) if not isinstance(x, bool)]
+    sp = r[0]
+    return dict(screen=[round(sp.x), round(sp.y)], got=c.crash_click(sp.x, sp.y))
+
+@at(73.0)
+def crash_seq():
+    c = C()
+    now = time.monotonic()
+    t = TUT()
+    ph = t.get("phase")
+    if CR["t0"] is None:
+        CR["t0"] = now
+    st = CR["st"]
+    if st == 0:
+        if ph == "crash":
+            CR.update(seen=now, st=1, sim_t=c.s.get("t"))
+            CR["info"] = dict(crash=t.get("crash"), paused=c.s.get("paused"), agl_m=round(c.s.get("agl_m", 0), 1), vs=round(c.s.get("vs_fpm", 0)))
+            SAY({"cmd": "tut", "op": "retry"})                  # inside the 1 s lock: must be ignored
+        elif now - CR["t0"] > 30:
+            RESULT["crash_screen"] = dict(ok=False, error="no crash within 30 s", phase=ph, agl_m=c.s.get("agl_m"))
+            CR["st"] = 9
+    elif st == 1 and now - CR["seen"] > 0.6:
+        hid = [bool(a.get_editor_property("hidden")) for a in (c.crash_back, c.crash_panel) if a]
+        CR["shown"] = dict(crash_shown=c.crash_shown, actors_hidden=hid, ok=bool(c.crash_shown) and hid == [False, False])
+        CR["locked"] = dict(phase=ph, ok=ph == "crash")
+        CR["frozen"] = dict(sim_t0=CR["sim_t"], sim_t=c.s.get("t"), paused=c.s.get("paused"), ok=bool(c.s.get("paused")) and c.s.get("t") == CR["sim_t"])
+        try:
+            CR["click"] = dict(retry=_crash_btn_click("retry"), menu=_crash_btn_click("menu"))
+            CR["click"]["ok"] = CR["click"]["retry"]["got"] == "retry" and CR["click"]["menu"]["got"] == "menu"
+        except Exception as e:
+            CR["click"] = dict(ok=False, error=repr(e))
+        shot("8_crash_red_screen")
+        CR["st"] = 2
+    elif st == 2 and now - CR["seen"] > 1.6:
+        c.override = dict(NEUTRAL)
+        SAY({"cmd": "tut", "op": "retry"})
+        CR.update(st=3, t_retry=now)
+    elif st == 3 and now - CR["t_retry"] > 1.5:
+        CR["t1"] = c.s.get("t")
+        CR["st"] = 4
+    elif st == 4 and now - CR["t_retry"] > 2.5:
+        hid = [bool(a.get_editor_property("hidden")) for a in (c.crash_back, c.crash_panel) if a]
+        again = dict(phase=ph, paused=c.s.get("paused"), mode=c.s.get("mode"), sim_t=[CR["t1"], c.s.get("t")], alt_ft=round(c.s.get("alt_m", 0) / 0.3048),
+                     actors_hidden=hid)
+        again["ok"] = ph == "free" and not c.s.get("paused") and c.s.get("t", 0) > (CR["t1"] or 0) and c.s.get("mode") == "approach" and all(hid)
+        RESULT["crash_screen"] = dict(info=CR["info"], shown=CR["shown"], input_lock=CR["locked"], frozen=CR["frozen"], click=CR["click"],
+                                      flying_again=again,
+                                      ok=all(CR[k]["ok"] for k in ("shown", "locked", "frozen", "click")) and again["ok"])
+        log("crash_screen", json.dumps(RESULT["crash_screen"], ensure_ascii=False, default=str))
+        CR["st"] = 9
+    if CR["st"] != 9:
+        steps.insert(0, [time.monotonic() - T0[0] + 0.1, crash_seq])
+
+@at(73.5)
 def finish():
     c = C()
     c.override = None
@@ -510,7 +630,7 @@ def finish():
         json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=RESULT), f, indent=1, ensure_ascii=False, default=str)
     log("done ->", OUT)
 
-@at(74.5)
+@at(75.5)
 def stop_pie():
     les.editor_request_end_play()
     log("PIE stopped")
@@ -550,7 +670,8 @@ def tick(dt):
         if not steps:
             unreal.unregister_slate_post_tick_callback(state["handle"])
     except Exception as e:
-        log("error", repr(e))
+        import traceback
+        log("error", repr(e), " | ".join(traceback.format_exc().splitlines()))
         unreal.unregister_slate_post_tick_callback(state["handle"])
 
 

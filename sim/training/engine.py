@@ -22,6 +22,9 @@ PHASE_KO = {"menu": "메뉴", "brief": "브리핑", "demo": "시범 비행", "pr
             "free": "자유 비행", "idle": ""}
 
 
+CRASH_LOCK_S = 1.0           # crash screen: input ignored this long
+
+
 def grade(sc):
     return None if sc is None else "A" if sc >= 90 else "B" if sc >= 75 else "C" if sc >= 60 else "D"
 
@@ -113,6 +116,7 @@ class Trainer:
         self._render_lock = threading.Lock()
         self.msg, self.msg_t = "", -1e9
         self.crash = None
+        self.crash_lock_s = CRASH_LOCK_S     # wall time (the sim clock stops on the crash screen); offline bots set 0
         self.debrief = None
         self._say("안녕하세요, %s 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요." % self.prof.cur["name"], force=True)
 
@@ -127,6 +131,8 @@ class Trainer:
             self._menu_cmd(op)
             return
         if op == "menu":
+            if self.crash_locked():
+                return
             self._menu_cmd("close" if self.phase == "menu" else "open")
         elif op == "start":
             self.start(int(m.get("lesson", 0)))
@@ -308,10 +314,11 @@ class Trainer:
         self.menu.update(page="main", sel=0, stack=[], ret=None)
         self.coach = ""
 
-    def free_flight(self):
+    def free_flight(self, mode="air"):
         self.L, self.crash, self.debrief = None, None, None
         self.phase = "free"
-        self.reset_fn("air")
+        self.free_t0 = self.clock
+        self.reset_fn(mode)
         self._say("자유 비행이에요. 교관은 쉬어요. F1 을 누르면 메뉴로 돌아가요.", force=True)
 
     def _nk(self, josa="을"):
@@ -364,6 +371,9 @@ class Trainer:
         if self.phase == "menu":
             self._menu_cmd("select")
             return
+        if self.phase == "crash":
+            self._retry()
+            return
         L = self.L
         if not L:
             return
@@ -393,11 +403,16 @@ class Trainer:
                 self.stop()
             else:
                 self._retry()
-        elif self.phase == "crash":
-            self._retry()
 
     def _retry(self):
         """M: debrief -> solo again; crash -> the phase again from where it makes sense; otherwise restart the lesson."""
+        if self.phase == "crash":
+            if self.crash_locked():
+                return
+            if self.crash and self.crash["phase"] == "free" or not self.L:     # free flight: same start point again
+                mode = (self.crash or {}).get("mode", "air")
+                self.free_flight(mode)
+                return
         L = self.L
         if not L:
             return
@@ -642,23 +657,50 @@ class Trainer:
             self._set_coach("좋아요, 그대로 유지하세요", "good")
 
     # ---- crash / failure ---------------------------------------------------------------------------------------------
-    def _check_crash(self, s):
+    def _check_crash(self, s, free=False):
+        """(why, say, short) or None. Lessons: ground hits + runway excursion + G + too low in air lessons.
+        Free flight (11-05, user: "crash into the ground -> red screen, retry"): ground hits only."""
         d = self.L["d"] if self.L else None
-        vs, why, say = s.get("vs_fpm", 0.0), None, None
+        vs, why, say, short = s.get("vs_fpm", 0.0), None, None, None
         on_rwy = abs(s.get("cross_m", 0)) < 24 and -100 < s.get("along_m", 0) < 2750      # 06R: 2744 x 45 m
+        agl_ft = s.get("agl_m", 999) / 0.3048
         if s.get("wow") and vs < -1500:
             why, say = "너무 세게 땅에 닿았어요", "강하율 %.0f fpm 으로 땅에 닿았어요. 다음엔 R 50 (땅까지 50 ft) 에서 스틱을 살짝 당겨 강하를 300 fpm 아래로 줄여요." % -vs
+            short = "너무 빠르게 내려옴 %+.0f ft/분" % vs
         elif s.get("wow") and abs(s.get("phi", 0)) > 25:
             why, say = "날개가 땅에 닿았어요", "기운 채로 땅에 닿았어요. 접지 전에는 날개를 수평으로 맞춰요."
-        elif s.get("wow") and s.get("kts", 0) > 50 and not on_rwy:
+            short = "기울어진 채 닿음 (%.0f°)" % abs(s.get("phi", 0))
+        elif not s.get("wow") and agl_ft < 8.0 and s.get("gear", 1.0) < 0.5:
+            why, say = "바퀴를 안 내리고 땅에 닿았어요", "바퀴가 올라간 채 땅에 닿았어요. 착륙하기 전에 G 키 (바퀴 손잡이) 로 바퀴를 내려요."
+            short = "바퀴 안 내림"
+        elif not s.get("wow") and agl_ft < 3.0 and vs < -300:
+            why, say = "땅에 부딪혔어요", "강하율 %.0f fpm 으로 땅에 부딪혔어요. 고도를 지키고 천천히 내려와요." % -vs
+            short = "땅에 부딪힘 %+.0f ft/분" % vs
+        elif not free and s.get("wow") and s.get("kts", 0) > 50 and not on_rwy:
             why, say = "활주로 밖으로 나갔어요", "활주로를 벗어났어요. 활주 중에는 페달을 작게, 일찍 써서 가운데 선을 따라가요."
-        elif s.get("nz", 1.0) > 10.0 or s.get("nz", 1.0) < -3.5:
+            short = "활주로 밖으로 나감"
+        elif not free and (s.get("nz", 1.0) > 10.0 or s.get("nz", 1.0) < -3.5):
             why, say = "기체가 견디는 G 를 넘었어요", "G 가 %.1f 까지 갔어요. F-16 한계는 +9G, -3G 예요. 스틱을 부드럽게." % s["nz"]
-        elif d and d["mode"] in ("air", "air_high") and s.get("agl_m", 999) < 300 and not s.get("wow"):
-            why, say = "너무 낮게 내려왔어요", "땅에서 %d ft 까지 내려왔어요. 공중 연습은 안전 고도 1000 ft 위에서 해요. 기수를 조금씩만 내려요." % (s["agl_m"] / 0.3048)
+            short = "G 한계 넘음 (%.1f G)" % s["nz"]
+        elif not free and d and d["mode"] in ("air", "air_high") and s.get("agl_m", 999) < 300 and not s.get("wow"):
+            why, say = "너무 낮게 내려왔어요", "땅에서 %d ft 까지 내려왔어요. 공중 연습은 안전 고도 1000 ft 위에서 해요. 기수를 조금씩만 내려요." % agl_ft
+            short = "너무 낮게 내려옴 (%d ft)" % agl_ft
         elif s.get("crashed"):
             why, say = "지형에 부딪혔어요", "산이나 땅에 부딪혔어요. 고도를 충분히 지켜요."
-        return (why, say) if why else None
+            short = "지형에 부딪힘"
+        return (why, say, short) if why else None
+
+    def _enter_crash(self, s, c, phase, step):
+        self.crash = dict(why=c[0], say=c[1], short=c[2], phase=phase, step=step, mode=s.get("mode", "air"), t=time.monotonic(),
+                          state={k: round(float(s.get(k, 0)), 1) for k in ("kts", "along_m", "cross_m", "agl_m", "vs_fpm", "theta", "phi", "nz", "gear")})
+        self.log.append((round(self.clock, 1), "crash_state", json.dumps(self.crash["state"])))
+        self.phase = "crash"
+        self.want_pause = True
+        self._say("추락했어요. %s. %s 다시하기는 %s." % (c[0], c[1], "트리거" if self.mode == "rig" else "엔터"), force=True)
+
+    def crash_locked(self):
+        """input is ignored for 1 s after a crash (no accidental restart from a key still held)."""
+        return self.phase == "crash" and self.crash is not None and time.monotonic() - self.crash.get("t", 0.0) < self.crash_lock_s
 
     # =================================================================================================================
     def update(self, s, dt):
@@ -682,6 +724,10 @@ class Trainer:
             self._fly(s, dt)
         elif ph == "free":
             self.targets = []
+            if not s.get("paused") and dt > 0 and self.clock - getattr(self, "free_t0", -1e9) > 1.0:
+                c = self._check_crash(s, free=True)
+                if c:
+                    self._enter_crash(s, c, "free", 0)
         return self.public()
 
     def _demo(self, s, dt):
@@ -722,12 +768,7 @@ class Trainer:
             self._say(self._instr(st), force=True)
         c = self._check_crash(s)
         if c:
-            self.crash = dict(why=c[0], say=c[1], phase=self.phase, step=L["step"],
-                              state={k: round(float(s.get(k, 0)), 1) for k in ("kts", "along_m", "cross_m", "agl_m", "vs_fpm", "theta", "phi", "nz")})
-            self.log.append((round(self.clock, 1), "crash_state", json.dumps(self.crash["state"])))
-            self.phase = "crash"
-            self.want_pause = True
-            self._say("괜찮아요. %s. %s M 이나 %s 누르면 다시 해요." % (c[0], c[1], self._nk()), force=True)
+            self._enter_crash(s, c, self.phase, L["step"])
             return
         if "monitor" in L["d"]:
             L["d"]["monitor"](s, L["vars"], dt)
@@ -814,10 +855,12 @@ class Trainer:
             elif ph == "debrief":
                 d.update(debrief=self.debrief, score=self.debrief["score"] if self.debrief else None,
                          text="통과!" if self.debrief and self.debrief["passed"] else "다시 해 봐요")
-            elif ph == "crash" and self.crash:
-                d.update(crash=dict(why=self.crash["why"], say=self.crash["say"]), text=self.crash["why"], instr=self.crash["say"])
             rec = self.prof.cur["lessons"].get(str(L["i"])) or {}
             d["best"] = rec.get("best")
+        if ph == "crash" and self.crash:
+            d.update(crash=dict(why=self.crash["why"], say=self.crash["say"], short=self.crash.get("short") or self.crash["why"],
+                                free=self.crash["phase"] == "free", locked=self.crash_locked()),
+                     text=self.crash["why"], instr=self.crash["say"])
         d["lessons_passed"] = sum(1 for r in self.prof.cur["lessons"].values() if r.get("passes"))
         d["lessons_total"] = len(LS.LESSONS)
         key = (ph, d["title"], d["text"], d["instr"], d.get("hint"), msg, coach, round(d["prog"] * 10), d["step"], self.mode, self.beginner,

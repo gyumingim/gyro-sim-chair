@@ -179,6 +179,9 @@ return float2((az + AzMax) / (2.0 * AzMax), (90.0 - el) / 180.0);
 """
 
 
+HUD_PLATE = 0.12          # must match hud.HUD_PLATE (grey of the backing plates behind HUD text)
+
+
 def screen_material(name, no_depth=False, bright=1.0, ladder=False):
     """Unlit screen: emissive = texture parameter 'Tex' (tutorial PNG / canvas render target) x Brightness,
     opacity = 'Opacity' param x (TexAlpha ? coverage from the colour : 1). no_depth = drawn over the cockpit (HUD, collimated look)."""
@@ -214,8 +217,24 @@ def screen_material(name, no_depth=False, bright=1.0, ladder=False):
         lt.set_editor_property("sampler_source", unreal.SamplerSourceMode.SSM_CLAMP_WORLD_GROUP_SETTINGS)
         MEL.connect_material_expressions(cu, "", lt, "UVs")
         lm = _op(m, unreal.MaterialExpressionMultiply, lt, _sparam(m, "LadderOn", 1.0, -1000, -250), -800, -350)
+        # the ladder hides behind canvas content (text, backing plates): lines no longer cut through labels (review 11-05)
+        t3c = _expr(m, unreal.MaterialExpressionComponentMask, -1000, 120, r=True, g=True, b=True, a=False)
+        MEL.connect_material_expressions(t, "", t3c, "")
+        csum = _op(m, unreal.MaterialExpressionDotProduct, t3c, _const3(m, (4, 4, 4), -1000, 200), -900, 150)
+        csat = _expr(m, unreal.MaterialExpressionSaturate, -820, 150)
+        MEL.connect_material_expressions(csum, "", csat, "")
+        keep = _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -820, 220), csat, -740, 180)
+        lm = _op(m, unreal.MaterialExpressionMultiply, lm, keep, -700, -300)
         t = _op(m, unreal.MaterialExpressionAdd, t, lm, -650, -100)
-    e = _op(m, unreal.MaterialExpressionMultiply, t, _sparam(m, "Brightness", bright, -800, 250), -500, 0)
+    em = t
+    if ladder:
+        # backing plates (readability, 11-05): hud.py fills grey HUD_PLATE behind text; grey up to HUD_PLATE emits
+        # nothing (mapped to 0) but still covers (opacity from the colour below) -> a dark plate over bright clouds.
+        sub = _op(m, unreal.MaterialExpressionSubtract, t, _const(m, HUD_PLATE, -800, 120), -650, 60)
+        sat = _expr(m, unreal.MaterialExpressionSaturate, -550, 60)
+        MEL.connect_material_expressions(sub, "", sat, "")
+        em = _op(m, unreal.MaterialExpressionMultiply, sat, _const(m, 1.0 / (1.0 - HUD_PLATE), -650, 140), -450, 80)
+    e = _op(m, unreal.MaterialExpressionMultiply, em, _sparam(m, "Brightness", bright, -800, 250), -500, 0)
     MEL.connect_material_property(e, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     # coverage from colour (canvas text does not write alpha): saturate((r + g + b) * 2)
     t3 = _expr(m, unreal.MaterialExpressionComponentMask, -700, 380, r=True, g=True, b=True, a=False)
@@ -944,6 +963,17 @@ krot = unreal.MathLibrary.make_rot_from_zx(V(*EYE) - KEYS_LOC, V(0, 1, 0))
 keys = place("KeyPanel", SHAPE["Plane"], (KEYS_LOC.x, KEYS_LOC.y, KEYS_LOC.z), MAT["panel"], rot=(krot.roll, krot.pitch, krot.yaw),
              scale=(0.26, 0.13, 1), movable=True, shadows=False, tags=("KeyPanel", "Overlay"))
 attach(keys, cam)
+# crash screen (11-05): red back plane + the server's crash picture (sim/training/render.py), on the VIEW camera
+# (head-locked in VR, follows the monitor head look), over everything (no depth test, top translucency sort priority).
+# Hidden until a crash; sim_client shows it and maps mouse clicks to its buttons (CRASH_W x CRASH_H cm, CRASH_D ahead).
+MAT["crash"] = screen_material("M_Crash", no_depth=True)
+CRASH_D = 150.0
+for lbl, d, sc, pr in (("CrashBack", CRASH_D + 2.0, (12.0, 8.0, 1), 100), ("CrashPanel", CRASH_D, (1.6, 1.0, 1), 101)):
+    ca = place(lbl, SHAPE["Plane"], (EYE[0] + d, 0.0, EYE[2]), MAT["crash"], (r.roll, r.pitch, r.yaw), sc, movable=True, shadows=False,
+               tags=(lbl, "Overlay"))
+    ca.static_mesh_component.set_editor_property("translucency_sort_priority", pr)
+    ca.set_actor_hidden_in_game(True)
+    attach(ca, view)
 log("camera + overlays done")
 
 ws = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world().get_world_settings()

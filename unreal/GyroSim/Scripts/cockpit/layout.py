@@ -181,8 +181,9 @@ LIGHTS = {"MC": (-19.6, 60.2, 6.6, 4.4, "amber", "MASTER CAUTION"), "WARN": (19.
           "BRAKE": (-22.0, 21.5, 4.6, 2.6, "amber", "BRAKE"), "ASSIST": (-16.0, 21.5, 4.6, 2.6, "green", "ASSIST"),
           "SLOW": (-22.0, 16.5, 4.6, 2.6, "green", "SLOW"), "VOICE": (-16.0, 16.5, 4.6, 2.6, "green", "VOICE")}
 # beginner-mode callout planes on the panel (make_labels.py lbl_<name>.png): name -> (u, v); size from callouts.json
-CALLOUT_POS = {"adi": (0.0, 55.65), "asi": (-6.4, 34.9), "alt": (6.4, 34.9), "vsi": (0.0, 25.2), "gear": (-36.5, 41.6),
-               "wheels": (-19.0, 37.0), "lights": (-19.0, 25.6)}
+# (11-05: gear callout moved above the left display - the knob hid it; wheels callout below the lights - the bezel hid it)
+CALLOUT_POS = {"adi": (0.0, 55.65), "asi": (-6.4, 34.9), "alt": (6.4, 34.9), "vsi": (0.0, 25.2), "gear": (-29.0, 56.4),
+               "wheels": (-19.0, 28.3), "lights": (-19.0, 25.6)}
 UFCP = None
 EYEBROWS = {}
 MAIN_ELEMENTS = []

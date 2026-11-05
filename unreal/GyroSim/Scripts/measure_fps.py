@@ -80,6 +80,7 @@ def _tick(dt):
                               render_px=[round(vp.x * sp / 100), round(vp.y * sp / 100)])
             _st.update(phase="warm", t=now)
         elif ph == "warm" and el > 2:
+            _cmd("t.FPSChart.OpenFolderOnDump 0")      # UE opened an Explorer window per dump (user 11-05)
             _cmd("startfpschart")
             _st.update(phase="run", t=now, dts=[])
         elif ph == "run":

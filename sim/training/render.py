@@ -11,7 +11,11 @@ FONT = r"C:\Windows\Fonts\malgun.ttf"
 FONT_B = r"C:\Windows\Fonts\malgunbd.ttf"
 W, H = 1024, 640
 BG, EDGE = (6, 12, 18), (60, 200, 110)
-GREEN, WHITE, GREY, YELLOW, ORANGE, RED, BLUE = (120, 255, 160), (235, 240, 245), (150, 165, 180), (255, 225, 120), (255, 150, 80), (255, 90, 80), (150, 190, 230)
+GREEN, WHITE, GREY, YELLOW, ORANGE, RED, BLUE = (120, 255, 160), (235, 240, 245), (170, 185, 200), (255, 225, 120), (255, 150, 80), (255, 90, 80), (165, 200, 240)
+# type scale (readability pass 11-05: the cockpit display is ~18 deg wide in the headset, so nothing below 26 px)
+XL, LG, MD, SM = 42, 34, 30, 26
+CRASH_BG = (150, 16, 16)
+CRASH_BTN = dict(retry=(60 / 1024, 430 / 640, 492 / 1024, 590 / 640), menu=(532 / 1024, 430 / 640, 964 / 1024, 590 / 640))   # (u0, v0, u1, v1) for clicks      # instruction / title + coach / menu + hint / key line
 _F = {}
 
 
@@ -63,9 +67,10 @@ def render_panel(d, ver):
     title = d.get("title") or ""
     if d.get("n") and ph not in ("menu", "debrief", "crash"):
         title += "   %d / %d" % (d.get("step", 0), d["n"])
-    g.text((x, 16), title, font=F(34, True), fill=GREEN)
-    right = "%s · %s%s" % (d.get("trainee", ""), "조종 장치" if d.get("mode") == "rig" else "키보드", "" if d.get("voice") else " · 음성 꺼짐")
-    g.text((W - 22, 30), right, font=F(20), fill=GREY, anchor="ra")
+    g.text((x, 16), title, font=F(LG, True), fill=GREEN)
+    if ph == "menu":                     # trainee / control mode: only in the menu (rarely needed in flight)
+        right = "%s · %s%s" % (d.get("trainee", ""), "조종 장치" if d.get("mode") == "rig" else "키보드", "" if d.get("voice") else " · 음성 꺼짐")
+        g.text((W - 22, 26), right, font=F(SM), fill=GREY, anchor="ra")
     y = 76
     rig = d.get("mode") == "rig"
     NK = "트리거" if rig else "N"
@@ -73,95 +78,143 @@ def render_panel(d, ver):
         y = 84
         items = d.get("items") or []
         sel_i = d.get("sel", 0) or 0
-        first = max(0, min(sel_i - 4, len(items) - 9))
+        first = max(0, min(sel_i - 3, len(items) - 8))
         if first > 0:
-            g.text((W - 30, 80), "▲", font=F(24), fill=GREY, anchor="ra")
-        if first + 9 < len(items):
-            g.text((W - 30, H - 84), "▼", font=F(24), fill=GREY, anchor="ra")
-        for i, t in list(enumerate(items))[first:first + 9]:
+            g.text((W - 30, 80), "▲", font=F(MD), fill=GREY, anchor="ra")
+        if first + 8 < len(items):
+            g.text((W - 30, H - 96), "▼", font=F(MD), fill=GREY, anchor="ra")
+        for i, t in list(enumerate(items))[first:first + 8]:
             sel = i == sel_i
             if sel:
-                g.rounded_rectangle([22, y - 4, W - 22, y + 46], radius=8, fill=(30, 70, 50), outline=GREEN, width=2)
-            g.text((40, y), ("▶ " if sel else "   ") + t, font=F(30, sel), fill=WHITE if sel else (200, 210, 220))
-            y += 54
-        g.text((22, H - 44), ("스틱 앞뒤 = 고르기 · 트리거 = 선택 · 뒤로 버튼 = 뒤로" if rig else "↑↓ = 고르기 · Enter = 선택 · Backspace = 뒤로"), font=F(24), fill=BLUE)
+                g.rounded_rectangle([22, y - 4, W - 22, y + 52], radius=8, fill=(30, 70, 50), outline=GREEN, width=2)
+            g.text((40, y), ("▶ " if sel else "   ") + t, font=F(LG, sel), fill=WHITE if sel else (210, 220, 230))
+            y += 60
+        g.text((22, H - 46), ("스틱 앞뒤 = 고르기 · 트리거 = 선택 · 뒤로 버튼 = 뒤로" if rig else "↑↓ = 고르기 · Enter = 선택 · Backspace = 뒤로"), font=F(SM), fill=BLUE)
     elif ph == "brief":
-        y = para(g, 30, y + 20, d.get("text", ""), F(38, True), YELLOW, W - 60, 54)
+        y = para(g, 30, y + 16, d.get("text", ""), F(XL, True), YELLOW, W - 60, 56, 8)
         if d.get("msg"):
-            g.text((22, H - 84), d["msg"], font=F(24, True), fill=ORANGE)
-        g.text((22, H - 44), "%s = 다음 · Z = 다시 듣기 · F1 = 메뉴" % NK, font=F(26), fill=BLUE)
+            g.text((22, H - 88), d["msg"], font=F(SM, True), fill=ORANGE)
+        g.text((22, H - 46), "%s = 다음 · Z = 다시 듣기 · F1 = 메뉴" % NK, font=F(SM), fill=BLUE)
     elif ph == "demo":
-        g.text((30, y + 10), "자동 조종이 보여 줘요 — 스틱과 스로틀을 보세요", font=F(26), fill=GREY)
-        para(g, 30, y + 56, d.get("text", ""), F(38, True), (170, 210, 255), W - 60, 54)
+        g.text((30, y + 6), "자동 조종 시범 — 스틱과 스로틀을 보세요", font=F(MD), fill=GREY)
+        para(g, 30, y + 56, d.get("text", ""), F(XL, True), (170, 210, 255), W - 60, 56, 7)
         _bar(g, d.get("prog", 0), (120, 190, 255))
-        g.text((22, H - 80), d.get("msg") or ("%s = 시범 건너뛰기" % NK), font=F(24), fill=ORANGE if d.get("msg") else BLUE)
+        g.text((22, H - 84), d.get("msg") or ("%s = 시범 건너뛰기" % NK), font=F(SM), fill=ORANGE if d.get("msg") else BLUE)
     elif ph in ("practice", "solo", "free"):
         if ph == "free":
-            para(g, 30, y + 20, "자유 비행 — 교관 없음. F1 = 메뉴", F(34, True), WHITE, W - 60, 50)
+            para(g, 30, y + 20, "자유 비행 — 교관 없음. F1 = 메뉴", F(XL, True), WHITE, W - 60, 56)
         else:
-            # layout: context (2 lines) + instruction (3 lines) + coach (2 lines) above y 376; y 380..540 is left free for
-            # the live target bars drawn by the cockpit display (hud.py); hint / keys / progress below
-            y = para(g, 30, y, d.get("text", ""), F(24), GREY, W - 60, 31, 2) + 4
+            # layout: instruction (<= 3 lines) + coach (<= 2 lines) above y 340; y 344..552 is left free for the live
+            # target rows drawn by the cockpit display (hud.py); one bottom row (notice / hint / keys) + progress bar.
+            # The grey context line is shown only without an instruction (it repeated the target rows).
+            tg = bool(d.get("targets"))
             if d.get("instr"):
-                g.rectangle([18, y + 2, 25, y + 44], fill=YELLOW)
-                y = para(g, 38, y, d["instr"], F(36, True), YELLOW, W - 70, 46, 3) + 2
+                g.rectangle([18, y + 6, 25, y + 50], fill=YELLOW)
+                y = para(g, 38, y, d["instr"], F(XL, True), YELLOW, W - 70, 52, 3) + 4
+            elif d.get("text"):
+                y = para(g, 30, y, d["text"], F(LG), GREY, W - 60, 44, 3) + 4
             if d.get("coach"):
                 col = GREEN if d.get("coach_kind") == "good" else ORANGE
-                para(g, 30, max(y, 296), "교관: " + d["coach"], F(29, True), col, W - 60, 38, 2)
-            if d.get("targets"):
-                g.text((W - 26, 392), "목표와 차이 ↓", font=F(20), fill=GREY, anchor="ra")
+                para(g, 30, max(y, 248), "교관: " + d["coach"], F(LG, True), col, W - 60, 44, 2)
+            y_bot = H - 82
             if d.get("msg"):                    # a short notice takes the hint row for 3 s (never both: they overlapped)
-                g.text((22, H - 100), d["msg"], font=F(23, True), fill=ORANGE)
+                _fit(g, 22, y_bot, d["msg"], MD, True, ORANGE)
             elif d.get("hint") and ph == "practice":
-                g.text((22, H - 100), "힌트: " + wrap(g, d["hint"], F(23), W - 60)[0], font=F(23), fill=BLUE)
-            if ph == "solo":
-                g.text((22, H - 70), "단독 점검 — 교관은 조용히 봐요 · 점수 %s" % (d.get("live_score") if d.get("live_score") is not None else "-"),
-                       font=F(23), fill=(255, 200, 90))
+                hl = wrap(g, "힌트: " + d["hint"], F(MD), W - 44)
+                if len(hl) > 1 and not tg:      # room for two lines when there are no target rows
+                    g.text((22, y_bot - 40), hl[0], font=F(MD), fill=BLUE)
+                    g.text((22, y_bot), hl[1] + ("…" if len(hl) > 2 else ""), font=F(MD), fill=BLUE)
+                else:
+                    _fit(g, 22, y_bot, "힌트: " + d["hint"], MD, False, BLUE)
+            elif ph == "solo":
+                _fit(g, 22, y_bot, "단독 점검 — 교관은 조용히 봐요 · 점수 %s" % (d.get("live_score") if d.get("live_score") is not None else "-"),
+                     MD, False, (255, 200, 90))
             else:
-                g.text((22, H - 70), "%s = 건너뛰기 · Z = 다시 듣기 · P = 멈춤 · F1 = 메뉴" % NK, font=F(23), fill=BLUE)
+                g.text((22, y_bot), "%s = 건너뛰기 · Z = 다시 듣기 · F1 = 메뉴" % NK, font=F(SM), fill=BLUE)
             _bar(g, d.get("prog", 0), (60, 200, 110))
     elif ph == "debrief":
         db = d.get("debrief") or {}
         ok = db.get("passed")
-        g.text((30, 86), ("통과!" if ok else "아직이에요"), font=F(54, True), fill=GREEN if ok else ORANGE)
+        g.text((30, 80), ("통과!" if ok else "아직이에요"), font=F(54, True), fill=GREEN if ok else ORANGE)
         if db.get("pass_score"):
-            g.text((W - 30, 86), "%d 점  %s" % (db.get("score", 0), db.get("grade") or ""), font=F(54, True), fill=WHITE, anchor="ra")
-            g.text((W - 30, 152), "통과 기준 %d 점%s" % (db["pass_score"], " · 쉬운 모드" if db.get("assist") else ""), font=F(22), fill=GREY, anchor="ra")
-        y = 168
-        for t in db.get("good", [])[:3]:
-            y = para(g, 30, y, "＋ " + t, F(25), GREEN, W - 60 if not db.get("graph") else 560, 33, 2)
+            g.text((W - 30, 80), "%d 점  %s" % (db.get("score", 0), db.get("grade") or ""), font=F(54, True), fill=WHITE, anchor="ra")
+            g.text((W - 30, 146), "통과 기준 %d 점%s" % (db["pass_score"], " · 쉬운 모드" if db.get("assist") else ""), font=F(SM), fill=GREY, anchor="ra")
+        y = 172
+        gw = W - 60 if not db.get("graph") else 560
+        for t in db.get("good", [])[:2]:
+            y = para(g, 30, y, "＋ " + t, F(MD), GREEN, gw, 40, 2) + 4
         for t in db.get("fix", [])[:3]:
-            y = para(g, 30, y, "－ " + t, F(25), ORANGE, W - 60 if not db.get("graph") else 560, 33, 2)
+            if y > H - 130:
+                break
+            y = para(g, 30, y, "－ " + t, F(MD), ORANGE, gw, 40, 2) + 4
         if db.get("graph"):
-            _graph(g, 610, 190, 390, 300, db)
+            _graph(g, 610, 222, 390, 270, db)
         if not db.get("pass_score"):            # lesson without a solo check (0. orientation)
             nxt = "%s = 다음 강의 · M = 이 강의 다시 · F1 = 메뉴" % NK
         else:
             nxt = ("%s = 다음 강의 · M = 단독 점검 다시 · F1 = 메뉴" % NK) if ok else ("%s / M = 단독 점검 다시 · F1 = 메뉴 · Z = 다시 듣기" % NK)
-        g.text((22, H - 44), nxt, font=F(26), fill=BLUE)
+        g.text((22, H - 46), nxt, font=F(SM), fill=BLUE)
     elif ph == "crash":
+        # red crash screen (11-05): Unreal shows this picture full screen (monitor + VR), the browser its own overlay
         c = d.get("crash") or {}
-        g.text((30, 100), c.get("why", ""), font=F(46, True), fill=ORANGE)
-        para(g, 30, 180, c.get("say", ""), F(34), WHITE, W - 60, 48)
-        if d.get("msg"):
-            g.text((22, H - 84), d["msg"], font=F(24, True), fill=ORANGE)
-        g.text((22, H - 44), "M 또는 %s = 이 단계 다시 · F1 = 메뉴 · Z = 다시 듣기" % NK, font=F(26), fill=BLUE)
+        g.rectangle([0, 0, W - 1, H - 1], fill=CRASH_BG)
+        g.text((W / 2, 112), "추락", font=F(120, True), fill=WHITE, anchor="mm")
+        _fit_c(g, W / 2, 228, c.get("short") or c.get("why", ""), 48, True, (255, 236, 160))
+        ly = 286
+        for t in wrap(g, c.get("say", ""), F(SM), W - 120)[:2]:
+            g.text((W / 2, ly), t, font=F(SM), fill=(255, 215, 215), anchor="mt")
+            ly += 36
+        for x0, x1, big, small, filled in ((60, 492, "다시하기", "트리거" if rig else "Enter · R · 클릭", True),
+                                           (532, 964, "메뉴", "두 번째 버튼" if rig else "F1", False)):
+            if filled:
+                g.rounded_rectangle([x0, 430, x1, 590], radius=18, fill=WHITE)
+            else:
+                g.rounded_rectangle([x0, 430, x1, 590], radius=18, outline=WHITE, width=5)
+            col = CRASH_BG if filled else WHITE
+            g.text(((x0 + x1) / 2, 492), big, font=F(56, True), fill=col, anchor="mm")
+            g.text(((x0 + x1) / 2, 556), small, font=F(SM, True), fill=col, anchor="mm")
     path = os.path.join(OUT, "tut_panel_%d.png" % (ver % 4))
     im.save(path + ".tmp.png")
     os.replace(path + ".tmp.png", path)
-    # HUD line: coaching if recent, else the instruction
+    # HUD line: coaching if recent, else the instruction. Bold 44 px, up to 2 lines (shrinks to 36 before cutting),
+    # cropped to the text: the HUD draws it 1:1 (~1 deg letters) on a dark plate of the same size.
     line = d.get("coach") or d.get("instr") or (d.get("text") if ph in ("brief", "demo", "crash") else "") or ""
-    li = Image.new("RGB", (1024, 72), (0, 0, 0))
+    tmp = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    sz = 44
+    lines = wrap(tmp, line, F(sz, True), 960) if line else []
+    while len(lines) > 2 and sz > 36:
+        sz -= 4
+        lines = wrap(tmp, line, F(sz, True), 960)
+    if len(lines) > 2:
+        lines = lines[:2]
+        lines[1] = lines[1][:-1] + "…"
+    lh = sz + 14
+    lw = int(max([tmp.textlength(t, font=F(sz, True)) for t in lines] or [0])) + 36
+    li = Image.new("RGB", (max(16, lw), lh * max(1, len(lines)) + 12), (0, 0, 0))
     gl = ImageDraw.Draw(li)
-    sz = 34
-    while line and sz > 20 and gl.textlength(line, font=F(sz, True)) > 1000:     # shrink to fit one line
-        sz -= 2
-    t = wrap(gl, line, F(sz, True), 1000)[0] if line else ""
-    gl.text((512, 36), t, font=F(sz, True), fill=(110, 255, 140), anchor="mm")
+    for i, t in enumerate(lines):
+        gl.text((li.width / 2, 6 + lh * i + lh / 2), t, font=F(sz, True), fill=(110, 255, 140), anchor="mm")
     lpath = os.path.join(OUT, "tut_line_%d.png" % (ver % 4))
     li.save(lpath + ".tmp.png")
     os.replace(lpath + ".tmp.png", lpath)
     return path.replace("\\", "/"), lpath.replace("\\", "/")
+
+
+def _fit(g, x, y, text, sz, bold, col, width=W - 44, smin=24):
+    """one line: shrink to fit (down to smin), then cut with an ellipsis."""
+    while sz > smin and g.textlength(text, font=F(sz, bold)) > width:
+        sz -= 2
+    if g.textlength(text, font=F(sz, bold)) > width:
+        while text and g.textlength(text + "…", font=F(sz, bold)) > width:
+            text = text[:-1]
+        text += "…"
+    g.text((x, y), text, font=F(sz, bold), fill=col)
+
+
+def _fit_c(g, x, y, text, sz, bold, col, width=W - 80, smin=28):
+    while sz > smin and g.textlength(text, font=F(sz, bold)) > width:
+        sz -= 2
+    g.text((x, y), text, font=F(sz, bold), fill=col, anchor="mm")
 
 
 def _bar(g, p, col):
@@ -173,7 +226,7 @@ def _graph(g, x0, y0, w, h, db):
     """key metric deviation over the solo check with the tolerance band."""
     pts, tol = db["graph"], db.get("tol") or 1.0
     g.rectangle([x0, y0, x0 + w, y0 + h], outline=(70, 90, 110), width=2)
-    g.text((x0, y0 - 34), "%s 차이 (단독 점검)" % db.get("key_ko", ""), font=F(24, True), fill=WHITE)
+    g.text((x0, y0 - 36), "%s 차이 (단독 점검)" % db.get("key_ko", ""), font=F(SM, True), fill=WHITE)
     if not pts:
         return
     t1 = max(p[0] for p in pts) or 1.0
@@ -185,5 +238,5 @@ def _graph(g, x0, y0, w, h, db):
     xy = [(X(t), Y(max(-m, min(m, v)))) for t, v in pts]
     if len(xy) > 1:
         g.line(xy, fill=YELLOW, width=3)
-    g.text((x0 + w - 6, Y(tol) - 2), "+%g" % tol, font=F(18), fill=GREEN, anchor="rb")
-    g.text((x0 + 6, y0 + h + 6), "초록 = 허용 범위", font=F(18), fill=GREY)
+    g.text((x0 + w - 6, Y(tol) - 2), "+%g" % tol, font=F(22), fill=GREEN, anchor="rb")
+    g.text((x0 + 6, y0 + h + 6), "초록 = 허용 범위", font=F(22), fill=GREY)

@@ -44,10 +44,17 @@ LABELS = {
     "w_overg": ("OVER-G — 스틱을 풀어요 (9G 넘음)", True), "w_stall": ("STALL — 실속! 스틱 밀고 스로틀 올려요", True),
     "w_gear": ("GEAR — 낮고 느린데 바퀴가 올라가 있어요", True), "w_none": ("경고 없음", False),
     "mode_beg": ("초보자 설명 켬 (L)", False),
+    # readability pass (11-05): display row names carry their unit (no separate small unit text), short warning lines
+    "d_spd": ("속도 (kt)", True), "d_alt": ("고도 (ft)", True), "d_vs": ("상승률 (ft/분)", True), "d_hdg": ("방위 (°)", True),
+    "d_agl": ("땅까지 (ft)", True), "d_g": ("G (몸무게 배수)", True), "d_thr": ("스로틀", True), "d_gear": ("바퀴", True),
+    "d_croll": ("의자 좌우 (°)", True), "d_cpitch": ("의자 앞뒤 (°)", True), "d_time": ("비행 시간", True),
+    "wd_pullup": ("땅이 가까워요 — 당기세요!", True), "wd_terrain": ("지형에 부딪혔어요", True),
+    "wd_overg": ("G 가 너무 커요 — 스틱을 풀어요", True), "wd_stall": ("실속 — 스틱 밀고 스로틀 올려요", True),
+    "wd_gear": ("낮고 느린데 바퀴가 올라가 있어요", True), "wd_none": ("경고 없음", True),
 }
 # panel callouts (beginner): name -> (text, width cm, height cm)
 CALLOUTS = {"adi": ("자세계 — 위 하늘 / 아래 땅, 기울기", 15.0, 1.7), "asi": ("속도계 (kt)", 7.6, 1.6), "alt": ("고도계 — 바다 기준 (ft)", 10.0, 1.6),
-            "vsi": ("승강계 — 오르내리는 속도", 11.0, 1.6), "gear": ("바퀴 손잡이 (G 키)", 8.0, 1.6), "wheels": ("바퀴 등: 초록 = 내려가 잠김", 11.5, 1.6),
+            "vsi": ("승강계 — 오르내리는 속도", 11.0, 1.6), "gear": ("↙ 바퀴 손잡이 (G 키)", 7.4, 1.6), "wheels": ("바퀴 등: 초록 = 내려감", 10.0, 1.6),
             "lights": ("상태등: 브레이크·쉬운 모드·느린 시간·음성", 12.0, 2.2), "mfd_l": ("비행 정보 화면", 9.0, 1.6), "mfd_r": ("의자·경고 화면", 9.0, 1.6),
             "mfd_c": ("훈련 화면 — 할 일과 점수", 13.0, 1.6), "mc": ("주의등 = 경고가 있으면 켜짐", 12.0, 1.6)}
 PX = 48          # px per cm for the callouts
