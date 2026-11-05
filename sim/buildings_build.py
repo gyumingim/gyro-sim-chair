@@ -24,6 +24,10 @@ from the footprint area (가정). Base = the lowest point of the rendered terrai
 terrain_build.py) on the footprint, so blocks never float; walls start 1 m below that. (The Copernicus DEM is a surface
 model, but over Cheongju's tall blocks it is only 1-7 m above the surrounding ground, so no extra lowering is done.)
 
+Textures (sim/buildings_tex.py, cached V-World tiles only, no API call): roofs = the photo of that spot (per-tile JPEG
+atlas), walls = window modules per use class (A8), one row per floor, tinted by a colour derived from the roof photo.
+GYROSIM_BUILDINGS_PLAIN=1 builds without the photo (palette colours). Preview without Unreal: sim/buildings_lookdev.py.
+
 Tiling (additive refinement, so distant views only load the big / tall blocks): root (region) -> 8 km tiles with
 class A (>= 25 m or >= 2500 m2) -> 2 km tiles with class B (>= 10 m or >= 300 m2) -> 1 km tiles with the rest.
 Tile grid is anchored at 0 deg so rebuilt / larger regions keep the same tile names.
@@ -118,6 +122,32 @@ def height_rule(h16, fl, area):
     return np.clip(h, H_MIN, H_MAX), src, outlier
 
 
+# use class (for the wall textures, sim/buildings_tex.py) from A8 = 건축물 주용도 코드 (checked on the 충북 file: 01000
+# 단독주택, 02000 공동주택, 03000/04000 제1/2종 근린생활, 07000 판매, 14000 업무, 17000 공장, 18000 창고, 21000 동·식물 관련 ...)
+USE_NAMES = ("plain", "house", "apartment", "shop", "office", "factory")
+PLAIN, HOUSE, APT, SHOP, OFFICE, FACTORY = range(6)
+USE_CODES = {"01": HOUSE, "02": APT, "03": SHOP, "04": SHOP, "07": SHOP, "08": SHOP, "15": SHOP, "16": SHOP, "27": SHOP,
+             "05": OFFICE, "06": OFFICE, "09": OFFICE, "10": OFFICE, "11": OFFICE, "12": OFFICE, "13": OFFICE, "14": OFFICE,
+             "23": OFFICE, "24": OFFICE, "29": OFFICE, "17": FACTORY, "18": FACTORY, "19": FACTORY, "20": FACTORY, "25": FACTORY,
+             "21": PLAIN, "22": PLAIN, "26": PLAIN}
+
+
+def use_class(a8, area, h, src):
+    """int8 class per building. Unknown code: by size (가정) - tiny = shed, < 250 m2 house, large and low = warehouse."""
+    out = np.full(len(area), -1, np.int8)
+    for i, c in enumerate(a8):
+        c = str(c or "").strip()
+        if c[:1] == "Z":                                  # Z3000 근생, Z5000 문화, Z6000 판매, Z8000 / Z9000 (old codes)
+            out[i] = SHOP if c[1:2] in ("3", "6") else OFFICE
+        elif c[:2] in USE_CODES:
+            out[i] = USE_CODES[c[:2]]
+    unk = out < 0
+    guess = np.where(area < 40, PLAIN, np.where(area < 250, HOUSE, np.where((area >= 600) & (h <= 12), FACTORY, SHOP)))
+    out[unk] = guess[unk]
+    out[(area < 25) & (h <= 3.5)] = PLAIN                 # sheds: no windows whatever the code says
+    return out
+
+
 def dem_window(dem, w, s, e, n, pad=0.01):
     """1" DEM block covering the box (+pad deg): (array MSL m [rows from north], north, west)."""
     r0, r1 = int(math.floor((T.BOX_N - (n + pad)) * T.PX)), int(math.ceil((T.BOX_N - (s - pad)) * T.PX)) + 1
@@ -193,7 +223,7 @@ def prep(args):
         if w is not None:
             xs, ys = to_src.transform([w, e, w, e], [s, s, n, n])
             bbox = (min(xs), min(ys), max(xs), max(ys))
-        df = pyogrio.read_dataframe(shp, encoding="cp949", columns=["A0", "A9", "A12", "A16", "A26", "A27", "A24"], bbox=bbox)
+        df = pyogrio.read_dataframe(shp, encoding="cp949", columns=["A0", "A8", "A9", "A12", "A16", "A26", "A27", "A24"], bbox=bbox)
         df["src_file"] = os.path.basename(shp)
         parts.append(df)
         st = os.stat(shp.split("/vsizip/")[-1].split(".zip/")[0] + ".zip" if shp.startswith("/vsizip/") else shp)
@@ -248,11 +278,12 @@ def prep(args):
     dsm_c = dem.msl(clat, clon)
     geoid = dem.geoid_n(clat, clon)
     rid = rec.A0.values.astype(np.int64)
+    use = use_class(rec.A8.values, area, h, src)
     os.makedirs(WORK, exist_ok=True)
     np.savez(os.path.join(WORK, "buildings_%s.npz" % name), lon=lon, lat=lat, nring=nring.astype(np.int32), ring_of_poly=ring_of_poly.astype(np.int32),
              h=h.astype(np.float32), src=src, base=base.astype(np.float32), geoid=geoid.astype(np.float32), area=area.astype(np.float32),
              clat=clat, clon=clon, rid=rid, dsm_max=dsm_max.astype(np.float32), dsm_c=dsm_c.astype(np.float32),
-             floors=np.nan_to_num(rec.A26.values.astype(float)).astype(np.int16), a16=np.nan_to_num(rec.A16.values.astype(float)).astype(np.float32))
+             floors=np.nan_to_num(rec.A26.values.astype(float)).astype(np.int16), use=use, a16=np.nan_to_num(rec.A16.values.astype(float)).astype(np.float32))
     roof = base + h
     nb = len(h)
     stats = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), region=dict(name=name, bbox=[w, s, e, n], center=center, radius_m=radius),
@@ -260,6 +291,7 @@ def prep(args):
                  dropped_small=n_small, on_field_dropped=int(on_field.sum()),
                  height_source={"A16": int((src == 1).sum()), "floors": int((src == 2).sum()), "area_default": int((src == 3).sum())},
                  height_source_pct={"A16": round(100 * (src == 1).mean(), 1), "floors": round(100 * (src == 2).mean(), 1), "area_default": round(100 * (src == 3).mean(), 1)},
+                 use_class={nm: int((use == k).sum()) for k, nm in enumerate(USE_NAMES)},
                  a16_rejected=int(outlier.sum()), height_m=dict(median=round(float(np.median(h)), 1), p90=round(float(np.percentile(h, 90)), 1),
                  p99=round(float(np.percentile(h, 99)), 1), max=round(float(h.max()), 1)),
                  classes=dict(A=int(is_a(h, area).sum()), B=int((is_b(h, area) & ~is_a(h, area)).sum()), C=int((~is_b(h, area)).sum())),
@@ -315,106 +347,221 @@ def colors(rid):
     return wall, roof
 
 
+def _sat():
+    """per-process reader of the cached V-World tiles (None: GYROSIM_BUILDINGS_PLAIN=1 or no cache)."""
+    if "sat" not in _W:
+        import buildings_tex as BT
+        _W["sat"] = None if os.environ.get("GYROSIM_BUILDINGS_PLAIN") == "1" or not os.path.isdir(BT.SAT) else BT.Sat()
+    return _W["sat"]
+
+
+def building_floors(h, floors, cls):
+    """number of window rows: the data's floor count when it fits the height, else height / typical floor height."""
+    import buildings_tex as BT
+    if cls == BT.PLAIN:
+        return 1
+    if floors > 0 and 1.9 <= h / floors <= 8.0:
+        return int(min(floors, 80))
+    fh = BT.FLOOR_H[cls]
+    if fh <= 0:                                           # factory: one tall module, more when very tall
+        return 1 if h <= 12 else int(round(h / 7.0))
+    return int(max(1, min(80, round(h / fh))))
+
+
+ROW_OF = {0: 0, 1: 1, 2: 2, 3: 4, 4: 4, 5: 5}             # use class -> wall texture (shops: ground floor 3, upper 4)
+
+
 def build_glb(D, sel, center):
-    """glb (one mesh, one primitive, vertex colours) for the buildings `sel` around center (lat, lon)."""
+    """glb for the buildings `sel` around center (lat, lon): primitive 0 = roofs (per-tile JPEG atlas of the cached
+    V-World photo, white vertex colour; no photo -> a white atlas patch x a palette colour), primitive 1 = walls (shared
+    window atlas, vertex colour = wall tint derived from the photo, quads split per floor). -> (glb, (P, hmin, stats))."""
     import mapbox_earcut as earcut
+    import buildings_tex as BT
+    sat = _sat()
     R = enu_rot(*center)
     C0 = ecef(np.array(center[0]), np.array(center[1]), np.array(0.0)).reshape(3)
-    pos, nrm, col, idx = [], [], [], []
-    nv = 0
-    wall_c, roof_c = colors(D["rid"][sel])
+    _, roof_pal = colors(D["rid"][sel])
+    rid = D["rid"][sel].astype(np.uint64)
+    jit = ((rid * np.uint64(40503)) % np.uint64(65536)).astype(np.float64) / 32768.0 - 1.0
+    upal = ((rid * np.uint64(2246822519)) % np.uint64(1 << 20)).astype(np.float64) / float(1 << 20)
+    has_use, has_fl = "use" in D, "floors" in D
+    st = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0)
+    # pass 1: rings, photo samples, wall colours
+    blds = []
     for k, b in enumerate(sel):
         r0, r1 = D["poly_ring"][b], D["poly_ring"][b + 1]
-        bot = float(D["base"][b] + D["geoid"][b] - WALL_SINK)
-        top = float(D["base"][b] + D["h"][b] + D["geoid"][b])
-        rings2, ringsl = [], []
+        rings = []
         for r in range(r0, r1):
             v0, v1 = D["ring_v"][r], D["ring_v"][r + 1] - 1          # drop the closing point
-            la, lo = D["lat"][v0:v1], D["lon"][v0:v1]
-            if len(la) < 3:
-                continue
+            if v1 - v0 >= 3:
+                rings.append((np.asarray(D["lat"][v0:v1], np.float64), np.asarray(D["lon"][v0:v1], np.float64)))
+        if not rings:
+            continue
+        cls = int(D["use"][b]) if has_use else BT.HOUSE
+        smp = BT.roof_sample(sat, rings) if sat is not None else None
+        photo = smp is not None and smp["npx"] >= BT.ROOF_MIN_PX
+        if smp is not None and smp["color"] is not None:
+            wall = BT.wall_from_roof(smp["color"], cls, jit[k])
+            st["color_photo"] += 1
+        else:
+            wall = BT.palette_wall(cls, upal[k])
+            st["palette"] += 1
+        if photo:
+            st["roof_photo"][smp["z"]] = st["roof_photo"].get(smp["z"], 0) + 1
+        blds.append((k, b, rings, cls, smp if photo else None, wall))
+    if not blds:
+        return None, None
+    st["buildings"] = len(blds)
+    jpg, AW, AH, place, white = BT.roof_atlas([x[4]["img"] for x in blds if x[4] is not None])
+    st["atlas"] = [AW, AH]
+    # pass 2: geometry
+    RF = dict(P=[], N=[], C=[], UV=[], I=[], n=0)
+    WL = {}                                               # wall texture id -> geometry (one primitive each)
+
+    def quads(t, A0, A1, D0, D1, fa, fb, u0, u1, va, vb, n2, wl):
+        """one quad per edge between height fractions fa..fb (of bot..top), v = va (bottom) .. vb (top)."""
+        G = WL.setdefault(t, dict(P=[], N=[], C=[], UV=[], I=[], n=0))
+        q = len(A0)
+        G["P"].append(np.stack((A0 + fa * D0, A1 + fa * D1, A1 + fb * D1, A0 + fb * D0), axis=1).reshape(-1, 3))
+        G["N"].append(np.repeat(n2, 4, axis=0))
+        G["UV"].append(np.stack((np.stack((u0, np.full(q, va)), 1), np.stack((u1, np.full(q, va)), 1),
+                                 np.stack((u1, np.full(q, vb)), 1), np.stack((u0, np.full(q, vb)), 1)), axis=1).reshape(-1, 2))
+        G["C"].append(np.repeat(wl[None], 4 * q, axis=0))
+        bi = G["n"] + 4 * np.arange(q)
+        G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
+        G["n"] += 4 * q
+    ci = 0
+    for k, b, rings, cls, smp, wall in blds:
+        base = float(D["base"][b] + D["geoid"][b])
+        bot, top = base - WALL_SINK, base + float(D["h"][b])
+        fl = int(D["floors"][b]) if has_fl else 0
+        nf = building_floors(float(D["h"][b]), fl, cls)
+        if fl > 0 and nf == fl:
+            st["floors_data"] += 1
+        fh = (top - base) / nf
+        wl = BT.srgb_to_lin(wall)
+        # v = floors down from the roof line (texture top = ceiling of a floor); shops: ground floor band = shop window
+        if cls == BT.SHOP:
+            fg = (base + fh - bot) / (top - bot)
+            bands = [(3, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)] + ([(4, fg, 1.0, nf - 1.0, 0.0)] if nf > 1 else [])
+        else:
+            t = 6 if cls == BT.OFFICE and nf >= 8 else ROW_OF[cls]
+            bands = [(t, 0.0, 1.0, (top - bot) / fh, 0.0)]
+        tops = []
+        for la, lo in rings:
             Pb = (ecef(la, lo, np.full(len(la), bot)) - C0) @ R          # local ENU
             Pt = (ecef(la, lo, np.full(len(la), top)) - C0) @ R
-            rings2.append((Pb, Pt))
-        if not rings2:
-            continue
-        # walls: quad per edge, outward normal = right side of the edge (exterior CCW, holes CW)
-        for Pb, Pt in rings2:
+            tops.append((Pt, la, lo))
             m = len(Pb)
             j = np.arange(m)
             j1 = (j + 1) % m
-            b0, b1, t0, t1 = Pb[j], Pb[j1], Pt[j], Pt[j1]
-            d = b1[:, :2] - b0[:, :2]
+            d = Pb[j1, :2] - Pb[j, :2]
             ln = np.hypot(d[:, 0], d[:, 1])
             ok = ln > 1e-3
             if not ok.any():
                 continue
-            b0, b1, t0, t1, d, ln = b0[ok], b1[ok], t0[ok], t1[ok], d[ok], ln[ok]
-            q = len(b0)
-            n2 = np.stack((d[:, 1] / ln, -d[:, 0] / ln, np.zeros(q)), axis=1)
-            pos.append(np.stack((b0, b1, t1, t0), axis=1).reshape(-1, 3))
-            nrm.append(np.repeat(n2, 4, axis=0))
-            col.append(np.repeat(wall_c[k][None], 4 * q, axis=0))
-            base_i = nv + 4 * np.arange(q)
-            idx.append(np.stack((base_i, base_i + 1, base_i + 2, base_i, base_i + 2, base_i + 3), axis=1).reshape(-1))
-            nv += 4 * q
+            per = float(ln[ok].sum())
+            nb = max(1, int(round(per / BT.BAY[cls])))                   # whole bays around the ring (continuous u)
+            s = np.concatenate(([0.0], np.cumsum(np.where(ok, ln, 0.0))))[:-1] * nb / per
+            u0 = s[ok]
+            u1 = u0 + ln[ok] * nb / per
+            j, j1, d, ln = j[ok], j1[ok], d[ok], ln[ok]
+            n2 = np.stack((d[:, 1] / ln, -d[:, 0] / ln, np.zeros(len(j))), axis=1)    # outward = right of the edge
+            A0, A1 = Pb[j], Pb[j1]
+            for t, fa, fb, va, vb in bands:
+                quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wl)
         # roof: earcut on the top ring points (exterior first, then holes)
-        tops = [Pt for _, Pt in rings2]
-        verts = np.concatenate(tops)
-        ends = np.cumsum([len(t) for t in tops]).astype(np.uint32)
+        verts = np.concatenate([t[0] for t in tops])
+        ends = np.cumsum([len(t[0]) for t in tops]).astype(np.uint32)
         tri = np.asarray(earcut.triangulate_float64(verts[:, :2], ends), dtype=np.int64).reshape(-1, 3)
         if len(tri):
             p0, p1, p2 = verts[tri[:, 0], :2], verts[tri[:, 1], :2], verts[tri[:, 2], :2]
             cw = ((p1[:, 0] - p0[:, 0]) * (p2[:, 1] - p0[:, 1]) - (p1[:, 1] - p0[:, 1]) * (p2[:, 0] - p0[:, 0])) < 0
             tri[cw] = tri[cw][:, ::-1]
-            pos.append(verts)
-            nrm.append(np.tile([0.0, 0.0, 1.0], (len(verts), 1)))
-            col.append(np.repeat(roof_c[k][None], len(verts), axis=0))
-            idx.append(tri.reshape(-1) + nv)
-            nv += len(verts)
-    if not pos:
-        return None, None
-    P = np.concatenate(pos)
-    Nn = np.concatenate(nrm)
-    Cc = np.concatenate(col)
-    I = np.concatenate(idx).astype(np.uint32)
-    # glTF is y-up: (E, N, U) -> (E, U, -N); the node matrix maps back to ECEF in Cesium's y-up convention
-    S = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]], np.float64)            # ENU -> glTF
-    Pg = (P @ S.T).astype(np.float32)
-    Ng = (Nn @ S.T).astype(np.float32)
-    Cg = np.concatenate((np.clip(np.round(Cc * 255), 0, 255), np.full((len(Cc), 1), 255)), axis=1).astype(np.uint8)
+            if smp is not None:
+                ox, oy, f = place[ci]
+                la = np.concatenate([t[1] for t in tops])
+                lo = np.concatenate([t[2] for t in tops])
+                X, Y = BT.Sat.px(smp["z"], la, lo)
+                uv = np.stack((((X - smp["x0"]) * f + ox) / AW, ((Y - smp["y0"]) * f + oy) / AH), axis=1)
+                col = np.ones(3)
+            else:
+                uv = np.tile(white, (len(verts), 1))
+                col = roof_pal[k]
+            RF["P"].append(verts)
+            RF["N"].append(np.tile([0.0, 0.0, 1.0], (len(verts), 1)))
+            RF["C"].append(np.repeat(np.asarray(col, np.float64)[None], len(verts), axis=0))
+            RF["UV"].append(uv)
+            RF["I"].append(tri.reshape(-1) + RF["n"])
+            RF["n"] += len(verts)
+        if smp is not None:
+            ci += 1
+    S = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]], np.float64)            # ENU -> glTF (y-up): (E, N, U) -> (E, U, -N)
+    prims, allP = [], []
+    wall_imgs = BT.wall_pngs()
+    images, mats = [("image/jpeg", jpg, 0)], [("roof", 0, 0.95)]
+    groups = [(RF, 0)]
+    for t in sorted(WL):
+        images.append(("image/png", wall_imgs[t], 1))
+        mats.append((BT.WALL_NAMES[t], len(images) - 1, 0.8))
+        groups.append((WL[t], len(mats) - 1))
+    for G, mat in groups:
+        if not G["P"]:
+            continue
+        P, Nn, Cc, UV, I = (np.concatenate(G[x]) for x in ("P", "N", "C", "UV", "I"))
+        allP.append(P)
+        Cg = np.concatenate((np.clip(np.round(Cc * 255), 0, 255), np.full((len(Cc), 1), 255)), axis=1).astype(np.uint8)
+        prims.append(dict(P=(P @ S.T).astype(np.float32), N=(Nn @ S.T).astype(np.float32), C=Cg, UV=UV.astype(np.float32),
+                          I=I.astype(np.uint32), material=mat))
     Z2Y = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]], np.float64)          # Cesium applies Y_UP_TO_Z_UP = inverse of this
     M = np.eye(4)
     M[:3, :3] = Z2Y @ R @ S.T
     M[:3, 3] = Z2Y @ C0
+    P = np.concatenate(allP)
     hmin = float((P @ np.array([0, 0, 1.0])).min())
-    return glb_bytes(Pg, Ng, Cg, I, M), (P, hmin)
+    st["verts"] = int(len(P))
+    st["roof_jpg"] = len(jpg)
+    st["primitives"] = len(prims)
+    return glb_bytes(prims, images, mats, M), (P, hmin, st)
 
 
-def glb_bytes(P, N, Cc, I, M):
-    bins = [P.tobytes(), N.tobytes(), Cc.tobytes(), I.tobytes()]
-    views, off = [], 0
-    blob = b""
-    for i, bb in enumerate(bins):
-        pad = (-len(blob)) % 4
-        blob += b"\0" * pad
-        views.append(dict(buffer=0, byteOffset=len(blob), byteLength=len(bb), target=34963 if i == 3 else 34962))
-        blob += bb
-    blob += b"\0" * ((-len(blob)) % 4)
-    nv = len(P)
+def glb_bytes(prims, images, mats, M):
+    """prims: dicts P, N, C, UV, I, material index; images: (mime, bytes, sampler 0 = clamp | 1 = repeat);
+    mats: (name, texture = image index, roughness). Base colour = texture x vertex colour (COLOR_0)."""
+    blob = bytearray()
+    views, accs = [], []
+
+    def view(bb, target=None):
+        blob.extend(b"\0" * ((-len(blob)) % 4))
+        v = dict(buffer=0, byteOffset=len(blob), byteLength=len(bb))
+        if target:
+            v["target"] = target
+        blob.extend(bb)
+        views.append(v)
+        return len(views) - 1
+    mp = []
+    for p in prims:
+        nv, a = len(p["P"]), len(accs)
+        accs += [dict(bufferView=view(p["P"].tobytes(), 34962), componentType=5126, count=nv, type="VEC3", min=p["P"].min(0).tolist(), max=p["P"].max(0).tolist()),
+                 dict(bufferView=view(p["N"].tobytes(), 34962), componentType=5126, count=nv, type="VEC3"),
+                 dict(bufferView=view(p["C"].tobytes(), 34962), componentType=5121, normalized=True, count=nv, type="VEC4"),
+                 dict(bufferView=view(p["UV"].tobytes(), 34962), componentType=5126, count=nv, type="VEC2"),
+                 dict(bufferView=view(p["I"].tobytes(), 34963), componentType=5125, count=len(p["I"]), type="SCALAR")]
+        mp.append(dict(attributes=dict(POSITION=a, NORMAL=a + 1, COLOR_0=a + 2, TEXCOORD_0=a + 3), indices=a + 4, material=p["material"], mode=4))
+    imgs = [dict(bufferView=view(data), mimeType=mt) for mt, data, _ in images]
+    blob.extend(b"\0" * ((-len(blob)) % 4))
     gl = dict(asset=dict(version="2.0", generator="gyro-sim-chair buildings_build.py"), scene=0, scenes=[dict(nodes=[0])],
-              nodes=[dict(mesh=0, matrix=[float(v) for v in M.T.reshape(-1)])],
-              meshes=[dict(primitives=[dict(attributes=dict(POSITION=0, NORMAL=1, COLOR_0=2), indices=3, material=0, mode=4)])],
-              materials=[dict(pbrMetallicRoughness=dict(baseColorFactor=[1, 1, 1, 1], metallicFactor=0.0, roughnessFactor=0.9), doubleSided=False)],
-              accessors=[dict(bufferView=0, componentType=5126, count=nv, type="VEC3", min=P.min(0).tolist(), max=P.max(0).tolist()),
-                         dict(bufferView=1, componentType=5126, count=nv, type="VEC3"),
-                         dict(bufferView=2, componentType=5121, normalized=True, count=nv, type="VEC4"),
-                         dict(bufferView=3, componentType=5125, count=len(I), type="SCALAR")],
-              bufferViews=views, buffers=[dict(byteLength=len(blob))])
+              nodes=[dict(mesh=0, matrix=[float(v) for v in M.T.reshape(-1)])], meshes=[dict(primitives=mp)],
+              # 33071 CLAMP_TO_EDGE, 10497 REPEAT, 9729 LINEAR, 9987 LINEAR_MIPMAP_LINEAR (Cesium makes the mip maps)
+              samplers=[dict(magFilter=9729, minFilter=9987, wrapS=33071, wrapT=33071), dict(magFilter=9729, minFilter=9987, wrapS=10497, wrapT=10497)],
+              images=imgs, textures=[dict(source=i, sampler=sm) for i, (_, _, sm) in enumerate(images)],
+              materials=[dict(name=nm, pbrMetallicRoughness=dict(baseColorTexture=dict(index=ti), metallicFactor=0.0, roughnessFactor=r))
+                         for nm, ti, r in mats],
+              accessors=accs, bufferViews=views, buffers=[dict(byteLength=len(blob))])
     js = json.dumps(gl, separators=(",", ":")).encode()
     js += b" " * ((-len(js)) % 4)
     total = 12 + 8 + len(js) + 8 + len(blob)
-    return struct.pack("<III", 0x46546C67, 2, total) + struct.pack("<II", len(js), 0x4E4F534A) + js + struct.pack("<II", len(blob), 0x004E4942) + blob
+    return struct.pack("<III", 0x46546C67, 2, total) + struct.pack("<II", len(js), 0x4E4F534A) + js + struct.pack("<II", len(blob), 0x004E4942) + bytes(blob)
 
 
 def work_files(args=()):
@@ -433,7 +580,7 @@ def stats_file(work):
 
 
 MERGED = os.path.join(WORK, "_merged")
-KEYS = ("lon", "lat", "nring", "ring_of_poly", "h", "src", "base", "geoid", "area", "clat", "clon", "rid")
+KEYS = ("lon", "lat", "nring", "ring_of_poly", "h", "src", "base", "geoid", "area", "clat", "clon", "rid", "floors", "use")
 
 
 def merge_work(files):
@@ -444,6 +591,7 @@ def merge_work(files):
     npoly = 0
     for f in files:
         z = np.load(f)
+        assert "use" in z.files, ("work file from before the textures (no use class) - run --prep again", f)
         for k in KEYS:
             v = z[k]
             out[k].append(v + npoly if k == "ring_of_poly" else v)
@@ -480,11 +628,11 @@ def _tile_job(job):
         D = _W["D"] = load_work()
     data, info = build_glb(D, np.asarray(sel), center)
     if data is None:
-        return key, None
+        return key, None, None
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(data)
-    return key, len(data)
+    return key, len(data), info[2]
 
 
 def tiles(args):
@@ -525,10 +673,17 @@ def tiles(args):
         shutil.rmtree(TILES)
     os.makedirs(TILES, exist_ok=True)
     sizes = {}
+    tex = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0, verts=0, roof_jpg_bytes=0, atlas_px=0)
     with mp.Pool(max(1, (os.cpu_count() or 4) - 2)) as pool:
-        for n_done, (key, nb) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
+        for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts"):
+                    tex[k_] += ts_[k_]
+                for z_, c_ in ts_["roof_photo"].items():
+                    tex["roof_photo"][str(z_)] = tex["roof_photo"].get(str(z_), 0) + c_
+                tex["roof_jpg_bytes"] += ts_["roof_jpg"]
+                tex["atlas_px"] += ts_["atlas"][0] * ts_["atlas"][1]
             if n_done % 200 == 0 or n_done == len(jobs):
                 print("  %d / %d  %.0f s  %.0f MB" % (n_done, len(jobs), time.time() - t0, sum(sizes.values()) / 1e6), flush=True)
 
@@ -594,7 +749,8 @@ def tiles(args):
         json.dump(ts, f, ensure_ascii=False)
     out = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0), content_tiles=len(sizes), bytes=sum(sizes.values()),
                bytes_by_level={l: sum(v for k, v in sizes.items() if k[0] == l) for l in "abc"}, largest_tile=max(sizes.values()) if sizes else 0,
-               input=dict(work=files, prep=[st["made"] for st in sts]), buildings=int(len(h)), geometric_error=GE, step_a=STEP_A, sub=[SUB_B, SUB_C])
+               input=dict(work=files, prep=[st["made"] for st in sts]), buildings=int(len(h)), textures=tex,
+               satellite_cache=dict(dir=_sat().root, tiles_by_zoom=_sat().tiles_count()) if _sat() else None, geometric_error=GE, step_a=STEP_A, sub=[SUB_B, SUB_C])
     with open(os.path.join(TILES, "build.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     print("done: %d tiles, %.0f MB (a %.0f, b %.0f, c %.0f MB), largest %.1f MB, %.0f s -> %s" % (

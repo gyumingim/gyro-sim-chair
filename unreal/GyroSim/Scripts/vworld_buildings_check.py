@@ -16,7 +16,8 @@ import sim_client
 log = lambda *a: unreal.log("[vwbldg] " + " ".join(str(x) for x in a))
 les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
-OUT = os.path.join(unreal.Paths.project_saved_dir(), "verify", "vworld_buildings")
+# GYROSIM_BLDG_OUT: other folder under Saved/verify (e.g. vworld_buildings_tex for the textured buildings, old vs new)
+OUT = os.path.join(unreal.Paths.project_saved_dir(), "verify", os.environ.get("GYROSIM_BLDG_OUT", "vworld_buildings"))
 os.makedirs(OUT, exist_ok=True)
 LOG = os.path.join(unreal.Paths.project_log_dir(), "GyroSim.log")
 C = sim_client.client
@@ -47,6 +48,8 @@ SHOTS = [("downtown_chase", LOW, "chase", None, "shot", True),
          ("runway_chase", "runway", "chase", None, "runway", True),
          ("runway_side", "runway", "orbit", [90.0, 2.0, 6000.0], "runway", True),
          ("crash", CRASH, "cockpit", None, "crash", True)]
+if os.environ.get("GYROSIM_BLDG_SHOTS"):     # comma list: only these shots (e.g. downtown_chase,apartments_orbit,crash)
+    SHOTS = [x for x in SHOTS if x[0] in os.environ["GYROSIM_BLDG_SHOTS"].split(",")]
 FPS_VIEWS = [("downtown_chase", LOW, "chase"), ("downtown_cockpit", LOW, "cockpit")]
 FPS_ORDER = [False, True, False, True]      # buildings shown? (A/B alternating, 2 repeats each)
 ST = dict(t=time.monotonic(), phase="wait_pie", i=0, h=None, res={}, shots=[], start=None, fps=[], fi=0)
@@ -113,6 +116,17 @@ def gpu_from_log():
         return float(g[-1]) if g else None
     except OSError:
         return None
+
+
+def tileset_info():
+    """which building tiles were served (old flat-colour build or the textured one): tileset.json version + build.json."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%d/buildings/tileset.json" % C().vworld_port(), timeout=2) as f:
+            a = json.loads(f.read().decode("utf-8")).get("asset", {})
+        return dict(tileset_version=a.get("tilesetVersion"))
+    except Exception as e:
+        return repr(e)
 
 
 def start(spec, pause):
@@ -258,8 +272,9 @@ def tick(dt):
                 summ.setdefault("%s_%s" % (f["view"], "on" if f["buildings"] else "off"), []).append(f["gpu_ms"])
             res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=r, shots=ST["shots"], steps=ST["res"], fps=ST["fps"], fps_gpu_ms=summ,
                        api_requests_this_check=(pa.get("used_today", 0) - pb.get("used_today", 0)) if pa and pb else None,
-                       crash_ok=cr.get("crash_obj") == "building", runway_ok=all(rw) and bool(rw), floor_ok=all(fl) and bool(fl),
-                       ok=bool(r["ok"] and ST["res"]["setup"]["ok"] and cr.get("crash_obj") == "building" and all(rw) and all(fl)))
+                       crash_ok=cr.get("crash_obj") == "building" if "crash" in ST["res"] else None, runway_ok=all(rw) if rw else None,
+                       floor_ok=all(fl) if fl else None, tileset=tileset_info(),
+                       ok=bool(r["ok"] and ST["res"]["setup"]["ok"] and (cr.get("crash_obj") == "building" or "crash" not in ST["res"]) and all(rw) and all(fl)))
             with open(os.path.join(OUT, "vworld_buildings_result.json"), "w", encoding="utf-8") as f:
                 json.dump(res, f, indent=1, ensure_ascii=False, default=str)
             log("done ok=%s api=%s ->" % (res["ok"], res["api_requests_this_check"]), OUT)
