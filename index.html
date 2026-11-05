@@ -122,19 +122,18 @@ const INFO={
   roller_side:["옆 안내 롤러","레일 앞·뒤 바깥 벽을 잡는 롤러 (축이 반지름 방향). 호가 앞뒤(x) 로 흔들리거나 비틀리지 않게 — 앞뒤 힘을 뒤 핀과 나눠 받는다.","Ø30 × 폭 14, 0°, 앞·뒤 각 1 개 + 받침"],
   roll_stop:["roll 멈춤쇠 막대","링 뒤 막대 아래 고정 막대. 위에 고무가 있다.","120×640×40, z −272…−232"],
   roll_rubber:["roll 고무 멈춤쇠","링이 ±30.5° 까지 기울면 링 뒤 막대가 여기에 닿아 멈춘다 (Fusion 회전 시험으로 확인).","30×70×20 고무"],
-  ring_side:["roll 링 옆 막대","링의 왼쪽·오른쪽 막대. 가운데에서 pitch 축 핀을 잡는다.","40×80 (세로), 길이 1940, y = ±480"],
+  ring_side:["roll 링 옆 막대","링의 왼쪽·오른쪽 막대. 가운데 (x = 0) 에서 pitch 축 핀을 잡고, 바로 아래로 호 레일 세로 기둥이 내려간다. 앞 기둥이 없어져서 앞 막대를 빼고 옆 막대도 pitch 멈춤쇠 팔 바로 앞 (x = +440) 까지로 줄였다. 두 옆 막대는 뒤 막대 + 가운데 호 레일 (세로 기둥 · 호 · 빗대 U자 틀) 로 묶인다. ×80 (세로), 길이 약 1.26 m (x −820 … +440), y = ±480"],
   roll_rail:["roll 레일 (링 뒤 막대)","무게추가 이 막대 위를 좌우(y) 로 ±0.59 m 미끄러지며 roll 을 기울인다. 바깥쪽 벨트가 무게추를 끈다. 아래에는 roll 고무 멈춤쇠가 닿는다.","40×80 (세로), 길이 1280, x = −800"],
   roll_belt:["roll 타이밍 벨트 (HTD 5M, 폭 15)","링 뒤 막대 바깥쪽에서 무게추를 좌우로 끄는 벨트. 무게추 팔이 위쪽 벨트에 물려 있다.","HTD5M 15 mm, 둘레 약 2.8 m"],
   roll_pulley:["roll 벨트 풀리","한쪽은 모터 축 (구동), 반대쪽은 아이들러 (헛도는 바퀴).","HTD5M 20T, 피치원 Ø31.8 (1회전 100 mm)"],
   roll_bracket:["풀리 받침","레일 끝에 붙여 풀리를 잡는 판.","8 mm 판"],
-  ring_back:["링 앞 막대 (뼈대)","무게추 없음. 링을 닫는 뼈대. 앞 기둥이 없어져서 지금은 아무 데도 안 걸려 있다 (호 레일 앞으로 1.1 m 나온 끝).","40×80 (세로), 길이 1000, x = +1100"],
   roll_motor:["roll 웜기어 모터","24 V 웜기어 DC 모터 (예: 모터뱅크 WGM40C-315724, 감속비 1/218 ≈ 25 rpm, 추정). 웜기어가 저절로 잠겨 전원이 꺼져도 무게추를 붙잡는다.","약 25 rpm × 100 mm = 초속 4.2 cm (추정)"],
   roll_weight:["roll 무게추 약 23 kg","강철 블록. 호 레일 · 행어가 축 아래 약 1 m 에 붙어 roll 되돌아오는 힘이 커져서 (27.6 → 약 33 kg·m) 18.6 → 23.2 kg 로 키움 (높이 232 → 290). roll 20° 에 약 22 kg 필요 (계산 탭, 추정, 레일 끝 ±0.565 m).","68×150×290 강철 ≈ 23.2 kg"],
   pitch_pin:["pitch 회전축","케이지가 이 축을 중심으로 앞뒤로 기운다. 링 옆 막대에 붙어 있다.","Ø40, y = ±440"],
   guard_pitch:["끼임 방지 덮개 (pitch 축)","도는 케이지와 링 사이 틈을 막는 통.","Ø90 / 안 Ø46"],
   pitch_arm:["pitch 멈춤쇠 팔","링에 붙은 세로 막대 (위아래 32 cm). 케이지 돌기가 ±30.5° 에서 이 팔의 고무에 닿는다.","40×18×640"],
   pitch_rubber:["pitch 고무 멈춤쇠","멈춤쇠 팔 위·아래에 붙은 고무.","10×18×110"],
-  lock_ring:["pitch 잠금판 (링 쪽)","케이지 쪽 잠금판과 구멍을 맞춰 핀을 꽂으면 pitch 가 0° 에 고정.","40×38×60, 구멍 Ø13"],
+  lock_ring:["pitch 잠금판 (링 쪽)","케이지 쪽 잠금판과 구멍을 맞춰 핀을 꽂으면 pitch 가 0° 에 고정. 링 옆 막대를 줄이면서 x 0.6 → 0.27 m 로 옮김.","40×38×60, 구멍 Ø13"],
   cage_post_b:["케이지 뒤 기둥","옆 레일 높이까지만. 지붕은 뺐다 (무게중심을 낮게).","40×40, z −840…+20"],
   cage_post_f:["케이지 앞 기둥","옆 레일 높이까지 (VR 전용이라 모니터 없음). 오른쪽 위에 VR 기준 트래커.","40×40, z −840…+20, x = +740"],
   floor_long:["바닥 틀 (앞뒤 방향)","케이지 바닥 사각형의 긴 막대.","40×40×1600"],
@@ -201,7 +200,7 @@ const add=p=>{if((p.g==="cage"||p.g==="person")&&!NO_SHIFT.has(p.k))shiftX(p,CAG
 const S2=[1,-1], ys=(s,a,b)=>s>0?[a,b]:[-b,-a];
 // ---- main dimensions (VR-only compact, 2026-10-29) ----
 const PF=1180,PB=-900;          // base front foot (no front post since the arc rail) / back post centre
-const RF=1100,RB=-800;          // roll ring front / back member centres
+const RF=440,RB=-800;           // ring side front END (no front member since the arc rail, 2026-11-05) / back member centre
 const XF=740,XB=-380,YS=400;    // cage front / back post centres, side rail y
 const XR=-720;                  // side rails stick out behind the back posts to here (pitch weight travel)
 // ---- base ----
@@ -244,8 +243,7 @@ for(const sx of S2){const xg=AHW+AGAP+15,[b0,b1]=ys(sx,34,62),[l0,l1]=ys(sx,34,5
   add(RBOX("base","cradle",[XA+l0,XA+l1,-15,15,-1240,-1138],5));                     // lock-pin lugs (+5 deg)
 }
 // ---- roll ring ----
-for(const s of S2){const[y0,y1]=ys(s,460,500);add(BOX("ring","ring_side",RB-20,RF+20,y0,y1,-40,40))}
-add(BOX("ring","ring_back",RF-20,RF+20,-500,500,-40,40));   // front member: only as wide as the ring (no weight here)
+for(const s of S2){const[y0,y1]=ys(s,460,500);add(BOX("ring","ring_side",RB-20,RF,y0,y1,-40,40))}   // ends just past the pitch stop arm; sides tied by the back member + arc U-frame at x = 0
 add(BOX("ring","roll_rail",RB-20,RB+20,-640,640,-40,40));
 // roll belt drive on the back member: belt loop in the y-z plane just outside it
 const RBX0=RB-50,RBX1=RB-35,RBZ=70,RPR=16;
@@ -273,7 +271,7 @@ for(const s of S2){
   add(TUBE("ring","guard_pitch",[0,s*422,0],[0,s*458,0],45,23));
   const[a0,a1]=ys(s,442,460);add(BOX("ring","pitch_arm",353,393,a0,a1,-320,320));
   add(BOX("ring","pitch_rubber",393,403,a0,a1,190,300));add(BOX("ring","pitch_rubber",393,403,a0,a1,-300,-190));
-  const[p0,p1]=ys(s,442,480);add(BOX("ring","lock_ring",580,620,p0,p1,-80,-20));
+  const[p0,p1]=ys(s,442,480);add(BOX("ring","lock_ring",250,290,p0,p1,-80,-20));   // moved from x 600 (ring side is shorter now)
 }
 // ---- pitch cage ----
 for(const y of[YS,-YS]){
@@ -319,7 +317,7 @@ add(BOX("cage","vr_hook",-470,-440,-262,-252,240,260));
 const PX=700;                   // pitch belt pulley x (+-)
 for(const s of S2){
   const[w0,w1]=ys(s,382,418);add(BOX("cage","pitch_weight",-75,75,w0,w1,40,210));
-  const[l0,l1]=ys(s,400,438);add(BOX("cage","lock_cage",580,620,l0,l1,-80,-20));
+  const[l0,l1]=ys(s,400,438);add(BOX("cage","lock_cage",250,290,l0,l1,-80,-20));
   const[t0,t1]=ys(s,420,452);add(BOX("cage","pitch_tab",480,520,t0,t1,-20,20));
   add(STRAP("cage","belt_sh",[-420,s*110,330],[35,s*45,-180],50,3,[0,1,0]));
   add(STRAP("cage","belt_lap",[-140,s*252,-322],[35,s*40,-200],50,3,[1,0,0]));
@@ -342,7 +340,7 @@ for(const x of[-DX+15,DX-15]){add(CYL("board","handrail",[x,DK0+15,DZ],[x,DK0+15
   add(CYL("board","handrail",[x,DK0-245,-120],[x,DK0+15,DZ+900],15))}
 add(CYL("board","handrail",[-DX+15,DK0+15,DZ+900],[DX-15,DK0+15,DZ+900],15));
 // ---- lock pins ----
-for(const s of S2) add(CYL("pins","pin",[600,s*405,-55],[600,s*485,-55],6));
+for(const s of S2) add(CYL("pins","pin",[270,s*405,-55],[270,s*485,-55],6));
 add(CYL("pins","pin",rotX([XA-62,0,-1150],5),rotX([XA+62,0,-1150],5),6));   // roll lock: lug -> both channel walls (+5 deg hole) -> lug
 // ---- person (seated, faces +x) ----
 const PSN=(x0,x1,y0,y1,z0,z1)=>add(BOX("person","person",x0,x1,y0,y1,z0,z1));
@@ -593,9 +591,9 @@ function renderStrength(){
   const cant=(name,key,F,arm,extraM)=>{const prof=memberProfile[key],S=PROFILES[prof],M=F*arm+(extraM||0),s=M*1e3/S.W,d=(F*arm**3/3+(extraM||0)*arm**2/2)/(MAT.al.E*S.I)*1e9;return{name,key,sec:prof,M,s,al:MAT.al.fy/SF,d}};
   // ring side: the pitch pin sits right above the hanger, so the cage load goes straight down; the side only carries the
   // back-pin shear (conservative: whole back-pin force / 2) over hanger -> back member, and the front member as an overhang
-  const Wfront=sum(B.T.ring.filter(x=>x.k==="ring_back"),x=>x.m)*G*DF;
+  const Wfront=(PROFILES[memberProfile.ring_side].kgm*(RF-XA)/1000*2+2*(FIXED.pitch_arm+FIXED.lock_ring))*G*DF;   // both front stubs + stop arms + lock plates
   rows.push(cant("링 옆 막대 (행어 ↔ 뒤 막대)","ring_side",Fb/2,(XA-RB)/1000));
-  rows.push(cant("링 옆 막대 앞 외팔보 (행어 → 앞 막대)","ring_side",Wfront/2,(RF-XA)/1000));
+  rows.push(cant("링 옆 막대 앞 끝 (행어 → 끝, 0.44 m)","ring_side",Wfront/2,(RF-XA)/1000));
   rows.push(cant("링 뒤 막대 (roll 레일, 반쪽)","roll_rail",Fb/2,0.48,B.mr*G*DF*B.ymax));
   rows.push(beam("케이지 옆 레일 (pitch 축)","side_rail",P1,a2,b2,L2));
   rows.push(beam("바닥 틀 앞뒤 막대 (좌석)","floor_long",seatW/2,a2,b2,L2));
