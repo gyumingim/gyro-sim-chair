@@ -3,7 +3,8 @@ or inside the open editor:  exec(open(r"<project>/Scripts/verify_pie.py").read()
 Starts PIE (monitor mode), checks: start menu, lesson flow (briefing -> practice -> debrief), cockpit controls follow
 the control values, standby needles / ADI / gear handle / gear lights, the displays show the state, warnings (synthetic
 states + a real over-G pull, master caution light), beginner labels on / off, keyboard vs rig instruction wording, key
-guide panel toggle (K), interpolation smoothness, chase view. Screenshots of all of it (incl. clouds).
+guide panel toggle (K), interpolation smoothness, chase view, third-person views (V cycle, orbit by mouse / keys, flyby,
+tower, HUD hidden outside the cockpit, VR comfort). Screenshots of all of it (incl. clouds).
 Screenshots + verify_result.json go to Saved/verify/. Needs sim/server.py running. Leaves the editor open.
 """
 import json, math, os, time
@@ -541,15 +542,194 @@ def c_rw2():
 def s_rw_back():
     C().view = "cockpit"
 
+# ---- third-person views (V cycle, orbit by mouse / keys, flyby / tower fixed points, HUD hidden outside the
+# cockpit, VR comfort: no camera pitch / roll, static flyby / tower) -------------------------------------------------
+VW = {}
+
+
+def cam_rel():
+    """camera minus the aircraft: (distance m, azimuth deg, elevation deg) + camera rotation."""
+    c = C()
+    a, k = c.aircraft.get_actor_location(), c.camera.get_actor_location()
+    d = unreal.Vector(k.x - a.x, k.y - a.y, k.z - a.z)
+    r = c.camera.get_actor_rotation()
+    h = math.hypot(d.x, d.y)
+    return dict(dist_m=round(math.sqrt(h * h + d.z * d.z) / 100.0, 2), az=round(math.degrees(math.atan2(d.y, d.x)), 2),
+                el=round(math.degrees(math.atan2(d.z, h)), 2), rot=[round(r.roll, 2), round(r.pitch, 2), round(r.yaw, 2)],
+                cam=[round(k.x), round(k.y), round(k.z)], fov=round(c.fov_set or 0, 2))
+
+
+def outside_ok(name, extra_ok=True, **kw):
+    c = C()
+    hud_hidden = bool(c.screens["HUD"][0].get_editor_property("hidden")) if "HUD" in c.screens else None
+    beg_hidden = all(bool(a.get_editor_property("hidden")) for a in c.beg_labels) if c.beg_labels else True
+    r = dict(view=c.view, **cam_rel(), hud_hidden=hud_hidden, beginner_labels_hidden=beg_hidden, **kw)
+    r["ok"] = bool(extra_ok) and hud_hidden is True and beg_hidden and c.view != "cockpit"
+    RESULT[name] = r
+    log(name, json.dumps(r, default=str))
+    return r
+
+@at(70.9)
+def v_setup():
+    c = C()
+    SAY({"cmd": "tut", "op": "free"})
+    SAY({"cmd": "reset", "mode": "air"})
+    c.override = dict(NEUTRAL, thr=0.75)
+    c.set_view("cockpit")
+
+@at(73.0)
+def v_cycle():
+    c = C()
+    seq = []
+    for _ in range(5):
+        c.cycle_view(1)
+        seq.append(c.view)
+    c.cycle_view(-1)
+    back = c.view
+    RESULT["view_cycle"] = dict(forward=seq, shift_v_back_from_cockpit=back,
+                                ok=seq == ["chase", "orbit", "flyby", "tower", "cockpit"] and back == "tower")
+    c.set_view("chase")
+
+@at(74.5)
+def v_chase():
+    r = cam_rel()
+    a = C().aircraft.get_actor_rotation()
+    behind = abs(((r["az"] - (a.yaw + 180.0)) + 180) % 360 - 180)
+    outside_ok("view_chase", abs(r["dist_m"] - 26.8) < 3.0 and behind < 15.0, behind_err_deg=round(behind, 1))
+    shot("9a_view_chase")
+
+@at(74.8)
+def v_orbit():
+    C().set_view("orbit")
+
+@at(76.0)
+def v_orbit0():
+    VW["o0"] = cam_rel()
+    a = C().aircraft.get_actor_rotation()
+    VW["side_err"] = abs(((VW["o0"]["az"] - (a.yaw + 90.0)) + 180) % 360 - 180)      # starts on the right side
+    C().apply_mouse(240.0, 0.0, 2.0)          # drag 240 px right (= 60 deg) + 2 wheel notches closer
+
+@at(77.0)
+def v_orbit1():
+    o0, o1 = VW["o0"], cam_rel()
+    daz = (o1["az"] - o0["az"] + 180) % 360 - 180
+    ratio = o1["dist_m"] / o0["dist_m"]
+    outside_ok("view_orbit_mouse", VW["side_err"] < 15.0 and abs(daz - 60.0) < 4.0 and abs(ratio - 0.87 ** 2) < 0.03,
+               start_side_err_deg=round(VW["side_err"], 1), drag_turn_deg=round(daz, 1), wheel_dist_ratio=round(ratio, 3))
+    C().orbit_vel = [70.0, 45.0, 0.0]          # = holding E + PageUp (keys are read only with the editor focused)
+    VW["o1"] = o1
+
+@at(78.0)
+def v_orbit_keys():
+    c = C()
+    c.orbit_vel = [0.0, 0.0, 0.0]
+    o2 = cam_rel()
+    daz = (o2["az"] - VW["o1"]["az"] + 180) % 360 - 180
+    RESULT["view_orbit_keys"] = dict(turn_deg=round(daz, 1), el_from=VW["o1"]["el"], el_to=o2["el"],
+                                     ok=50.0 < daz < 90.0 and o2["el"] - VW["o1"]["el"] > 25.0)
+    shot("9b_view_orbit")
+    c.reset_orbit()
+
+@at(78.3)
+def v_flyby():
+    VW["fb_n"] = getattr(C(), "flyby_n", 0)
+    C().set_view("flyby")
+
+@at(79.0)
+def v_flyby0():
+    VW["fb0"] = cam_rel()
+
+@at(79.6)
+def v_flyby1():
+    c = C()
+    f1 = cam_rel()
+    still = f1["cam"] == VW["fb0"]["cam"]
+    closer = f1["dist_m"] < VW["fb0"]["dist_m"]
+    outside_ok("view_flyby", still and closer and f1["fov"] < 75.0, static_point=still, aircraft_closing=closer,
+               dist_m_from=VW["fb0"]["dist_m"], placed=getattr(c, "flyby_n", 0) - VW["fb_n"])
+    shot("9c_view_flyby")
+
+@at(88.0)
+def v_flyby2():
+    c = C()
+    n = getattr(c, "flyby_n", 0) - VW["fb_n"]
+    RESULT["view_flyby_replaced_after_pass"] = dict(placed=n, now=cam_rel(), ok=n >= 2)
+    c.set_view("tower")
+
+@at(89.0)
+def v_tower():
+    c = C()
+    t0 = cam_rel()
+    f = c._frame
+    s = c.s
+    exp = f.world(sim_client.TOWER_LL[0], sim_client.TOWER_LL[1], s["field_m"] + s["geoid_n"] + sim_client.TOWER_AGL_M)
+    err = math.dist(t0["cam"], exp) / 100.0
+    outside_ok("view_tower", err < 1.0 and t0["fov"] < 75.0, tower_err_m=round(err, 2))
+    shot("9d_view_tower")
+
+@at(89.3)
+def v_vr():
+    """VR comfort (flag forced, no headset): the rig gets yaw only, flyby / tower do not move or turn."""
+    c = C()
+    c.hmd, c.hmd_check_t = True, time.perf_counter() + 3600.0
+    VW["vr"] = {}
+    VW["vr_views"] = ["chase", "orbit", "flyby", "tower"]
+    c.set_view("chase")
+
+def _vr_sample(v):
+    c = C()
+    r = cam_rel()
+    VW["vr"].setdefault(v, []).append(r)
+
+@at(90.0)
+def v_vr_chase():
+    _vr_sample("chase"); C().set_view("orbit")
+
+@at(90.7)
+def v_vr_orbit():
+    _vr_sample("orbit"); C().set_view("flyby")
+
+@at(91.4)
+def v_vr_flyby_a():
+    _vr_sample("flyby")
+
+@at(92.0)
+def v_vr_flyby_b():
+    _vr_sample("flyby"); C().set_view("tower")
+
+@at(92.7)
+def v_vr_tower_a():
+    _vr_sample("tower")
+
+@at(93.4)
+def v_vr_tower_b():
+    _vr_sample("tower")
+    c = C()
+    out = {}
+    for v, rs in VW["vr"].items():
+        out[v] = dict(rot=[r["rot"] for r in rs], ok=all(abs(r["rot"][0]) < 0.01 and abs(r["rot"][1]) < 0.01 for r in rs))
+        if v in ("flyby", "tower"):
+            out[v]["static"] = rs[0]["cam"] == rs[-1]["cam"] and rs[0]["rot"] == rs[-1]["rot"]
+            out[v]["ok"] = out[v]["ok"] and out[v]["static"]
+    RESULT["view_vr_comfort"] = dict(views=out, fov=c.fov_set, ok=all(v["ok"] for v in out.values()) and len(out) == 4 and c.fov_set == sim_client.VIEW_FOV)
+    c.hmd, c.hmd_check_t = False, 0.0
+    c.set_view("cockpit")
+
+@at(95.5)
+def v_back_cockpit():
+    c = C()
+    hud_hidden = bool(c.screens["HUD"][0].get_editor_property("hidden")) if "HUD" in c.screens else None
+    RESULT["view_cockpit_hud_back"] = dict(view=c.view, hud_hidden=hud_hidden, fov=c.fov_set, ok=c.view == "cockpit" and hud_hidden is False and c.fov_set == sim_client.VIEW_FOV)
+
 # ---- crash in free flight: dive into the ground -> red crash screen (sim frozen, input locked 1 s, buttons map to
 # clicks) -> retry -> flying again from the same start ------------------------------------------------------------
-@at(71.0)
+@at(97)
 def crash_setup():
     c = C()
     SAY({"cmd": "tut", "op": "free"})
     c.look_tgt = [0.0, 0.0]
 
-@at(72.5)
+@at(98.5)
 def crash_dive():
     SAY({"cmd": "reset", "mode": "approach"})
     C().override = {"ail": 0.0, "elev": 0.6, "rud": 0.0, "gear": 0.0, "thr": 0.6}
@@ -570,7 +750,7 @@ def _crash_btn_click(op):
     sp = r[0]
     return dict(screen=[round(sp.x), round(sp.y)], got=c.crash_click(sp.x, sp.y))
 
-@at(73.0)
+@at(99)
 def crash_seq():
     c = C()
     now = time.monotonic()
@@ -619,7 +799,7 @@ def crash_seq():
     if CR["st"] != 9:
         steps.insert(0, [time.monotonic() - T0[0] + 0.1, crash_seq])
 
-@at(73.5)
+@at(99.5)
 def finish():
     c = C()
     c.override = None
@@ -630,7 +810,7 @@ def finish():
         json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), checks=RESULT), f, indent=1, ensure_ascii=False, default=str)
     log("done ->", OUT)
 
-@at(75.5)
+@at(101.5)
 def stop_pie():
     les.editor_request_end_play()
     log("PIE stopped")

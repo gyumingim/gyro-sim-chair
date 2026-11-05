@@ -33,6 +33,23 @@ STATE_ADDR = ("127.0.0.1", 4220)
 CMD_ADDR = ("127.0.0.1", 4221)
 EYE = (430.0, 0.0, 100.0)          # cockpit eye point in body axes, cm (fwd, right, up) from the aircraft reference
 CHASE_BACK, CHASE_UP = 2600.0, 650.0
+# third-person views (V cycles, Shift+V back): cockpit -> chase (behind, follows the heading) -> orbit (side, fixed to the
+# world, turn around the aircraft) -> flyby (a fixed point ahead the aircraft flies past) -> tower (fixed point by the
+# runway) -> cockpit. Outside the cockpit: Q/E turn around, PageUp/PageDown up/down, + / - / mouse wheel zoom, mouse drag
+# (monitor) turns, Home resets. VR: no camera pitch / roll from us (only yaw), turns / zoom in snap steps, flyby / tower
+# are static points (re-placed with a snap, never moved while you look).
+VIEWS = ("cockpit", "chase", "orbit", "flyby", "tower")
+ORBIT_DEFAULT = dict(chase=(0.0, math.degrees(math.atan2(CHASE_UP, CHASE_BACK)), math.hypot(CHASE_BACK, CHASE_UP)),
+                     orbit=(90.0, 12.0, 3500.0))           # (yaw offset deg, elevation deg, distance cm)
+ORBIT_EL = (-25.0, 85.0)
+ORBIT_DIST = (900.0, 40000.0)
+ORBIT_YAW_RATE, ORBIT_EL_RATE, ZOOM_RATE, MOUSE_DEG_PX, WHEEL_STEP = 70.0, 45.0, 1.8, 0.25, 0.87
+VR_SNAP_YAW, VR_SNAP_EL, VR_SNAP_ZOOM = 30.0, 15.0, 1.3
+LOOK_AT_UP_CM = 150.0
+TOWER_LL, TOWER_AGL_M = (36.7190, 127.4962), 35.0       # fixed camera ~500 m NW of the 06R midpoint, 35 m up (not the real tower)
+FLYBY_LEAD_S, FLYBY_MIN_M, FLYBY_SIDE_M, FLYBY_DOWN_M = 5.0, 300.0, 40.0, 10.0
+VIEW_FOV = 75.0                                          # = build_level camera field of view
+TOWER_SPAN_M = 60.0                                      # monitor tower / flyby auto zoom: this many m across the view at the aircraft
 GEAR_BOTTOM_CM = 177.5             # F-16 model tire bottom below the actor origin (ThirdParty/f16_obj/manifest.json)
 AGL_REST_M = 1.66                  # JSBSim F-16 h-agl when standing on the runway (measured from server.py, runway start)
 Z_OFFSET_CM = GEAR_BOTTOM_CM - AGL_REST_M * 100.0
@@ -53,7 +70,8 @@ KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_fu
 
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
-          LBUTTON=0x01, K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
+          LBUTTON=0x01, RBUTTON=0x02, SHIFT=0x10, PRIOR=0x21, NEXT=0x22, HOME=0x24, PLUS=0xBB, MINUS=0xBD, ADD=0x6B, SUBTRACT=0x6D,
+          K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
           **{"K%d" % i: 0x30 + i for i in range(0, 10)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
@@ -182,6 +200,12 @@ class Keyboard:
         self.prev[k] = d
         return d and not p
 
+    def cursor(self):
+        import ctypes.wintypes
+        pt = ctypes.wintypes.POINT()
+        self.u32.GetCursorPos(ctypes.byref(pt))
+        return pt.x, pt.y
+
 
 # ---- quality presets -----------------------------------------------------------------------------------------------
 PRESETS = {
@@ -265,6 +289,14 @@ class SimClient:
         self.aircraft = self.camera = self.view_cam = None
         self.interp = Interp()
         self.chase_yaw = None
+        self.orbit = {k: list(v) for k, v in ORBIT_DEFAULT.items()}   # per view: [yaw offset, elevation, distance]
+        self.orbit_vel = [0.0, 0.0, 0.0]   # held keys: yaw / elevation deg/s, zoom (log) per s
+        self.orbit_world_yaw = None
+        self.view_pt = None                # flyby / tower: fixed camera point (+ VR fixed rotation)
+        self.view_zoom = dict(flyby=1.0, tower=1.0)
+        self.inject = None                 # tests: dict(dx, dy, wheel) as if from the mouse, consumed once
+        self.mouse_prev = None
+        self.fov_set = None
         self.last_log = 0.0
         self.frames = 0
         self.handle = None
@@ -390,6 +422,10 @@ class SimClient:
                 if tex:
                     self.key_panel.static_mesh_component.create_and_set_material_instance_dynamic(0).set_texture_parameter_value("Tex", tex)
                     self.keys_tex = True
+                    w, h = tex.blueprint_get_size_x(), tex.blueprint_get_size_y()
+                    if w and h:                           # plane height follows the picture (key_panel.py H)
+                        sc = self.key_panel.get_actor_scale3d()
+                        self.key_panel.set_actor_scale3d(unreal.Vector(sc.x, sc.x * h / w, sc.z))
                 else:
                     _log("key panel image missing", KEY_PNG)
             except Exception as e:
@@ -650,8 +686,8 @@ class SimClient:
         if kb.pressed("P"):
             self._send({"cmd": "pause"})
         if kb.pressed("V"):
-            self.view = "chase" if self.view == "cockpit" else "cockpit"
-            self.chase_yaw = None
+            self.cycle_view(-1 if kb.down("SHIFT") else 1)
+        self._orbit_keys(kb)
         if kb.pressed("H"):
             self.panel_on = not self.panel_on
         if kb.pressed("K"):
@@ -691,6 +727,198 @@ class SimClient:
         if kb.pressed("F9"):
             unreal.SystemLibrary.execute_console_command(self.world, "stereo %s" % ("off" if self.hmd else "on"))
         self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
+
+    # ---- third-person views ---------------------------------------------------------------------------------------
+    def cycle_view(self, step=1):
+        i = VIEWS.index(self.view) if self.view in VIEWS else 0
+        self.set_view(VIEWS[(i + step) % len(VIEWS)])
+
+    def set_view(self, v):
+        self.view = v
+        self.chase_yaw = None
+        self.view_pt = None                                   # flyby / tower: placed on the next frame
+        if v == "orbit":                                       # start on the right side, then fixed to the world
+            self.orbit["orbit"] = list(ORBIT_DEFAULT["orbit"])
+            self.orbit_world_yaw = None
+        _log("view", v)
+
+    def _orbit_keys(self, kb):
+        """Q/E, PageUp/PageDown, + / -, Home and the mouse (monitor) for the outside views."""
+        self.orbit_vel = [0.0, 0.0, 0.0]
+        if self.view == "cockpit":
+            self.mouse_prev = None
+            return
+        o = self.orbit.get(self.view)
+        if self.hmd:                                           # VR: snap steps on key presses
+            for k, d, i, stp in (("Q", -1, 0, VR_SNAP_YAW), ("E", 1, 0, VR_SNAP_YAW), ("PRIOR", 1, 1, VR_SNAP_EL), ("NEXT", -1, 1, VR_SNAP_EL)):
+                if kb.pressed(k) and o is not None:
+                    o[i] += d * stp
+            for ks, f in ((("PLUS", "ADD"), 1 / VR_SNAP_ZOOM), (("MINUS", "SUBTRACT"), VR_SNAP_ZOOM)):
+                if any([kb.pressed(k) for k in ks]):
+                    self._zoom(f)
+        else:
+            self.orbit_vel = [ORBIT_YAW_RATE * ((1 if kb.down("E") else 0) - (1 if kb.down("Q") else 0)),
+                              ORBIT_EL_RATE * ((1 if kb.down("PRIOR") else 0) - (1 if kb.down("NEXT") else 0)),
+                              ZOOM_RATE * ((1 if kb.down("MINUS") or kb.down("SUBTRACT") else 0) - (1 if kb.down("PLUS") or kb.down("ADD") else 0))]
+            self._mouse(kb)
+        if kb.pressed("HOME"):
+            self.reset_orbit()
+
+    def reset_orbit(self):
+        if self.view in self.orbit:
+            self.orbit[self.view][:] = list(ORBIT_DEFAULT[self.view])
+            self.orbit_world_yaw = None
+        self.view_pt = None
+        if self.view in self.view_zoom:
+            self.view_zoom[self.view] = 1.0
+
+    def _zoom(self, f):
+        if self.view in self.orbit:
+            o = self.orbit[self.view]
+            o[2] = max(ORBIT_DIST[0], min(ORBIT_DIST[1], o[2] * f))
+        elif self.view in self.view_zoom:                     # flyby / tower: zoom the lens (monitor only, see _fov)
+            self.view_zoom[self.view] = max(0.1, min(20.0, self.view_zoom[self.view] / f))
+
+    def _mouse(self, kb):
+        """monitor: left / right button drag turns around the aircraft, wheel zooms. Both the UE player input (mouse
+        captured by the Play viewport) and the Windows cursor (not captured) are read; the bigger one wins."""
+        dx = dy = wheel = 0.0
+        try:
+            pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
+            if pc is not None:
+                keys = getattr(self, "_mkeys", None)
+                if keys is None:
+                    keys = self._mkeys = {}
+                    for n in ("LeftMouseButton", "RightMouseButton", "MouseWheelAxis", "MouseScrollUp", "MouseScrollDown"):
+                        k = unreal.Key()
+                        k.set_editor_property("key_name", n)
+                        keys[n] = k
+                drag = pc.is_input_key_down(keys["LeftMouseButton"]) or pc.is_input_key_down(keys["RightMouseButton"])
+                d = pc.get_input_mouse_delta()
+                if drag and d:
+                    dx, dy = float(d[0]), -float(d[1])            # UE MouseY + = up; screen y + = down
+                wheel = float(pc.get_input_analog_key_state(keys["MouseWheelAxis"]) or 0.0)
+                if not wheel:
+                    wheel = (1.0 if pc.was_input_key_just_pressed(keys["MouseScrollUp"]) else 0.0) - \
+                            (1.0 if pc.was_input_key_just_pressed(keys["MouseScrollDown"]) else 0.0)
+        except Exception as e:
+            if time.perf_counter() - self.last_log > 2:
+                _log("mouse", repr(e))
+        cur = kb.cursor() if (kb.down("LBUTTON") or kb.down("RBUTTON")) else None
+        if cur and self.mouse_prev:
+            wx, wy = cur[0] - self.mouse_prev[0], cur[1] - self.mouse_prev[1]
+            if abs(wx) + abs(wy) > abs(dx) + abs(dy):
+                dx, dy = float(wx), float(wy)
+        self.mouse_prev = cur
+        self.apply_mouse(dx, dy, wheel)
+
+    def apply_mouse(self, dx, dy, wheel):
+        """dx / dy in screen pixels (y down), wheel in notches (+ = toward the screen = closer)."""
+        o = self.orbit.get(self.view)
+        if o is not None and (dx or dy):
+            o[0] += dx * MOUSE_DEG_PX
+            o[1] += dy * MOUSE_DEG_PX                         # drag down = camera goes up (look from above)
+        if wheel:
+            self._zoom(WHEEL_STEP ** wheel)
+
+    def _ground_z(self, x, y):
+        """world Z (cm) of the flat ground (field elevation on the curved Earth) under world point x, y."""
+        f, s = self._frame, self.s or {}
+        if f is None:
+            return -1e9
+        lat = f.lat0 + x / 100.0 / 110950.0
+        lon = f.lon0 + y / 100.0 / (111320.0 * math.cos(math.radians(f.lat0)))
+        return f.world(lat, lon, s.get("field_m", 58.2) + s.get("geoid_n", 0.0))[2]
+
+    def _look(self, eye, tgt):
+        r = unreal.MathLibrary.find_look_at_rotation(eye, tgt)
+        if self.hmd:                                          # VR: yaw only, the head does pitch / roll (comfort)
+            r = unreal.Rotator(roll=0.0, pitch=0.0, yaw=r.yaw)
+        return r
+
+    def _fov(self, want):
+        """monitor only (VR: the headset owns the lens)."""
+        if self.hmd:
+            want = VIEW_FOV
+        if self.fov_set is None or abs(want - self.fov_set) > 0.05:
+            self.fov_set = want
+            try:
+                self.view_cam.camera_component.set_field_of_view(want)
+            except Exception as e:
+                _log("fov", repr(e))
+
+    def _place_outside(self, dt, loc, rot):
+        tgt = loc + unreal.Vector(0, 0, LOOK_AT_UP_CM)
+        v = self.view
+        if v in ("chase", "orbit"):
+            o = self.orbit[v]
+            if not self.hmd:
+                o[0] += self.orbit_vel[0] * dt
+                o[1] += self.orbit_vel[1] * dt
+                if self.orbit_vel[2]:
+                    o[2] = o[2] * math.exp(self.orbit_vel[2] * dt)
+            o[1] = max(ORBIT_EL[0], min(ORBIT_EL[1], o[1]))
+            o[2] = max(ORBIT_DIST[0], min(ORBIT_DIST[1], o[2]))
+            if v == "chase":                                  # behind, the heading followed smoothly (as before)
+                if self.chase_yaw is None:
+                    self.chase_yaw = rot.yaw
+                d = (rot.yaw - self.chase_yaw + 180) % 360 - 180
+                self.chase_yaw += d * min(1.0, 3.0 * dt)
+                base = self.chase_yaw + 180.0
+            else:                                             # orbit: fixed to the world (set when entering)
+                if self.orbit_world_yaw is None:
+                    self.orbit_world_yaw = rot.yaw
+                base = self.orbit_world_yaw
+            az, el = math.radians(base + o[0]), math.radians(o[1])
+            off = unreal.Vector(math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)) * o[2]
+            # the chase default reproduces the old fixed chase point (2600 cm back, 650 up from the aircraft origin)
+            eye = loc + off if v == "chase" else tgt + off
+            gz = self._ground_z(eye.x, eye.y) + 200.0
+            if eye.z < gz:
+                eye = unreal.Vector(eye.x, eye.y, gz)
+            self.camera.set_actor_location_and_rotation(eye, self._look(eye, tgt), False, False)
+            self._fov(VIEW_FOV)
+            return
+        # flyby / tower: a fixed point
+        new = False
+        if v == "tower":
+            if self.view_pt is None:
+                f, s = self._frame, self.s
+                p = f.world(TOWER_LL[0], TOWER_LL[1], s.get("field_m", 58.2) + s.get("geoid_n", 0.0) + TOWER_AGL_M)
+                self.view_pt = [unreal.Vector(*p), None]
+                new = True
+        else:
+            fwd = rot.get_forward_vector()
+            fh = unreal.Vector(fwd.x, fwd.y, 0.0)
+            n = math.hypot(fh.x, fh.y)
+            fh = fh * (1.0 / n) if n > 1e-3 else unreal.Vector(1, 0, 0)
+            spd = max(0.0, (self.s or {}).get("kts", 0.0)) * 0.5144
+            lead = max(FLYBY_MIN_M, spd * FLYBY_LEAD_S) * 100.0
+            pt = self.view_pt[0] if self.view_pt else None
+            if pt is not None:
+                rel = loc - pt
+                past = (rel.x * fh.x + rel.y * fh.y) > lead * 0.6          # well past the point
+                far = math.sqrt(rel.x ** 2 + rel.y ** 2 + rel.z ** 2) > max(3 * lead, 500000.0)
+                if past or far:
+                    pt = None
+            if pt is None:
+                side = unreal.Vector(-fh.y, fh.x, 0.0)                     # right of the track (X north, Y east)
+                p = loc + fh * lead + side * (FLYBY_SIDE_M * 100.0) - unreal.Vector(0, 0, FLYBY_DOWN_M * 100.0)
+                gz = self._ground_z(p.x, p.y) + 300.0
+                self.view_pt = [unreal.Vector(p.x, p.y, max(p.z, gz)), None]
+                self.flyby_n = getattr(self, "flyby_n", 0) + 1
+                new = True
+        eye = self.view_pt[0]
+        if self.hmd:                                          # VR: static, aimed once (snap), the head looks around
+            if new or self.view_pt[1] is None:
+                self.view_pt[1] = self._look(eye, tgt)
+            rr = self.view_pt[1]
+        else:
+            rr = self._look(eye, tgt)
+        self.camera.set_actor_location_and_rotation(eye, rr, False, False)
+        dist_m = math.sqrt((tgt.x - eye.x) ** 2 + (tgt.y - eye.y) ** 2 + (tgt.z - eye.z) ** 2) / 100.0
+        span = TOWER_SPAN_M / self.view_zoom.get(v, 1.0)
+        self._fov(max(2.0, min(VIEW_FOV, math.degrees(2 * math.atan2(span / 2, max(1.0, dist_m))))))
 
     # ---------------------------------------------------------------------------------------------------------------
     def crash_uv(self, sx=None, sy=None):
@@ -789,21 +1017,14 @@ class SimClient:
         # teleport=False keeps the previous transform for motion vectors (TSR / TAA would smear the panel / aircraft)
         self.aircraft.set_actor_location_and_rotation(loc, rot, False, False)
         fwd, right, up = rot.get_forward_vector(), rot.get_right_vector(), rot.get_up_vector()
+        if self.view not in VIEWS:
+            self.view = "cockpit"
         if self.view == "cockpit":
             eye = loc + fwd * EYE[0] + right * EYE[1] + up * EYE[2]
             self.camera.set_actor_location_and_rotation(eye, rot, False, False)
+            self._fov(VIEW_FOV)
         else:
-            if self.chase_yaw is None:
-                self.chase_yaw = rot.yaw
-            d = (rot.yaw - self.chase_yaw + 180) % 360 - 180
-            self.chase_yaw += d * min(1.0, 3.0 * dt)
-            yaw = math.radians(self.chase_yaw)
-            back = unreal.Vector(math.cos(yaw), math.sin(yaw), 0.0)
-            eye = loc - back * CHASE_BACK + unreal.Vector(0, 0, CHASE_UP)
-            look = unreal.MathLibrary.find_look_at_rotation(eye, loc + unreal.Vector(0, 0, 150))
-            if self.hmd:                                            # VR: no camera pitch/roll from us (comfort)
-                look = unreal.Rotator(roll=0.0, pitch=0.0, yaw=look.yaw)
-            self.camera.set_actor_location_and_rotation(eye, look, False, False)
+            self._place_outside(dt, loc, rot)
         if not self.hmd:                                            # monitor head look (C = look down, Q/E = left/right)
             k = min(1.0, 6.0 * dt)
             changed = False
