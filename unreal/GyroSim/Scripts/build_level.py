@@ -1027,6 +1027,15 @@ if F16:
 _ckp = os.path.join(PROJ, "Scripts", "cockpit", "ue_cockpit.py")
 exec(compile(open(_ckp, encoding="utf-8").read(), _ckp, "exec"))
 log("aircraft done")
+# realism v2 (sky colour, clouds, sun glare, canopy reflections; docs/realism-v2-plan.md). GYROSIM_REALISM_V2=0 = v1 level.
+sys.path.insert(0, os.path.join(PROJ, "Scripts"))
+try:
+    import importlib
+    import realism_v2                       # noqa: E402
+    importlib.reload(realism_v2)            # second build in the same editor session = current file
+    realism_v2.build(globals())
+except Exception as e:
+    log("realism v2 skipped", repr(e))
 
 # =====================================================================================================================
 # camera rig (tag SimCamera, moved by sim_client) carrying the view camera (tag SimView), the HUD plane and the
