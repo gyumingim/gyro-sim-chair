@@ -17,7 +17,9 @@ switch, MTS-103 / MTS-123 mini toggles, FreeJoy/MMJoy wiring) come from:
   http://www.seedling.org/The_Official_Hempstick_Site/F16_Throttle.html (licence not stated on the pages we found).
 - FreeJoy firmware docs (AS5600 analog mode, 74HC165 shift registers) — https://github.com/FreeJoy-Team/FreeJoyWiki
 
-We downloaded two grip STLs from the Spock model (no login, public API) to a folder outside this repo only to check the
-size of a real-scale grip (about 145 x 65 x 115 mm). Our grip is a new, simplified shape drawn in `throttle_v4.py`;
-no geometry was copied. If you want the detailed F-16 grip, download it from the link above and follow its CC BY-NC terms
-(no commercial use, give credit).
+**The grip itself is the public Spock grip** — download and print it from the link above (CC BY-NC: no commercial
+use, give credit). It is NOT in this repository. Our `grip_adapter` (in `throttle_v4.py`, our own shape) sits on our lever
+top and carries the grip's mount: a 44.4 mm thick tongue clamped by the grip's front/rear arms with one 1/4" (M6) bolt,
+leaning 26 deg aft as in Spock's assembly. Only these interface numbers were measured from the public STEP (downloaded
+without login to a folder outside this repo); the adapter was checked against that STEP: no overlap with any grip part.
+The bolt hole position is measured (about +-2 mm, estimate); drill it through together with the grip if needed.

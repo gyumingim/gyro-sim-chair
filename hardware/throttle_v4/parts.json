@@ -1,6 +1,6 @@
 {
  "meta": {
-  "created": "2026-11-06T13:22:08",
+  "created": "2026-11-06T14:01:39",
   "version": "v4",
   "pivot": [
    0,
@@ -11,30 +11,43 @@
    -30,
    30
   ],
-  "l_hand": 131,
+  "l_hand": 174,
   "printer": [
    240,
    240,
    240
   ],
-  "arc_mm": 137,
+  "arc_mm": 182,
   "sensor": "AS5600 analog OUT -> STM32F103 ADC (FreeJoy)",
-  "based_on": "Spock 'F-16 Viper Throttle' (Printables 552322, CC BY-NC) + Hempstick F-16 grip — reference only, no geometry copied"
+  "based_on": "grip = Spock 'F-16 Viper Throttle' (Printables 552322, CC BY-NC, Hempstick grip) — NOT in repo; adapter fits its 44.4 mm tongue + 1 bolt",
+  "spock_mount": {
+   "spock_ref": [
+    0.0,
+    125.86,
+    61.32
+   ],
+   "ours_ref": [
+    0.0,
+    0.0,
+    170.0
+   ],
+   "note": "ours = R*(s - spock_ref) + ours_ref, R: x=-z_s, y=-x_s, z=y_s"
+  }
  },
  "parts": [
   {
    "name": "frame",
    "group": "fixed",
    "kind": "print",
-   "note": "틀 (한 덩어리): 바닥 170×90 (v3 와 같은 M6 구멍 4 개) + 양 볼 (608 자리) + 앞뒤 멈춤 막대 2 (팔이 닿음) + 마찰 보스",
+   "note": "틀 (한 덩어리): 바닥 170×90 (v3 와 같은 M6 구멍 4 개, 머리 묻힘) + 양 볼 (608 자리) + 앞뒤 멈춤 막대 2 (팔이 닿음) + 마찰 보스",
    "material": "PLA",
    "size": [
     170.0,
     90.0,
-    101.3
+    100.4
    ],
-   "volume_cm3": 276.4,
-   "grams": 186.1,
+   "volume_cm3": 270.7,
+   "grams": 181.6,
    "orient": "바닥면을 바닥에, 채움 30 %, 벽 4 겹",
    "file": "stl/frame.stl"
   },
@@ -110,10 +123,10 @@
    "material": "steel",
    "size": [
     44.0,
-    22.0,
-    22.0
+    25.0,
+    22.9
    ],
-   "volume_cm3": 4.8,
+   "volume_cm3": 5.1,
    "grams": null,
    "orient": "",
    "file": "stl/friction_screw.stl"
@@ -122,15 +135,15 @@
    "name": "sensor_cap",
    "group": "fixed",
    "kind": "print",
-   "note": "AS5600 덮개/받침 (+y 볼 바깥, M3 2 개): 칩이 자석에서 약 2 mm",
+   "note": "AS5600 덮개 (+y 볼 바깥을 덮음, M3 2 개 머리 묻힘): 칩이 자석에서 약 2 mm",
    "material": "PLA",
    "size": [
-    44.0,
-    10.5,
-    30.0
+    48.0,
+    11.5,
+    34.0
    ],
-   "volume_cm3": 9.2,
-   "grams": 7.7,
+   "volume_cm3": 14.1,
+   "grams": 10.5,
    "orient": "바깥면을 바닥에",
    "file": "stl/sensor_cap.stl"
   },
@@ -154,15 +167,15 @@
    "name": "lever",
    "group": "lever",
    "kind": "print",
-   "note": "레버 (한 덩어리): 허브 Ø40×40 + 팔 28×20 (팔 옆면이 멈춤 막대에 닿음). Ø8 축에 M3 무두나사",
+   "note": "레버 (한 덩어리): 허브 Ø40×40 + 팔 28×20 (모서리 둥글게, 팔 옆면이 멈춤 막대에 닿음). Ø8 축에 M3 무두나사",
    "material": "PLA",
    "size": [
     40.0,
     40.0,
     130.0
    ],
-   "volume_cm3": 95.8,
-   "grams": 64.5,
+   "volume_cm3": 93.9,
+   "grams": 62.7,
    "orient": "옆면 (y) 을 바닥에 눕혀 (팔 굽힘이 층 안), 채움 40 %, 벽 4 겹",
    "file": "stl/lever.stl"
   },
@@ -199,52 +212,36 @@
    "file": "stl/magnet.stl"
   },
   {
-   "name": "grip_L",
+   "name": "grip_adapter",
    "group": "lever",
    "kind": "print",
-   "note": "손잡이 바깥 반쪽 (+y, 손바닥 쪽): M3 3 개로 안쪽 반쪽과 조임, 팔에 M4 2 개",
+   "note": "손잡이 어댑터 (우리 부품): 레버 위에 끼워 M4 2 개, 위 혀 (두께 44.2) 를 공개 F-16 Viper 손잡이가 앞뒤로 물고 M6 볼트 1 개 (26° 뒤로 기울임 포함)",
    "material": "PLA",
    "size": [
-    99.8,
-    27.0,
-    99.8
+    72.1,
+    38.1,
+    102.6
    ],
-   "volume_cm3": 84.6,
-   "grams": 69.6,
-   "orient": "자른 면 (y = 0) 을 바닥에, 서포트 조금",
-   "file": "stl/grip_L.stl"
+   "volume_cm3": 98.3,
+   "grams": 68.1,
+   "orient": "혀의 넓은 면 (d) 을 바닥에, 채움 40 %, 벽 4 겹",
+   "file": "stl/grip_adapter.stl"
   },
   {
-   "name": "grip_R",
-   "group": "lever",
-   "kind": "print",
-   "note": "손잡이 안쪽 반쪽 (−y, 엄지 쪽): 버튼 구멍 5 곳, 너트 홈 3",
-   "material": "PLA",
-   "size": [
-    99.8,
-    27.0,
-    99.8
-   ],
-   "volume_cm3": 81.5,
-   "grams": 68.7,
-   "orient": "자른 면 (y = 0) 을 바닥에, 서포트 조금",
-   "file": "stl/grip_R.stl"
-  },
-  {
-   "name": "buttons",
+   "name": "grip_bolt",
    "group": "lever",
    "kind": "buy",
-   "note": "버튼 · 스위치 (보기용 자리만): 5방향 택트 1, 12 mm 누름 2, 미니 토글 2",
+   "note": "M6×60 볼트 + 너트 (원래는 1/4\" 볼트) — 손잡이 앞뒤 팔 + 어댑터 혀를 관통",
    "material": "steel",
    "size": [
-    76.5,
-    34.0,
-    50.5
+    56.6,
+    6.0,
+    31.7
    ],
-   "volume_cm3": 3.3,
+   "volume_cm3": 1.7,
    "grams": null,
    "orient": "",
-   "file": "stl/buttons.stl"
+   "file": "stl/grip_bolt.stl"
   }
  ],
  "check": [
@@ -285,67 +282,67 @@
  },
  "strength": {
   "panic_N": 300.0,
-  "l_hand": 131,
-  "stop_force_N": 854,
+  "l_hand": 174,
+  "stop_force_N": 1135,
   "rows": [
    {
     "name": "레버 팔 굽힘 (멈춤 막대 자리, 28×20, 눕혀 출력 → 층 안)",
-    "load": 9.76,
+    "load": 14.69,
     "limit": 50.0,
     "unit": "MPa",
-    "sf": 5.12,
+    "sf": 3.4,
     "note": ""
    },
    {
     "name": "레버 팔 굽힘 (허브 위 뿌리)",
-    "load": 4.24,
+    "load": 6.39,
     "limit": 50.0,
     "unit": "MPa",
-    "sf": 11.79,
+    "sf": 7.83,
     "note": ""
    },
    {
     "name": "멈춤 막대 눌림 (팔 옆면 20×20)",
-    "load": 2.14,
+    "load": 2.84,
     "limit": 60.0,
     "unit": "MPa",
-    "sf": 28.09,
+    "sf": 21.15,
     "note": ""
    },
    {
     "name": "멈춤 막대 굽힘 (볼 사이 42 mm, 12×20 단면, 층 안)",
-    "load": 9.34,
+    "load": 12.41,
     "limit": 50.0,
     "unit": "MPa",
-    "sf": 5.35,
+    "sf": 4.03,
     "note": "양 끝이 볼에 묶인 보 (단순지지로 봄 = 보수적)"
    },
    {
     "name": "볼 → 바닥 뿌리 굽힘 (막대 힘 × 높이, 볼 2 개)",
-    "load": 5.54,
+    "load": 7.36,
     "limit": 20.0,
     "unit": "MPa",
-    "sf": 3.61,
+    "sf": 2.72,
     "note": "볼 판 (68×10) 이 x 방향으로 굽음, 굽힘 응력은 층 사이"
    },
    {
     "name": "608 정격 (한 쪽)",
-    "load": 277.17,
+    "load": 417.39,
     "limit": 1370.0,
     "unit": "N",
-    "sf": 4.94,
+    "sf": 3.28,
     "note": ""
    },
    {
     "name": "Ø8 SUS 축 굽힘 (베어링 사이, 허브 폭에 분포)",
-    "load": 96.5,
+    "load": 145.32,
     "limit": 200,
     "unit": "MPa",
-    "sf": 2.07,
+    "sf": 1.38,
     "note": "SUS304 항복 약 200 MPa (추정)"
    },
    {
-    "name": "손잡이 M4 2 개 전단",
+    "name": "어댑터 M4 2 개 전단",
     "load": 8.77,
     "limit": 240.0,
     "unit": "MPa",
@@ -353,12 +350,36 @@
     "note": "4.8 볼트 0.6×400"
    },
    {
-    "name": "M4 구멍 눌림 (팔 PLA, 20 mm × Ø4)",
-    "load": 9.61,
+    "name": "M4 구멍 눌림 (팔 PLA, 16 mm 간격, Ø4 × 20)",
+    "load": 19.69,
     "limit": 60.0,
     "unit": "MPa",
-    "sf": 6.24,
+    "sf": 3.05,
     "note": "손 힘이 위쪽 볼트에 지렛대로 걸림"
+   },
+   {
+    "name": "손잡이 M6 볼트 전단 (양쪽 팔 = 2 면)",
+    "load": 7.46,
+    "limit": 240.0,
+    "unit": "MPa",
+    "sf": 32.16,
+    "note": "4.8 급"
+   },
+   {
+    "name": "어댑터 혀 볼트 구멍 눌림 (Ø6 × 44)",
+    "load": 1.14,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 52.8,
+    "note": ""
+   },
+   {
+    "name": "어댑터 소켓 굽힘 (바깥 38×30 − 안 28.6×20.6, 레버 없다고 봄 = 보수적)",
+    "load": 5.88,
+    "limit": 20.0,
+    "unit": "MPa",
+    "sf": 3.4,
+    "note": "세워 출력하면 층 사이"
    }
   ],
   "creep": [
@@ -375,58 +396,74 @@
    "shoe_N": 25.0,
    "mu": 0.3,
    "torque_Nm": 0.15,
-   "hand_N": 1.15,
+   "hand_N": 0.86,
    "note": "펠트-PLA μ 0.3 (추정). 25 N 이면 손에서 약 1.2 N 의 미는 힘 — 손잡이가 흘러내리지 않을 정도. 나사로 0~60 N 조절"
   }
  },
  "buttons": [
   {
-   "id": "B1-B4",
-   "name": "통신 햇 4방향 (위/아래/앞/뒤)",
-   "part": "5방향 택트 스위치 모듈 (10×10 DIP, 누름 포함)",
+   "id": "B1-B5",
+   "name": "통신 햇 (4방향 + 누름)",
+   "part": "햇 스위치 (원작 Alt hatswitch: 6×6 택트 조합)",
    "where": "위 앞쪽, 엄지",
-   "sr": "U1 A-D",
-   "price": 1500
-  },
-  {
-   "id": "B5",
-   "name": "통신 햇 누름",
-   "part": "(같은 5방향 택트)",
-   "where": "",
-   "sr": "U1 E",
-   "price": 0
+   "sr": "U1 A-E",
+   "price": 600
   },
   {
    "id": "B6-B7",
-   "name": "도그파이트 / 미사일 오버라이드 (3단)",
-   "part": "MTS-103 미니 토글 on-off-on",
-   "where": "안쪽 면 앞",
+   "name": "도그파이트 / 미사일 오버라이드 (3단 슬라이드)",
+   "part": "MTS-103 미니 토글 on-off-on + 슬라이드 통",
+   "where": "앞 위, 검지",
    "sr": "U1 F-G",
    "price": 900
   },
   {
    "id": "B8-B9",
-   "name": "스피드브레이크 (3단: 펴기 순간 / 중립 / 접기)",
-   "part": "MTS-123 미니 토글 (on)-off-on",
-   "where": "안쪽 면 뒤",
+   "name": "스피드브레이크 (3단 슬라이드)",
+   "part": "MTS-123 미니 토글 (on)-off-on + 슬라이드 통",
+   "where": "안쪽 면, 엄지 밑",
    "sr": "U1 H, U2 A",
    "price": 1200
   },
   {
    "id": "B10",
-   "name": "언케이지 / 커서 클릭",
-   "part": "12 mm 택트 + 캡",
-   "where": "위 뒤쪽",
+   "name": "커서 누름 (RDR CURSOR)",
+   "part": "PS2 아날로그 썸스틱 모듈 (누름 포함)",
+   "where": "앞쪽, 검지",
    "sr": "U2 B",
-   "price": 300
+   "price": 1500
   },
   {
    "id": "B11",
-   "name": "검지 버튼 (자유 배정)",
-   "part": "12 mm 택트 + 캡",
-   "where": "앞면",
+   "name": "언케이지 (MAN RNG 누름)",
+   "part": "6×6 택트 (가변저항 뒤)",
+   "where": "앞 아래, 가운데 손가락",
    "sr": "U2 C",
-   "price": 300
+   "price": 100
+  },
+  {
+   "id": "A1-A2",
+   "name": "커서 X / Y",
+   "part": "(같은 썸스틱)",
+   "where": "",
+   "sr": "PA6 / PA7",
+   "price": 0
+  },
+  {
+   "id": "A3",
+   "name": "안테나 고각 (ANT ELEV) 휠",
+   "part": "10 kΩ 가변저항 (가운데 걸림 있으면 좋음)",
+   "where": "앞, 검지",
+   "sr": "PB0",
+   "price": 800
+  },
+  {
+   "id": "A4",
+   "name": "MAN RNG 노브",
+   "part": "10 kΩ 가변저항",
+   "where": "앞 아래",
+   "sr": "PB1",
+   "price": 800
   }
  ],
  "buy": [
@@ -461,27 +498,21 @@
    "note": "마찰"
   },
   {
-   "name": "5방향 택트 스위치 모듈 (10×10)",
+   "name": "손잡이 스위치: 6×6 택트 ×6, MTS-103, MTS-123, PS2 썸스틱, 10 kΩ 가변저항 ×2",
    "qty": 1,
-   "krw": 1500,
-   "note": "통신 햇"
+   "krw": 5000,
+   "note": "공개 F-16 Viper 손잡이용"
   },
   {
-   "name": "MTS-103 미니 토글 on-off-on",
+   "name": "손잡이 출력 PLA (공개 파일, 약 250 g 추정)",
    "qty": 1,
-   "krw": 900,
-   "note": "도그파이트"
+   "krw": 6500,
+   "note": "BottomBody · TopCover · 캡류"
   },
   {
-   "name": "MTS-123 미니 토글 (on)-off-on",
+   "name": "M6×60 볼트 + 너트 (손잡이 ↔ 어댑터), #8/M4 나사 (손잡이 조립)",
    "qty": 1,
-   "krw": 1200,
-   "note": "스피드브레이크"
-  },
-  {
-   "name": "12 mm 택트 스위치 + 캡",
-   "qty": 2,
-   "krw": 600,
+   "krw": 2500,
    "note": ""
   },
   {
