@@ -100,10 +100,10 @@ VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
 RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
-# our cockpit (Scripts/cockpit/layout.py) = the physical rig: centre stick +-20 deg both axes (hardware/stick TRAVEL),
-# throttle +-30 deg (0 = aft, 1 = forward, hardware/throttle SWING), rudder bar +-20 deg = pedals +-4.6 cm fore/aft,
-# toe brakes 15 deg, gear handle +-16 deg (down = handle down)
-STICK_ROLL, STICK_PITCH, THR_SWING, PEDAL_CM, TOE_DEG, GEAR_HANDLE_DEG = 20.0, 20.0, 30.0, 4.62, 15.0, 16.0
+# our cockpit moves 1:1 with the physical rig (v4 controls, 2026-11-06): centre stick +-12.75 deg both axes (hardware/stick_v4
+# stops), throttle +-30 deg (0 = aft, 1 = forward, hardware/throttle_v4), pedals +-4.0 cm fore/aft (hardware/pedals TRAVEL),
+# toe brakes 18 deg (hardware/pedals/brakes_v4), gear handle +-16 deg (down = handle down)
+STICK_ROLL, STICK_PITCH, THR_SWING, PEDAL_CM, TOE_DEG, GEAR_HANDLE_DEG = 12.75, 12.75, 30.0, 4.0, 18.0, 16.0
 NEEDLES = ("asi", "alt", "alt10k", "vsi")
 HUD_BRIGHT, MFD_BRIGHT = 2.0, 1.2
 CRASH_BG = unreal.LinearColor(0.305, 0.0052, 0.0052, 1.0)     # = render.py CRASH_BG (150, 16, 16) sRGB, linear
