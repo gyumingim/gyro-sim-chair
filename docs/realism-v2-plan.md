@@ -121,6 +121,13 @@ Stop-Process -Id $srv.Id
   - 다음: 에디터 안에서 캐노피 액터의 실제 재질(`get_material`)과 `M_CkCanopyV3` 컴파일 오류 목록을 PIE 중에 로그로 찍기, 유리 앞에 보이는 긁힘이 정말 F16_Glass 에서 오는지 (메시 숨김 A/B) 확인.
 - GPU (각 1회, 잡음 ~0.2 ms): 조종석 1080p V3 4.10 / V2 4.23, VR 픽셀 5.19 / 5.20 — V3 가 실제로 그려지지 않았을 수 있어 **비용 근거로 쓰지 말 것**.
 
+### 3.3 캐노피 V3 원인 찾음 + 다시 만듦 (11-06 오후)
+- **원인**: 유리 메시·컬링·숨김 문제 아님 (단순 초록 반투명 재질을 PIE 중 직접 넣으니 화면 전체가 초록, 밖에서 본 캐노피도 초록). 진짜 원인은 `realism_v2._canopy` 가 `EditorAssetLibrary.does_asset_exist` 로 V3 를 확인했는데, 이 함수는 **PIE 중에는 거부** ("The Editor is currently in a play mode") → False → 조용히 V2 로 되돌림. 그래서 11-06 오전의 모든 V3 / 초록 진단 촬영은 실제로 V2 였음. `_load()`(load_asset) 로 고침. 추가로 ① -nullrhi 커맨드릿으로 저장한 V3 는 "Custom missing input 1 (LP)" 로 깨짐 → V3 는 GUI 에디터에서 빌드(`GYROSIM_CANOPY_BUILD=1`). ② SceneColor 노드의 첫 입력은 기본이 화면 UV 라서 오프셋을 꽂으면 화면 전체가 한 색 → 입력 모드를 Offset Fraction 으로 바꿈. ③ F-16 유리는 안·밖 두 겹 → V3(장면 대체)에서는 경계에 각진 띠 → 바깥 겹은 `M_CkCanopyNone`(불투명도 0).
+- **V3 내용**: 금색 틴트(경로 길이, 가장자리 더 진함), 이방성 긁힘(`T_CkCanopyAniso`: R 긁힘, BA 긁힘 방향; 해 방향과 수직인 긁힘만 빛남), 실내 반사(코밍 높이 평면: 글레어실드 검정, 콘솔 회색, 해 높이로 밝기), 가장자리 왜곡(SceneColor 오프셋 + 반사 흔들림), 옅은 얼룩. 해 근처 **육각형 렌즈 플레어**(`T_BokehHex`, 모니터 프리셋만, 강도 0.4) — V2 에도 적용, 그림에서 육각형 확인.
+- **결과 (C:\GyroSimTiles\shots\canopy_v3h, 같은 세션 V2 대 V3)**: 정면·옆에서 금색 틴트 보임, HUD 잘 읽힘, 띠 없음. **문제**: V3 에서 해가 작은 점으로 줄고 블룸·플레어·긁힘 반짝임이 사라짐 (SceneColor 로 다시 그린 값에서 해의 HDR 밝기가 잘리는 것으로 추정, 확인 안 됨). → **기본은 V2 유지**, V3 는 `GYROSIM_CANOPY=v3` 로만.
+- GPU (각 1회, 잡음 ~0.2 ms, fps_canopy_v3g*.json): 조종석 1080p V3 4.15 / V2 4.19 ms, VR 픽셀 5.41 / 5.15 ms.
+- 다음: V3 에서 해 HDR 유지 (해 방향 픽셀은 SceneColor 대신 원래 장면을 통과시키기 = 불투명도<1 섞기, 또는 Thin Translucent 셰이딩 모델로 바꾸기), 긁힘 Gain / AnisoPow 재조정 후 V3 기본 전환 검토.
+
 ## 4. 2단계로 미룬 것 / 위험
 
 - **VR 훅**(2.2): `sim_client.apply_look` 끝에 `realism_v2.apply_profile(name, world)` (Scripts 경로 추가) 또는 `init_unreal.py` 에서 `install_hook`. 이것 전에는 VR 에서 모니터 값이 쓰임.

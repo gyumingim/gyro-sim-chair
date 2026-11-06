@@ -746,6 +746,85 @@ def build_canopy_scratch():
     Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8)).save(os.path.join(OUT, "T_CkCanopyScratch.png"), optimize=True)
 
 
+def build_canopy_aniso():
+    """T_CkCanopyAniso (canopy V3, realism_v2.py; mapped by view angle from the eye like T_CkCanopyScratch, 1024 px per
+    1/Tile rad): R = scratch / wipe-mark mask, G = smudges / dust, B, A = scratch direction as (cos 2a, sin 2a) * 0.5 + 0.5
+    (a = scratch tangent angle in texture space; the doubled angle has no 0/180 deg seam). A scratch glints where its
+    tangent is perpendicular to the direction toward the sun (anisotropic: circular polishing marks give a bright radial
+    streak through the sun, wipe marks light up only at certain sun angles)."""
+    S = 1024
+    m = Image.new("L", (S, S), 0)
+    c2 = Image.new("L", (S, S), 128)
+    s2 = Image.new("L", (S, S), 128)
+    dm, dc, ds = ImageDraw.Draw(m), ImageDraw.Draw(c2), ImageDraw.Draw(s2)
+    r = np.random.default_rng(57)
+
+    def seg(p, q, v):
+        a = math.atan2(q[1] - p[1], q[0] - p[0])
+        cv, sv = int(127.5 + 127.5 * math.cos(2 * a)), int(127.5 + 127.5 * math.sin(2 * a))
+        for ox in (-S, 0, S):                             # wrap so the texture tiles
+            for oy in (-S, 0, S):
+                pp, qq = (p[0] + ox, p[1] + oy), (q[0] + ox, q[1] + oy)
+                dm.line([pp, qq], fill=v, width=1)
+                dc.line([pp, qq], fill=cv, width=1)
+                ds.line([pp, qq], fill=sv, width=1)
+
+    for _ in range(9):                                    # circular polishing marks: arc families around a few centres
+        cx, cy = r.random(2) * S
+        for _ in range(int(r.integers(14, 32))):
+            rad = r.uniform(20, 460)
+            a0 = r.uniform(0, 2 * math.pi)
+            span = math.radians(r.uniform(15, 90))
+            v = int(r.uniform(50, 210))
+            n = max(4, int(rad * span / 6))
+            pts = [(cx + rad * math.cos(a0 + span * i / n), cy + rad * math.sin(a0 + span * i / n)) for i in range(n + 1)]
+            for p, q in zip(pts[:-1], pts[1:]):
+                seg(p, q, v)
+    for _ in range(4):                                    # linear wipe marks: long, nearly parallel, slightly bent strokes
+        base = r.uniform(0, math.pi)
+        x0, y0 = r.random(2) * S
+        for k in range(int(r.integers(10, 22))):
+            off = r.normal(0, 40)
+            a = base + r.normal(0, 0.03)
+            ln = r.uniform(150, 600)
+            px, py = x0 - math.sin(base) * off, y0 + math.cos(base) * off
+            v = int(r.uniform(30, 110))
+            for i in range(12):
+                b = a + 0.004 * i * (1 if k % 2 else -1)
+                q = (px + math.cos(b) * ln / 12, py + math.sin(b) * ln / 12)
+                seg((px, py), q, v)
+                px, py = q
+    for _ in range(260):                                  # short random hairlines
+        x, y = r.random(2) * S
+        a = r.random() * math.pi
+        ln = 4 + r.random() * 30
+        seg((x, y), (x + math.cos(a) * ln, y + math.sin(a) * ln), int(r.uniform(40, 170)))
+    sm = np.clip((noise(S, S, 90, 0.5, 58) + noise(S, S, 25, 0.35, 59) + 0.05) * 1.4, 0, 1)
+    sm = tile_blend(sm * (0.6 + 0.4 * tile_blend(np.clip(noise(S, S, 8, 0.6, 60) + 0.5, 0, 1)))) * 255   # finger / dust specks
+    rgba = np.stack([np.asarray(m, np.float32), sm, np.asarray(c2, np.float32), np.asarray(s2, np.float32)], -1)
+    Image.fromarray(np.clip(rgba, 0, 255).astype(np.uint8), "RGBA").save(os.path.join(OUT, "T_CkCanopyAniso.png"), optimize=True)
+
+
+def build_bokeh_hex():
+    """T_BokehHex: hexagonal lens flare bokeh (6-blade camera aperture) for the monitor preset's lens flare."""
+    S = 256
+    img = Image.new("L", (S * 4, S * 4), 0)
+    R = S * 4 * 0.46
+    pts = [(S * 2 + R * math.cos(math.radians(30 + 60 * i)), S * 2 + R * math.sin(math.radians(30 + 60 * i))) for i in range(6)]
+    ImageDraw.Draw(img).polygon(pts, fill=255)
+    img = img.resize((S, S), Image.LANCZOS).filter(ImageFilter.GaussianBlur(1.2))
+    a = np.asarray(img, np.float32) / 255.0
+    yy, xx = np.mgrid[0:S, 0:S]
+    rr = np.hypot(xx - S / 2 + 0.5, yy - S / 2 + 0.5) / (S * 0.46)
+    a = a * (0.75 + 0.25 * np.clip(rr, 0, 1) ** 2)        # slightly brighter rim, like real aperture ghosts
+    v = (np.clip(a, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(np.stack([v, v, v], -1)).save(os.path.join(OUT, "T_BokehHex.png"), optimize=True)
+
+
+if __name__ == "__main__" and "--canopy-v3" in sys.argv:
+    build_canopy_aniso()
+    build_bokeh_hex()
+    sys.exit(0)
 if __name__ == "__main__":
     build_atlas()
     build_dials()
