@@ -124,7 +124,7 @@ return float4(e / max(op, 0.02), op);
 # NOTE: build this material in the GUI editor (realism_shots GYROSIM_CANOPY_BUILD=1 or build_canopy_v3()); a copy built
 # by a -nullrhi commandlet was saved with a broken Custom input ("missing input 1 (LP)") -> default material (11-06).
 CANOPY_V3_PARAMS = (("Tile", 1.3),
-                    ("Gain", 4.0),       # scratch glint radiance (absolute; V2 used 0.7 without the anisotropy)
+                    ("Gain", 3.0),       # scratch glint radiance (absolute; V2 used 0.7 without the anisotropy)
                     ("GlintPow", 10.0),  # glint falloff away from the sun: ((cos+1)/2)^GlintPow
                     ("AnisoPow", 6.0),  # how exactly the scratch must be perpendicular to the sun direction
                     ("HaloGlow", 0.04),

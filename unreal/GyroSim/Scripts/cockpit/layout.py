@@ -160,7 +160,8 @@ HUD_X, HUD_Z0, HUD_Z1, HUD_W, HUD_TILT = 500.5, 77.6, 108.0, 28.0, 18.0   # comb
 # 11-05 (v3 import): 34 -> 28 cm (+-11.4 deg at ~69 cm, ~ the 25 deg total field of view of a real fighter HUD; 34 cm looked
 # oversized). Speed / altitude boxes reach +-9.8 deg -> inside; the instructor line is capped to the glass (hud.LINE_MAXW).
 HUD_BODY = dict(x0=501.0, x1=521.0, w=30.0, z0=73.5, z1=79.2)
-BOW_X = None                           # no forward windscreen bow (F-16 / T-7 style one-piece canopy: nothing in the forward view)
+BOW_X = 468.0                          # F-15 style canopy bow across the glass (user 11-06; was None = F-16 one-piece canopy)
+BOW_W, BOW_D = 3.2, 2.0                # bow section: width along x, depth from the glass (cm), round edges
 MIRRORS = []                          # rear-view mirrors removed (review 11-04: read as stray paddles on the sill)
 REAR_ARCH_X = 372.0
 

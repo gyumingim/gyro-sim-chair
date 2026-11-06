@@ -79,14 +79,27 @@ def ck_master():
     b1 = O(m, MUL, base, gvar, -1800, -250)
     b2 = lerp(b1, _vrgb(m, "DirtColor", (0.045, 0.040, 0.032), -1900, -60), O(m, MUL, dirt, C(m, 0.6, -1800, 30), -1700, 0), -1600, -200)
     b3 = O(m, MUL, b2, ao, -1450, -200)
-    bw = lerp(b3, _vrgb(m, "WearColor", (0.55, 0.56, 0.57), -1500, -350), wear, -1250, -250)
+    # painted-metal pass 11-06: grime settles in the occluded corners (darker, rougher: Grime), hands polish the paint
+    # around switches / handles / edges before it wears through (Polish: glossier, a touch lighter), painted surfaces
+    # turn glossier at grazing angles (Sheen: roughness x (1 - Sheen x Fresnel)), per-slot Spec
+    cav = O(m, SUB, one, ao, -1700, 1600)
+    grime = sat(O(m, MUL, O(m, MUL, cav, SP(m, "Grime", 0.4, -1800, 1700), -1650, 1650), O(m, ADD, gR, C(m, 0.5, -1800, 1780), -1650, 1750), -1500, 1680), -1400, 1680)
+    polish = O(m, MUL, O(m, MUL, sat(O(m, MUL, edge, C(m, 2.5, -1800, 1900), -1650, 1880), -1550, 1880), O(m, SUB, one, wear, -1650, 1960), -1450, 1900),
+               SP(m, "Polish", 0.5, -1650, 2040), -1350, 1950)
+    b3g = O(m, MUL, b3, O(m, SUB, one, O(m, MUL, grime, C(m, 0.45, -1500, 1800), -1400, 1780), -1350, 1750), -1300, -150)
+    b3p = O(m, MUL, b3g, O(m, ADD, one, O(m, MUL, polish, C(m, 0.35, -1400, 2100), -1300, 2080), -1250, 2050), -1250, -100)
+    bw = lerp(b3p, _vrgb(m, "WearColor", (0.55, 0.56, 0.57), -1500, -350), wear, -1250, -250)
     MEL.connect_material_property(bw, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    MEL.connect_material_property(O(m, MUL, C(m, 0.5, -1300, 1000), ao, -1150, 1000), "", unreal.MaterialProperty.MP_SPECULAR)
+    MEL.connect_material_property(O(m, MUL, SP(m, "Spec", 0.5, -1300, 1040), ao, -1150, 1000), "", unreal.MaterialProperty.MP_SPECULAR)
     # roughness = clamp(Rough + (grunge - 0.5) * RoughVar + dirt * 0.15 - wear * 0.25)
     r1 = O(m, ADD, SP(m, "Rough", 0.6, -1500, 700), O(m, MUL, O(m, SUB, gR, C(m, 0.5, -1700, 800), -1600, 780), SP(m, "RoughVar", 0.3, -1700, 860), -1450, 800), -1300, 720)
     r2 = O(m, SUB, O(m, ADD, r1, O(m, MUL, dirt, C(m, 0.15, -1400, 900), -1300, 880), -1200, 760), O(m, MUL, wear, C(m, 0.25, -1400, 980), -1300, 960), -1100, 800)
+    fres = _expr(m, unreal.MaterialExpressionFresnel, -1300, 1500, exponent=4.0)
+    r3 = O(m, MUL, r2, O(m, SUB, one, O(m, MUL, fres, SP(m, "Sheen", 0.2, -1300, 1580), -1200, 1520), -1100, 1500), -1050, 900)
+    r4 = O(m, ADD, O(m, SUB, r3, O(m, MUL, polish, C(m, 0.3, -1200, 2000), -1100, 1980), -1000, 950),
+           O(m, MUL, grime, C(m, 0.2, -1200, 1820), -1100, 1800), -950, 950)
     rc = _expr(m, unreal.MaterialExpressionClamp, -950, 800, min_default=0.05, max_default=1.0)
-    MEL.connect_material_expressions(r2, "", rc, "")
+    MEL.connect_material_expressions(r4, "", rc, "")
     MEL.connect_material_property(rc, "", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(lerp(SP(m, "Metal", 0.0, -1300, 1100), SP(m, "WearMetal", 1.0, -1300, 1160), wear, -1100, 1100), "",
                                   unreal.MaterialProperty.MP_METALLIC)
@@ -130,40 +143,43 @@ def ck_glass(name, rgb, opacity):
 # Wear = how readily edges chip (0 none, 1 every edge), Dirt = dirt layer amount, PN = hard-surface detail normal.
 PN = dict(NormalTex="T_CkPaintN", NormalAmt=0.2, NormalTile=7.0)
 CK_SLOTS = {
-    "CK_Panel": dict(tex="T_CkPanels", Rough=0.82, RoughVar=0.25, Backlight=2.6, Wear=0.35, Dirt=0.35, **PN),
+    "CK_Panel": dict(tex="T_CkPanels", Rough=0.82, RoughVar=0.25, Backlight=2.6, Wear=0.45, Dirt=0.35, Polish=0.7, Sheen=0.2, **PN),
     "CK_Dial": dict(tex="T_CkDials", Rough=0.45, RoughVar=0.1, Backlight=2.2, Cavity=0.0),
     "CK_ADI": dict(tex="T_CkADI", Rough=0.3, RoughVar=0.05, Cavity=0.0),
-    "CK_Paint": dict(Tint=(0.13, 0.14, 0.14), Rough=0.62, RoughVar=0.3, Wear=0.4, Dirt=0.35, **PN),
-    "CK_Paint2": dict(Tint=(0.030, 0.032, 0.034), Rough=0.6, RoughVar=0.25, Wear=0.6, Dirt=0.4, **PN),
+    "CK_Paint": dict(Tint=(0.13, 0.14, 0.14), Rough=0.62, RoughVar=0.3, Wear=0.5, Dirt=0.35, Polish=0.6, Sheen=0.25, Spec=0.55, **PN),
+    "CK_Paint2": dict(Tint=(0.030, 0.032, 0.034), Rough=0.6, RoughVar=0.25, Wear=0.6, Dirt=0.4, Polish=0.6, Sheen=0.25, **PN),
     "CK_Black": dict(Tint=(0.018, 0.018, 0.019), Rough=0.55, RoughVar=0.25, Wear=0.5, Dirt=0.3, **PN),
-    "CK_AntiGlare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.93, RoughVar=0.1, Wear=0.1, Dirt=0.25, EdgeGain=0.5, NormalTex="T_CkPaintN",
+    "CK_AntiGlare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.93, RoughVar=0.1, Wear=0.3, Dirt=0.25, EdgeGain=1.0, Sheen=0.15, Polish=0.4,
+                         Spec=0.35, NormalTex="T_CkPaintN",
                          NormalAmt=0.2, NormalTile=7.0),
-    "CK_Metal": dict(Tint=(0.55, 0.56, 0.57), Metal=1.0, Rough=0.4, RoughVar=0.2, Dirt=0.3),
+    "CK_Metal": dict(Tint=(0.55, 0.56, 0.57), Metal=1.0, Rough=0.4, RoughVar=0.25, Dirt=0.3, Grime=0.6, Sheen=0.0),
     "CK_Chrome": dict(Tint=(0.8, 0.8, 0.8), Metal=1.0, Rough=0.18, RoughVar=0.1),
-    "CK_Frame": dict(Tint=(0.03, 0.032, 0.035), Rough=0.62, RoughVar=0.3, Wear=0.3, EdgeGain=1.0, Dirt=0.3, WearColor=(0.30, 0.31, 0.32), **PN),
-    "CK_Rubber": dict(Tint=(0.02, 0.02, 0.02), Rough=0.85, RoughVar=0.15, Dirt=0.4),
-    "CK_Grip": dict(Tint=(0.02, 0.02, 0.021), Rough=0.7, RoughVar=0.2, Wear=0.25, NormalAmt=0.5, NormalTile=10.0),
-    "CK_Fabric": dict(Tint=(0.028, 0.032, 0.020), Rough=0.95, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=5.0),
-    "CK_Webbing": dict(Tint=(0.055, 0.060, 0.032), Rough=0.9, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=9.0),
-    "CK_Seat": dict(Tint=(0.022, 0.023, 0.024), Rough=0.55, RoughVar=0.3, Wear=0.6, Dirt=0.4, **PN),
+    "CK_Frame": dict(Tint=(0.03, 0.032, 0.035), Rough=0.62, RoughVar=0.3, Wear=0.45, EdgeGain=1.0, Dirt=0.3, WearColor=(0.30, 0.31, 0.32),
+                     Polish=0.6, Sheen=0.25, **PN),
+    "CK_Rubber": dict(Sheen=0.0, Polish=0.0, Tint=(0.02, 0.02, 0.02), Rough=0.85, RoughVar=0.15, Dirt=0.4),
+    "CK_Grip": dict(Sheen=0.0, Polish=0.0, Tint=(0.02, 0.02, 0.021), Rough=0.7, RoughVar=0.2, Wear=0.25, NormalAmt=0.5, NormalTile=10.0),
+    "CK_Fabric": dict(Sheen=0.0, Polish=0.0, Tint=(0.028, 0.032, 0.020), Rough=0.95, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=5.0),
+    "CK_Webbing": dict(Sheen=0.0, Polish=0.0, Tint=(0.055, 0.060, 0.032), Rough=0.9, RoughVar=0.1, Dirt=0.3, NormalAmt=1.0, NormalTile=9.0),
+    "CK_Seat": dict(Tint=(0.022, 0.023, 0.024), Rough=0.55, RoughVar=0.3, Wear=0.6, Dirt=0.4, Polish=0.6, Sheen=0.25, **PN),
     "CK_Red": dict(Tint=(0.32, 0.012, 0.010), Rough=0.4, Wear=0.4),
     "CK_RedGuard": dict(Tint=(0.30, 0.014, 0.008), Rough=0.35, Wear=0.6),
     "CK_White": dict(Tint=(0.7, 0.7, 0.68), Rough=0.5),
     "CK_Knob": dict(Tint=(0.016, 0.016, 0.017), Rough=0.4, Wear=0.5),
-    "CK_Needle": dict(Tint=(0.85, 0.85, 0.82), Rough=0.5, RoughVar=0.0, Emissive=0.5),
+    "CK_Needle": dict(Sheen=0.0, Polish=0.0, Tint=(0.85, 0.85, 0.82), Rough=0.5, RoughVar=0.0, Emissive=0.5),
     "CK_Orange": dict(Tint=(0.8, 0.22, 0.01), Rough=0.5, Emissive=0.4),
     "CK_LensG": dict(Tint=(0.01, 0.05, 0.015), Rough=0.08, RoughVar=0.05, Emissive=0.15),
     "CK_LensA": dict(Tint=(0.08, 0.04, 0.003), Rough=0.08, RoughVar=0.05, Emissive=0.15),
     "CK_LensR": dict(Tint=(0.08, 0.005, 0.003), Rough=0.08, RoughVar=0.05, Emissive=0.15),
-    "CK_LightG": dict(Tint=(0.15, 1.0, 0.3), Rough=0.1, RoughVar=0.0, Emissive=8.0),
-    "CK_Hole": dict(Tint=(0.0, 0.0, 0.0), Rough=1.0, RoughVar=0.0),
+    "CK_LightG": dict(Sheen=0.0, Polish=0.0, Tint=(0.15, 1.0, 0.3), Rough=0.1, RoughVar=0.0, Emissive=8.0),
+    "CK_Hole": dict(Sheen=0.0, Polish=0.0, Tint=(0.0, 0.0, 0.0), Rough=1.0, RoughVar=0.0),
     "CK_GearKnob": dict(Tint=(0.72, 0.71, 0.67), Rough=0.35, Wear=0.3),
     "CK_HUDFrame": dict(Tint=(0.016, 0.016, 0.017), Rough=0.5, RoughVar=0.25, Wear=0.45, Dirt=0.3, **PN),
-    "CK_HUDExit": dict(Tint=(0.0, 0.01, 0.005), Rough=0.05, RoughVar=0.0),
+    "CK_HUDExit": dict(Sheen=0.0, Polish=0.0, Tint=(0.0, 0.01, 0.005), Rough=0.05, RoughVar=0.0),
     "CK_Mirror": dict(Tint=(0.6, 0.62, 0.64), Metal=1.0, Rough=0.12, RoughVar=0.0),
     "CK_Bezel": dict(Tint=(0.016, 0.016, 0.017), Rough=0.4, RoughVar=0.2, Wear=0.4, Cavity=0.4, **PN),
-    "CK_LightLit": dict(tex="T_CkPanels", Rough=0.2, RoughVar=0.0, Emissive=7.0),
-    "CK_Wall": dict(tex="T_CkPanels", Rough=0.66, RoughVar=0.3, Wear=0.4, Dirt=0.35, Cavity=0.5, GrungeTile=2.0, **PN),
+    "CK_LightLit": dict(Sheen=0.0, Polish=0.0, tex="T_CkPanels", Rough=0.2, RoughVar=0.0, Emissive=7.0),
+    "CK_Wall": dict(tex="T_CkPanels", Rough=0.66, RoughVar=0.3, Wear=0.45, Dirt=0.35, Cavity=0.5, GrungeTile=2.0, Grime=0.5, Sheen=0.25,
+                    **PN),
 }
 CK_GLASS = {"CK_Glass": ("M_CkInstGlass", (0.6, 0.65, 0.7), 0.05), "CK_HUDGlass": ("M_CkHUDGlass", (0.5, 0.78, 0.5), 0.09),
             "CK_DispGlass": ("M_CkDispGlass", (0.55, 0.6, 0.65), 0.03)}

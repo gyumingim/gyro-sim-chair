@@ -135,6 +135,12 @@ Stop-Process -Id $srv.Id
 - 기본 V3 (`GYROSIM_CANOPY=v2` 로 되돌림). F16_Glass 메시 기본 재질은 `realism_v2.set_glass_asset()` (GUI 에디터).
 - GPU (각 1회, 잡음 ~0.2 ms, fps_canopy_v3q*.json, 같은 세션): 조종석 1080p V3 4.33 / V2 4.33 ms, VR 픽셀 V3 5.90 / V2 5.42 ms (+0.5 ms, Thin Translucent 의 픽셀당 조명 비용으로 추정).
 
+### 3.5 조종석 칠한 금속 + F-15 식 캐노피 보우 (11-06 저녁)
+- `ue_cockpit.ck_master`: 슬롯별 Spec, Sheen (비스듬히 보면 덜 거칠게 = 광택), Polish (손 닿는 곳·모서리가 닳기 전에 반들반들), Grime (구석 때: 어둡고 거칠게). 판넬·도장·글레어실드 모서리·레일의 Wear 올림. 천·고무·그립은 Sheen/Polish 0.
+- `layout.BOW_X = 468` (전엔 None), `model_blender.build_canopy_bow`: 둥근 단면(3.2×2.0 cm) 칠한 금속 아치 + 양쪽 고무 실 + 볼트 줄(약 5 cm 간격), 유리 아치 `GLASS_ARCH_468` 를 따름. 삼각형 ck_shell 37.6k → 50.6k.
+- 다시 넣기: Blender (`model_blender.py --no-preview`) → Cockpit_v2 의 ck_shell.fbx / manifest / T_CkShellMasks 를 Art/Cockpit 로 복사 → GUI 에디터에서 `ck_reimport.py` + `realism_v2.set_glass_asset()` (ck_reimport 가 F16_Glass 재질을 V1 로 덮어쓰므로).
+- 결과 (C:\GyroSimTiles\shots\cockpit_b2, 전: canopy_v3r): 보우는 잘 보임 (볼트·밝은 닳은 모서리). 칠한 금속 변화는 작음 (콘솔 영역 밝기 평균 차 약 2/255). GPU 조종석 1080p 4.33 ms (전 4.33), VR 픽셀 5.83 ms (전 5.90) — 1회 측정, 잡음 범위.
+
 ## 4. 2단계로 미룬 것 / 위험
 
 - **VR 훅**(2.2): `sim_client.apply_look` 끝에 `realism_v2.apply_profile(name, world)` (Scripts 경로 추가) 또는 `init_unreal.py` 에서 `install_hook`. 이것 전에는 VR 에서 모니터 값이 쓰임.

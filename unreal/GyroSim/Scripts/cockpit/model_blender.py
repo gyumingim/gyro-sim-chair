@@ -475,6 +475,52 @@ def build_tub():
             P.add(bm_sweep(path, sec, side_hint=(1, 0, 0)), "CK_Paint")
 
 
+def _arch_path(arch, n_step=1.2, smooth=3):
+    """half arch [(y, z)] sill -> top, mirrored to a full sill-to-sill arch, resampled every ~n_step cm and smoothed
+    (the fitted glass arch has only ~11 points per side)."""
+    pts = [(y, z) for y, z in arch] + [(-y, z) for y, z in arch[::-1][1:]]
+    out = [pts[0]]
+    for (y0, z0), (y1, z1) in zip(pts[:-1], pts[1:]):
+        k = max(1, int(math.hypot(y1 - y0, z1 - z0) / n_step))
+        out += [(y0 + (y1 - y0) * i / k, z0 + (z1 - z0) * i / k) for i in range(1, k + 1)]
+    for _ in range(smooth):
+        out = [out[0]] + [((a[0] + 2 * b[0] + c[0]) / 4, (a[1] + 2 * b[1] + c[1]) / 4) for a, b, c in zip(out[:-2], out[1:-1], out[2:])] + [out[-1]]
+    return out
+
+
+def build_canopy_bow(P):
+    """F-15 style canopy bow (user 11-06): a round-section painted metal arch across the glass inside at L.BOW_X
+    (glass arch L.GLASS_ARCH_468), rubber seal lips on both edges against the glass and a row of domed bolts on the
+    face toward the pilot (~5 cm pitch)."""
+    x, cz = L.BOW_X, 60.0
+    W, D, INSET = L.BOW_W, L.BOW_D, 0.25          # width along x, depth from the glass, gap to the glass
+    arch = _arch_path(L.GLASS_ARCH_468)
+    rows = []
+    for y, z in arch:
+        d = V((0, y, z - cz)).normalized()          # outward (toward the glass)
+        rows.append((V((x, y, z)), d))
+    body = [tuple(g - d * (INSET + D / 2)) for g, d in rows]
+    P.add(bm_sweep(body, rrect(W, D, min(W, D) * 0.45, 4), side_hint=(1, 0, 0)), "CK_Frame")
+    for sx in (-1, 1):                               # seal lips where the bow meets the glass
+        lip = [tuple(g - d * (INSET + 0.2) + V((sx * (W / 2 + 0.15), 0, 0))) for g, d in rows]
+        P.add(bm_sweep(lip, rrect(0.5, 0.7, 0.2, 2), side_hint=(1, 0, 0)), "CK_Rubber")
+    acc, last = 0.0, None
+    for g, d in rows[2:-2]:
+        if last is not None:
+            acc += (g - last).length
+        last = g
+        if acc < 5.0 and acc != 0.0:
+            continue
+        acc = 1e-6
+        o = g - d * (INSET + D)
+        Z = -d
+        X = V((1, 0, 0))
+        Y = Z.cross(X)
+        fr = (tuple(o), tuple(X), tuple(Y), tuple(Z))
+        P.add(bm_cyl(0.45, 0.1, 12, 0.03), "CK_Metal", frame=fr)
+        P.add(bm_lathe([(0.0, 0.36), (0.18, 0.34), (0.3, 0.25), (0.35, 0.1), (0.35, 0.08)], 12), "CK_Metal", frame=fr)
+
+
 def build_canopy_frame():
     P = part("ck_shell")
     xs = list(range(372, 509, 4))
@@ -500,7 +546,7 @@ def build_canopy_frame():
     # windscreen bow at BOW_X following the glass arch (inset), and the rear arch behind the seat
     arches = [(L.REAR_ARCH_X, [(33.2, 76.0), (32.4, 88.0)] + L.GLASS_ARCH_372, (4.0, 3.0), 1.6)]
     if L.BOW_X:
-        arches.insert(0, (L.BOW_X, L.GLASS_ARCH_468, (2.4, 2.0), 1.4))
+        build_canopy_bow(P)
     for x, arch, sec, inset in arches:
         half = [(y, z) for y, z in arch]
         pts = half + [(-y, z) for y, z in half[::-1][1:]]
