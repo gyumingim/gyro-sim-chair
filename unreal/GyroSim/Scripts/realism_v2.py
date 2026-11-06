@@ -20,7 +20,7 @@ import unreal
 log = lambda *a: unreal.log("[realism_v2] " + " ".join(str(x) for x in a))
 ENABLED = os.environ.get("GYROSIM_REALISM_V2", "1") != "0"
 STATE = dict(on=os.environ.get("GYROSIM_REALISM_V2_RUNTIME", "on") != "off", mids={},
-             canopy=os.environ.get("GYROSIM_CANOPY", "v2"))        # canopy glass with v2 on: "v2" (default) or "v3" (opt-in: works on screen since 11-06 pm, but loses the sun HDR glare)
+             canopy=os.environ.get("GYROSIM_CANOPY", "v3"))        # canopy glass with v2 on: "v3" (default since 11-06) or "v2" (back)
 
 CK_MAT = "/Game/Cockpit/Materials"
 CANOPY_V1 = CK_MAT + "/M_CkCanopy"
@@ -104,97 +104,107 @@ return float4(e / max(op, 0.02), op);
 """
 
 
-# canopy V3 (11-06, "glass must be visible like F-16 photos / renders"): the glass replaces the scene behind it
-# (SceneColor, opacity 1) instead of alpha-blending a sky estimate, so the amber tint is a real per-channel filter:
-#   out = SceneBehind(distorted) * Tr * (1-F) + Refl * F + anisotropic scratch glints / halo / veil + smudge haze
-#   Tr  = lerp(1, TintCol, TintAmt) ^ min(1/cos, PathMax)   (Beer path length: lighter straight through, deeper gold
-#         toward the grazing edges / sill)
+# canopy V3 (11-06, "glass must be visible like F-16 photos / renders"). Thin Translucent shading model: the background
+# is MULTIPLIED by a per-channel transmittance in the blend unit (dual-source blending), so the scene behind keeps its
+# full HDR range (the sun disc, bloom and the lens flare survive). The first V3 re-drew the background through the
+# SceneColor node instead, which lost the sun's HDR brightness (sun = small dot, no bloom / flare; 11-06 shots canopy_v3h).
+#   transmittance = Tr * (1-F) * (1-h)        Tr = lerp(1, TintCol, TintAmt) ^ min(1/cos, PathMax)  (Beer path length:
+#                                             clear-ish looking straight through, amber toward the grazing edges / sill)
+#   emissive      = Refl * F + sun mirror glint + anisotropic scratch glints + halo / veil + smudge haze
 #   Refl = sky light cube map for mirror rays going up; mirror rays going down hit a plane at the coaming height (local
-#          z = CoamZ): forward of GsX = black glare shield, sides = grey consoles, middle = pilot / stick (dark). Lit by
-#          the sky light from above and the sun (InSun x sun height). Reflection rays are wobbled toward the edges.
+#          z = CoamZ): forward of GsX = black glare shield, sides = grey consoles with panel blocks, middle = pilot /
+#          stick (dark). Lit by the sky light from above and the sun (InSun x sun height). Rays wobble toward the edges.
 #   Scratches: T_CkCanopyAniso (R mask, BA = scratch direction). A scratch glints where its tangent is perpendicular to
-#          the direction toward the sun in the view-angle texture space (anisotropic: the circular polishing marks make
-#          a bright radial streak through the sun, wipe marks light up only at some sun angles). Brightness scales with
-#          the sky light (EnvUp) so it does not depend on the exposure.
-#   Distortion: the SceneColor lookup is offset along the screen-space normal x (1-cos)^4 (edges / raked front only).
+#          the direction toward the sun in the view-angle texture space (anisotropic: circular polishing marks make a
+#          bright radial streak through the sun, wipe marks light up only at some sun angles). Absolute brightness
+#          (Gain; the EnvUp-scaled first try was invisible on screen).
+#   Distortion: refraction (index-of-refraction mode) 1 + Dist x (1-cos)^3 -> the outside view bends a little toward
+#          the grazing edges of the bubble; the distortion pass works on the HDR scene colour.
 # Values are look-matched to photos (estimates, not measured). The HUD is in the after-motion-blur pass -> not tinted.
 # NOTE: build this material in the GUI editor (realism_shots GYROSIM_CANOPY_BUILD=1 or build_canopy_v3()); a copy built
 # by a -nullrhi commandlet was saved with a broken Custom input ("missing input 1 (LP)") -> default material (11-06).
 CANOPY_V3_PARAMS = (("Tile", 1.3),
-                    ("Gain", 2.0),       # scratch glint radiance / sky light radiance
+                    ("Gain", 4.0),       # scratch glint radiance (absolute; V2 used 0.7 without the anisotropy)
                     ("GlintPow", 10.0),  # glint falloff away from the sun: ((cos+1)/2)^GlintPow
-                    ("AnisoPow", 48.0),  # how exactly the scratch must be perpendicular to the sun direction
-                    ("HaloGlow", 0.06),
+                    ("AnisoPow", 6.0),  # how exactly the scratch must be perpendicular to the sun direction
+                    ("HaloGlow", 0.04),
+                    ("SunSpec", 2.0),    # mirror image of the sun in the glass, very narrow lobe
                     ("F0", 0.07),        # polycarbonate 0.05 + gold / ITO coating (estimate)
                     ("ReflAmt", 0.85),
-                    ("TintAmt", 0.50),   # straight ahead: (1, 0.91, 0.76) transmission
-                    ("PathMax", 2.0),    # grazing (the raked F-16 front): up to 2x the path -> (1, 0.83, 0.58)
-                    ("InSun", 4.0),      # sun-lit interior ~3x brighter than the sky-lit one (estimate)
+                    ("TintAmt", 0.30),   # straight through: (1, 0.946, 0.856) transmission
+                    ("PathMax", 3.0),    # grazing (the raked F-16 front, the sill): up to 3x the path -> (1, 0.85, 0.63)
+                    ("InSun", 4.0),      # sun-lit interior ~4x brighter than the sky-lit one (estimate)
+                    ("LitAbs", 8.0),     # interior light level seen in the glass (absolute, look-matched)
                     ("CoamZ", 76.0),     # coaming / console height (local cm) for the interior reflection
                     ("GsX", 468.0),      # glare shield starts here (local x, cm)
                     ("Wobble", 0.05),    # reflection ray wobble at grazing angles
-                    ("Dist", 0.006),     # screen-fraction offset of the outside view at grazing angles
+                    ("Dist", 0.02),      # refraction index excess at grazing angles (edge distortion)
                     ("SmudgeAmt", 0.03), # faint haze where the smudge texture is (stronger toward the sun)
-                    ("VeilPow", 8.0), ("VeilGlow", 0.04))
-CANOPY_V3_TINT = (1.0, 0.82, 0.52)
-CANOPY_V3_INCOL = (0.25, 0.24, 0.23)  # console albedo seen in the glass (grey panels); glare shield / pilot darker
+                    ("VeilPow", 8.0), ("VeilGlow", 0.02))
+CANOPY_V3_TINT = (1.0, 0.85, 0.58)
+CANOPY_V3_INCOL = (0.30, 0.29, 0.28)   # console albedo seen in the glass (grey panels); glare shield / pilot darker
 
-CANOPY_V3_DIST_HLSL = """
-float3 v = normalize(CV);
-float cosv = max(abs(dot(v, normalize(N))), 0.05);
-float g = pow(1.0 - cosv, 4.0);
-float w = 0.7 + 0.3 * sin(LP.x * 0.05 + LP.z * 0.08);
-return NV.xy * float2(1.0, -1.0) * Dist * g * w;
+# small nodes for the transmittance and refraction pins (a Custom node with texture / sky light inputs gave transmittance 0
+# = black glass on the ThinTranslucent output, 11-06)
+CANOPY_V3_TR_HLSL = """
+float cosv = max(abs(dot(normalize(CV), normalize(N))), 0.05);
+float F = saturate((F0 + (1.0 - F0) * pow(1.0 - cosv, 5.0)) * ReflAmt);
+float3 Tr = pow(saturate(lerp(float3(1.0, 1.0, 1.0), TintCol, TintAmt)), min(1.0 / cosv, PathMax));
+return Tr * (1.0 - F);
+"""
+CANOPY_V3_RF_HLSL = """
+float gz = 1.0 - max(abs(dot(normalize(CV), normalize(N))), 0.05);
+return 1.0 + Dist * gz * gz * gz;
 """
 
 CANOPY_V3_HLSL = """
 float3 up = normalize(Up);
 float3 fw = normalize(Fw);
 float3 rt = normalize(Rt);
+float3 v = normalize(CV);
+float3 n = normalize(N);
+float cosv = max(abs(dot(v, n)), 0.05);
+float gz = 1.0 - cosv;
 float3 d = LP - Eye;
 float2 puv = float2(atan2(d.y, d.x), -atan2(d.z, length(d.xy)));
 float4 t = Texture2DSample(T, TSampler, puv * Tile);
 float scr = t.r;
 float smu = t.g;
-float2 t2 = t.ba * 2.0 - 1.0;
 float3 sw = normalize(Sun);
+float c = dot(-v, sw);
+float halo = pow(saturate(c), 4.0);
+float h = smu * SmudgeAmt * (0.35 + 0.65 * halo);
+float F = saturate((F0 + (1.0 - F0) * pow(gz, 5.0)) * ReflAmt);
+float2 t2 = t.ba * 2.0 - 1.0;
 float3 sl = float3(dot(sw, fw), dot(sw, rt), dot(sw, up));
 float2 suv = float2(atan2(sl.y, sl.x), -atan2(sl.z, length(sl.xy)));
 float2 ds = suv - puv;
 ds.x = ds.x - 6.2831853 * round(ds.x / 6.2831853);
 float psi = atan2(ds.y, ds.x);
 float aniso = pow(saturate(0.5 - 0.5 * dot(t2, float2(cos(2.0 * psi), sin(2.0 * psi)))), AnisoPow);
-float3 v = normalize(CV);
-float c = dot(-v, sw);
 float glint = pow(saturate(c * 0.5 + 0.5), GlintPow) * step(0.0, c + 0.3);
-float halo = pow(saturate(c), 4.0);
 float veil = pow(saturate(c), VeilPow);
-float3 n = normalize(N);
-float cosv = max(abs(dot(v, n)), 0.05);
-float gz = 1.0 - cosv;
-float F = saturate((F0 + (1.0 - F0) * pow(gz, 5.0)) * ReflAmt);
-float3 Tr = pow(saturate(lerp(float3(1.0, 1.0, 1.0), TintCol, TintAmt)), min(1.0 / cosv, PathMax));
 float3 r = normalize(R + n * Wobble * gz * gz * sin(LP.x * 0.11 + LP.y * 0.07 + LP.z * 0.09));
 float3 rl = float3(dot(r, fw), dot(r, rt), dot(r, up));
 float sunUp = saturate(dot(sw, up));
-float3 lit = EnvUp * (1.0 + InSun * sunUp);
+float3 lit = SunCol * LitAbs * (0.25 + InSun * 0.25 * sunUp);   // absolute (EnvUp-scaled light was far too dark on screen)
 float3 inner = Env;
 if (rl.z < -0.02) {
     float th = (CoamZ - LP.z) / rl.z;
     float3 H = LP + rl * max(th, 0.0);
-    float gs = step(GsX, H.x) * step(abs(H.y), 34.0);
-    float con = step(H.x, GsX) * step(330.0, H.x) * step(18.0, abs(H.y));
-    float3 alb = lerp(InCol * 0.45, InCol, con);
-    alb = lerp(alb, InCol * 0.12, gs);
-    alb *= 0.8 + 0.4 * frac(sin(dot(floor(H.xy / 6.0), float2(12.9898, 78.233))) * 43758.5453) * con;
+    float gs = smoothstep(GsX - 3.0, GsX + 3.0, H.x) * (1.0 - smoothstep(31.0, 37.0, abs(H.y)));
+    float con = (1.0 - smoothstep(GsX - 3.0, GsX + 3.0, H.x)) * smoothstep(327.0, 333.0, H.x) * smoothstep(15.0, 21.0, abs(H.y));
+    float3 alb = lerp(InCol * 0.35, InCol, con);
+    alb = lerp(alb, InCol * 0.08, gs);
+    alb *= 0.6 + 0.8 * frac(sin(dot(floor(H.xy / 7.0), float2(12.9898, 78.233))) * 43758.5453) * con;
     inner = lit * alb;
 }
 float skyw = saturate((rl.z + 0.15) * 4.0);
 float3 refl = lerp(inner, Env, skyw);
 float sky = dot(EnvUp, float3(0.333, 0.333, 0.333));
-float h = smu * SmudgeAmt * (0.35 + 0.65 * halo);
-float3 e = SC * Tr * (1.0 - F) * (1.0 - h) + refl * F + EnvUp * h * 2.0
-         + SunCol * sky * (scr * aniso * glint * Gain + smu * halo * HaloGlow + veil * VeilGlow);
+float sun = pow(saturate(dot(r, sw)), 3000.0) * SunSpec;
+float3 e = refl * F + EnvUp * h * 2.0 + SunCol * sun * F * 10.0
+         + SunCol * (scr * aniso * glint * Gain + smu * halo * HaloGlow + veil * VeilGlow);
 return float4(e, 1.0);
 """
 
@@ -267,29 +277,33 @@ def _canopy_tex(name, srgb=False, comp=None):
 
 
 def _canopy_v3(g, sun_dir):
+    """M_CkCanopyV3 (inner glass shell): ThinTranslucent, transmittance + refraction only. M_CkCanopyV3Fx (outer shell,
+    on the same surface): additive unlit, the reflections / glints / haze. ThinTranslucent scales its emissive by the
+    opacity (= surface coverage) and opacity 1 hid the background (black glass), so the light the glass adds goes to a
+    separate additive layer (11-06). Returns (glass, fx)."""
+    fx = _canopy_v3_mat(g, sun_dir, fx=True)
+    return _canopy_v3_mat(g, sun_dir, fx=False), fx
+
+
+def _canopy_v3_mat(g, sun_dir, fx):
     _new_material, _expr, _sparam, _vparam, _const3, _finish = (g[k] for k in ("_new_material", "_expr", "_sparam", "_vparam",
                                                                                  "_const3", "_finish"))
     MEL = unreal.MaterialEditingLibrary
-    m = _new_material("M_CkCanopyV3", CK_MAT)
-    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    m = _new_material("M_CkCanopyV3Fx" if fx else "M_CkCanopyV3", CK_MAT)
     m.set_editor_property("two_sided", True)
-    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
-
-    def custom(code, names, out, x, y):
-        cu = _expr(m, unreal.MaterialExpressionCustom, x, y)
-        cu.set_editor_property("code", code)
-        cu.set_editor_property("output_type", out)
-        ins = []
-        for n in names:
-            ci = unreal.CustomInput()
-            ci.set_editor_property("input_name", n)
-            ins.append(ci)
-        cu.set_editor_property("inputs", ins)
-        return cu
-    pn = tuple(n for n, _ in CANOPY_V3_PARAMS)
-    cu = custom(CANOPY_V3_HLSL, ("LP", "CV", "N", "R", "Up", "Fw", "Rt", "Sun", "SunCol", "T", "Eye", "Env", "EnvUp", "SC",
-                                 "TintCol", "InCol") + pn, unreal.CustomMaterialOutputType.CMOT_FLOAT4, -600, 0)
-    dc = custom(CANOPY_V3_DIST_HLSL, ("LP", "CV", "N", "NV", "Dist"), unreal.CustomMaterialOutputType.CMOT_FLOAT2, -1300, 400)
+    if fx:
+        m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    else:
+        m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_THIN_TRANSLUCENT)
+        m.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
+        for k, v in (("refraction_mode", "RM_INDEX_OF_REFRACTION"), ("refraction_method", "RM_INDEX_OF_REFRACTION")):
+            try:
+                m.set_editor_property(k, getattr(unreal.RefractionMode, v))
+                break
+            except Exception:
+                pass
 
     def con(a, b, pin):
         if not MEL.connect_material_expressions(a, "", b, pin):
@@ -299,104 +313,111 @@ def _canopy_v3(g, sun_dir):
         k = _expr(m, unreal.MaterialExpressionComponentMask, x, y, r=True, g=True, b=True, a=False)
         con(src, k, "")
         return k
+    pn = tuple(n for n, _ in CANOPY_V3_PARAMS)
+    cus = []
+    nodes = [(CANOPY_V3_HLSL, ("LP", "CV", "N", "R", "Up", "Fw", "Rt", "Sun", "SunCol", "T", "Eye", "Env", "EnvUp", "TintCol",
+                               "InCol") + pn, unreal.CustomMaterialOutputType.CMOT_FLOAT4)] if fx else [
+             (CANOPY_V3_TR_HLSL, ("CV", "N", "TintCol", "TintAmt", "PathMax", "F0", "ReflAmt"), unreal.CustomMaterialOutputType.CMOT_FLOAT3),
+             (CANOPY_V3_RF_HLSL, ("CV", "N", "Dist"), unreal.CustomMaterialOutputType.CMOT_FLOAT1)]
+    for i, (code, names, out) in enumerate(nodes):
+        cu = _expr(m, unreal.MaterialExpressionCustom, -600, -200 + 250 * i)
+        cu.set_editor_property("code", code)
+        cu.set_editor_property("output_type", out)
+        ins = []
+        for n in names:
+            ci = unreal.CustomInput()
+            ci.set_editor_property("input_name", n)
+            ins.append(ci)
+        cu.set_editor_property("inputs", ins)
+        cus.append((cu, set(names)))
+
+    def to_all(src, pin):
+        for cu, nm in cus:
+            if pin in nm:
+                con(src, cu, pin)
     lp = _expr(m, unreal.MaterialExpressionTransformPosition, -1000, -300,
                transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
                transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
     con(_expr(m, unreal.MaterialExpressionWorldPosition, -1200, -300), lp, "")
-    con(lp, cu, "LP")
-    con(lp, dc, "LP")
+    to_all(lp, "LP")
     cv = _expr(m, unreal.MaterialExpressionCameraVectorWS, -1000, -220)
-    con(cv, cu, "CV")
-    con(cv, dc, "CV")
-    nw = _expr(m, unreal.MaterialExpressionVertexNormalWS, -1000, -160)
-    con(nw, cu, "N")
-    con(nw, dc, "N")
-    nv = _expr(m, unreal.MaterialExpressionTransform, -1500, 450,
-               transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
-               transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_VIEW)
-    con(nw, nv, "")
-    con(nv, dc, "NV")
-    con(_sparam(m, "Dist", dict(CANOPY_V3_PARAMS)["Dist"], -1500, 520), dc, "Dist")
+    to_all(cv, "CV")
+    to_all(_expr(m, unreal.MaterialExpressionVertexNormalWS, -1000, -160), "N")
     rv = _expr(m, unreal.MaterialExpressionReflectionVectorWS, -1000, -100)
-    con(rv, cu, "R")
+    to_all(rv, "R")
     axes = {}
     for k, (vec, y) in {"Up": ((0.0, 0.0, 1.0), -40), "Fw": ((1.0, 0.0, 0.0), -560), "Rt": ((0.0, 1.0, 0.0), -500)}.items():
         tr = _expr(m, unreal.MaterialExpressionTransform, -1000, y,
                    transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_LOCAL,
                    transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
         con(_const3(m, vec, -1200, y), tr, "")
-        con(tr, cu, k)
+        to_all(tr, k)
         axes[k] = tr
-    con(rgb(_vparam(m, "SunDir", sun_dir, -1400, 20), -1200, 20), cu, "Sun")
-    con(rgb(_vparam(m, "SunColor", (1.0, 0.96, 0.9), -1400, 80), -1200, 80), cu, "SunCol")
-    t = _expr(m, unreal.MaterialExpressionTextureObjectParameter, -1000, 140, parameter_name="Scratch")
-    st = _canopy_tex("T_CkCanopyAniso", comp=unreal.TextureCompressionSettings.TC_VECTOR_DISPLACEMENTMAP)
-    if st:
-        t.set_editor_property("texture", st)
-    con(t, cu, "T")
-    con(_const3(m, g["EYE"], -1000, 200), cu, "Eye")
-    env = _expr(m, unreal.MaterialExpressionSkyLightEnvMapSample, -1000, 260)
-    con(rv, env, "Direction")
-    con(_sparam(m, "EnvRough", 0.06, -1200, 260), env, "Roughness")
-    envup = _expr(m, unreal.MaterialExpressionSkyLightEnvMapSample, -1000, 330)
-    con(axes["Up"], envup, "Direction")
-    con(_sparam(m, "UpRough", 1.0, -1200, 330), envup, "Roughness")
-    con(env, cu, "Env")
-    con(envup, cu, "EnvUp")
-    sc = _expr(m, unreal.MaterialExpressionSceneColor, -1000, 400)    # float3 (a ComponentMask on it fails to connect)
-    # pin 0 is a screen UV in the default "Coordinates" mode (11-06: offsets landed at UV ~0 = one flat colour) ->
-    # switch the node to "Offset Fraction" first; distortion is skipped if that is not possible
-    try:
-        en = unreal.MaterialSceneAttributeInputMode
-        mode = next(getattr(en, k) for k in dir(en) if "OFFSET" in k.upper())
-        sc.set_editor_property("input_mode", mode)
-        con(dc, sc, "")
-    except Exception as ex:
-        log("canopy v3: no SceneColor offset mode, distortion off", repr(ex)[:120])
-    con(sc, cu, "SC")
+    to_all(rgb(_vparam(m, "SunDir", sun_dir, -1400, 20), -1200, 20), "Sun")
+    to_all(rgb(_vparam(m, "SunColor", (1.0, 0.96, 0.9), -1400, 80), -1200, 80), "SunCol")
+    if fx:
+        t = _expr(m, unreal.MaterialExpressionTextureObjectParameter, -1000, 140, parameter_name="Scratch")
+        st = _canopy_tex("T_CkCanopyAniso", comp=unreal.TextureCompressionSettings.TC_VECTOR_DISPLACEMENTMAP)
+        if st:
+            t.set_editor_property("texture", st)
+        to_all(t, "T")
+        to_all(_const3(m, g["EYE"], -1000, 200), "Eye")
+        env = _expr(m, unreal.MaterialExpressionSkyLightEnvMapSample, -1000, 260)
+        con(rv, env, "Direction")
+        con(_sparam(m, "EnvRough", 0.06, -1200, 260), env, "Roughness")
+        envup = _expr(m, unreal.MaterialExpressionSkyLightEnvMapSample, -1000, 330)
+        con(axes["Up"], envup, "Direction")
+        con(_sparam(m, "UpRough", 1.0, -1200, 330), envup, "Roughness")
+        to_all(env, "Env")
+        to_all(envup, "EnvUp")
     dbg = os.environ.get("GYROSIM_CANOPY_DEBUG") == "1"      # diagnostic: pure green glass (is V3 really on screen?)
-    con(rgb(_vparam(m, "TintCol", (0.0, 1.0, 0.0) if dbg else CANOPY_V3_TINT, -1400, 460), -1200, 460), cu, "TintCol")
-    con(rgb(_vparam(m, "InCol", CANOPY_V3_INCOL, -1400, 520), -1200, 520), cu, "InCol")
+    to_all(rgb(_vparam(m, "TintCol", (0.0, 1.0, 0.0) if dbg else CANOPY_V3_TINT, -1400, 460), -1200, 460), "TintCol")
+    to_all(rgb(_vparam(m, "InCol", CANOPY_V3_INCOL, -1400, 520), -1200, 520), "InCol")
+    used = set().union(*(nm for _, nm in cus))
     for i, (n, v) in enumerate(CANOPY_V3_PARAMS):
-        con(_sparam(m, n, 1.0 if (dbg and n == "TintAmt") else v, -1000, 580 + 60 * i), cu, n)
-    e = _expr(m, unreal.MaterialExpressionComponentMask, -300, -50, r=True, g=True, b=True, a=False)
-    con(cu, e, "")
-    MEL.connect_material_property(e, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    MEL.connect_material_property(_expr(m, unreal.MaterialExpressionConstant, -300, 80, r=1.0), "", unreal.MaterialProperty.MP_OPACITY)
-    m = _finish(m)
+        if n in used:
+            to_all(_sparam(m, n, 1.0 if (dbg and n == "TintAmt") else v, -1000, 580 + 60 * i), n)
+    if fx:
+        MEL.connect_material_property(rgb(cus[0][0], -300, -200), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+        return _canopy_stats(_finish(m))
+    # delete_all_material_expressions leaves the ThinTranslucent output node behind -> a rebuild had two and failed to
+    # compile ("only one Thin Translucent Material node", default material; 11-06): remove old ones by object path
+    for k in range(16):
+        old = unreal.find_object(None, "%s:MaterialExpressionThinTranslucentMaterialOutput_%d" % (m.get_path_name(), k))
+        if old:
+            MEL.delete_material_expression(m, old)
+            log("removed old", old.get_name())
+    tto = _expr(m, unreal.MaterialExpressionThinTranslucentMaterialOutput, -100, 50)
+    con(cus[0][0], tto, "TransmittanceColor")
+    MEL.connect_material_property(cus[1][0], "", unreal.MaterialProperty.MP_REFRACTION)
+    for prop, val in ((unreal.MaterialProperty.MP_BASE_COLOR, 0.0), (unreal.MaterialProperty.MP_SPECULAR, 0.0),
+                      (unreal.MaterialProperty.MP_ROUGHNESS, 1.0), (unreal.MaterialProperty.MP_OPACITY, 0.0)):
+        # opacity = surface coverage of the (black) base layer: 1 hid the background completely (black glass, 11-06);
+        # 0 = the background seen through the transmittance, emissive still added
+        MEL.connect_material_property(_expr(m, unreal.MaterialExpressionConstant, -300, 500, r=val), "", prop)
+    return _canopy_stats(_finish(m))
+
+
+def _canopy_stats(m):
     try:
-        n = MEL.get_statistics(m).num_pixel_shader_instructions
+        n = unreal.MaterialEditingLibrary.get_statistics(m).num_pixel_shader_instructions
     except Exception as ex:
         n = -1
         log("canopy v3 stats", repr(ex))
-    log("M_CkCanopyV3 compiled: pixel instructions", n)
+    log(m.get_name(), "compiled: pixel instructions", n, "shading", m.get_editor_property("shading_model"),
+        "blend", m.get_editor_property("blend_mode"))
     return m
 
 
-def _canopy_none(g):
-    """M_CkCanopyNone: invisible (opacity 0) for the F-16 glass OUTER shell while V3 is on. The FlightGear glass has an
-    inner and an outer shell; V3 replaces the scene (SceneColor), so two layers with slightly different coverage gave
-    hard-edged bands. V3 goes on the inner shell only."""
-    MEL = unreal.MaterialEditingLibrary
-    m = g["_new_material"]("M_CkCanopyNone", CK_MAT)
-    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
-    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
-    MEL.connect_material_property(g["_expr"](m, unreal.MaterialExpressionConstant, -300, 80, r=0.0), "",
-                                  unreal.MaterialProperty.MP_OPACITY)
-    return g["_finish"](m)
-
-
-CANOPY_NONE = CK_MAT + "/M_CkCanopyNone"
+CANOPY_V3FX = CK_MAT + "/M_CkCanopyV3Fx"
 CANOPY_OUTER_SLOT = "col_ffe080"        # slot name part of the outer shell (manifest: glassOutsideMat)
 
 
 def build_canopy_v3(world=None):
-    """standalone (open GUI editor, no level rebuild): (re)builds M_CkCanopyV3 with the level's sun direction, the
-    outer-shell blank material and the hexagon lens flare bokeh texture."""
+    """standalone (open GUI editor, no level rebuild): (re)builds M_CkCanopyV3 + M_CkCanopyV3Fx with the level's sun
+    direction and the hexagon lens flare bokeh texture. Returns (glass, fx)."""
     _canopy_tex("T_BokehHex", srgb=True)
-    g = _mat_helpers()
-    _canopy_none(g)
-    return _canopy_v3(g, level_sun_dir(world))
+    return _canopy_v3(_mat_helpers(), level_sun_dir(world))
 
 
 # ---- canopy material (build time, needs build_level's helpers) --------------------------------------------------------
@@ -487,6 +508,20 @@ def _canopy_v2(g, sun_dir, use_env=True):
     return m
 
 
+def set_glass_asset(sg=None):
+    """default materials of the F-16 glass mesh asset (editor viewport / anything not switched at runtime): STATE's
+    canopy (v3: inner shell M_CkCanopyV3, outer shell M_CkCanopyV3Fx; v2: M_CkCanopyV2 on both). Saves the asset."""
+    sg = sg or _load("/Game/ThirdParty/F16/Meshes/F16_Glass")
+    if not sg:
+        return
+    v3 = STATE.get("canopy") == "v3" and _load(CANOPY_V3) and _load(CANOPY_V3FX)
+    for i, sl in enumerate(sg.static_materials):
+        outer = CANOPY_OUTER_SLOT in str(sl.material_slot_name)
+        sg.set_material(i, _load(CANOPY_V3FX if outer else CANOPY_V3) if v3 else _load(CANOPY_V2))
+    unreal.EditorAssetLibrary.save_loaded_asset(sg)
+    log("F16_Glass asset ->", "v3" if v3 else "v2")
+
+
 def build(g):
     """build_level.py hook (editor world, before the level is saved)."""
     if not ENABLED:
@@ -496,16 +531,13 @@ def build(g):
         sd = g["sun"].get_actor_forward_vector()
         sg = (g.get("F16") or {}).get("F16_Glass")
         if sg:
-            cm = _canopy_v2(g, (-sd.x, -sd.y, -sd.z))
-            try:
-                c3 = _canopy_v3(g, (-sd.x, -sd.y, -sd.z))
-                if STATE["canopy"] == "v3":
-                    cm = c3
-            except Exception as e3:
-                log("canopy v3 failed (v2 kept)", repr(e3))
-            for i in range(len(sg.static_materials)):
-                sg.set_material(i, cm)
-            unreal.EditorAssetLibrary.save_loaded_asset(sg)
+            _canopy_v2(g, (-sd.x, -sd.y, -sd.z))
+            if "-nullrhi" not in unreal.SystemLibrary.get_command_line().lower():
+                try:                     # V3 only in a GUI editor (a -nullrhi build saves a broken Custom node, 11-06)
+                    _canopy_v3(g, (-sd.x, -sd.y, -sd.z))
+                except Exception as e3:
+                    log("canopy v3 failed (existing asset kept)", repr(e3))
+            set_glass_asset(sg)
     except Exception as e:
         log("canopy v2 failed", repr(e))
     try:
@@ -645,11 +677,11 @@ def _canopy(world, on):
                 smc.set_translucent_sort_priority(-10 if path == CANOPY_V3 else 0)
             except Exception as e:
                 log("canopy sort", repr(e)[:100])
-            none = _load(CANOPY_NONE) if path == CANOPY_V3 else None
+            fxm = _load(CANOPY_V3FX) if path == CANOPY_V3 else None      # V3: inner shell = glass, outer shell = fx layer
             names = [str(n) for n in smc.get_material_slot_names()]
             for i in range(smc.get_num_materials()):
-                outer = none is not None and i < len(names) and CANOPY_OUTER_SLOT in names[i]
-                smc.set_material(i, none if outer else m)
+                outer = fxm is not None and i < len(names) and CANOPY_OUTER_SLOT in names[i]
+                smc.set_material(i, fxm if outer else m)
             log("canopy", a.get_name(), "state", STATE.get("canopy"), "slots", names, "->", [x.get_name() if x else None for x in smc.get_materials()])
 
 

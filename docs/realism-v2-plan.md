@@ -128,6 +128,13 @@ Stop-Process -Id $srv.Id
 - GPU (각 1회, 잡음 ~0.2 ms, fps_canopy_v3g*.json): 조종석 1080p V3 4.15 / V2 4.19 ms, VR 픽셀 5.41 / 5.15 ms.
 - 다음: V3 에서 해 HDR 유지 (해 방향 픽셀은 SceneColor 대신 원래 장면을 통과시키기 = 불투명도<1 섞기, 또는 Thin Translucent 셰이딩 모델로 바꾸기), 긁힘 Gain / AnisoPow 재조정 후 V3 기본 전환 검토.
 
+### 3.4 캐노피 V3 = 기본 (11-06 저녁)
+- 해 HDR 잃던 원인: SceneColor 로 뒤 장면을 다시 그리면 해의 밝기가 잘림 (11-06 canopy_v3h: 해가 점, 블룸·플레어 없음). → **Thin Translucent 셰이딩 모델**로 바꿈: 뒤 장면에 투과색을 곱하는 방식이라 HDR 그대로 (해 블룸·육각 플레어 살아남, canopy_v3r).
+- Thin Translucent 함정 (UE 5.8): 불투명도 = 표면 덮임 비율. 1 이면 뒤가 검게 됨, 0 이면 뒤는 보이지만 Emissive 가 0 이 됨 → 반사·긁힘·얼룩은 바깥 겹(같은 곡면)에 **가산(Additive) 재질 `M_CkCanopyV3Fx`** 로 따로 그림. 재빌드 때 ThinTranslucent 출력 노드가 지워지지 않고 쌓여 컴파일 실패 → 경로로 찾아 지움. 텍스처·하늘빛 입력이 있는 Custom 노드를 투과 핀에 연결하면 투과 0 → 투과·굴절은 작은 Custom 노드로 분리.
+- 값: 금색 TintAmt 0.30 / PathMax 3.0 / TintCol (1, .85, .58) — 정면(수직으로 볼 때)은 거의 투명, 비스듬한 앞유리·가장자리에서 호박색. 긁힘 Gain 4 (절대값), AnisoPow 6, GlintPow 10: 해 쪽에서 가는 원호가 반짝임. 실내 반사 LitAbs 8: 옆 유리에서 아주 옅게 (거의 안 보임 — 더 키우면 각진 넓은 면으로 보여서 약하게 둠). 가장자리 굴절 Dist 0.02.
+- 기본 V3 (`GYROSIM_CANOPY=v2` 로 되돌림). F16_Glass 메시 기본 재질은 `realism_v2.set_glass_asset()` (GUI 에디터).
+- GPU (각 1회, 잡음 ~0.2 ms, fps_canopy_v3q*.json, 같은 세션): 조종석 1080p V3 4.33 / V2 4.33 ms, VR 픽셀 V3 5.90 / V2 5.42 ms (+0.5 ms, Thin Translucent 의 픽셀당 조명 비용으로 추정).
+
 ## 4. 2단계로 미룬 것 / 위험
 
 - **VR 훅**(2.2): `sim_client.apply_look` 끝에 `realism_v2.apply_profile(name, world)` (Scripts 경로 추가) 또는 `init_unreal.py` 에서 `install_hook`. 이것 전에는 VR 에서 모니터 값이 쓰임.

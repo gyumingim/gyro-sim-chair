@@ -153,7 +153,7 @@ def tick(dt):
             c.look_down, c.look_tgt, c.view = False, [0.0, 0.0], "cockpit"
             c.hmd_check_t = 0.0
             realism_v2.STATE["on"] = True
-            realism_v2.STATE["canopy"] = os.environ.get("GYROSIM_CANOPY", "v2")
+            realism_v2.STATE["canopy"] = os.environ.get("GYROSIM_CANOPY", "v3")
             sim_client.apply_preset("monitor", ues.get_game_world())
             c.preset = "monitor"
             with open(os.path.join(OUT, "shots.json"), "w") as f:
@@ -198,7 +198,7 @@ def tick(dt):
                     return
                 unreal.unregister_slate_post_tick_callback(ST2["h"])
                 realism_v2.STATE["on"] = True
-                realism_v2.STATE["canopy"] = os.environ.get("GYROSIM_CANOPY", "v2")
+                realism_v2.STATE["canopy"] = os.environ.get("GYROSIM_CANOPY", "v3")
                 realism_v2.stop_offscreen()
                 if os.environ.get("GYROSIM_SHOTS_QUIT") == "1":
                     log("quit")
