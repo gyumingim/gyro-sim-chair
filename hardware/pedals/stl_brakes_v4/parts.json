@@ -1,0 +1,397 @@
+{
+ "meta": {
+  "created": "2026-11-06T13:23:06",
+  "version": "brakes v4",
+  "inputs": "pedals.py v3 (carriage, HX/HZ, LEAN, STOP posts)",
+  "toe_hinge_s": 125,
+  "brake_deg": 18.0,
+  "spring_s": 165,
+  "spring": {
+   "od": 12,
+   "free": 26,
+   "solid_max": 11,
+   "k": 6.0
+  },
+  "hinge_axis_xz": [
+   10.55,
+   169.02
+  ],
+  "sensor": "AS5600 analog OUT -> STM32F103 ADC (FreeJoy)"
+ },
+ "parts": [
+  {
+   "name": "pedal_base_L",
+   "group": "carL",
+   "kind": "print",
+   "note": "페달 바탕 (고정): v3 페달 판 자리. 뒤꿈치 Ø8 핀 + 발 2 개가 v3 멈춤 기둥 위 (M4 1 개씩). 위쪽 = 발끝 판이 눕는 뒤판 + 옆벽",
+   "material": "PLA",
+   "size": [
+    124.6,
+    100.0,
+    216.9
+   ],
+   "volume_cm3": 272.7,
+   "grams": 194.1,
+   "orient": "뒤판/갈비를 위로 (발 닿는 면을 바닥에), 채움 25 %, 벽 4 겹",
+   "file": "pedal_base_L.stl"
+  },
+  {
+   "name": "toe_plate_L",
+   "group": "toeL",
+   "kind": "print",
+   "note": "발끝 판 86×105 (경첩 = 발볼, 쉴 때 18° 들림, 끝까지 누르면 바탕 뒤판에 납작하게 닿음 = 멈춤)",
+   "material": "PLA",
+   "size": [
+    19.1,
+    86.0,
+    112.4
+   ],
+   "volume_cm3": 65.4,
+   "grams": 50.8,
+   "orient": "발 닿는 면을 바닥에, 채움 30 %",
+   "file": "toe_plate_L.stl"
+  },
+  {
+   "name": "toe_sensor_cap_L",
+   "group": "carL",
+   "kind": "print",
+   "note": "AS5600 덮개 (바깥 옆벽, M3 2 개)",
+   "material": "PLA",
+   "size": [
+    37.8,
+    10.0,
+    44.6
+   ],
+   "volume_cm3": 4.8,
+   "grams": 5.1,
+   "orient": "바깥면을 바닥에",
+   "file": "toe_sensor_cap_L.stl"
+  },
+  {
+   "name": "toe_pin_L",
+   "group": "toeL",
+   "kind": "buy",
+   "note": "Ø6 SUS304 (비자성) 핀 99 mm: 발끝 판 통에 접착, 바탕 귀에서 돎, 바깥 끝에 자석",
+   "material": "steel",
+   "size": [
+    6.0,
+    100.5,
+    6.0
+   ],
+   "volume_cm3": 2.8,
+   "grams": null,
+   "orient": "",
+   "file": "toe_pin_L.stl"
+  },
+  {
+   "name": "toe_magnet_L",
+   "group": "toeL",
+   "kind": "buy",
+   "note": "자석 Ø6×2.5 직경 방향 (핀 끝 접착)",
+   "material": "NdFeB",
+   "size": [
+    6.0,
+    1.5,
+    6.0
+   ],
+   "volume_cm3": 0.0,
+   "grams": null,
+   "orient": "",
+   "file": "toe_magnet_L.stl"
+  },
+  {
+   "name": "toe_spring_L",
+   "group": "carL",
+   "kind": "buy",
+   "note": "압축 스프링 OD 12 × 자유 26 (밀착 ≤ 11, k ≈ 6.0 N/mm, 추정)",
+   "material": "steel",
+   "size": [
+    16.3,
+    12.0,
+    16.1
+   ],
+   "volume_cm3": 1.4,
+   "grams": null,
+   "orient": "",
+   "file": "toe_spring_L.stl"
+  },
+  {
+   "name": "as5600_toe_L",
+   "group": "carL",
+   "kind": "buy",
+   "note": "AS5600 (발끝 브레이크)",
+   "material": "PCB",
+   "size": [
+    30.6,
+    1.6,
+    30.6
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "orient": "",
+   "file": "as5600_toe_L.stl"
+  },
+  {
+   "name": "pedal_base_R",
+   "group": "carR",
+   "kind": "print",
+   "note": "페달 바탕 (고정): v3 페달 판 자리. 뒤꿈치 Ø8 핀 + 발 2 개가 v3 멈춤 기둥 위 (M4 1 개씩). 위쪽 = 발끝 판이 눕는 뒤판 + 옆벽",
+   "material": "PLA",
+   "size": [
+    124.6,
+    100.0,
+    216.9
+   ],
+   "volume_cm3": 272.7,
+   "grams": 194.1,
+   "orient": "뒤판/갈비를 위로 (발 닿는 면을 바닥에), 채움 25 %, 벽 4 겹",
+   "file": "pedal_base_R.stl"
+  },
+  {
+   "name": "toe_plate_R",
+   "group": "toeR",
+   "kind": "print",
+   "note": "발끝 판 86×105 (경첩 = 발볼, 쉴 때 18° 들림, 끝까지 누르면 바탕 뒤판에 납작하게 닿음 = 멈춤)",
+   "material": "PLA",
+   "size": [
+    19.1,
+    86.0,
+    112.4
+   ],
+   "volume_cm3": 65.4,
+   "grams": 50.8,
+   "orient": "발 닿는 면을 바닥에, 채움 30 %",
+   "file": "toe_plate_R.stl"
+  },
+  {
+   "name": "toe_sensor_cap_R",
+   "group": "carR",
+   "kind": "print",
+   "note": "AS5600 덮개 (바깥 옆벽, M3 2 개)",
+   "material": "PLA",
+   "size": [
+    37.8,
+    10.0,
+    44.6
+   ],
+   "volume_cm3": 4.8,
+   "grams": 5.1,
+   "orient": "바깥면을 바닥에",
+   "file": "toe_sensor_cap_R.stl"
+  },
+  {
+   "name": "toe_pin_R",
+   "group": "toeR",
+   "kind": "buy",
+   "note": "Ø6 SUS304 (비자성) 핀 99 mm: 발끝 판 통에 접착, 바탕 귀에서 돎, 바깥 끝에 자석",
+   "material": "steel",
+   "size": [
+    6.0,
+    100.5,
+    6.0
+   ],
+   "volume_cm3": 2.8,
+   "grams": null,
+   "orient": "",
+   "file": "toe_pin_R.stl"
+  },
+  {
+   "name": "toe_magnet_R",
+   "group": "toeR",
+   "kind": "buy",
+   "note": "자석 Ø6×2.5 직경 방향 (핀 끝 접착)",
+   "material": "NdFeB",
+   "size": [
+    6.0,
+    1.5,
+    6.0
+   ],
+   "volume_cm3": 0.0,
+   "grams": null,
+   "orient": "",
+   "file": "toe_magnet_R.stl"
+  },
+  {
+   "name": "toe_spring_R",
+   "group": "carR",
+   "kind": "buy",
+   "note": "압축 스프링 OD 12 × 자유 26 (밀착 ≤ 11, k ≈ 6.0 N/mm, 추정)",
+   "material": "steel",
+   "size": [
+    16.3,
+    12.0,
+    16.1
+   ],
+   "volume_cm3": 1.4,
+   "grams": null,
+   "orient": "",
+   "file": "toe_spring_R.stl"
+  },
+  {
+   "name": "as5600_toe_R",
+   "group": "carR",
+   "kind": "buy",
+   "note": "AS5600 (발끝 브레이크)",
+   "material": "PCB",
+   "size": [
+    30.6,
+    1.6,
+    30.6
+   ],
+   "volume_cm3": 0.8,
+   "grams": null,
+   "orient": "",
+   "file": "as5600_toe_R.stl"
+  }
+ ],
+ "buy": [
+  {
+   "name": "Ø6 SUS304 봉 100 mm",
+   "qty": 2,
+   "krw": 3000,
+   "note": "발끝 경첩 핀 (비자성)"
+  },
+  {
+   "name": "자석 Ø6×2.5 직경 방향",
+   "qty": 2,
+   "krw": 1000,
+   "note": ""
+  },
+  {
+   "name": "AS5600 모듈",
+   "qty": 2,
+   "krw": 6000,
+   "note": "아날로그 OUT"
+  },
+  {
+   "name": "압축 스프링 OD 12 × 26 (k 약 6 N/mm, 밀착 ≤ 11)",
+   "qty": 2,
+   "krw": 2000,
+   "note": "세기는 스프링 교체로"
+  },
+  {
+   "name": "M3 · M4 나사",
+   "qty": 1,
+   "krw": 2000,
+   "note": "M4×40 ×4 (발 → 기둥), M3 ×4"
+  },
+  {
+   "name": "3심 차폐 케이블 1.5 m",
+   "qty": 2,
+   "krw": 3000,
+   "note": "3.3 V · GND · OUT"
+  }
+ ],
+ "spring_curve": [
+  {
+   "brake_deg": 0,
+   "spring_len": 24.4,
+   "spring_N": 9.8,
+   "toe_N_at_s200": 5.2
+  },
+  {
+   "brake_deg": 4.5,
+   "spring_len": 21.3,
+   "spring_N": 28.0,
+   "toe_N_at_s200": 14.9
+  },
+  {
+   "brake_deg": 9.0,
+   "spring_len": 18.3,
+   "spring_N": 46.5,
+   "toe_N_at_s200": 24.8
+  },
+  {
+   "brake_deg": 13.5,
+   "spring_len": 15.1,
+   "spring_N": 65.2,
+   "toe_N_at_s200": 34.8
+  },
+  {
+   "brake_deg": 18.0,
+   "spring_len": 12.0,
+   "spring_N": 84.0,
+   "toe_N_at_s200": 44.8
+  }
+ ],
+ "strength": {
+  "F": 1000.0,
+  "s_load": 200.0,
+  "s_feet": 109.4,
+  "feet_force_N": 1827,
+  "rows": [
+   {
+    "name": "바탕 굽힘 (발 위, 뒤판 + 갈비 2 + 옆벽 2 (깊이 28))",
+    "load": 29.56,
+    "limit": 50.0,
+    "unit": "MPa",
+    "sf": 1.69,
+    "note": "눕혀 출력 → 굽힘은 층 안"
+   },
+   {
+    "name": "발끝 판 → 뒤판 눌림 (86×100 전면)",
+    "load": 0.12,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 516.0,
+    "note": ""
+   },
+   {
+    "name": "발 (20×20, 2 개) 눌림",
+    "load": 2.28,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 26.27,
+    "note": ""
+   },
+   {
+    "name": "v3 멈춤 기둥 좌굴 (20×20 껍데기만, 2 개)",
+    "load": 913.74,
+    "limit": 5016.5,
+    "unit": "N",
+    "sf": 5.49,
+    "note": "v3 와 같은 기둥 · 같은 식"
+   },
+   {
+    "name": "뒤꿈치 Ø8 핀 굽힘 (귀 사이 86, 가운데 힘)",
+    "load": 353.93,
+    "limit": 500,
+    "unit": "MPa",
+    "sf": 1.41,
+    "note": "연마봉 항복 약 500 MPa (추정)"
+   },
+   {
+    "name": "발끝 Ø6 핀 (쉴 때 밟음: 스프링이 눌리는 동안 힘은 스프링 + 경첩, 경첩 몫 ≤ 1000 N 로 봄) 전단",
+    "load": 17.68,
+    "limit": 120.0,
+    "unit": "MPa",
+    "sf": 6.79,
+    "note": "SUS304 항복 200 의 0.6 (추정). 실제는 판이 곧 뒤판에 닿아 훨씬 작음"
+   },
+   {
+    "name": "귀 (바탕) 구멍 눌림 Ø6 × 귀 길이 18 × 2",
+    "load": 4.63,
+    "limit": 60.0,
+    "unit": "MPa",
+    "sf": 12.96,
+    "note": ""
+   }
+  ],
+  "note": "발끝을 끝까지 밟은 1000 N (판에 수직, 경첩에서 75 mm 위). 발끝 판이 바탕 뒤판에 닿아 있으므로 힘은 바탕 → 발 → v3 멈춤 기둥 / 뒤꿈치 핀으로. PLA 층 안 50 / 층 사이 20 / 압축 60 MPa (추정)"
+ },
+ "check": [
+  {
+   "brake_deg": 0,
+   "hits": []
+  },
+  {
+   "brake_deg": 9.0,
+   "hits": []
+  },
+  {
+   "brake_deg": 17.0,
+   "hits": []
+  }
+ ],
+ "stop_hit_deg": 17.7
+}

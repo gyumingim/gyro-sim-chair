@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스로틀 v4 · 발끝 브레이크 v4</title>
+<link rel="stylesheet" href="js/ctl.css">
+<style>.tabs a{display:inline-block;padding:4px 10px;border:1px solid var(--line);border-radius:8px;margin-right:6px;text-decoration:none}.tabs a.on{font-weight:700;background:var(--card)}
+.warn{color:#b0461f}</style>
+</head>
+<body>
+<div id="app">
+  <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 부품 클릭 = 설명</div></div>
+  <aside>
+    <div class="tabs"><a href="#dev=thr" id="t_thr">스로틀 v4</a><a href="#dev=brk" id="t_brk">발끝 브레이크 v4</a></div>
+    <h1 id="ttl">스로틀 v4 — 단순형</h1>
+    <p class="lead" id="lead"></p>
+    <div class="box">
+      <label id="angl">레버 각도 <b id="angv">0</b></label><input id="ang" type="range" min="-30" max="30" step="0.5">
+      <label>분해 보기</label><input id="exp" type="range" min="0" max="100" value="0">
+      <label class="chk"><input type="checkbox" id="xray">틀 반투명</label>
+      <div id="info" class="muted">부품을 누르면 설명이 나옵니다.</div>
+    </div>
+    <h2>주요 값</h2>
+    <div class="kv" id="kv"></div>
+    <h2>출력 부품 <span class="muted" id="pc"></span></h2>
+    <table><thead><tr><th></th><th>부품</th><th>크기 mm</th><th>재료</th><th>무게</th><th>출력 방향</th></tr></thead><tbody id="tp"></tbody></table>
+    <h2>살 것 (가격 추정)</h2>
+    <table><thead><tr><th>품목</th><th>수량</th><th>원</th><th>메모</th></tr></thead><tbody id="tb"></tbody></table>
+    <div id="thrOnly">
+      <h2>버튼 지도 (10 개 입력 + 축 1)</h2>
+      <table><thead><tr><th>FreeJoy</th><th>기능</th><th>부품</th><th>자리</th><th>74HC165</th></tr></thead><tbody id="bt"></tbody></table>
+      <h2>배선 (스틱과 같은 STM32F103 블루필 · FreeJoy)</h2>
+      <table><thead><tr><th>블루필 핀</th><th>연결</th><th>메모</th></tr></thead><tbody>
+        <tr><td>3.3 V / GND</td><td>AS5600 전부, 74HC165</td><td>AS5600 은 <b>3.3 V</b> 로 (ADC 최대 3.3 V)</td></tr>
+        <tr><td>PA2 (ADC)</td><td>스로틀 AS5600 OUT</td><td>FreeJoy 는 I2C AS5600 을 1 개만 읽음 → 모두 아날로그 모드</td></tr>
+        <tr><td>PA3 / PA4 / PA5</td><td>러더 · 왼 브레이크 · 오른 브레이크 AS5600 OUT</td><td>PA0 · PA1 = 스틱 롤 · 피치로 가정 (스틱 담당과 확인)</td></tr>
+        <tr><td>PB12 / PB13 / PB14</td><td>74HC165 CLK / LATCH (SH/LD) / DATA (QH)</td><td>손잡이 ↔ 보드 6심: 3.3 V · GND · CLK · LATCH · DATA · 스로틀 OUT</td></tr>
+      </tbody></table>
+      <p class="sub">AS5600 출력은 기본 360° = 0~3.3 V. 스로틀 60° 면 약 680 단계, 브레이크 18° 면 약 200 단계. 더 곱게 하려면 AS5600 의 ZPOS/MPOS 를 한 번 써서 (I2C, 최소 18°) 움직이는 범위만 0~3.3 V 로 펼침 (선택).</p>
+    </div>
+    <h2>힘 점검 (추정)</h2>
+    <p class="sub" id="sn"></p>
+    <table><thead><tr><th>항목</th><th>걸림</th><th>한계</th><th>여유</th></tr></thead><tbody id="ts"></tbody></table>
+    <h2>값 비교 (추정)</h2>
+    <table><thead><tr><th></th><th>출력 부품</th><th>필라멘트</th><th>총액</th></tr></thead><tbody>
+      <tr><td>스로틀 v3</td><td>12 개 (PLA+PETG)</td><td>약 490 g</td><td>약 9.4 만 원 (Pro Micro · TCA9548A 공용 1.3 만, 알루미늄 행거 2.5 만 포함, 버튼 없음)</td></tr>
+      <tr><td><b>스로틀 v4</b></td><td><b>6 개 (PLA)</b></td><td>약 400 g</td><td><b>약 3.7 만 원</b> (버튼 10 개 · 손잡이 포함, 보드는 스틱 것 공용)</td></tr>
+      <tr><td><b>발끝 브레이크 v4</b> (양쪽)</td><td>6 개 (한쪽 3)</td><td>약 500 g</td><td>약 3.1 만 원 (v3 페달 판 · 센서 받침을 대신함)</td></tr>
+    </tbody></table>
+    <h2>라이선스</h2>
+    <p class="sub">모양 아이디어 출처: <a href="https://www.printables.com/model/552322">Spock 「F-16 Viper Throttle」 (Printables 552322)</a> — <b>CC BY-NC</b>, 손잡이는 <a href="http://www.seedling.org/The_Official_Hempstick_Site/F16_Throttle.html">Hempstick Project</a> 모델 기반. 이 저장소에는 그 파일을 넣지 않았고, 손잡이 · 틀은 모두 우리 build123d 코드로 새로 그림. 자세한 F-16 손잡이를 쓰고 싶으면 원본을 직접 받아 CC BY-NC 조건(비상업 · 출처 표시)으로 사용.</p>
+    <h2>남은 일</h2>
+    <ul class="t" id="todo"></ul>
+    <p class="muted">모델 만든 시각 <span id="mt"></span> · <span id="chk"></span></p>
+  </aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="js/ctl_viewer.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const BRK=/dev=brk/.test(location.hash);
+window.addEventListener("hashchange",()=>location.reload());
+$(BRK?"t_brk":"t_thr").classList.add("on");
+const won=n=>n.toLocaleString("ko-KR");
+const TODO_T=["손잡이 모양은 단순화한 것 — 출력해서 손에 맞는지 먼저 확인 (손바닥 쪽 반쪽만 시험 출력 추천)",
+ "아이들 / AB 걸림(디텐트) 없음 — 각도로 판별 (FreeJoy 축→버튼). 손 느낌이 필요하면 틀에 볼 플런저 하나 추가",
+ "블루필 핀 (PA0~PA5, PB12~14) 은 스틱 담당과 맞춰야 함. docs/controls-firmware.html 은 아직 Pro Micro + TCA9548A 기준",
+ "608 자리 22.1 · Ø8 구멍은 프린터마다 다름 — 틀 한쪽 볼만 먼저 시험 출력"];
+const TODO_B=["v3 캐리지의 브레이크 스프링 다리는 이제 안 씀 (그대로 둬도 됨). 멈춤 기둥 윗면에 Ø3.3 구멍을 뚫어 M4 로 바탕을 고정",
+ "스프링 (OD 12 × 26, 밀착 ≤ 11 mm) 이 실제로 있는지 · 세기 확인 — 발끝 힘 5 → 45 N (추정)",
+ "바탕 굽힘 여유 1.7 (1000 N 밟기, 추정) — 시험 후 금 가면 갈비를 더 깊게",
+ "AS5600 18° 는 기본 출력으로 약 200 단계 — 부족하면 MPOS 프로그래밍"];
+const col=p=>{const n=p.name;if(/^frame|pedal_base/.test(n))return 0x3b4149;if(/^lever|toe_plate/.test(n))return 0xd9822b;if(/^grip/.test(n))return 0x2b3036;
+ if(/sensor_cap/.test(n))return 0x7d5ba6;if(/friction_shoe/.test(n))return 0x8a6b4a;if(/felt/.test(n))return 0x6d5a40;if(/as5600/.test(n))return 0x1f7a44;
+ if(/buttons/.test(n))return 0xc0392b;if(/spring/.test(n))return 0xb7bdc4;return 0xa9afb6};
+const EXT={frame:[0,0,-40],bearing_L:[0,60,0],bearing_R:[0,-60,0],sensor_cap:[0,90,0],as5600:[0,80,0],magnet:[0,60,0],shaft:[0,30,0],friction_shoe:[-40,0,0],felt_pad:[-30,0,0],
+ friction_screw:[-80,0,0],lever:[0,0,30],grip_L:[0,70,90],grip_R:[0,-70,90],buttons:[0,-110,110]};
+let cfg;
+if(!BRK){
+ $("lead").innerHTML="<b>결론:</b> 레버 1 개 · Ø8 축 · 608 두 개 · 펠트 마찰 · 기계 멈춤 · AS5600 하나. 출력 부품 <b>6 개 (모두 PLA)</b>, 손잡이에 버튼 10 개 (4방향 햇 + 누름, 3단 토글 2, 버튼 2). 바닥은 v3 와 같은 170×90 · M6 구멍 4 개라 <b>지금 스로틀 선반에 그대로</b> 올라감. 값 약 3.7 만 원 (추정).";
+ cfg={base:"../hardware/throttle_v4/",groups:{lever:{pivot:[0,0,60],axis:"y",ang:s=>s.ang}},explode:p=>EXT[p.name]||[0,0,0],xray:p=>/^frame|sensor_cap/.test(p.name),
+  target:[0,0,120],camDir:[0.7,-1,0.45],dist:800,sliders:[{id:"ang",val:0,fmt:v=>v+"°"}]};
+}else{
+ $("ttl").textContent="발끝 브레이크 v4 — v3 페달에 덧붙임";$("thrOnly").style.display="none";$("angl").firstChild.textContent="브레이크 (발끝 판 각도) ";
+ $("ang").min=0;$("ang").max=18;
+ $("lead").innerHTML="<b>결론:</b> v3 페달 판 자리에 <b>고정 바탕</b>을 두고, 위쪽 105 mm 만 <b>발볼에서 꺾이는 발끝 판</b>으로. 스프링 1 개, AS5600 1 개, 한쪽 <b>출력 3 개</b>. 끝까지 누르면 발끝 판이 바탕에 납작하게 닿아 그대로 멈춤 (세게 밟아도 판 전체로 받음). v3 캐리지 · 레일 · 러더는 그대로.";
+ const EB={};["L","R"].forEach((s,i)=>{const d=i?-1:1;Object.assign(EB,{[`toe_plate_${s}`]:[-40,0,40],[`toe_sensor_cap_${s}`]:[0,d*60,0],[`as5600_toe_${s}`]:[0,d*50,0],[`toe_pin_${s}`]:[0,d*20,20],[`toe_spring_${s}`]:[20,0,20]})});
+ cfg={base:"../hardware/pedals/stl_brakes_v4/",groups:{toeL:{pivot:[10.55,0,169.02],axis:"y",ang:s=>s.ang},toeR:{pivot:[10.55,0,169.02],axis:"y",ang:s=>s.ang}},
+  explode:p=>EB[p.name]||[0,0,0],xray:p=>/pedal_base/.test(p.name),target:[40,0,120],camDir:[-1,-0.8,0.5],dist:900,sliders:[{id:"ang",val:0,fmt:v=>v+"°"}]};
+}
+cfg.color=col;
+cfg.onData=d=>{
+ const m=d.meta;$("mt").textContent=m.created;
+ const bad=d.check.filter(c=>c.hits.length).length;$("chk").textContent=bad?`겹침 ${bad} 자세`:`${d.check.length} 자세 겹침 없음`;
+ const kv=BRK?[["발끝 판","경첩 = 발뒤꿈치 핀에서 "+m.toe_hinge_s+" mm 위, 쉴 때 "+m.brake_deg+"° 들림 (끝 = 발끝에서 약 32 mm)"],["멈춤","발끝 판이 바탕 뒤판에 닿음: 모델 "+d.stop_hit_deg+"°"],
+   ["발끝 힘 (추정)",d.spring_curve.map(r=>r.brake_deg+"° "+r.toe_N_at_s200+" N").join(" · ")],["바탕 고정","v3 Ø8 뒤꿈치 핀 + 발 2 개가 v3 멈춤 기둥 위 (M4 하나씩)"]]
+  :[["이동",`${m.travel_deg[0]}° ~ +${m.travel_deg[1]}° = 손에서 약 ${m.arc_mm} mm (축 → 손 ${m.l_hand} mm)`],["멈춤 (모델)",`앞 ${d.stops_hit_deg.fwd}° · 뒤 ${d.stops_hit_deg.back}° 에서 팔이 막대에 닿음`],
+   ["마찰",`신발 ${d.strength.friction.shoe_N} N 이면 손에서 약 ${d.strength.friction.hand_N} N (μ 0.3 추정), 별 나사로 조절`],["크기","바닥 170 × 90 (v3 와 같은 구멍), 축 높이 60, 손잡이 위끝 약 236"]];
+ $("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
+ let g=0,n=0;for(const p of d.parts.filter(p=>p.kind==="print")){g+=p.grams;n++;$("tp").insertAdjacentHTML("beforeend",`<tr data-n="${p.name}"><td><span class="sw" style="background:#${col(p).toString(16).padStart(6,"0")}"></span></td><td>${p.note.split(/[:(]/)[0]}<br><span class="muted">${p.name}.stl</span></td><td>${p.size.join("×")}</td><td>${p.material}</td><td class="n">${p.grams} g</td><td>${p.orient||""}</td></tr>`)}
+ $("pc").textContent=n+" 개";
+ const fil=Math.ceil(g*1.15/10)*10,fc=fil*25;let t=fc;
+ for(const b of d.buy){t+=b.krw;$("tb").insertAdjacentHTML("beforeend",`<tr><td>${b.name}</td><td>${b.qty}</td><td class="n">${won(b.krw)}</td><td>${b.note}</td></tr>`)}
+ $("tb").insertAdjacentHTML("beforeend",`<tr><td>PLA 필라멘트</td><td>${fil} g</td><td class="n">${won(fc)}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${won(t)}원</td><td>배송비 제외</td></tr>`);
+ if(!BRK)for(const b of d.buttons)$("bt").insertAdjacentHTML("beforeend",`<tr><td>${b.id}</td><td>${b.name}</td><td>${b.part}</td><td>${b.where}</td><td>${b.sr}</td></tr>`);
+ if(!BRK)$("bt").insertAdjacentHTML("beforeend",`<tr><td>축</td><td>스로틀</td><td>AS5600 (아날로그)</td><td>축 끝</td><td>PA2</td></tr>`);
+ const S=d.strength;$("sn").textContent=BRK?S.note:`손잡이를 ${S.panic_N} N 으로 끝까지 세게 밀 때 (추정). 막대가 받는 힘 ${S.stop_force_N} N. PLA 층 안 50 / 층 사이 20 / 압축 60 MPa (추정).`;
+ for(const r of S.rows.concat(S.creep||[]))$("ts").insertAdjacentHTML("beforeend",`<tr><td>${r.name}${r.note?`<br><span class="muted">${r.note}</span>`:""}</td><td class="n">${r.load} ${r.unit}</td><td class="n">${r.limit}</td><td class="n ${r.sf<1.5?"warn":""}">${r.sf}</td></tr>`);
+ $("todo").innerHTML=(BRK?TODO_B:TODO_T).map(x=>`<li>${x}</li>`).join("");
+ document.querySelectorAll("tr[data-n]").forEach(r=>r.onclick=()=>V.select(r.dataset.n));
+};
+let V=CtlViewer(cfg);
+</script>
+</body>
+</html>
