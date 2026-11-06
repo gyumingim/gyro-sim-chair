@@ -9,6 +9,10 @@ Realism v2 (Scripts/realism_v2.py, docs/realism-v2-plan.md): every view is taken
 session (GYROSIM_SHOTS_V2, default 'off,on' -> <preset>_v1_<view>.png / <preset>_v2_<view>.png). GYROSIM_OFFSCREEN=1
 (default) keeps the editor windows off the desktop without taking focus (busan_check.py method). GYROSIM_SHOTS_QUIT=1
 quits the editor at the end (after the GPU measurement; GYROSIM_FPS_V2_AB=1 measures v2 then v1 -> fps_<label>_v1.json).
+Canopy A/B (11-06): GYROSIM_SHOTS_V2 also takes 'v3' (= v2 values + canopy M_CkCanopyV3; 'on' = v2 values + the V2 canopy),
+GYROSIM_CANOPY_BUILD=1 (re)builds M_CkCanopyV3 before PIE (no level rebuild), GYROSIM_FPS_STATES='v3,on' measures those
+states one after another (fps_<label>.json, fps_<label>_on.json). GYROSIM_SHOTS_DIR = output folder (V-World / Busan
+imagery must stay outside git: C:/GyroSimTiles/shots/...), GYROSIM_SHOTS_VIEWS = comma list of view names to keep.
 """
 import json, os, time
 import unreal
@@ -24,7 +28,7 @@ log = lambda *a: unreal.log("[shots] " + " ".join(str(x) for x in a))
 les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
 LABEL = os.environ.get("GYROSIM_SHOTS_LABEL", "run")
-OUT = os.path.join(unreal.Paths.project_saved_dir(), "verify", "realism", LABEL)
+OUT = os.environ.get("GYROSIM_SHOTS_DIR") or os.path.join(unreal.Paths.project_saved_dir(), "verify", "realism", LABEL)
 os.makedirs(OUT, exist_ok=True)
 C = sim_client.client
 SAY = lambda m: C()._send(m)
@@ -34,8 +38,23 @@ VIEWS = [("hud", "air", "cockpit", 0.0, 0.0, False), ("lookdown", "air", "cockpi
          ("left", "air", "cockpit", -42.0, -62.0, False), ("right", "air", "cockpit", -30.0, 55.0, False),
          ("sun", "air", "cockpit", 22.0, -38.0, False),
          ("rw_lookdown", "runway", "cockpit", -35.0, 0.0, True), ("rw_chase", "runway", "chase", 0.0, 0.0, False)]
+if os.environ.get("GYROSIM_SHOTS_VIEWS"):
+    VIEWS = [v for v in VIEWS if v[0] in os.environ["GYROSIM_SHOTS_VIEWS"].split(",")]
 PRESETS = os.environ.get("GYROSIM_SHOTS_PRESETS", "monitor,vr").split(",")
-V2STATES = [x.strip() == "on" for x in os.environ.get("GYROSIM_SHOTS_V2", "off,on").split(",")]
+V2TOK = [x.strip() for x in os.environ.get("GYROSIM_SHOTS_V2", "off,on").split(",")]
+V2STATES = [t != "off" for t in V2TOK]
+TAG = {"off": "v1", "on": "v2", "v3": "v3"}
+
+
+def _state(tok):
+    """'off' = v1, 'on' = v2 values + V2 canopy, 'v3' = v2 values + V3 canopy."""
+    realism_v2.STATE["on"] = tok != "off"
+    realism_v2.STATE["canopy"] = "v3" if tok == "v3" else "v2"
+
+
+if os.environ.get("GYROSIM_CANOPY_BUILD") == "1" or ("v3" in V2TOK and
+                                                    not unreal.EditorAssetLibrary.does_asset_exist(realism_v2.CANOPY_V3)):
+    realism_v2.build_canopy_v3()
 ST = dict(t=time.monotonic(), pie=False, i=0, phase="wait_pie", h=None, mode=None, shots=[])
 
 
@@ -46,9 +65,9 @@ def cmd(c):
 def jobs():
     out = []
     for p in PRESETS:
-        for on in V2STATES:
+        for tok in V2TOK:
             for v in VIEWS:
-                out.append((p, on) + v)
+                out.append((p, tok) + v)
     return out
 
 
@@ -76,7 +95,7 @@ def tick(dt):
                 return
             preset, on, name, mode, view, lp, ly, ld = JOBS[ST["i"]]
             if ST.get("look") != (preset, on):
-                realism_v2.STATE["on"] = on
+                _state(on)
                 sim_client.apply_preset(preset, ues.get_game_world())     # apply_look -> realism_v2 profile (hook)
                 c.preset = preset
                 c.hmd_check_t = now + 3600.0          # keep the forced preset (no headset)
@@ -96,9 +115,9 @@ def tick(dt):
             ST.update(phase="settle", t=now)
         elif ph == "settle" and el > ST["settle"]:
             preset, on, name = JOBS[ST["i"]][:3]
-            fn = os.path.join(OUT, "%s_%s_%s.png" % (preset, "v2" if on else "v1", name)).replace("\\", "/")
+            fn = os.path.join(OUT, "%s_%s_%s.png" % (preset, TAG.get(on, on), name)).replace("\\", "/")
             cmd("HighResShot 1600x900 filename=%s" % fn)
-            ST["shots"].append(dict(file=os.path.basename(fn), preset=preset, realism="v2" if on else "v1", view=name,
+            ST["shots"].append(dict(file=os.path.basename(fn), preset=preset, realism=TAG.get(on, on), view=name,
                                     alt_m=round(c.s.get("alt_m", 0), 1),
                                     psi=round(c.s.get("psi", 0), 1)))
             log("shot", fn)
@@ -134,6 +153,7 @@ def tick(dt):
             c.look_down, c.look_tgt, c.view = False, [0.0, 0.0], "cockpit"
             c.hmd_check_t = 0.0
             realism_v2.STATE["on"] = True
+            realism_v2.STATE["canopy"] = os.environ.get("GYROSIM_CANOPY", "v2")
             sim_client.apply_preset("monitor", ues.get_game_world())
             c.preset = "monitor"
             with open(os.path.join(OUT, "shots.json"), "w") as f:
@@ -146,7 +166,10 @@ def tick(dt):
             fps_runs = []
             if os.environ.get("GYROSIM_FPS_LABEL"):
                 base = os.environ["GYROSIM_FPS_LABEL"]
-                fps_runs = [(base, V2STATES[-1])] + ([(base + "_v1", False)] if os.environ.get("GYROSIM_FPS_V2_AB") == "1" else [])
+                fps_runs = [(base, V2TOK[-1])] + ([(base + "_v1", "off")] if os.environ.get("GYROSIM_FPS_V2_AB") == "1" else [])
+                if os.environ.get("GYROSIM_FPS_STATES"):
+                    fs = [t.strip() for t in os.environ["GYROSIM_FPS_STATES"].split(",")]
+                    fps_runs = [(base if i == 0 else base + "_" + t, t) for i, t in enumerate(fs)]
             ST2 = dict(t=time.monotonic(), h=None, runs=fps_runs, wait=None)
             vdir = os.path.join(unreal.Paths.project_saved_dir(), "verify")
 
@@ -167,7 +190,7 @@ def tick(dt):
                 if ST2["runs"]:
                     lbl, on = ST2["runs"].pop(0)
                     os.environ["GYROSIM_FPS_LABEL"] = lbl
-                    realism_v2.STATE["on"] = on
+                    _state(on)
                     ST2["wait"] = (os.path.join(vdir, "fps_%s.json" % lbl), time.time())
                     ST2["t"] = now2
                     p = os.path.join(unreal.Paths.project_dir(), "Scripts", "measure_fps.py")
@@ -175,6 +198,7 @@ def tick(dt):
                     return
                 unreal.unregister_slate_post_tick_callback(ST2["h"])
                 realism_v2.STATE["on"] = True
+                realism_v2.STATE["canopy"] = os.environ.get("GYROSIM_CANOPY", "v2")
                 realism_v2.stop_offscreen()
                 if os.environ.get("GYROSIM_SHOTS_QUIT") == "1":
                     log("quit")

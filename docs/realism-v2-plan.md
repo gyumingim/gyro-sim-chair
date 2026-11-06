@@ -113,6 +113,14 @@ Stop-Process -Id $srv.Id
 - GPU ms (`Saved/verify/fps_before_old.json` / `fps_v2ab_v1.json` / `fps_v2ab.json`, 각 1회, 잡음 ~0.2~0.3): 조종석 1080p 3.71 (옛 조종석+v1) → 4.00 (새 조종석+v1) → 4.13 (새+v2); VR 픽셀 흉내 4.74 → 4.97 → 5.09.
 - 남은 것: 바다·땅 색(1.6·1.7), 캐노피 하늘 반사는 그림에서 거의 안 보임(값 키울지 판단 필요), 해 쪽 하늘의 네모 경계선(v1 부터 있음).
 
+## 3.2 캐노피 V3 시도 (11-06, 미완 — 화면에서 확인 안 됨)
+- `realism_v2.py`: `M_CkCanopyV3` (SceneColor 로 뒤 장면을 받아 색 필터 = 금색 틴트, 비스듬할수록 진해짐, 프레넬 반사에 하늘 + 밝은 실내, 얼룩 안개). 기본은 **V2 그대로**, V3 은 `GYROSIM_CANOPY=v3` 로만 켬. `build_canopy_v3()` = 레벨 재빌드 없이 재질만 만듦.
+- `realism_shots.py`: `GYROSIM_SHOTS_V2=on,v3` (V2 대 V3 같은 세션), `GYROSIM_SHOTS_DIR`, `GYROSIM_SHOTS_VIEWS`, `GYROSIM_FPS_STATES`, `GYROSIM_CANOPY_BUILD`, 진단용 `GYROSIM_CANOPY_DEBUG=1`(초록 유리).
+- **문제**: 그림(C:\GyroSimTiles\shots\canopy_v3, canopy_v3b, canopy_v3c, canopy_dbg2)에서 V2 와 V3 가 같음. 초록 진단 재질도 화면에 안 나옴 → 캐노피 재질 변경이 PIE 화면에 반영되지 않음. 그러므로 11-05 의 "하늘 반사 거의 안 보임" 도 값 문제가 아니라 **캐노피 메시(F16_Glass)에 바꾼 재질이 실제로 그려지지 않는 문제**일 가능성 (추정).
+  - 찾은 것: ① SceneColor 를 ComponentMask 에 연결하면 연결 실패 → 컴파일 실패(고침: 바로 연결). ② 헤드리스(-nullrhi) 빌드로 만든 V3 를 에디터가 열 때 "Custom missing input 1 (LP)" 컴파일 실패 로그 — 헤드리스로 만든 재질 연결이 저장되지 않았을 수 있음. ③ 컴파일 실패해도 `get_statistics` 는 명령 수 328 을 보고 → 명령 수로 성공 판정 불가.
+  - 다음: 에디터 안에서 캐노피 액터의 실제 재질(`get_material`)과 `M_CkCanopyV3` 컴파일 오류 목록을 PIE 중에 로그로 찍기, 유리 앞에 보이는 긁힘이 정말 F16_Glass 에서 오는지 (메시 숨김 A/B) 확인.
+- GPU (각 1회, 잡음 ~0.2 ms): 조종석 1080p V3 4.10 / V2 4.23, VR 픽셀 5.19 / 5.20 — V3 가 실제로 그려지지 않았을 수 있어 **비용 근거로 쓰지 말 것**.
+
 ## 4. 2단계로 미룬 것 / 위험
 
 - **VR 훅**(2.2): `sim_client.apply_look` 끝에 `realism_v2.apply_profile(name, world)` (Scripts 경로 추가) 또는 `init_unreal.py` 에서 `install_hook`. 이것 전에는 VR 에서 모니터 값이 쓰임.

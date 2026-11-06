@@ -10,7 +10,8 @@ Two entry points:
                               v1 values (same session before / after, see realism_shots.py GYROSIM_SHOTS_V2).
   install_hook(sim_client)    wraps sim_client.apply_look so every preset switch also applies the v2 profile (used by
                               realism_shots.py / measure_fps.py; the permanent hook in sim_client is a phase-2 step).
-Switches: GYROSIM_REALISM_V2=0 at build = pure v1 level; GYROSIM_REALISM_V2_RUNTIME=off = v1 values at runtime.
+Switches: GYROSIM_REALISM_V2=0 at build = pure v1 level; GYROSIM_REALISM_V2_RUNTIME=off = v1 values at runtime;
+GYROSIM_CANOPY=v2 (or STATE['canopy']='v2' + preset re-apply) = the 11-05 V2 canopy glass instead of V3 (default).
 GPU cost numbers in comments are estimates (not measured) until phase 2.
 """
 import os
@@ -18,11 +19,13 @@ import unreal
 
 log = lambda *a: unreal.log("[realism_v2] " + " ".join(str(x) for x in a))
 ENABLED = os.environ.get("GYROSIM_REALISM_V2", "1") != "0"
-STATE = dict(on=os.environ.get("GYROSIM_REALISM_V2_RUNTIME", "on") != "off", mids={})
+STATE = dict(on=os.environ.get("GYROSIM_REALISM_V2_RUNTIME", "on") != "off", mids={},
+             canopy=os.environ.get("GYROSIM_CANOPY", "v2"))        # canopy glass with v2 on: "v2" (default) or "v3" (opt-in, not verified on screen yet)
 
 CK_MAT = "/Game/Cockpit/Materials"
 CANOPY_V1 = CK_MAT + "/M_CkCanopy"
 CANOPY_V2 = CK_MAT + "/M_CkCanopyV2"
+CANOPY_V3 = CK_MAT + "/M_CkCanopyV3"
 CLOUD_MI = "/Game/Materials/MI_Clouds"
 
 # ---- values -----------------------------------------------------------------------------------------------------------
@@ -93,6 +96,180 @@ op = saturate(op + F + TintAmt);
 float3 e = SunCol * (scr * glint * Gain + smu * halo * HaloGlow + veil * VeilGlow) + Env * F * inside + Bg * TintCol * TintAmt;
 return float4(e / max(op, 0.02), op);
 """
+
+
+# canopy V3 (11-06, "glass must be visible like F-16 photos / renders"): the glass now replaces the scene behind it
+# (SceneColor, opacity 1) instead of alpha-blending a sky estimate, so the amber tint is a real per-channel filter:
+#   out = SceneBehind * Tr * (1-F) + Refl * F + glints / halo / veil + smudge haze
+#   Tr  = lerp(1, TintCol, TintAmt) ^ min(1/cos, PathMax)   (Beer path length: clear straight ahead, deeper gold and a
+#         visible "thickness" toward the grazing edges / sill)
+#   Refl = sky light cube map for mirror rays going up, the lit cockpit interior (glare shield, sill, pilot) for rays going
+#          down into the tub: EnvUp (sky light from above, = what lights the tub) x InCol x (1 + InSun x sun height).
+#          V2 set this to black ("dark tub"), which is why its reflection was barely visible.
+# Values are look-matched to photos (estimates, not measured). The HUD is in the after-motion-blur pass -> not tinted.
+CANOPY_V3_PARAMS = (("Tile", 1.3), ("Gain", 0.7), ("HaloGlow", 0.08),
+                    ("F0", 0.08),        # polycarbonate 0.05 + gold / ITO coating (estimate)
+                    ("ReflAmt", 1.0),
+                    ("TintAmt", 0.25),   # straight ahead: (1, 0.955, 0.88) transmission
+                    ("PathMax", 3.0),    # grazing (the raked F-16 front is mostly here): up to 3x the path -> (1, 0.87, 0.68)
+                    ("InSun", 3.0),      # sun-lit interior ~3x brighter than the sky-lit one (estimate)
+                    ("SmudgeAmt", 0.05), # faint haze where the smudge texture is (stronger toward the sun)
+                    ("VeilPow", 8.0), ("VeilGlow", 0.03))
+CANOPY_V3_TINT = (1.0, 0.82, 0.52)
+CANOPY_V3_INCOL = (0.11, 0.105, 0.10)  # mean interior albedo seen in the glass (grey panels, black glare shield, suit)
+
+CANOPY_V3_HLSL = """
+float3 d = LP - Eye;
+float az = atan2(d.y, d.x);
+float el = atan2(d.z, length(d.xy));
+float4 t = Texture2DSample(T, TSampler, float2(az, -el) * Tile);
+float scr = t.r;
+float smu = t.g;
+float3 v = normalize(CV);
+float c = saturate(dot(-v, normalize(Sun)));
+float glint = pow(c, 40.0);
+float halo = pow(c, 4.0);
+float veil = pow(c, VeilPow);
+float cosv = max(abs(dot(v, normalize(N))), 0.05);
+float F = saturate((F0 + (1.0 - F0) * pow(1.0 - cosv, 5.0)) * ReflAmt);
+float3 Tr = pow(saturate(lerp(float3(1.0, 1.0, 1.0), TintCol, TintAmt)), min(1.0 / cosv, PathMax));
+float3 up = normalize(Up);
+float inside = saturate((dot(normalize(R), up) + 0.15) * 4.0);
+float3 tub = EnvUp * InCol * (1.0 + InSun * saturate(dot(normalize(Sun), up)));
+float3 refl = lerp(tub, Env, inside);
+float h = smu * SmudgeAmt * (0.4 + 0.6 * halo);
+float3 e = SC * Tr * (1.0 - F) * (1.0 - h) + refl * F + EnvUp * h
+         + SunCol * (scr * glint * Gain + smu * halo * HaloGlow + veil * VeilGlow);
+return float4(e, 1.0);
+"""
+
+
+def _mat_helpers():
+    """the build_level.py material helpers, for building the canopy outside a level build (realism_shots.py)."""
+    MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
+
+    def _new_material(name, folder):
+        path = folder + "/" + name
+        if EAL.does_asset_exist(path):
+            m = unreal.load_asset(path)
+            MEL.delete_all_material_expressions(m)
+            return m
+        return unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.Material, unreal.MaterialFactoryNew())
+
+    def _finish(m):
+        MEL.recompile_material(m)
+        EAL.save_loaded_asset(m)
+        return m
+
+    def _expr(m, cls, x, y, **props):
+        e = MEL.create_material_expression(m, cls, x, y)
+        for k, v in props.items():
+            e.set_editor_property(k, v)
+        return e
+
+    def _const3(m, c, x, y):
+        return _expr(m, unreal.MaterialExpressionConstant3Vector, x, y, constant=unreal.LinearColor(c[0], c[1], c[2], 1.0))
+
+    def _sparam(m, n, v, x, y):
+        return _expr(m, unreal.MaterialExpressionScalarParameter, x, y, parameter_name=n, default_value=v)
+
+    def _vparam(m, n, c, x, y):
+        return _expr(m, unreal.MaterialExpressionVectorParameter, x, y, parameter_name=n,
+                     default_value=unreal.LinearColor(c[0], c[1], c[2], 1.0))
+    import sim_client
+    return dict(_new_material=_new_material, _finish=_finish, _expr=_expr, _const3=_const3, _sparam=_sparam, _vparam=_vparam,
+                EYE=tuple(sim_client.EYE))
+
+
+def level_sun_dir(world=None):
+    world = world or unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+    for a in _actors(world, unreal.DirectionalLight):
+        f = a.get_actor_forward_vector()
+        return (-f.x, -f.y, -f.z)
+    return (0.6, 0.45, 0.62)
+
+
+def _canopy_v3(g, sun_dir):
+    _new_material, _expr, _sparam, _vparam, _const3, _finish = (g[k] for k in ("_new_material", "_expr", "_sparam", "_vparam",
+                                                                                 "_const3", "_finish"))
+    MEL = unreal.MaterialEditingLibrary
+    m = _new_material("M_CkCanopyV3", CK_MAT)
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    m.set_editor_property("two_sided", True)
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    cu = _expr(m, unreal.MaterialExpressionCustom, -600, 0)
+    cu.set_editor_property("code", CANOPY_V3_HLSL)
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT4)
+    names = ("LP", "CV", "N", "R", "Up", "Sun", "SunCol", "T", "Eye", "Env", "EnvUp", "SC", "TintCol", "InCol") + \
+        tuple(n for n, _ in CANOPY_V3_PARAMS)
+    ins = []
+    for n in names:
+        ci = unreal.CustomInput()
+        ci.set_editor_property("input_name", n)
+        ins.append(ci)
+    cu.set_editor_property("inputs", ins)
+
+    def rgb(src, x, y):
+        k = _expr(m, unreal.MaterialExpressionComponentMask, x, y, r=True, g=True, b=True, a=False)
+        MEL.connect_material_expressions(src, "", k, "")
+        return k
+    lp = _expr(m, unreal.MaterialExpressionTransformPosition, -1000, -300,
+               transform_source_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD,
+               transform_type=unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+    MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionWorldPosition, -1200, -300), "", lp, "")
+    MEL.connect_material_expressions(lp, "", cu, "LP")
+    cv = _expr(m, unreal.MaterialExpressionCameraVectorWS, -1000, -220)
+    MEL.connect_material_expressions(cv, "", cu, "CV")
+    MEL.connect_material_expressions(_expr(m, unreal.MaterialExpressionVertexNormalWS, -1000, -160), "", cu, "N")
+    rv = _expr(m, unreal.MaterialExpressionReflectionVectorWS, -1000, -100)
+    MEL.connect_material_expressions(rv, "", cu, "R")
+    up = _expr(m, unreal.MaterialExpressionTransform, -1000, -40,
+               transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_LOCAL,
+               transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
+    MEL.connect_material_expressions(_const3(m, (0.0, 0.0, 1.0), -1200, -40), "", up, "")
+    MEL.connect_material_expressions(up, "", cu, "Up")
+    MEL.connect_material_expressions(rgb(_vparam(m, "SunDir", sun_dir, -1400, 20), -1200, 20), "", cu, "Sun")
+    MEL.connect_material_expressions(rgb(_vparam(m, "SunColor", (1.0, 0.96, 0.9), -1400, 80), -1200, 80), "", cu, "SunCol")
+    t = _expr(m, unreal.MaterialExpressionTextureObjectParameter, -1000, 140, parameter_name="Scratch")
+    st = unreal.load_asset("/Game/Cockpit/Textures/T_CkCanopyScratch")
+    if st:
+        t.set_editor_property("texture", st)
+    MEL.connect_material_expressions(t, "", cu, "T")
+    MEL.connect_material_expressions(_const3(m, g["EYE"], -1000, 200), "", cu, "Eye")
+    env = _expr(m, unreal.MaterialExpressionSkyLightEnvMapSample, -1000, 260)
+    MEL.connect_material_expressions(rv, "", env, "Direction")
+    MEL.connect_material_expressions(_sparam(m, "EnvRough", 0.06, -1200, 260), "", env, "Roughness")
+    envup = _expr(m, unreal.MaterialExpressionSkyLightEnvMapSample, -1000, 330)
+    MEL.connect_material_expressions(up, "", envup, "Direction")
+    MEL.connect_material_expressions(_sparam(m, "UpRough", 1.0, -1200, 330), "", envup, "Roughness")
+    MEL.connect_material_expressions(env, "", cu, "Env")
+    MEL.connect_material_expressions(envup, "", cu, "EnvUp")
+    sc = _expr(m, unreal.MaterialExpressionSceneColor, -1000, 400)    # float3 (a ComponentMask on it fails to connect)
+    if not MEL.connect_material_expressions(sc, "", cu, "SC"):
+        log("canopy v3: SceneColor not connected")
+    dbg = os.environ.get("GYROSIM_CANOPY_DEBUG") == "1"      # diagnostic: pure green glass (is V3 really on screen?)
+    MEL.connect_material_expressions(rgb(_vparam(m, "TintCol", (0.0, 1.0, 0.0) if dbg else CANOPY_V3_TINT, -1400, 460), -1200, 460),
+                                     "", cu, "TintCol")
+    MEL.connect_material_expressions(rgb(_vparam(m, "InCol", CANOPY_V3_INCOL, -1400, 520), -1200, 520), "", cu, "InCol")
+    for i, (n, v) in enumerate(CANOPY_V3_PARAMS):
+        MEL.connect_material_expressions(_sparam(m, n, 1.0 if (dbg and n == "TintAmt") else v, -1000, 580 + 60 * i), "", cu, n)
+    e = _expr(m, unreal.MaterialExpressionComponentMask, -300, -50, r=True, g=True, b=True, a=False)
+    MEL.connect_material_expressions(cu, "", e, "")
+    MEL.connect_material_property(e, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(_expr(m, unreal.MaterialExpressionConstant, -300, 80, r=1.0), "", unreal.MaterialProperty.MP_OPACITY)
+    m = _finish(m)
+    try:
+        n = MEL.get_statistics(m).num_pixel_shader_instructions
+    except Exception as ex:
+        n = -1
+        log("canopy v3 stats", repr(ex))
+    log("M_CkCanopyV3 compiled: pixel instructions", n)
+    return m
+
+
+def build_canopy_v3(world=None):
+    """standalone (open editor, no level rebuild): (re)builds M_CkCanopyV3 with the level's sun direction."""
+    return _canopy_v3(_mat_helpers(), level_sun_dir(world))
 
 
 # ---- canopy material (build time, needs build_level's helpers) --------------------------------------------------------
@@ -193,6 +370,12 @@ def build(g):
         sg = (g.get("F16") or {}).get("F16_Glass")
         if sg:
             cm = _canopy_v2(g, (-sd.x, -sd.y, -sd.z))
+            try:
+                c3 = _canopy_v3(g, (-sd.x, -sd.y, -sd.z))
+                if STATE["canopy"] == "v3":
+                    cm = c3
+            except Exception as e3:
+                log("canopy v3 failed (v2 kept)", repr(e3))
             for i in range(len(sg.static_materials)):
                 sg.set_material(i, cm)
             unreal.EditorAssetLibrary.save_loaded_asset(sg)
@@ -305,13 +488,20 @@ def _cloud_density(world, comp, dens):
 
 
 def _canopy(world, on):
-    m = unreal.load_asset(CANOPY_V2 if on else CANOPY_V1)
+    path = CANOPY_V1 if not on else (CANOPY_V3 if STATE.get("canopy") == "v3" else CANOPY_V2)
+    if path == CANOPY_V3 and not unreal.EditorAssetLibrary.does_asset_exist(CANOPY_V3):
+        path = CANOPY_V2
+    m = unreal.load_asset(path)
     if not m:
-        log("canopy material missing", CANOPY_V2 if on else CANOPY_V1)
+        log("canopy material missing", path)
         return
     for a in unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"):
         smc = a.get_component_by_class(unreal.StaticMeshComponent)
         if smc:
+            try:                                # V3 is opaque over the scene: drawn before every other translucent
+                smc.set_translucent_sort_priority(-10 if path == CANOPY_V3 else 0)
+            except Exception as e:
+                log("canopy sort", repr(e)[:100])
             for i in range(smc.get_num_materials()):
                 smc.set_material(i, m)
 
