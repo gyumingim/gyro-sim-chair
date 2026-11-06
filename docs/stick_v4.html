@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>센터 스틱 v4 (단순판) + F-16 손잡이</title>
+<link rel="stylesheet" href="js/ctl.css">
+</head>
+<body>
+<div id="app">
+  <div id="view"><div id="hud">드래그 = 돌리기 · 휠 = 확대 · 부품 클릭 = 설명</div></div>
+  <aside>
+    <h1>센터 스틱 v4 — 십자 짐벌 + 스프링 1 개 (출력 7 개, 전부 PLA)</h1>
+    <p class="lead"><b>결론:</b> 캠 · 롤러 · 레버 · 클러치를 다 뺐다. <b>십자 (U 조인트) + 608 4 개</b>, 가운데 잡기는 <b>압축 스프링 1 개가 판을 허브 평면에 미는 방식</b> (싼 조이스틱과 같은 원리, 가운데 걸림 있음). 멈춤 = 관의 링이 뚜껑 둥근 구멍에 닿음 (모든 방향 약 ±12.75°).
+    출력 7 개 · 산 부품 11 종. <b>받침 값 약 5.7 만 원</b> (v3 약 7.8 만, 추정). 손잡이 = 공개 F-16 손잡이 (CC BY-NC-SA, <b>저장소에 파일 없음</b>) 를 우리 어댑터로 Ø20 관에 연결, 입력 24 개.</p>
+    <div class="box">
+      <label>roll (좌우) <b id="rollv">0°</b></label><input id="roll" type="range" min="-12.5" max="12.5" step="0.5">
+      <label>pitch (+ = 앞으로 밂) <b id="pitchv">0°</b></label><input id="pitch" type="range" min="-12.5" max="12.5" step="0.5">
+      <label>분해 보기</label><input id="exp" type="range" min="0" max="100" value="0">
+      <label class="chk"><input type="checkbox" id="xray">상자 반투명 (속 보기)</label>
+      <div id="info" class="muted">부품을 누르면 설명이 나옵니다. 손잡이 자리 = 회색 원통 (모양 아님).</div>
+    </div>
+
+    <h2>주요 값</h2>
+    <div class="kv" id="kv"></div>
+
+    <h2>손에 걸리는 힘 (계산, 추정)</h2>
+    <div id="chart"></div>
+    <p class="sub">roll · pitch 같음 (둥근 판). 힘 = 스프링 힘 × (판이 닿는 허브 가장자리 팔) / 손 거리. 가운데에서 바로 약 4 N (= 예압 3 mm 의 이탈력), 끝 12° 에서 약 12 N.
+    판 ↔ 허브 미끄럼 마찰 · 608 마찰은 빼고 계산. 스프링 교체 (선경만 다르게) 로 가벼움 / 무거움.
+    <b>고무줄 (번지) 을 안 쓴 이유</b>: 축 가까이 (팔 60~80 mm) 에서 손 10 N 을 내려면 줄 하나가 약 2.5~5 N/mm 여야 하는데, Ø6 번지는 100 mm 토막이 약 1 N/mm 안팎 (추정) → 너무 약하고 늘어짐 · 노화.</p>
+
+    <h2>어떻게 움직이나</h2>
+    <ul class="t">
+      <li><b>짐벌</b>: roll 틀 (십자 바깥) 이 상자 앞뒤 벽의 608 2 개에서 x 축으로 돎 (Ø8 리니어 샤프트 토막 2, 틀에 M3 무두볼트). 허브 (십자 안쪽) 는 틀 옆벽의 608 2 개에서 y 축으로 돎 (Ø8 샤프트 83 mm, D컷 + M4 무두볼트).</li>
+      <li><b>가운데 잡기</b>: 허브 아래 Ø80 평면 ← 스프링 판 (Ø96, 뜸) ← 압축 스프링 (선경 5, 바깥 Ø40, 자유장 58, k ≈ 24 N/mm, 예압 3 mm). 기울이면 허브 가장자리가 판을 눌러 내림 → 되돌림 힘. 모든 방향 하나의 스프링.</li>
+      <li><b>멈춤</b>: 관에 끼운 PLA 링 Ø38 (M3 무두볼트) 이 뚜껑 구멍 Ø76 가장자리에 닿음. 손에서 약 ±145 mm. 손 200 N 이면 링에 약 1.6 kN → 뚜껑 안쪽 턱 4 개가 벽 면에 기대 받음 (나사 아님).</li>
+      <li><b>센서</b>: AS5600 × 2, 아날로그 출력 → 블루필 ADC. roll = 뒤 축 토막 끝 자석 + 뒤벽 바깥 보드, pitch = 샤프트 −y 끝 자석 + roll 틀 기둥 보드 (틀과 같이 움직임 = U 조인트에 맞음).</li>
+      <li><b>고정</b>: 바닥 날개 M6 ×4 (x ±70, y ±40) → 4040 가로대 2 개 T너트 (v3 와 같은 자리).</li>
+      <li><b>관</b>: 아래 Ø25×2.5 (507 mm, 허브 소켓 42 mm + M5 클램프 2) + 위 Ø20×2 (140 mm, 아래 60 mm 겹침) = v3 와 같은 관. 짐벌 중심 → 손 660 mm.</li>
+      <li><b>손잡이 어댑터</b>: 아래 = Ø20 소켓 40 mm (hardware/grips/INTERFACE.md, 뒤 4×6 키), 위 = 손잡이 구멍 Ø25 에 들어가는 마개 Ø24.8 × 26 mm + 앞뒤 걸쇠 (손잡이 안쪽 Ø32 홈, 높이 3~6 mm). 손잡이가 좌우 반쪽이라 반쪽을 닫으면 걸쇠가 잡혀 빠지지도 돌지도 않음.
+        <span class="tag">규격과 다름</span> M4 가로볼트는 관 위끝에서 15 mm 가 아니라 <b>32 mm 아래</b> (15 mm 자리는 손잡이 속이라 손이 안 닿음) → 관 구멍 위치만 다름.</li>
+    </ul>
+
+    <h2>F-16 손잡이 버튼 배치 (24 입력)</h2>
+    <table id="tbtn"><tr><th>#</th><th>이름</th><th>기능 (F-16)</th><th>손잡이 부품</th><th>스위치</th></tr></table>
+    <p class="sub">스위치는 손잡이 원작자 설계 그대로 <b>택트 스위치 6×6×4.3 mm</b> (손잡이 구멍이 이 크기에 맞춰져 있음, 22~25 개). 햇 4 개는 원작자의 출력 햇 (받침 + 줄기 + 캡, 받침 = Ø8 구멍 + M2 나사 2 개 간격 13.5 mm) 에 택트 4 개 (+ 누름 1).
+    한국 구입: 디바이스마트 · 엘레파츠 "택트 스위치 6x6x4.3" 개당 30~50 원, 알리 100 개 약 3,000 원 (추정). 5 방향 SMD 스위치 (ALPS SKRHABE010 류) 로 바꾸면 햇 받침을 새로 그려야 함.</p>
+
+    <h2>배선 (FreeJoy, 블루필)</h2>
+    <table id="twire"><tr><th>어디서</th><th>어디로</th><th>선</th><th>메모</th></tr></table>
+    <p class="sub">손잡이 속에 74HC165 3 개 (24 입력) → 관 속으로 <b>6 심 차폐선 하나</b> (Ø5 이하, 관 속 Ø16) → 허브 소켓 옆 구멍 Ø9 → 상자 뒤벽 Ø10 구멍 → 블루필. 매트릭스 (5×5 = 10 선 + 다이오드 24) 보다 선이 적고 손잡이 속 다이오드가 없음.
+    FreeJoy 의 시프트 레지스터 핀 (CLK 고정 여부) 은 설정기 화면에서 확인 필요 <span class="tag">확인 필요</span>.</p>
+
+    <h2>강도 (계산, 추정)</h2>
+    <table id="st"></table>
+    <p class="sub" id="stn"></p>
+
+    <h2>출력 부품 <span class="muted">(클릭 = 3D 에서 표시)</span></h2>
+    <p class="sub" id="pt"></p>
+    <table id="tp"><tr><th>부품</th><th>크기 mm</th><th>무게</th><th>출력 방향</th></tr></table>
+    <h2>살 부품 (가격 추정)</h2>
+    <table id="tb"><tr><th>품목</th><th>수량</th><th class="n">금액</th><th>메모</th></tr></table>
+
+    <h2>v3 와 비교</h2>
+    <table>
+      <tr><th></th><th>v3 (캠 + 롤러)</th><th>v4 (이 판)</th></tr>
+      <tr><td>출력 부품</td><td>18</td><td>7</td></tr>
+      <tr><td>산 부품 (종류)</td><td>28</td><td>11 (볼트 묶음 1 로 셈)</td></tr>
+      <tr><td>받침 값 (추정)</td><td>약 7.8 만 원</td><td id="v4c">약 5.7 만 원</td></tr>
+      <tr><td>가운데 느낌</td><td>둥근 V 캠: 걸림 없음, 고른 기울기, 축별 조절</td><td>평판 + 스프링: 가운데 걸림 (이탈력 약 4 N), 두 축 같은 힘, 판 미끄럼 마찰 조금</td></tr>
+      <tr><td>멈춤</td><td>네모 게이트 (roll ±10 / 앞 10 / 뒤 13°)</td><td>둥근 구멍 ±12.75°</td></tr>
+      <tr><td>댐핑 · FFB 자리</td><td>있음</td><td>없음</td></tr>
+      <tr><td>손잡이 · 전자</td><td>우리 손잡이 (PCF8574, 4 선)</td><td>F-16 손잡이 (74HC165, 6 선) + 블루필 약 1.9 만 원 + 손잡이 출력 약 250 g (추정)</td></tr>
+    </table>
+
+    <h2>라이선스 (손잡이)</h2>
+    <ul class="t">
+      <li>"F-16 Sidestick Grip" — 만든 사람 <b>Spock</b> (Printables) / JFlyer81 (Thingiverse 원본). <a href="https://www.printables.com/model/233472">Printables 233472</a> · <a href="https://www.thingiverse.com/thing:4544115">Thingiverse 4544115</a> · 햇 <a href="https://www.thingiverse.com/thing:4543158">Thingiverse 4543158</a> (같은 햇 파일이 Printables zip 에도 있음).</li>
+      <li>라이선스 <b>CC BY-NC-SA</b> (Printables 페이지에서 2026-11-06 확인). 비영리 · 출처 표시 · 같은 조건 공유. Thingiverse 페이지는 이 환경에서 403 이라 직접 확인 못 함 (Thingiverse 판 라이선스 <span class="tag">확인 필요</span>).</li>
+      <li>저장소 (공개) 에는 <b>손잡이 STL/STEP 을 넣지 않음</b>. 우리 것 (어댑터 · 받침 스크립트 · STL) 만. 손잡이 파일은 원 페이지에서 받아 출력. 어댑터 치수는 원작자 STEP 에서 잰 값 (구멍 Ø25.0, 홈 Ø32 높이 3~6 mm, 앞뒤 90°).</li>
+    </ul>
+
+    <h2>남은 문제</h2>
+    <ul class="t">
+      <li>손잡이 속에 74HC165 기판 (약 30×40 mm) 들어갈 자리 — 실제 출력 후 확인. 안 되면 매트릭스 + 10 심선.</li>
+      <li>판 ↔ 허브 PLA 미끄럼: 마찰 (그리스 바름), 오래 쓰면 가장자리 닳음 → 1 주 뒤 가운데 복귀 확인.</li>
+      <li>SUJ2 축은 자성 → 축 끝 자석의 AS5600 값이 약간 휘어질 수 있음 (보정으로 해결, 추정). 걱정되면 자석과 축 사이 PLA 2 mm.</li>
+      <li>FreeJoy 시프트 레지스터 핀 · AS5600 아날로그 모드 설정 (OUT 핀 = 기본 아날로그) 확인.</li>
+      <li>손 위치 (손잡이 바닥 위 85 mm) 와 손잡이 실제 크기 (원작자: 실기보다 약 5 % 작음) 는 출력 후 맞춤.</li>
+    </ul>
+    <p class="muted">모델: <code>hardware/stick_v4/stick_v4.py</code> (공통 <code>hardware/ctl_lib.py</code>) · 만든 시각 <span id="mt"></span> · 겹침 검사: <span id="chk"></span></p>
+  </aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="js/ctl_viewer.js"></script>
+<script>
+const PRINT_WHITE=0xf2f1ec;
+const col=p=>{const n=p.name;if(p.kind==="print")return PRINT_WHITE;if(n==="grip_proxy")return 0x55595f;
+ if(n==="spring")return 0xb7bdc4;if(/as5600/.test(n))return 0x1f7a44;if(/magnet/.test(n))return 0x6b6f75;if(/tube/.test(n))return 0xcfd3d7;return 0xa9afb6};
+const EX={base_box:[0,0,-90],gate_lid:[0,0,160],stop_collar:[0,0,140],spring_plate:[0,0,-40],spring:[0,0,-70],roll_frame:[0,0,20],stick_hub:[0,0,60],pitch_shaft:[0,0,60],
+ bearing_pitch_L:[0,25,20],bearing_pitch_R:[0,-25,20],stub_roll_front:[50,0,20],stub_roll_back:[-50,0,20],magnet_roll:[-60,0,20],bearing_roll_front:[80,0,0],bearing_roll_back:[-80,0,0],
+ as5600_roll:[-110,0,0],as5600_pitch:[0,-40,20],magnet_pitch:[0,-30,60],stick_tube:[0,0,180],grip_tube:[0,0,260],grip_adapter:[0,0,300],grip_proxy:[0,0,340]};
+const W=s=>s.toLocaleString("ko-KR");
+let V;
+V=CtlViewer({base:"../hardware/stick_v4/",color:col,
+ groups:{roll:{pivot:[0,0,105],axis:"x",ang:s=>s.roll},pitch:{parent:"roll",pivot:[0,0,105],axis:"y",ang:s=>s.pitch}},
+ explode:p=>EX[p.name]||[0,0,0],
+ xray:p=>/^base_box|gate_lid/.test(p.name),
+ target:[0,0,380],camDir:[1.0,-0.85,0.45],dist:2300,
+ sliders:[{id:"roll",val:0,fmt:v=>v+"°"},{id:"pitch",val:0,fmt:v=>v+"°"}],
+ onData:d=>{
+  const m=d.meta,f=d.forces,S=d.strength;document.getElementById("mt").textContent=m.created;
+  const bad=d.check.filter(c=>c.hits.length).length;document.getElementById("chk").textContent=(bad?`겹침 ${bad} 자세`:"겹침 없음")+` (멈춤 직전 ±${d.check[1].pose[0]}° 포함 7 자세)`;
+  const st=m.stops_deg.roll_L,df=f.variants.default.N;
+  const kv=[["멈춤 각",`모든 방향 ±${st}° (손에서 ±${Math.round(m.l_hand*Math.sin(st*Math.PI/180))} mm)`],["손 힘 (기본, 추정)",`가운데 ${df[0]} N → 6° ${df[6]} N → 12° ${df[12]} N`],
+   ["가벼움 / 무거움",`12° 에서 ${f.variants.light.N[12]} / ${f.variants.heavy.N[12]} N (스프링 교체)`],["짐벌 중심",`바닥 아래면에서 ${m.pivot[2]} mm · 손까지 ${m.l_hand} mm`],
+   ["크기 · 고정","상자 124×134, 날개 포함 176, 높이 189 (뚜껑 윗면). M6 ×4 (x ±70, y ±40) → 4040 T너트"],["손 200 N 멈춤",`링 ${S.gate_force} N · 축 ${S.pivot_force} N`]];
+  document.getElementById("kv").innerHTML=kv.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join("");
+  const A=f.angles;ctlChart(document.getElementById("chart"),[
+   {name:"기본 (k 24)",color:"#d9822b",pts:A.map((a,i)=>[a,df[i]])},
+   {name:"가벼움 (k 15)",color:"#4f79b0",dash:1,w:1.2,pts:A.map((a,i)=>[a,f.variants.light.N[i]])},
+   {name:"무거움 (k 36)",color:"#7a4fb0",dash:1,w:1.2,pts:A.map((a,i)=>[a,f.variants.heavy.N[i]])}],"기울인 각도 (°)","손 힘 (N)");
+  const tbt=document.getElementById("tbtn");for(const b of d.buttons)tbt.insertAdjacentHTML("beforeend",`<tr><td>${b.no}</td><td>${b.id}</td><td>${b.func}</td><td>${b.part}</td><td>${b.switch}</td></tr>`);
+  const tw=document.getElementById("twire");for(const w of d.wiring)tw.insertAdjacentHTML("beforeend",`<tr><td>${w.frm}</td><td>${w.to}</td><td>${w.wire}</td><td>${w.note}</td></tr>`);
+  const tp=document.getElementById("tp");let g=0;
+  for(const p of d.parts.filter(p=>p.kind==="print")){g+=p.grams;tp.insertAdjacentHTML("beforeend",`<tr data-n="${p.name}"><td>${p.note.split(/[:(]/)[0]}<br><span class="muted">${p.name}.stl</span></td><td>${p.size.join("×")}</td><td class="n">${p.grams} g</td><td>${p.orient||""}</td></tr>`)}
+  const fil=Math.ceil(g*1.15/10)*10,fc=fil*25;tp.insertAdjacentHTML("beforeend",`<tr class="tot"><td>필라멘트 합계 (+15 %)</td><td></td><td class="n">${fil} g</td><td></td></tr>`);
+  const tb=document.getElementById("tb");let tot=fc,base=fc;
+  for(const b of d.buy){tot+=b.krw;if(!/블루필|74HC165|택트|6 심/.test(b.item))base+=b.krw;tb.insertAdjacentHTML("beforeend",`<tr><td>${b.item}</td><td>${b.qty}</td><td class="n">${W(b.krw)}</td><td>${b.note}</td></tr>`)}
+  tb.insertAdjacentHTML("beforeend",`<tr><td>필라멘트 PLA (받침)</td><td>${fil} g</td><td class="n">${W(fc)}</td><td>약 25 원/g</td></tr><tr class="tot"><td>합계 (추정)</td><td></td><td class="n">${W(tot)}원</td><td>받침만 ${W(base)}원 · 손잡이 출력 약 250 g (약 6,000 원) · 배송비 제외</td></tr>`);
+  document.getElementById("v4c").textContent=`약 ${(base/10000).toFixed(1)} 만 원 (받침만, 전자 · 손잡이 포함 약 ${((tot+6000)/10000).toFixed(1)} 만)`;
+  const row=r=>`<tr><td>${r.name}${r.note?`<br><span class="muted">${r.note}</span>`:""}</td><td class="n">${r.load} / ${r.limit} ${r.unit}</td><td class="n"><b style="color:${r.sf<1.5?"#c0392b":r.sf<2?"#d9822b":"inherit"}">${r.sf}</b></td></tr>`;
+  document.getElementById("st").innerHTML=`<tr><th>어디 (손 200 N 을 멈춤에 댐)</th><th class="n">걸림 / 한계</th><th class="n">안전율</th></tr>`+S.rows.map(row).join("")+`<tr><th>계속 · 끝 접촉</th><th></th><th></th></tr>`+S.creep.map(row).join("");
+  document.getElementById("stn").textContent=S.note+". 안전율 1.3 줄 = 알루미늄 관 (v3 와 같음, 6061-T6 이면 1.9).";
+  const ph=Math.round(fil/12);document.getElementById("pt").textContent=`필라멘트 약 ${fil} g · 출력 약 ${ph} 시간 (시간당 약 12 g, 추정). 상자는 바닥을 바닥에 (176×134×183, 베드 240 안).`;
+  document.querySelectorAll("tr[data-n]").forEach(r=>r.onclick=()=>V.select(r.dataset.n));
+ }});
+</script>
+</body>
+</html>
