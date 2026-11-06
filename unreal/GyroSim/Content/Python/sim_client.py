@@ -400,6 +400,7 @@ class SimClient:
         self.needles = {n: a for n, a in self.needles.items() if a}
         self.adi = self._find("ADIBall")
         self.gear_lights = self._find("GearLights")
+        self.pilot_body, self.pilot_head, self.pilot_view = self._find("PilotBody"), self._find("PilotHead"), None   # Scripts/pilot
         self.gear_lit = None
         self.gauge_vals = {}
         self.lights = {k: self._find("Light_" + k) for k in ("MC", "WARN", "BRAKE", "ASSIST", "SLOW", "VOICE")}
@@ -1310,12 +1311,53 @@ class SimClient:
             self.gear_lit = lit
             self.gear_lights.set_actor_hidden_in_game(not lit)
         self._gauges(dt)
+        self._pilot()
         if s.get("rid") != self.gmax_rid:
             self.gmax_rid, self.gmax = s.get("rid"), 1.0
         if not s.get("paused"):
             self.gmax = max(self.gmax, s.get("nz", 1.0))
         self.warnings = self._warnings()
         self._lights()
+
+    def _pilot(self):
+        """pilot body (Scripts/pilot/ue_pilot.py): morph targets follow the controls as they are drawn (weights from the
+        stick / throttle actors' tilt, so the sign conventions of _controls carry over), the helmet rides on the view
+        camera (follows the look / HMD) and is left out of the main pass in the cockpit view (no helmet inside the eye;
+        it still casts its shadow); outside views put it back on the shoulders."""
+        b, h = self.pilot_body, self.pilot_head
+        if b:
+            try:
+                d, P, w = self.disp, self.pivots, {}
+                if "StickPivot" in P:
+                    u = unreal.MathLibrary.get_up_vector(P["StickPivot"][0].root_component.get_editor_property("relative_rotation"))
+                    f, r = math.degrees(math.atan2(u.x, u.z)) / STICK_PITCH, math.degrees(math.atan2(u.y, u.z)) / STICK_ROLL
+                    w.update(StickF=max(0.0, f), StickB=max(0.0, -f), StickR=max(0.0, r), StickL=max(0.0, -r))
+                if "ThrottlePivot" in P:
+                    u = unreal.MathLibrary.get_up_vector(P["ThrottlePivot"][0].root_component.get_editor_property("relative_rotation"))
+                    t = math.degrees(math.atan2(u.x, u.z)) / THR_SWING
+                    w.update(ThrF=max(0.0, t), ThrB=max(0.0, -t))
+                w.update(RudR=max(0.0, d["rud"]), RudL=max(0.0, -d["rud"]), ToeL=d["brk_l"], ToeR=d["brk_r"])
+                sk = b.skeletal_mesh_component
+                for k, v in w.items():
+                    sk.set_morph_target(k, min(1.0, v), False)
+            except Exception as e:
+                if not getattr(self, "pilot_err", None):
+                    self.pilot_err = repr(e)
+                    _log("pilot morphs", repr(e))
+        if h and self.view != self.pilot_view:
+            self.pilot_view = self.view
+            R = unreal.AttachmentRule
+            try:
+                c = h.static_mesh_component
+                if self.view == "cockpit" and self.view_cam:
+                    h.attach_to_actor(self.view_cam, unreal.Name(""), R.SNAP_TO_TARGET, R.SNAP_TO_TARGET, R.KEEP_WORLD, False)
+                    c.set_render_in_main_pass(False)
+                elif self.aircraft:
+                    h.attach_to_actor(self.aircraft, unreal.Name(""), R.SNAP_TO_TARGET, R.SNAP_TO_TARGET, R.KEEP_WORLD, False)
+                    h.set_actor_relative_location(unreal.Vector(*EYE), False, True)
+                    c.set_render_in_main_pass(True)
+            except Exception as e:
+                _log("pilot head", repr(e))
 
     def _warnings(self):
         """active warnings (priority order): pullup, terrain, overg, stall, gear."""

@@ -134,6 +134,7 @@ CANOPY_V3_PARAMS = (("Tile", 1.3),
                     ("TintAmt", 0.30),   # straight through: (1, 0.946, 0.856) transmission
                     ("PathMax", 3.0),    # grazing (the raked F-16 front, the sill): up to 3x the path -> (1, 0.85, 0.63)
                     ("InSun", 4.0),      # sun-lit interior ~4x brighter than the sky-lit one (estimate)
+                    ("PilotRefl", 1.0),  # the pilot's helmet / shoulders in the glass (0 = off)
                     ("LitAbs", 8.0),     # interior light level seen in the glass (absolute, look-matched)
                     ("CoamZ", 76.0),     # coaming / console height (local cm) for the interior reflection
                     ("GsX", 468.0),      # glare shield starts here (local x, cm)
@@ -201,6 +202,25 @@ if (rl.z < -0.02) {
 }
 float skyw = saturate((rl.z + 0.15) * 4.0);
 float3 refl = lerp(inner, Env, skyw);
+// the pilot (Scripts/pilot) in the glass: helmet sphere around the eye and the two shoulders (spheres), nearest hit wins
+float tp = 1e9;
+float3 pcol = float3(0.0, 0.0, 0.0);
+float4 sph[3] = { float4(Eye + float3(-6.0, 0.0, 4.0), 14.0), float4(Eye + float3(-14.0, 19.0, -22.0), 10.0),
+                  float4(Eye + float3(-14.0, -19.0, -22.0), 10.0) };
+float3 scol[3] = { float3(0.45, 0.46, 0.45), float3(0.08, 0.09, 0.06), float3(0.08, 0.09, 0.06) };
+[unroll] for (int k = 0; k < 3; k++) {
+    float3 oc = LP - sph[k].xyz;
+    float bq = dot(oc, rl);
+    float disc = bq * bq - (dot(oc, oc) - sph[k].w * sph[k].w);
+    if (disc > 0.0) {
+        float tk = -bq - sqrt(disc);
+        if (tk > 0.0 && tk < tp) { tp = tk; pcol = scol[k]; }
+    }
+}
+float tpl = rl.z < -0.02 ? (CoamZ - LP.z) / rl.z : 1e9;
+if (tp < tpl) {
+    refl = lerp(refl, lit * pcol * 2.0, PilotRefl);
+}
 float sky = dot(EnvUp, float3(0.333, 0.333, 0.333));
 float sun = pow(saturate(dot(r, sw)), 3000.0) * SunSpec;
 float3 e = refl * F + EnvUp * h * 2.0 + SunCol * sun * F * 10.0

@@ -37,6 +37,7 @@ NEUTRAL = {"ail": 0.0, "elev": 0.0, "rud": 0.0, "brk_l": 0.0, "brk_r": 0.0, "thr
 VIEWS = [("hud", "air", "cockpit", 0.0, 0.0, False), ("lookdown", "air", "cockpit", -35.0, 0.0, True),
          ("left", "air", "cockpit", -42.0, -62.0, False), ("right", "air", "cockpit", -30.0, 55.0, False),
          ("sun", "air", "cockpit", 22.0, -38.0, False),
+         ("refl", "air", "cockpit", -15.0, 78.0, False),       # side glass nearly square-on against the ground: own helmet in the glass
          ("rw_lookdown", "runway", "cockpit", -35.0, 0.0, True), ("rw_chase", "runway", "chase", 0.0, 0.0, False)]
 if os.environ.get("GYROSIM_SHOTS_VIEWS"):
     VIEWS = [v for v in VIEWS if v[0] in os.environ["GYROSIM_SHOTS_VIEWS"].split(",")]

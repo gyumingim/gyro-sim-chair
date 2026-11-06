@@ -141,6 +141,14 @@ Stop-Process -Id $srv.Id
 - 다시 넣기: Blender (`model_blender.py --no-preview`) → Cockpit_v2 의 ck_shell.fbx / manifest / T_CkShellMasks 를 Art/Cockpit 로 복사 → GUI 에디터에서 `ck_reimport.py` + `realism_v2.set_glass_asset()` (ck_reimport 가 F16_Glass 재질을 V1 로 덮어쓰므로).
 - 결과 (C:\GyroSimTiles\shots\cockpit_b2, 전: canopy_v3r): 보우는 잘 보임 (볼트·밝은 닳은 모서리). 칠한 금속 변화는 작음 (콘솔 영역 밝기 평균 차 약 2/255). GPU 조종석 1080p 4.33 ms (전 4.33), VR 픽셀 5.83 ms (전 5.90) — 1회 측정, 잡음 범위.
 
+### 3.6 조종사 몸 (11-06 밤)
+- 원본: OpenGameArt "Low Poly Fighter Pilot (rigged)" (Erik Castillo, **CC0** 표기, 로그인 없이 받음; 페이지에 "BlendSwap 출처" 라고만 있어 원 라이선스는 확인 안 됨) → 저장소에 넣지 않음. 파일·출처: `C:\GyroSimParts\thirdparty\pilot\` (SOURCE.md), Unreal 에셋 `/Game/ThirdParty/Pilot` (git 밖, F-16 과 같은 방식). 헬멧·바이저·산소마스크·호스·비행복·조끼가 이미 있어서 그대로 씀 (G-suit·장갑·부츠는 영역별 재질).
+- `Scripts/pilot/pilot_blender.py` (Blender 배경 실행): 원본 IK 리그로 앉힘 — 엉덩이는 눈이 layout.EYE 에 오도록 자동 배치, 오른손 주먹은 스틱 그립, 왼손은 스로틀 그립, 발은 페달. 몸(목 아래)은 뼈 1 개 스켈레탈 + 모프 10 개 (StickR/L/F/B, ThrF/B, RudR/L, ToeL/R), 머리(헬멧·바이저·마스크)는 원점 = 눈인 스태틱 메시로 나눔.
+- `Scripts/pilot/ue_pilot.py` (GUI 에디터): 가져오기, 재질(M_CkSurface 인스턴스, 슬롯별 색), 레벨에 PilotBody(기체에 붙임) / PilotHead(SimView 카메라에 붙임) 배치, 레벨 저장. **build_level.py 로 레벨을 다시 만들면 이 단계를 다시 실행해야 함.**
+- `sim_client._pilot`: 스틱·스로틀 액터의 실제 기울기에서 모프 가중치를 계산 (부호 규칙이 _controls 와 자동으로 일치), 페달·토브레이크는 disp 값. 조종석 시점에서 머리는 카메라(=모니터 시선/VR HMD)를 따라가고 메인 패스에서 빠짐 (눈이 헬멧 안에 있어도 안 보임, 그림자는 남음). 바깥 시점에서는 어깨 위 원래 자리로.
+- 캐노피 반사: V3 Fx 셰이더에 헬멧 구 + 어깨 구 2 개를 광선 교차로 추가 (`PilotRefl`). 실제 메시 반사가 아닌 근사.
+- M_CkSurface 에 스켈레탈/모프 사용 플래그 추가 (없으면 게임에서 기본 재질). 조종사 메시에는 UV·정점색이 없어서 AO/모서리/때 마스크를 끔 (안 끄면 새까맣게 나옴).
+
 ## 4. 2단계로 미룬 것 / 위험
 
 - **VR 훅**(2.2): `sim_client.apply_look` 끝에 `realism_v2.apply_profile(name, world)` (Scripts 경로 추가) 또는 `init_unreal.py` 에서 `install_hook`. 이것 전에는 VR 에서 모니터 값이 쓰임.

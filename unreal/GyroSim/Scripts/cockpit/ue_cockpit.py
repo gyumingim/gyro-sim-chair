@@ -115,6 +115,11 @@ def ck_master():
     MEL.connect_material_expressions(nn, "", nrgb, "")
     nl = lerp(_const3(m, (0, 0, 1), -2400, 1900), nrgb, SP(m, "NormalAmt", 0.0, -2400, 1960), -2200, 1800)
     MEL.connect_material_property(nl, "", unreal.MaterialProperty.MP_NORMAL)
+    for u in ("MATUSAGE_SKELETAL_MESH", "MATUSAGE_MORPH_TARGETS"):     # also used by the pilot body (Scripts/pilot)
+        try:
+            MEL.set_material_usage(m, getattr(unreal.MaterialUsage, u))
+        except Exception as e:
+            log("material usage", u, e)
     m = _finish(m)
     st = MEL.get_statistics(m)
     log("M_CkSurface compiled: pixel instructions", st.num_pixel_shader_instructions, "samplers", st.num_samplers)
