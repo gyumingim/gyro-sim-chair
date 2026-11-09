@@ -330,3 +330,37 @@ def wall_pngs():
 
 
 WALL_NAMES = ("wall_plain", "wall_house", "wall_apartment", "wall_shopfront", "wall_punched", "wall_factory", "wall_curtain")
+
+# ---- facade styles for the Unreal building material (unreal/GyroSim/Scripts/buildings_material.py) -------------------
+# One glb primitive per style. The style is carried in the glTF roughnessFactor (STYLE_R0 + 0.01 x style, 0.60 .. 0.68:
+# the stock Cesium material just reads it as roughness, older tiles have 0.8 walls / 0.95 roofs = "legacy" in the
+# material). Per building: vertex colour RGB = wall tint (as before), alpha = 128 + 64 x end-wall flag + seed (0..63) -
+# alpha stays >= 0.5, so the stock (masked) Cesium material never clips it. The window patterns themselves are drawn by
+# the material from the UV (u = bays along the ring, v = floors down from the roof); the PNG modules stay for the
+# stock material / lookdev preview.
+ST_PLAIN, ST_HOUSE, ST_APT, ST_SHOP, ST_PUNCHED, ST_FACTORY, ST_CURTAIN, ST_GLASS_TOWER, ST_RIBBON = range(9)
+STYLE_NAMES = ("plain", "house", "apartment", "shopfront", "punched", "factory", "curtain", "glass_tower", "ribbon")
+STYLE_PNG = (0, 1, 2, 3, 4, 5, 6, 6, 4)                     # style -> wall_pngs() module for the stock material
+STYLE_R0 = 0.60
+GLASS_TOWER_FLOORS = 40                                     # apartments this tall: glass residential towers (Haeundae, Marine City)
+HIGHRISE_FLOORS = 15                                        # non-residential this tall: curtain wall
+END_WALL_K = 0.5                                            # apartment edges shorter than this x the longest edge = end (gable) walls
+
+
+def wall_style(cls, nf):
+    """facade style of the upper floors (shops: the ground floor is ST_SHOP separately) - 가정: Korean typology by use + floors."""
+    if cls == PLAIN:
+        return ST_PLAIN
+    if cls == HOUSE:
+        return ST_HOUSE if nf < HIGHRISE_FLOORS else ST_CURTAIN
+    if cls == APT:
+        return ST_GLASS_TOWER if nf >= GLASS_TOWER_FLOORS else ST_APT
+    if cls == FACTORY:
+        return ST_FACTORY
+    if cls == OFFICE:
+        return ST_CURTAIN if nf >= 8 else ST_RIBBON if nf >= 3 else ST_PUNCHED
+    return ST_CURTAIN if nf >= HIGHRISE_FLOORS else ST_PUNCHED          # shops / mixed use
+
+
+def style_roughness(st):
+    return round(STYLE_R0 + 0.01 * st, 3)

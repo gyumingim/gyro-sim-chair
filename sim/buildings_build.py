@@ -43,6 +43,7 @@ import terrain_dem as T                                   # noqa: E402
 
 ROOT = os.environ.get("GYROSIM_BUILDINGS", r"C:\GyroSimTiles\buildings")
 WORK, TILES, GROUND = (os.path.join(ROOT, d) for d in ("work", "tiles", "ground"))
+TILES = os.environ.get("GYROSIM_BUILDINGS_TILES", TILES)  # build somewhere else (e.g. tiles_new), then swap folders: the proxy keeps serving
 INCOMING = r"C:\GyroSimTiles\incoming"
 DEFAULT_SHP = [os.path.join(INCOMING, "bldg_43", "AL_D010_43_20261009.shp")]
 RKTU = (36.7166, 127.4993)
@@ -382,7 +383,6 @@ def building_floors(h, floors, cls):
     return int(max(1, min(80, round(h / fh))))
 
 
-ROW_OF = {0: 0, 1: 1, 2: 2, 3: 4, 4: 4, 5: 5}             # use class -> wall texture (shops: ground floor 3, upper 4)
 
 
 def build_glb(D, sel, center):
@@ -399,7 +399,7 @@ def build_glb(D, sel, center):
     jit = ((rid * np.uint64(40503)) % np.uint64(65536)).astype(np.float64) / 32768.0 - 1.0
     upal = ((rid * np.uint64(2246822519)) % np.uint64(1 << 20)).astype(np.float64) / float(1 << 20)
     has_use, has_fl = "use" in D, "floors" in D
-    st = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0)
+    st = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0, styles={})
     # pass 1: rings, photo samples, wall colours
     blds = []
     for k, b in enumerate(sel):
@@ -440,7 +440,7 @@ def build_glb(D, sel, center):
         G["N"].append(np.repeat(n2, 4, axis=0))
         G["UV"].append(np.stack((np.stack((u0, np.full(q, va)), 1), np.stack((u1, np.full(q, va)), 1),
                                  np.stack((u1, np.full(q, vb)), 1), np.stack((u0, np.full(q, vb)), 1)), axis=1).reshape(-1, 2))
-        G["C"].append(np.repeat(wl[None], 4 * q, axis=0))
+        G["C"].append(np.repeat(wl, 4, axis=0))                         # per edge RGBA (alpha = seed / end-wall flag)
         bi = G["n"] + 4 * np.arange(q)
         G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
         G["n"] += 4 * q
@@ -454,13 +454,16 @@ def build_glb(D, sel, center):
             st["floors_data"] += 1
         fh = (top - base) / nf
         wl = BT.srgb_to_lin(wall)
-        # v = floors down from the roof line (texture top = ceiling of a floor); shops: ground floor band = shop window
-        if cls == BT.SHOP:
+        seed = (int(rid[k]) * 2654435761 >> 7) % 64
+        # v = floors down from the roof line (texture top = ceiling of a floor); shops: ground floor band = shop window.
+        # Band ids = facade styles (buildings_tex.STYLE_NAMES, one primitive each)
+        upper = BT.wall_style(cls, nf)
+        st["styles"][upper] = st["styles"].get(upper, 0) + 1
+        if cls == BT.SHOP and upper == BT.ST_PUNCHED:
             fg = (base + fh - bot) / (top - bot)
-            bands = [(3, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)] + ([(4, fg, 1.0, nf - 1.0, 0.0)] if nf > 1 else [])
+            bands = [(BT.ST_SHOP, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)] + ([(upper, fg, 1.0, nf - 1.0, 0.0)] if nf > 1 else [])
         else:
-            t = 6 if cls == BT.OFFICE and nf >= 8 else ROW_OF[cls]
-            bands = [(t, 0.0, 1.0, (top - bot) / fh, 0.0)]
+            bands = [(upper, 0.0, 1.0, (top - bot) / fh, 0.0)]
         tops = []
         for la, lo in rings:
             Pb = (ecef(la, lo, np.full(len(la), bot)) - C0) @ R          # local ENU
@@ -482,8 +485,11 @@ def build_glb(D, sel, center):
             j, j1, d, ln = j[ok], j1[ok], d[ok], ln[ok]
             n2 = np.stack((d[:, 1] / ln, -d[:, 0] / ln, np.zeros(len(j))), axis=1)    # outward = right of the edge
             A0, A1 = Pb[j], Pb[j1]
+            # alpha: 128 + 64 x end wall (apartments: edges much shorter than the longest = gable walls) + seed
+            endw = (ln < BT.END_WALL_K * ln.max()) & (ln >= 5.0) if cls == BT.APT else np.zeros(len(ln), bool)
+            wla = np.concatenate((np.repeat(wl[None], len(ln), axis=0), ((128 + 64 * endw + seed) / 255.0)[:, None]), axis=1)
             for t, fa, fb, va, vb in bands:
-                quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wl)
+                quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wla)
         # roof: earcut on the top ring points (exterior first, then holes)
         verts = np.concatenate([t[0] for t in tops])
         ends = np.cumsum([len(t[0]) for t in tops]).astype(np.uint32)
@@ -504,7 +510,7 @@ def build_glb(D, sel, center):
                 col = roof_pal[k]
             RF["P"].append(verts)
             RF["N"].append(np.tile([0.0, 0.0, 1.0], (len(verts), 1)))
-            RF["C"].append(np.repeat(np.asarray(col, np.float64)[None], len(verts), axis=0))
+            RF["C"].append(np.repeat(np.append(np.asarray(col, np.float64), 1.0)[None], len(verts), axis=0))
             RF["UV"].append(uv)
             RF["I"].append(tri.reshape(-1) + RF["n"])
             RF["n"] += len(verts)
@@ -515,16 +521,20 @@ def build_glb(D, sel, center):
     wall_imgs = BT.wall_pngs()
     images, mats = [("image/jpeg", jpg, 0)], [("roof", 0, 0.95)]
     groups = [(RF, 0)]
-    for t in sorted(WL):
-        images.append(("image/png", wall_imgs[t], 1))
-        mats.append((BT.WALL_NAMES[t], len(images) - 1, 0.8))
+    png_img = {}
+    for t in sorted(WL):                                  # t = facade style; roughnessFactor carries it to the material
+        pi = BT.STYLE_PNG[t]
+        if pi not in png_img:
+            images.append(("image/png", wall_imgs[pi], 1))
+            png_img[pi] = len(images) - 1
+        mats.append(("facade_" + BT.STYLE_NAMES[t], png_img[pi], BT.style_roughness(t)))
         groups.append((WL[t], len(mats) - 1))
     for G, mat in groups:
         if not G["P"]:
             continue
         P, Nn, Cc, UV, I = (np.concatenate(G[x]) for x in ("P", "N", "C", "UV", "I"))
         allP.append(P)
-        Cg = np.concatenate((np.clip(np.round(Cc * 255), 0, 255), np.full((len(Cc), 1), 255)), axis=1).astype(np.uint8)
+        Cg = np.clip(np.round(Cc * 255), 0, 255).astype(np.uint8)
         prims.append(dict(P=(P @ S.T).astype(np.float32), N=(Nn @ S.T).astype(np.float32), C=Cg, UV=UV.astype(np.float32),
                           I=I.astype(np.uint32), material=mat))
     Z2Y = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]], np.float64)          # Cesium applies Y_UP_TO_Z_UP = inverse of this
@@ -687,13 +697,17 @@ def tiles(args):
         shutil.rmtree(TILES)
     os.makedirs(TILES, exist_ok=True)
     sizes = {}
-    tex = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0, verts=0, roof_jpg_bytes=0, atlas_px=0)
+    tex = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0, verts=0, roof_jpg_bytes=0, atlas_px=0, styles={})
+    import buildings_tex as BT
+    BT_STYLE = BT.STYLE_NAMES
     with mp.Pool(max(1, (os.cpu_count() or 4) - 2)) as pool:
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
                 for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts"):
                     tex[k_] += ts_[k_]
+                for s_, c_ in ts_["styles"].items():
+                    tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_
                 for z_, c_ in ts_["roof_photo"].items():
                     tex["roof_photo"][str(z_)] = tex["roof_photo"].get(str(z_), 0) + c_
                 tex["roof_jpg_bytes"] += ts_["roof_jpg"]

@@ -509,6 +509,23 @@ python -I sim/buildings_build.py --tiles --ground                       # work �
   부산 미니맵 (`sim/minimap_build.py`, 그림 git 밖) 과 한 번 실행 `GyroSim_Busan.bat` 는 `unreal/README.md`.
   원본 V-World 사진에 흰 띠 한 줄 (z19 행 207217, 위도 약 35.254°) — 서버 데이터 그대로라 고치지 않음 (13조 변경 금지).
 
+## 6-3. 건물 외벽 재질 (11-09, 절차적 외벽 + 반사 유리)
+
+- **방식**: 형상은 그대로, 재질 하나 `/Game/Buildings/M_GyroBuilding` (`Scripts/buildings_material.py` 가 `Scripts/buildings_facade.hlsl` 을 커스텀 노드에 넣어 만듦).
+  `sim_client._local_buildings` → `Content/Python/buildings_look.py` 가 CesiumBuildings 타일셋 `material` 로 지정 (`GYROSIM_BLDG_MAT=0` = Cesium 기본 재질, A/B 용).
+  Cesium 은 glTF 값을 전역 파라미터(baseColorTexture, baseColorFactor, roughnessFactor …)로도 넣으므로 (설치본 `CesiumGltfComponent.cpp` SetGltfParameterValues) 레이어 없는 일반 재질로 됨.
+- **타일 쪽** (`buildings_build.py --tiles`, `buildings_tex.wall_style`): 외벽 종류 9 가지 (민벽·주택·아파트·상가 1 층·창 두 개·공장·커튼월·유리 타워·띠창),
+  종류 = glTF roughnessFactor 0.60 + 0.01 × 종류 (기본 재질에선 그냥 거칠기), 건물마다 꼭짓점 색 알파 = 128 + 64 × 아파트 옆벽 + 무작위 0–63 (알파 ≥ 0.5 라 기본 재질의 마스크에 안 잘림).
+  종류 정하기 (**가정**): 공동주택 40 층 이상 = 유리 타워, 업무 8 층 이상·그 밖 15 층 이상 = 커튼월, 업무 3–7 층 = 띠창, 상가 = 1 층 상가 유리 + 위 창 두 개.
+  부산+청주 790,939 동: 주택 39.2 만, 민벽 20.3 만, 창 두 개 10.6 만, 공장 4.5 만, 아파트 3.5 만, 띠창 7,356, 커튼월 2,069, 유리 타워 70.
+- **재질**: u = 둘레 칸, v = 층 (지붕에서 아래로) 으로 창 사각형을 그림 (가장자리는 화면 미분으로 흐림, 칸이 화소보다 작아지면 평균색). 창 안은 인테리어 매핑
+  (칸마다 깊이 4.2 m 상자 방에 시선 광선, 방 색·커튼은 칸 무작위). 유리 거칠기 0.05, 사무실·타워 유리는 금속성 0.45–0.65 + 건물별 유리 색, 칸마다 약간 다른 법선.
+  아파트: 위 2 층 브랜드 색 띠 (건물 절반), 옆벽에 색 줄무늬 + 작은 창. 반사는 엔진 (Lumen 반사 / 하늘빛 / SSR). 예전 타일 (거칠기 0.8 벽) 은 예전 모습 그대로.
+- **점검**: 두 번째 에디터 `-GyroSimBldgShots -RenderOffscreen` (`Scripts/buildings_shots.py`: 자기 sim_client 를 끄고 서버 없이 Play, Cesium 을 직접 설정,
+  타일은 `file:///C:/GyroSimTiles/buildings/<폴더>/tileset.json`) → 전(tiles + 기본 재질)/후(tiles_new + 새 재질) 그림 + GPU, `C:/GyroSimTiles/shots/buildings` (git 밖).
+- **다시 만들기**: `GYROSIM_BUILDINGS_TILES=C:/GyroSimTiles/buildings/tiles_new python -I sim/buildings_build.py --tiles` (프록시가 쓰는 tiles 를 건드리지 않음) → 폴더 이름 바꾸기
+  (tiles → tiles_prev_<날짜>, tiles_new → tiles). 재질만 바꿨으면 `UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<repo>/unreal/GyroSim/Scripts/buildings_material.py -nullrhi`.
+
 ## 7. 위험 정리
 
 1. 기지 가림: RKTU·군 비행장 주변은 V-World 가 숲으로 덮음 → 활주로 메시와 어긋나 보임. 피할 수 없음.

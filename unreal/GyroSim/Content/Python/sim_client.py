@@ -637,6 +637,11 @@ class SimClient:
                     b.set_editor_property(k, v)
                 except Exception as e:
                     _log("local buildings", k, repr(e))
+            try:                                                             # procedural facades (buildings_look.py)
+                import buildings_look
+                buildings_look.apply(b, lambda m: _log(m))
+            except Exception as e:
+                _log("buildings look", repr(e))
             off = os.environ.get("GYROSIM_BUILDINGS_OFF", "") == "1"         # A/B checks (FPS without buildings)
             b.set_actor_hidden_in_game(off)
             b.refresh_tileset()
