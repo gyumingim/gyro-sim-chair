@@ -548,3 +548,16 @@ python -I sim/buildings_build.py --tiles --ground                       # work �
 - Cesium for Unreal 2.31 헤더 (설치본): `unreal/GyroSim/Plugins/CesiumForUnreal/Source/CesiumRuntime/Public/`
   `CesiumUrlTemplateRasterOverlay.h`(TemplateUrl, {reverseY}, RequestHeaders, MinimumLevel/MaximumLevel),
   `CesiumWebMapTileServiceRasterOverlay.h`(RequestHeaders), `CesiumRuntimeSettings.h`(MaxCacheItems 4096), `Cesium3DTileset.h`(quantized-mesh)
+
+### AI upscaling of the photo: not done (terms) -> render-time sharpening only (2026-11-09)
+
+- Checked the terms in force (시행 2026-10-30, https://www.vworld.kr/v4po_prcint_a001.do): 13조 10항 "서비스에 포함되어
+  있는 일체의 내용을 삭제하거나 변경할 수 없습니다", 19조 4항 "사전 승낙 없이 복사, 복제, 변경 ... 사용하거나 이를 타인에게
+  제공할 수 없습니다". An AI-upscaled z20 tile set is a changed copy -> **not made** (needs the operator's prior consent).
+  The copyright policy (https://www.vworld.kr/v4po_prcint_a006.do) sends unlabelled (no 공공누리) material to the owning
+  department first; no 공공누리 label was found for the WMTS imagery.
+- Instead (stored tiles untouched): `unreal/GyroSim/Scripts/ground_detail.hlsl` = two Custom-node bodies,
+  A) Catmull-Rom overlay sampling when a photo texel covers > 1 screen pixel (copy of ML_CesiumRasterOverlay),
+  B) faint distance-faded land micro-texture (luminance only, mean 1) for ground_look.hlsl. Not wired in yet (the ground
+  material belongs to the atmosphere / sea work). Offline emulation + local comparison page: `sim/ground_detail_preview.py`
+  (13 Busan sites: A gives about +16-19 % fine contrast at 60-150 m, nothing above ~400 m; no new structure).
