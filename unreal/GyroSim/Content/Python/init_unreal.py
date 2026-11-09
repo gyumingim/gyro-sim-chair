@@ -68,3 +68,42 @@ if "-gyrosimbusan" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "busan_check.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_busan"})
+
+# One-step play (GyroSim_Busan.bat at the repo root): launch with  -GyroSimPlay  -> Play (new window, maximized by
+# sim_client) starts by itself once the editor is up and idle. GYROSIM_PLAY_WAIT = minimum seconds after start (default 8).
+if "-gyrosimplay" in _cmd and "-run=" not in _cmd:
+    import time
+    _pl = dict(t=time.monotonic(), h=None, idle=None)
+
+    def _autoplay(dt):
+        try:
+            now = time.monotonic()
+            ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+            if ues.get_game_world() is not None:              # already playing (user pressed Play)
+                unreal.unregister_slate_post_tick_callback(_pl["h"])
+                return
+            if now - _pl["t"] < float(__import__("os").environ.get("GYROSIM_PLAY_WAIT", "8")):
+                return
+            if dt > 0.25:                                      # editor still hitching (loading): wait for 3 s of smooth frames
+                _pl["idle"] = None
+                return
+            if _pl["idle"] is None:
+                _pl["idle"] = now
+                return
+            if now - _pl["idle"] < 3.0:
+                return
+            unreal.unregister_slate_post_tick_callback(_pl["h"])
+            unreal.log("[gyrosim] -GyroSimPlay: starting Play")
+            unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_request_begin_play()
+        except Exception as e:
+            unreal.log_error("[gyrosim] autoplay failed: %r" % (e,))
+            unreal.unregister_slate_post_tick_callback(_pl["h"])
+    _pl["h"] = unreal.register_slate_post_tick_callback(_autoplay)
+
+# Busan minimap check (developer use): server with  --start rkpk  in the vworld mode, launch with
+# -GyroSimPlay -GyroSimMinimap -RenderOffscreen  (Scripts/minimap_check.py: autoplay, 4 Busan shots, marker position vs
+# lat / lon; shots outside git in C:/GyroSimTiles/shots/minimap). Quits the editor when done.
+if "-gyrosimminimap" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "minimap_check.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_minimap"})

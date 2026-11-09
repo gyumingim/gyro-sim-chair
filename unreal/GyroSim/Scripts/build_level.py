@@ -20,7 +20,8 @@ Third-party content is imported to /Game/ThirdParty (not in git - .gitignore); l
 Actors with tags used by sim_client: Aircraft, AircraftPart, Gear, Canopy, Cockpit, StickPivot, ThrottlePivot, PedalL,
 PedalR, GearHandle, GearLights, Needle_asi / Needle_alt / Needle_alt10k / Needle_vsi, ADIBall, SimCamera (rig),
 SimView (camera), HUD (plane), MFD_L / MFD_R (screens), TutorPanel, KeyPanel, CesiumGeoreference, CesiumGround,
-CesiumBuildings (3D buildings, off until Play: local GIS건물통합정보 tiles or OSM buildings), Attribution (V-World source note).
+CesiumBuildings (3D buildings, off until Play: local GIS건물통합정보 tiles or OSM buildings), Attribution (V-World source note),
+Minimap (Busan minimap plate).
 """
 import json, math, os, sys
 import unreal
@@ -1114,6 +1115,14 @@ att = place("Attribution", SHAPE["Plane"], (EYE[0] + CRASH_D, 0.0, EYE[2]), MAT[
 att.static_mesh_component.set_editor_property("translucency_sort_priority", 99)
 att.set_actor_hidden_in_game(True)
 attach(att, view)
+# Busan minimap (11-09, sim/minimap_build.py picture + aircraft marker drawn by sim_client._minimap): same kind of plate,
+# shown only when the aircraft is over the minimap area (top right on the monitor, lower right in VR). Scripts/add_minimap.py
+# adds just this actor to an existing map.
+mm = place("Minimap", SHAPE["Plane"], (EYE[0] + CRASH_D, 0.0, EYE[2]), MAT["crash"], (r.roll, r.pitch, r.yaw), (0.3, 0.3, 1),
+           movable=True, shadows=False, tags=("Minimap", "Overlay"))
+mm.static_mesh_component.set_editor_property("translucency_sort_priority", 98)
+mm.set_actor_hidden_in_game(True)
+attach(mm, view)
 log("camera + overlays done")
 
 ws = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world().get_world_settings()

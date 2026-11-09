@@ -86,6 +86,14 @@ VW_TERRAIN_ATTRIB_W = 0.40
 # /buildings/tileset.json: in the vworld mode on the local terrain (before Cesium OSM Buildings); credit on the plate
 VW_BLDG_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_buildings_attribution.png")
 VW_BLDG_SSE = 16.0                  # buildings tileset screen-space error (tiles: geometricError 500 / 130 / 50 / 0)
+# Busan minimap (11-09): picture made from the local V-World tile cache by sim/minimap_build.py (outside git, terms 19조),
+# drawn 1:1 into a render target with the aircraft marker + heading arrow, on the 'Minimap' plate (build_level /
+# Scripts/add_minimap.py). Shown in the vworld mode while the aircraft is over / near the picture: top right on the monitor,
+# head-locked lower right in VR. J toggles it.
+MINIMAP_DIR = os.path.join(os.environ.get("GYROSIM_TILES", "C:\\GyroSimTiles"), "minimap")
+MINIMAP_W = 0.27                    # monitor: plate width as a fraction of the view width
+MINIMAP_VR_CM, MINIMAP_VR_DIR = 34.0, (24.0, -20.0)    # VR: width at VW_ATTRIB_D, direction (right deg, up deg)
+MINIMAP_HZ, MINIMAP_NEAR = 10.0, 0.25                   # redraw rate; shown up to this fraction of the picture outside it
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
@@ -95,7 +103,7 @@ KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_fu
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
           LBUTTON=0x01, RBUTTON=0x02, SHIFT=0x10, PRIOR=0x21, NEXT=0x22, HOME=0x24, PLUS=0xBB, MINUS=0xBD, ADD=0x6B, SUBTRACT=0x6D,
-          K=0x4B, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
+          K=0x4B, J=0x4A, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
           **{"K%d" % i: 0x30 + i for i in range(0, 10)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
@@ -1667,6 +1675,138 @@ class SimClient:
         a.set_actor_relative_rotation(r, False, True)
         a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, h / 100.0, 1.0))
 
+    # ---- Busan minimap ----------------------------------------------------------------------------------------------
+    def _minimap_init(self):
+        """once per Play world: plate, render target, picture + bounds (sim/minimap_build.py). Leaves mm['ok'] False when
+        anything is missing (logged once) - the sim runs as before."""
+        mm = self.mm = dict(world=self.world, ok=False, shown=None, key=None, t=0.0, pos=None)
+        try:
+            meta = json.load(open(os.path.join(MINIMAP_DIR, "busan_minimap.json"), encoding="utf-8"))
+            png = os.path.join(MINIMAP_DIR, "busan_minimap.png")
+            a = self._find("Minimap")
+            if a is None:
+                _log("minimap: no Minimap actor in the map (run Scripts/add_minimap.py)")
+                return
+            tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, png)
+            if tex is None:
+                _log("minimap: cannot load", png)
+                return
+            n = int(meta.get("size") or tex.blueprint_get_size_x())
+            rt = unreal.RenderingLibrary.create_render_target2d(self.world, n, n, unreal.TextureRenderTargetFormat.RTF_RGBA8,
+                                                                  unreal.LinearColor(0, 0, 0, 1))
+            mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
+            mid.set_texture_parameter_value("Tex", rt)
+            mm.update(ok=True, actor=a, tex=tex, rt=rt, n=n, merc=meta["merc"],
+                      white=unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture"))
+            a.set_actor_hidden_in_game(True)
+            _log("minimap ready", png, n, "px")
+        except FileNotFoundError:
+            _log("minimap: no picture in", MINIMAP_DIR, "(python sim/minimap_build.py)")
+        except Exception as e:
+            _log("minimap init", repr(e))
+
+    @staticmethod
+    def _merc(lat, lon):
+        sl = math.sin(math.radians(max(-85.0, min(85.0, lat))))
+        return (lon + 180.0) / 360.0, 0.5 - math.log((1 + sl) / (1 - sl)) / (4 * math.pi)
+
+    def minimap_uv(self, lat, lon):
+        """aircraft position on the minimap picture, 0..1 (x right, y down); outside the picture < 0 or > 1."""
+        x0, y0, x1, y1 = self.mm["merc"]
+        mx, my = self._merc(lat, lon)
+        return (mx - x0) / (x1 - x0), (my - y0) / (y1 - y0)
+
+    def _minimap_place(self):
+        mm = self.mm
+        try:
+            vp = unreal.WidgetLayoutLibrary.get_viewport_size(self.world)
+            aspect = vp.x / vp.y if vp.y > 0 else 16 / 9
+        except Exception:
+            aspect = 16 / 9
+        fov = self.fov_set or VIEW_FOV
+        key = (round(fov, 2), round(aspect, 3), self.hmd)
+        if key == mm["key"]:
+            return
+        mm["key"] = key
+        mm["view"] = key
+        D = VW_ATTRIB_D
+        if self.hmd:                                             # VR: lower right, fixed size (head-locked, like the source note)
+            w = MINIMAP_VR_CM
+            pos = unreal.Vector(D, D * math.tan(math.radians(MINIMAP_VR_DIR[0])), D * math.tan(math.radians(MINIMAP_VR_DIR[1])))
+        else:                                                    # monitor: top right corner, a margin from the edges
+            hw = D * math.tan(math.radians(fov / 2))
+            hh = hw / aspect
+            w = min(2 * hw * MINIMAP_W, 2 * hh * 0.45)
+            m = 0.02 * 2 * hw
+            pos = unreal.Vector(D, hw - m - w / 2, hh - m - w / 2)
+        r = unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0))
+        a = mm["actor"]
+        a.set_actor_relative_location(pos, False, True)
+        a.set_actor_relative_rotation(r, False, True)
+        a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, w / 100.0, 1.0))
+
+    def _minimap(self, now):
+        mm = getattr(self, "mm", None)
+        if mm is None or mm.get("world") != self.world:
+            if self.cesium_mode is None:                 # ground not set up yet
+                return
+            self._minimap_init()
+            mm = self.mm
+        if not mm["ok"]:
+            return
+        if self.kb.focused() and self.kb.pressed("J"):
+            self.minimap_on = not getattr(self, "minimap_on", True)
+        s = self.s
+        show = False
+        u = v = 0.0
+        if s is not None and self.cesium_mode == "vworld" and getattr(self, "minimap_on", True) and "lat" in s:
+            u, v = self.minimap_uv(s["lat"], s["lon"])
+            show = -MINIMAP_NEAR <= u <= 1 + MINIMAP_NEAR and -MINIMAP_NEAR <= v <= 1 + MINIMAP_NEAR
+        if show != mm["shown"]:
+            mm["shown"] = show
+            mm["actor"].set_actor_hidden_in_game(not show)
+        if not show:
+            return
+        self._minimap_place()
+        if now - mm["t"] < 1.0 / MINIMAP_HZ:
+            return
+        mm["t"] = now
+        try:
+            RL, V2 = unreal.RenderingLibrary, unreal.Vector2D
+            n = mm["n"]
+            c, _size, ctx = RL.begin_draw_canvas_to_render_target(self.world, mm["rt"])
+            try:
+                c.draw_texture(mm["tex"], V2(0, 0), V2(n, n), V2(0, 0), V2(1, 1), unreal.LinearColor(1, 1, 1, 1),
+                               unreal.BlendMode.BLEND_OPAQUE, 0.0, V2(0, 0))
+                k = n / 1024.0
+                x, y = max(0.0, min(1.0, u)) * n, max(0.0, min(1.0, v)) * n     # outside the picture: pinned to the edge
+                hd = math.radians(s.get("psi", 0.0))                     # heading, true: 0 = north = picture up
+                fwd = (math.sin(hd), -math.cos(hd))
+                rgt = (math.cos(hd), math.sin(hd))
+                L, B, W = 34 * k, 16 * k, 12 * k
+                tip = (x + fwd[0] * L, y + fwd[1] * L)
+                tail = (x - fwd[0] * L * 0.45, y - fwd[1] * L * 0.45)
+                wl = (tail[0] - rgt[0] * B, tail[1] - rgt[1] * B)
+                wr = (tail[0] + rgt[0] * B, tail[1] + rgt[1] * B)
+                black, yel, red = unreal.LinearColor(0, 0, 0, 1), unreal.LinearColor(1.0, 0.85, 0.1, 1), unreal.LinearColor(1.0, 0.15, 0.1, 1)
+                for col, th in ((black, 9 * k), (red, 4.5 * k)):         # heading line ahead of the arrow
+                    c.draw_line(V2(*tip), V2(x + fwd[0] * L * 2.4, y + fwd[1] * L * 2.4), th, col)
+                for col, th in ((black, 12 * k), (yel, 6 * k)):          # arrow: outlined chevron
+                    for a_, b_ in ((tip, wl), (tip, wr), (wl, tail), (wr, tail)):
+                        c.draw_line(V2(*a_), V2(*b_), th, col)
+                c.draw_texture(mm["white"], V2(x - W / 2, y - W / 2), V2(W, W), V2(0, 0), V2(1, 1), red,
+                               unreal.BlendMode.BLEND_OPAQUE, 0.0, V2(0, 0))
+                fr = unreal.LinearColor(0.85, 0.9, 1.0, 1)              # frame
+                for a_, b_ in (((0, 0), (n, 0)), ((n, 0), (n, n)), ((n, n), (0, n)), ((0, n), (0, 0))):
+                    c.draw_line(V2(*a_), V2(*b_), 4 * k, fr)
+            finally:
+                RL.end_draw_canvas_to_render_target(self.world, ctx)
+            mm["pos"] = (round(u, 4), round(v, 4), round(s.get("psi", 0.0), 1))
+        except Exception as e:
+            if now - self.last_log > 2:
+                self.last_log = now
+                _log("minimap draw", repr(e))
+
     def _vworld_poll(self, now):
         """proxy status every 5 s (budget / stopped) -> HUD note; the proxy never sends the key."""
         if self.cesium_mode != "vworld" or now - getattr(self, "vw_poll_t", 0.0) < 5.0:
@@ -1709,6 +1849,7 @@ class SimClient:
             self._trace(now)
             self._fog_follow(now)
             self._vworld_poll(now)
+            self._minimap(now)
             self._overlay(now)
             self._set_view_target()
             self.frames += 1
@@ -1732,7 +1873,8 @@ class SimClient:
                     preset=self.preset, world=self.world.get_name() if self.world else None, t=s.get("t"), alt_m=s.get("alt_m"),
                     interp_n=len(self.interp.buf), cesium=self.cesium_mode, hud_frames=self.hud_n, hud_ms=round(self.hud_ms, 2),
                     radar_m=self.radar_m, crashed=self.crashed, panel_on=self.panel_on,
-                    startup={k: v for k, v in self.start.items() if k != "dts"})
+                    startup={k: v for k, v in self.start.items() if k != "dts"},
+                    minimap={k: (getattr(self, "mm", None) or {}).get(k) for k in ("ok", "shown", "pos")})
 
 
 def recenter():

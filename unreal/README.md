@@ -50,6 +50,12 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   개발 점검용 환경 변수: `GYROSIM_GROUND=vworld` (설정 파일 대신 땅 모드), `GYROSIM_MUTE=1` (교관 음성 끔), `GYROSIM_TERRAIN=<폴더>` (지형 자료 위치). 서버 명령 `{"cmd":"place","lat":..,"lon":..,"alt_m":..,"hdg":..,"kts":..}` = 아무 곳 공중 시작.
 - **부산(김해 RKPK 36L) 시작**: `python sim/server.py --start rkpk` (vworld 모드). Cesium 원점·활주로 메시가 김해로 바뀜, 부산은 V-World z19 사진 + 부산 3D 건물.
   강의는 청주 전용 (부산은 자유 비행). 점검 `-GyroSimBusan` (`Scripts/busan_check.py`, 그림은 git 밖 `C:\GyroSimTiles\shots\busan`). 자세히: `docs/vworld-integration.md` 6-2.
+- **한 번에 부산 비행 (11-09)**: 저장소 맨 위 `GyroSim_Busan.bat` (바탕화면 바로가기 "GyroSim 부산 비행") = 서버 `--start rkpk` (최소화 창, 이미 켜져 있으면 그대로) +
+  언리얼 `-GyroSimPlay` (에디터가 뜨고 3 초 매끄러우면 Play 자동 시작, `init_unreal.py`).
+- **부산 미니맵 (11-09)**: 화면 오른쪽 위 (VR: 시야 오른쪽 아래, 머리에 고정 — 헤드셋 시험 안 함), 노란 화살표 = 위치, 빨간 선 = 기수 방향, **J** 켜기/끄기. vworld 모드에서
+  비행기가 부산 그림 근처일 때만. 그림은 `python sim/minimap_build.py` 가 로컬 V-World 캐시(z14)로 만듦 → `C:\GyroSimTiles\minimap\` (git 밖, 약관 19조).
+  판은 맵의 `Minimap` 액터 (`build_level.py`, 기존 맵엔 `Scripts/add_minimap.py` 로 추가), 그리기 `sim_client._minimap`.
+  점검 `-GyroSimPlay -GyroSimMinimap -RenderOffscreen` (`Scripts/minimap_check.py`, 창 없음, 그림 `C:\GyroSimTiles\shots\minimap`).
 - 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 
 ### 실제 지형 켜기 — Cesium ion 토큰 (나중에 원하면, 사용자가 할 일)
