@@ -50,8 +50,8 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   개발 점검용 환경 변수: `GYROSIM_GROUND=vworld` (설정 파일 대신 땅 모드), `GYROSIM_MUTE=1` (교관 음성 끔), `GYROSIM_TERRAIN=<폴더>` (지형 자료 위치). 서버 명령 `{"cmd":"place","lat":..,"lon":..,"alt_m":..,"hdg":..,"kts":..}` = 아무 곳 공중 시작.
 - **부산(김해 RKPK 36L) 시작**: `python sim/server.py --start rkpk` (vworld 모드). Cesium 원점·활주로 메시가 김해로 바뀜, 부산은 V-World z19 사진 + 부산 3D 건물.
   강의는 청주 전용 (부산은 자유 비행). 점검 `-GyroSimBusan` (`Scripts/busan_check.py`, 그림은 git 밖 `C:\GyroSimTiles\shots\busan`). 자세히: `docs/vworld-integration.md` 6-2.
-- **한 번에 부산 비행 (11-09)**: 저장소 맨 위 `GyroSim_Busan.bat` (바탕화면 바로가기 "GyroSim 부산 비행") = 서버 `--start rkpk` (최소화 창, 이미 켜져 있으면 그대로) +
-  언리얼 `-GyroSimPlay` (에디터가 뜨고 3 초 매끄러우면 Play 자동 시작, `init_unreal.py`).
+- **한 번에 부산 비행 (11-09)**: 저장소 맨 위 `GyroSim_Busan.bat` (바탕화면 바로가기 "GyroSim 부산 비행") = 서버 `--start rkpk --free-flight` (시작 메뉴 없이 바로 자유 비행, F1 = 메뉴; 최소화 창, 이미 켜져 있으면 그대로) +
+  언리얼 `-GyroSimPlay` (에디터가 뜨고 3 초 매끄러우면 Play 자동 시작, `init_unreal.py`; Play 1 초 뒤 진짜 전체화면, `pie_fullscreen.py`).
 - **부산 미니맵 (11-09)**: 화면 오른쪽 위 (VR: 시야 오른쪽 아래, 머리에 고정 — 헤드셋 시험 안 함), 노란 화살표 = 위치, 빨간 선 = 기수 방향, **J** 켜기/끄기. vworld 모드에서
   비행기가 부산 그림 근처일 때만. 그림은 `python sim/minimap_build.py` 가 로컬 V-World 캐시(z14)로 만듦 → `C:\GyroSimTiles\minimap\` (git 밖, 약관 19조).
   판은 맵의 `Minimap` 액터 (`build_level.py`, 기존 맵엔 `Scripts/add_minimap.py` 로 추가), 그리기 `sim_client._minimap`.
@@ -69,7 +69,7 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 ## 실행
 1. `python sim/server.py` (브라우저 http://127.0.0.1:8780/ 은 계속 됨 — 교관/강의 화면으로 쓰기)
 2. `unreal/GyroSim/GyroSim.uproject` 더블클릭 (UE 5.8). 처음 열 때 셰이더 컴파일로 몇 분 걸릴 수 있음.
-3. **모니터**: 위쪽 **Play** (▶) → **새 창**으로 열리고 화면 크기로 커짐. **F11** = 전체 화면. **VR**: Play 옆 ▾ → **VR Preview**. 끝내기는 Esc.
+3. **모니터**: 위쪽 **Play** (▶) → **새 창**으로 열리고 화면 크기로 커짐. **F11** 또는 **Alt+Enter** = 전체 화면 켜기/끄기 (bat 으로 켜면 처음부터 전체 화면). **VR**: Play 옆 ▾ → **VR Preview**. 끝내기는 Esc.
    Play 를 누를 때마다 **항상 공중 시작 (6000 ft, 350 kt) 부터 새로** 시작한다 (서버는 언리얼이 꺼져 있어도 계속 날고 있어서, 예전엔 엉뚱한 곳·엉뚱한 시각에서 시작했음).
    화면이 다 뜨고 fps 가 돌아올 때까지 (보통 1.5 초) 서버를 일시정지해 두고 HUD 에 "LOADING - SIM PAUSED" 를 보여 준 뒤 풀어 준다 (최대 15 초).
 
@@ -192,6 +192,11 @@ Cesium 실제 지형 모드는 토큰이 없어 **측정 못 함**.
 - `photo` 모드의 위성사진은 10 m 해상도라 낮게 날면 흐림. 활주로 주변만 사진 텍스처. 격자 모드엔 건물·산 없음.
 - **VR 은 실제 헤드셋으로 시험하지 않음** (OpenXR 런타임·헤드셋 없음).
 - Play 새 창: 기본값을 "새 에디터 창"으로 해 두고, 창이 뜨면 `sim_client` 가 창 제목 `[NetMode:` 로 찾아 최대화 (Alt+P 합성 키로 확인: 1080×1920 화면에서 최대화됨).
+- 전체 화면 (11-09, `Content/Python/pie_fullscreen.py`): 에디터 Play 창에서 Alt+Enter 는 r.setres 만 바꾸고, 그 처리가 Play 세계 밖에서 돌아
+  `FSceneViewport::ResizeFrame` 이 무시한다 (UE 5.8 소스). 그래서 Play 세계 안의 다음 틱 타이머에서 `GameUserSettings.apply_resolution_settings` 로
+  WindowedFullscreen / Windowed 를 요청 (F11 / Alt+Enter, `-GyroSimPlay` 면 자동, `GYROSIM_FULLSCREEN=0/1` 로 끄기/강제). 화면 없는 시험 프로젝트에서
+  `Scene viewport resized to 1920x1080, mode WindowedFullscreen` 확인, Play 밖에서 같은 요청은 바뀌지 않음. 실제 모니터 모습은 사용자 확인 필요;
+  안 되면 예전처럼 최대화로 돌아감.
   점검 스크립트(-GyroSimVerify)는 Python 으로 Play 를 시작해서 뷰포트 안 Play 를 쓴다.
 - 조종석: 보이는 계기·화면·등은 모두 실제 값 (장식 스위치는 없앰). 특정 기종의 정확한 복제가 아님. HUD 글자 뒤에는 어두운 판이 있다 (11-05 가독성: 밝은 구름 앞에서도 읽히게. 실제 HUD 에는 없음 — `hud.HUD_PLATE`, `build_level.HUD_PLATE`).
   눈 위치(RIG_EYE)는 추정, VR 헤드셋으로 손 위치가 맞는지 **아직 확인 못 함**. 추적 시점의 겉모습은 여전히 FlightGear F-16 (캐노피 안에 우리 앞 바우가 보임 — 실제 F-16 엔 없음).

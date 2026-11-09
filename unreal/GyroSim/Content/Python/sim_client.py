@@ -28,6 +28,10 @@ import ctypes, importlib, json, math, os, socket, time
 import unreal
 import geo, hud, cockpit_gauges as gauges
 importlib.reload(geo); importlib.reload(hud); importlib.reload(gauges)
+import pie_fullscreen                 # not reloaded: it defines a UObject class (PIE full screen, F11 / Alt+Enter)
+# Play started by GyroSim_Busan.bat (-GyroSimPlay): PIE window in true full screen (borderless, whole main monitor) on a
+# monitor (not VR). GYROSIM_FULLSCREEN=0 keeps the old maximized window, =1 forces it for a Play pressed by hand too.
+FULLSCREEN_AUTO = os.environ.get("GYROSIM_FULLSCREEN", "1" if "-gyrosimplay" in unreal.SystemLibrary.get_command_line().lower() else "0") == "1"
 
 STATE_ADDR = ("127.0.0.1", 4220)
 CMD_ADDR = ("127.0.0.1", 4221)
@@ -103,7 +107,7 @@ KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_fu
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
           LBUTTON=0x01, RBUTTON=0x02, SHIFT=0x10, PRIOR=0x21, NEXT=0x22, HOME=0x24, PLUS=0xBB, MINUS=0xBD, ADD=0x6B, SUBTRACT=0x6D,
-          K=0x4B, J=0x4A, F1=0x70, F2=0x71, F3=0x72, F9=0x78, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
+          K=0x4B, J=0x4A, MENU=0x12, F1=0x70, F2=0x71, F3=0x72, F9=0x78, F11=0x7A, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
           **{"K%d" % i: 0x30 + i for i in range(0, 10)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
@@ -446,7 +450,10 @@ class SimClient:
         self.t_bind = time.perf_counter()
         self.hud_vis = None
         self.ladder_on = None
-        self.max_tries = 40               # maximize the new PIE window over the next frames
+        self.max_tries = 0 if FULLSCREEN_AUTO else 40       # maximize the new PIE window over the next frames
+        pie_fullscreen.reset()
+        self.fs_auto_t = time.perf_counter() + 1.0 if FULLSCREEN_AUTO else None   # full screen 1 s after Play (window up, VR known)
+        self.fs_check_t = None
         self.start = dict(phase="reset", t0=time.perf_counter(), sent=-9.0, rid0=(self.s or {}).get("rid"), dts=[])
         self._setup_cesium()
         self.panel_mid = None
@@ -735,6 +742,44 @@ class SimClient:
         self.cesium_failed = why
         self.t_bind = time.perf_counter()          # show the HUD note again
 
+    # ---- PIE window: true full screen (pie_fullscreen.py), maximized as the fallback ------------------------------------
+    def _window_mode(self, now):
+        if self.hmd:                                         # VR Preview: the window is only the mirror
+            self.fs_auto_t = self.fs_check_t = None
+            return
+        if self.fs_auto_t is not None and now >= self.fs_auto_t:
+            self.fs_auto_t = None
+            # only a separate PIE window (Play in 'New Editor Window'); Play inside the editor viewport would make the whole
+            # editor full screen (off-screen check runs have no window at all)
+            own = pie_fullscreen.pie_window_rect() is not None or "-renderoffscreen" in unreal.SystemLibrary.get_command_line().lower()
+            if own and pie_fullscreen.request(self.world, True):
+                self.fs_check_t = now + 2.0
+            else:
+                self.max_tries = 40
+        if self.fs_check_t is not None and now >= self.fs_check_t:
+            self.fs_check_t = None
+            w = pie_fullscreen.pie_window_rect()
+            if w is not None:
+                l, tp, r, b = w["rect"]
+                mw, mh = w["monitor"]
+                full = l <= 0 and tp <= 0 and r >= mw and b >= mh
+                _log("PIE window %s after the full screen request: %s, monitor %dx%d" % ("FULL SCREEN" if full else "not full screen", w["rect"], mw, mh))
+                if not full:
+                    self.max_tries = 40                      # did not take: at least maximize like before
+            else:
+                _log("full screen requested (%s); no PIE window on the desktop (off-screen run)" % pie_fullscreen.status().get("last"))
+        if getattr(self, "max_tries", 0) > 0:
+            self.max_tries -= 1
+            if maximize_pie_window():
+                self.max_tries = 0
+                _log("PIE window maximized")
+
+    def toggle_fullscreen(self):
+        if self.world is not None and not self.hmd and (pie_fullscreen.is_on() or pie_fullscreen.pie_window_rect() is not None):
+            on = not pie_fullscreen.is_on()
+            pie_fullscreen.request(self.world, on)
+            _log("full screen", "on" if on else "off")
+
     # ---- Play start: fresh air start, paused until the scene renders at full rate ---------------------------------
     def _startup(self, now, dt):
         """On every new Play: reset the sim to the air start (the server keeps flying while Unreal is not playing),
@@ -844,6 +889,8 @@ class SimClient:
             return
         kb, c = self.kb, self.ctrl
         tut = (self.s or {}).get("tut") or {}
+        if kb.pressed("F11") or (kb.down("MENU") and kb.pressed("RETURN")):     # full screen on / off (any phase)
+            self.toggle_fullscreen()
         if tut.get("phase") == "menu":                      # start menu: arrows / Enter / Space / Backspace drive it
             for k, op in (("UP", "up"), ("DOWN", "down"), ("RETURN", "select"), ("SPACE", "select"), ("BACK", "back"), ("RIGHT", "select"),
                           ("LEFT", "back")):
@@ -1834,11 +1881,7 @@ class SimClient:
                 self._bind_world(world)
                 if self.aircraft is None:
                     return
-            if getattr(self, "max_tries", 0) > 0 and not self.hmd:
-                self.max_tries -= 1
-                if maximize_pie_window():
-                    self.max_tries = 0
-                    _log("PIE window maximized")
+            self._window_mode(now)
             self._check_hmd(now)
             self._startup(now, dt)
             self._keyboard(dt)
@@ -1887,7 +1930,8 @@ def recenter():
 
 def maximize_pie_window():
     """Maximize the Play-in-new-window (PIE) window of this editor process (Windows). Returns True when found.
-    The project defaults Play to 'New Editor Window' (Config/DefaultEditorPerProjectUserSettings.ini); F11 = fullscreen."""
+    The project defaults Play to 'New Editor Window' (Config/DefaultEditorPerProjectUserSettings.ini); fallback when the
+    true full screen (pie_fullscreen.py, F11 / Alt+Enter) did not take."""
     if os.name != "nt":
         return False
     import ctypes.wintypes as W

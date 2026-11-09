@@ -12,7 +12,10 @@ without a keyboard or mouse (VR).
 Control priority: joystick axes > Unreal UDP (if a ctrl packet arrived in the last 0.5 s) > browser WebSocket.
 The demo autopilot (training) overrides the controls while a demo runs.
 
-Run:  python server.py [--start rkpk]      then open http://127.0.0.1:8780/   (--start: airfield, default rktu = Cheongju)
+--free-flight (GyroSim_Busan.bat): no start menu, straight into free flight (no instructor, no lesson, no demo autopilot);
+F1 still opens the menu. Without it the trainer starts in the menu as before.
+
+Run:  python server.py [--start rkpk] [--free-flight]      then open http://127.0.0.1:8780/   (--start: airfield, default rktu = Cheongju)
 """
 import asyncio, json, os, socket, sys, threading, time
 # start airfield (sim/airfield.py AIRFIELDS): --start rkpk (Busan Gimhae 36L) | rktu (Cheongju 06R, default), or the
@@ -103,6 +106,10 @@ def reset(mode, at=None):
 
 voice = Voice()                           # instructor voice (offline Korean SAPI), text only if unavailable
 trainer = Trainer(reset, voice)
+if "--free-flight" in sys.argv:           # skip the start menu: free flight from the first Play (user flies at once)
+    trainer.L, trainer.phase, trainer.free_t0 = None, "free", 0.0
+    trainer._say("자유 비행이에요. 바로 조종하세요. F1 을 누르면 메뉴로 가요.", force=True)
+    print("sim: free flight (no start menu)", flush=True)
 
 
 def terrain_check(s, dt_sim):

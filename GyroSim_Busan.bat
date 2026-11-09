@@ -1,7 +1,9 @@
 @echo off
-rem GyroSim - one step: Busan (Gimhae RKPK 36L) free flight over the V-World photo, with the Busan minimap (top right).
+rem GyroSim - one step: Busan (Gimhae RKPK 36L) over the V-World photo, with the Busan minimap (top right).
+rem Free flight at once (server --free-flight): no start menu / lessons / instructor; F1 still opens the menu.
 rem 1) starts the sim server (JSBSim + V-World tile proxy) in a minimized window, unless one is already running
-rem 2) opens the Unreal project; Play starts by itself (-GyroSimPlay, window maximized). F11 = full screen, Esc = stop.
+rem 2) opens the Unreal project; Play starts by itself (-GyroSimPlay) in full screen (Content/Python/pie_fullscreen.py).
+rem    F11 (or Alt+Enter) = full screen on / off, Esc = stop.
 rem Needs unreal\GyroSim\Config\cesium_token.txt with a 'vworld' line (this PC has it) and the tiles in C:\GyroSimTiles.
 chcp 65001 >nul
 setlocal
@@ -11,10 +13,10 @@ set "UE=C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.ex
 
 netstat -ano | findstr /R /C:"127.0.0.1:8781 .*LISTENING" >nul
 if %errorlevel%==0 (
-    echo [GyroSim] 시뮬 서버가 이미 켜져 있습니다. 부산이 아니라 청주에서 시작되면 그 서버 창을 닫고 이 파일을 다시 실행하세요.
+    echo [GyroSim] 시뮬 서버가 이미 켜져 있습니다. 청주에서 시작하거나 메뉴가 먼저 나오면 그 서버 창을 닫고 이 파일을 다시 실행하세요.
 ) else (
-    echo [GyroSim] 시뮬 서버 시작 - 부산 김해 36L
-    start "GyroSim server (Busan)" /min /D "%ROOT%" cmd /k python sim\server.py --start rkpk
+    echo [GyroSim] 시뮬 서버 시작 - 부산 김해, 바로 자유 비행
+    start "GyroSim server (Busan)" /min /D "%ROOT%" cmd /k python sim\server.py --start rkpk --free-flight
     timeout /t 3 /nobreak >nul
 )
 
