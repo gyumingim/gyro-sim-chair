@@ -583,6 +583,12 @@ def tiles2(args):
                dropin=dict(dir=PROTOS_DIR, glb={k: len(v) for k, v in drop.items()}, proxies={g: [os.path.basename(f) for f in proxy_files(g)] for g in ("pine", "broad")},
                            pick=PROXY_PICK), inputs=dict(work=V.WORK))
     json.dump(out, open(os.path.join(tmp, "build.json"), "w"), indent=1)
+    if os.environ.get("GYROSIM_VEG_SWAP_ANY", "0") != "1":     # never swap tiles under a running editor (it streams them)
+        import subprocess
+        tl = subprocess.run(["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True).stdout.lower()
+        if "unrealeditor" in tl:
+            print("an UnrealEditor is running: new tiles left in", tmp, "- swap later (no editor) or GYROSIM_VEG_SWAP_ANY=1")
+            return
     if os.path.isdir(TILES2):
         prev = TILES2 + "_prev"
         if os.path.isdir(prev):
