@@ -23,7 +23,7 @@ SSE = float(os.environ.get("GYROSIM_TREES_SSE", "16"))
 #   GYROSIM_TREES_WIND=1   M_GyroTree2W (gentle sway, world position offset; off by default - cost not measured)
 _V2_TILES = r"C:/GyroSimTiles/veg/tiles_v2"
 _V1_TILES = r"C:/GyroSimTiles/veg/tiles"
-LOOK2_OFF = dict(VarAmt=0.0, GapDark=0.0, Bump=0.0, SssAmt=0.0, AoBase=0.0, AoAmb=0.0)
+LOOK2_OFF = dict(VarAmt=0.0, GapDark=0.0, Bump=0.0, SssAmt=0.0, AoBase=0.0, AoAmb=0.0, RimAmt=0.0)
 STATE = dict(v2=None)
 
 

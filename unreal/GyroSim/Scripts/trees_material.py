@@ -83,7 +83,7 @@ def build():
 # ---- v2 (11-10 second pass, sim/veg_v2.py tiles): /Game/Trees/M_GyroTree2 (+ M_GyroTree2W with wind sway) -------------
 NAME2 = "M_GyroTree2"
 HLSL2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trees_foliage2.hlsl")
-PARAMS2 = dict(VarAmt=1.0, Season=0.0, AoBase=0.55, AoAmb=0.8, ClumpM=0.7, GapDark=0.45, Bump=0.8, SssAmt=0.4, Gain=0.9)
+PARAMS2 = dict(VarAmt=1.0, Season=0.0, AoBase=0.7, AoAmb=0.85, ClumpM=0.7, GapDark=0.5, Bump=0.8, SssAmt=0.4, Gain=0.9, RimAmt=0.35)
 WIND2 = dict(WindAmp=18.0, WindHz=0.35)                      # cm at the tree top, Hz (M_GyroTree2W only)
 WIND_HLSL = """// gentle sway (vertex): crown top moves WindAmp cm, quadratic with the height above the instance origin, own phase per tree
 float3 d = P - O;
@@ -115,7 +115,8 @@ def build2(name=NAME2, wind=False):
     wp = X(unreal.MaterialExpressionWorldPosition, -1300, 150)
     nrm = X(unreal.MaterialExpressionVertexNormalWS, -1300, 300)
     pir = X(unreal.MaterialExpressionPerInstanceRandom, -1300, 400)
-    srcs = [("VC", vc, ""), ("VA", vc, "A"), ("P", wp, ""), ("N", nrm, ""), ("PIR", pir, "")]
+    cam = X(unreal.MaterialExpressionCameraVectorWS, -1300, 450)
+    srcs = [("VC", vc, ""), ("VA", vc, "A"), ("P", wp, ""), ("N", nrm, ""), ("PIR", pir, ""), ("V", cam, "")]
     y = 500
     for k, v in PARAMS2.items():
         e = X(unreal.MaterialExpressionScalarParameter, -1300, y)

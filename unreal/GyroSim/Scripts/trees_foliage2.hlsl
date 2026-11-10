@@ -5,6 +5,7 @@
 // Cesium copies the bytes unchanged (CesiumGltfComponent ColorVisitor), so A * 255 is the exact code.
 // Shading model Two Sided Foliage: Subsurface colour = light through the leaves (backlit crowns glow a little).
 // Inputs:  VC (rgb), VA (alpha), P (absolute world position, cm), N (vertex normal, world), PIR (PerInstanceRandom 0..1),
+//          V (camera vector, world), RimAmt (round 2 silhouette rim),
 //          VarAmt (per-tree variation 0..1), Season (0 summer .. 1 autumn, broadleaf only), AoBase / AoAmb (how much of the
 //          baked ao goes to the base colour / the AO pin), ClumpM (m), GapDark, Bump, SssAmt, Gain
 // Outputs: return = base colour; Rough, NormalWS (world space), SSS (subsurface colour), AOut (ambient occlusion)
@@ -62,6 +63,9 @@ gr -= Nn * dot(gr, Nn);
 NormalWS = normalize(Nn - Bump * gr);
 // ---- baked self-shadowing + translucency ----------------------------------------------------------------------------
 c *= lerp(1.0, ao, AoBase);
+// round 2: sky-lit rim on the crown silhouettes (thin bright edge, as backlit needles / leaf edges read from the air)
+float rim = pow(1.0 - saturate(abs(dot(NormalWS, normalize(V)))), 3.0);
+c *= 1.0 + RimAmt * rim * (0.5 + 0.5 * ao);
 SSS = c * float3(1.3, 1.6, 0.9) * SssAmt * (0.4 + 0.6 * ao);
 Rough = lerp(0.80, 0.95, gap);
 return c;

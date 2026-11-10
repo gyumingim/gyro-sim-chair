@@ -48,15 +48,18 @@ TILES2 = os.environ.get("GYROSIM_VEG_TILES2", os.path.join(V.ROOT, "tiles_v2"))
 # GYROSIM_TREES_PROTOS=none = procedural broadleaf only
 _PD = os.environ.get("GYROSIM_TREES_PROTOS", os.path.join(V.ROOT, "protos_fab"))
 PROTOS_DIR = "" if _PD.lower() in ("", "none", "0") or not os.path.isdir(_PD) else _PD
-GE2 = dict(root=20000.0, a=30.0, b=float(os.environ.get("GYROSIM_VEG2_GEB", "12.0")), c=0.0)
-NBIN = 4
-R_FAC = 0.70
+# round 2: A refines at ~3.9 km (v1 / first v2: 2.6 km) - the far trees reach further, the tree line edge moves into the haze
+GE2 = dict(root=20000.0, a=float(os.environ.get("GYROSIM_VEG2_GEA", "45.0")), b=float(os.environ.get("GYROSIM_VEG2_GEB", "12.0")), c=0.0)
+NBIN = 2                                                  # colour bins per shape (+ per-instance variation in the material)
+R_FAC = 0.78
 KIND = dict(bark=0, pine=1, broad=2, shrub=3)
 # linear summer albedo of the sunlit crown (before the per-vertex AO); 소나무 dark olive-green, 곰솔 darker / bluer,
 # 참나무 brighter yellow-green, shrubs in between. Starting values from leaf / canopy albedo (~0.04-0.12 green), tuned
 # against the real Busan photos (11-10 after1: forest pixels (71, 90, 45) sRGB vs 금정산 photo (67, 82, 51) -> bluer, darker).
-TINT = dict(pine=(0.044, 0.072, 0.039), bpine=(0.035, 0.060, 0.040), broad=(0.062, 0.106, 0.046), shrub=(0.066, 0.102, 0.050))
-TRUNK = dict(pine=(0.30, 0.13, 0.07), broad=(0.13, 0.12, 0.10), shrub=(0.12, 0.10, 0.08))   # linear; 소나무 upper bark orange-red
+# round 2 (customer: pine darker blue-green, oak rounder yellow-green): two clearly different species colours
+TINT = dict(pine=(0.034, 0.060, 0.043), bpine=(0.028, 0.052, 0.043), broad=(0.070, 0.112, 0.038), shrub=(0.058, 0.094, 0.044),
+            rock=(0.16, 0.15, 0.135))                    # rock = warm-grey weathered granite (never white)
+TRUNK = dict(pine=(0.13, 0.095, 0.07), broad=(0.11, 0.10, 0.085), shrub=(0.10, 0.09, 0.075))  # linear grey-brown bark (round 2)
 
 
 def lin_to_srgb8(c):
@@ -158,48 +161,65 @@ ONE = (1.0, 1.0, 1.0)
 
 
 def proto_pine(var, far=False):
-    """소나무 (var 0, 1: mature umbrella) / 곰솔 · young pine (var 2)."""
+    """소나무: var 0, 1 mature umbrella (irregular flat needle tufts on bent limbs), var 3 young / dense stand (tufts all down
+    the stem); 곰솔 var 2 (stacked pads). Round 2: crowns start lower (trunks hidden under a closed canopy), more and
+    smaller ragged tufts instead of a few big pads."""
     m = Proto()
     rg = np.random.default_rng(100 + var)
     if var in (0, 1):
-        lean = rg.uniform(-0.18, 0.18, 2)
-        top = 0.70 if var == 0 else 0.64
+        lean = rg.uniform(-0.16, 0.16, 2)
+        top = 0.62 if var == 0 else 0.56
         tr = _bend(-0.08, top, 5, lean, 7 + var, 0.035)
-        m.env = (np.array([lean[0] * 0.8, 0.80 if var == 0 else 0.74, lean[1] * 0.8]), np.array([0.98, 0.20 if var == 0 else 0.26, 0.98]))
+        m.env = (np.array([lean[0] * 0.8, 0.76 if var == 0 else 0.70, lean[1] * 0.8]), np.array([0.98, 0.24 if var == 0 else 0.30, 0.98]))
         if not far:
-            m.tube(tr, np.linspace(0.05, 0.022, len(tr)), ONE)
+            m.tube(tr, np.linspace(0.045, 0.02, len(tr)), ONE)
         nlimb = 5 if var == 0 else 6
         ang0 = rg.uniform(0, 2 * math.pi)
-        pads = []
+        tufts = []
         for q in range(nlimb):
             a = ang0 + 2 * math.pi * q / nlimb + rg.uniform(-0.4, 0.4)
-            rad = rg.uniform(0.45, 0.72)
-            y_s = top - rg.uniform(0.04, 0.20)
-            y_t = (0.76 if var == 0 else 0.62 + 0.20 * (q % 2)) + rg.uniform(-0.06, 0.10)
-            base = tr[np.argmin(np.abs(tr[:, 1] - y_s))]
-            tip = np.array([base[0] + rad * math.cos(a), y_t, base[2] + rad * math.sin(a)])
-            mid = (base + tip) / 2 + np.array([0, 0.05, 0])
+            rad = rg.uniform(0.42, 0.74)
+            y_s = top - rg.uniform(0.04, 0.22)
+            y_t = (0.74 if var == 0 else 0.60 + 0.20 * (q % 2)) + rg.uniform(-0.08, 0.10)
+            b0 = tr[np.argmin(np.abs(tr[:, 1] - y_s))]
+            tip = np.array([b0[0] + rad * math.cos(a), y_t, b0[2] + rad * math.sin(a)])
+            mid = (b0 + tip) / 2 + np.array([0, 0.04, 0])
             if not far:
-                m.tube([base, mid, tip], [0.022, 0.016, 0.010], ONE, sides=4, ao=(0.5, 0.7))
-            pads.append(tip)
-            if not far:                                         # a second pad part-way along the limb
-                pads.append(mid + np.array([0, 0.03, 0]) + rg.uniform(-0.08, 0.08, 3) * np.array([1, 0, 1]))
-        pads.append(np.array([tr[-1][0], tr[-1][1] + 0.20 + (0.06 if var == 0 else 0.10), tr[-1][2]]))
+                m.tube([b0, mid, tip], [0.02, 0.014, 0.009], ONE, sides=4, ao=(0.45, 0.65))
+            tufts.append(tip)
+            if not far:
+                tufts.append(tip + np.array([rg.uniform(-0.15, 0.15), rg.uniform(-0.06, 0.04), rg.uniform(-0.15, 0.15)]))
+        tufts.append(np.array([tr[-1][0], tr[-1][1] + 0.18 + (0.05 if var == 0 else 0.09), tr[-1][2]]))
         if far:
-            for k, p in enumerate(pads[:3] + pads[-1:]):
-                m.clump(p * np.array([0.85, 1, 0.85]), (0.50, 0.13, 0.46), 300 + k, KIND["pine"], ONE, far=True)
+            for k, p in enumerate(tufts[:2] + tufts[-1:]):
+                m.clump(p * np.array([0.85, 1, 0.85]), (0.55, 0.15, 0.50), 300 + k, KIND["pine"], ONE, far=True)
         else:
-            for k, p in enumerate(pads):
-                big = k % 2 == 0 or k == len(pads) - 1
-                s = np.array([rg.uniform(0.32, 0.44), rg.uniform(0.11, 0.15), rg.uniform(0.28, 0.40)]) * (1.0 if big else 0.72)
-                m.clump(p, s, 200 + 10 * var + k, KIND["pine"], ONE, jit=0.32)     # chunky, ragged needle masses (not pancakes)
-    else:                                                       # 곰솔 / young: irregular stacked pads, straighter trunk
+            for k, p in enumerate(tufts):
+                sz = rg.uniform(0.62, 1.0)
+                s_ = np.array([rg.uniform(0.26, 0.36), rg.uniform(0.08, 0.12), rg.uniform(0.22, 0.32)]) * sz
+                m.clump(p, s_, 200 + 17 * var + k, KIND["pine"], ONE, jit=0.38)       # ragged flat needle tufts
+    elif var == 3:                                              # young / dense-stand pine: tufts down the stem, narrow
+        lean = rg.uniform(-0.06, 0.06, 2)
+        tr = _bend(-0.08, 0.9, 5, lean, 29, 0.02)
+        m.env = (np.array([lean[0] * 0.6, 0.62, lean[1] * 0.6]), np.array([0.8, 0.38, 0.8]))
+        if not far:
+            m.tube(tr, np.linspace(0.04, 0.016, len(tr)), ONE)
+        n = 12 if not far else 3
+        for k in range(n):
+            y = 0.30 + 0.68 * (k + rg.uniform(0, 1)) / n
+            rad = 0.75 * (1.05 - y) + 0.12
+            a = rg.uniform(0, 2 * math.pi)
+            off = 0.0 if far else rad * rg.uniform(0.25, 0.7)
+            c = np.array([lean[0] * y + off * math.cos(a), y, lean[1] * y + off * math.sin(a)])
+            s_ = np.array([rad * 0.7, 0.10 if not far else 0.16, rad * 0.65]) * (1.0 if not far else 1.3)
+            m.clump(c, s_, 450 + k, KIND["pine"], ONE, far=far, jit=0.35)
+    else:                                                       # 곰솔 / coast: irregular stacked pads, straighter trunk
         lean = rg.uniform(-0.08, 0.08, 2)
         tr = _bend(-0.08, 0.86, 5, lean, 17, 0.02)
-        m.env = (np.array([lean[0] * 0.6, 0.66, lean[1] * 0.6]), np.array([0.85, 0.34, 0.85]))
+        m.env = (np.array([lean[0] * 0.6, 0.64, lean[1] * 0.6]), np.array([0.85, 0.36, 0.85]))
         if not far:
-            m.tube(tr, np.linspace(0.05, 0.018, len(tr)), ONE)
-        lv = [(0.40, 0.80, 3), (0.58, 0.66, 3), (0.74, 0.50, 3), (0.90, 0.30, 1)] if not far else [(0.48, 0.75, 1), (0.70, 0.55, 1), (0.90, 0.30, 1)]
+            m.tube(tr, np.linspace(0.045, 0.016, len(tr)), ONE)
+        lv = [(0.36, 0.80, 3), (0.54, 0.66, 3), (0.70, 0.52, 3), (0.86, 0.34, 2)] if not far else [(0.48, 0.75, 1), (0.72, 0.5, 1), (0.9, 0.3, 1)]
         k = 0
         for y, rad, n in lv:
             a0 = rg.uniform(0, 2 * math.pi)
@@ -207,8 +227,8 @@ def proto_pine(var, far=False):
                 a = a0 + 2 * math.pi * q / n
                 off = 0.0 if n == 1 else rad * rg.uniform(0.45, 0.7)
                 c = np.array([lean[0] * y + off * math.cos(a), y + rg.uniform(-0.04, 0.04), lean[1] * y + off * math.sin(a)])
-                s = (np.array([rad * 0.62, 0.11, rad * 0.58]) if n > 1 else np.array([rad, 0.12, rad * 0.95]))
-                m.clump(c, s, 400 + k, KIND["pine"], ONE, far=far, jit=0.22)
+                s_ = (np.array([rad * 0.6, 0.11, rad * 0.56]) if n > 1 else np.array([rad, 0.13, rad * 0.95]))
+                m.clump(c, s_, 400 + k, KIND["pine"], ONE, far=far, jit=0.3)
                 k += 1
     return m
 
@@ -249,27 +269,47 @@ def proto_broad(var, far=False):
     return m
 
 
-def proto_shrub(far=False):
+def proto_shrub(far=False, var=0):
     m = Proto()
-    rg = np.random.default_rng(900)
+    rg = np.random.default_rng(900 + var)
     m.env = (np.array([0.0, 0.48, 0.0]), np.array([0.95, 0.52, 0.95]))
-    n = 7 if not far else 3
+    n = (7 if var == 0 else 6) if not far else 3
     for k in range(n):
         a = 2 * math.pi * k / n + rg.uniform(-0.3, 0.3)
-        rr = 0.0 if k == 0 else rg.uniform(0.4, 0.6)
-        c = np.array([rr * math.cos(a), 0.45 + (0.2 if k == 0 else rg.uniform(-0.12, 0.05)), rr * math.sin(a)])
-        s = (0.45, 0.40, 0.45) if not far else (0.7, 0.5, 0.7)
-        m.clump(c, np.array(s) * rg.uniform(0.85, 1.1), 950 + k, KIND["shrub"], ONE, far=far, jit=0.2)
+        rr = 0.0 if k == 0 else rg.uniform(0.35, 0.65)
+        c = np.array([rr * math.cos(a), (0.45 if var == 0 else 0.36) + (0.2 if k == 0 else rg.uniform(-0.12, 0.05)), rr * math.sin(a)])
+        s_ = ((0.45, 0.40, 0.45) if var == 0 else (0.5, 0.32, 0.42)) if not far else (0.7, 0.5, 0.7)
+        m.clump(c, np.array(s_) * rg.uniform(0.8, 1.15), 950 + 13 * var + k, KIND["shrub"], ONE, far=far, jit=0.25)
+    return m
+
+
+def proto_rock(var, far=False):
+    """granite tor (round 2): 3-5 weathered, rounded boulders (kind 0 = no foliage shading; colour = the rock tint), base
+    buried a little. Instances: crown radius = tor half-width, height = tor height."""
+    m = Proto()
+    m.env = (np.array([0.0, 0.4, 0.0]), np.array([1.0, 0.6, 1.0]))
+    if var == 0:      # stacked tor
+        parts = [((0.0, 0.25, 0.0), (0.85, 0.42, 0.7)), ((0.12, 0.66, -0.05), (0.55, 0.32, 0.45)), ((-0.42, 0.18, 0.35), (0.42, 0.3, 0.38)),
+                 ((0.5, 0.15, 0.3), (0.35, 0.22, 0.32)), ((-0.05, 0.9, 0.05), (0.3, 0.14, 0.26))]
+    else:             # boulder field
+        parts = [((-0.35, 0.3, -0.1), (0.6, 0.45, 0.55)), ((0.45, 0.22, 0.25), (0.5, 0.36, 0.48)), ((0.05, 0.18, 0.62), (0.38, 0.26, 0.35)),
+                 ((0.2, 0.55, -0.35), (0.4, 0.3, 0.36))]
+    if far:
+        parts = parts[:2]
+    for k, (c, s_) in enumerate(parts):
+        m.clump(np.array(c), np.array(s_), 1600 + 11 * var + k, KIND["bark"], ONE, far=far, jit=0.12, soft=0.3)
     return m
 
 
 # (name, kind for tint, variant) - index = prototype id stored per tree
-PROTOS = [("pine", 0), ("pine", 1), ("bpine", 2), ("broad", 0), ("broad", 1), ("broad", 2), ("shrub", 0)]
-SPECIES_OF = np.array([0, 0, 1, 2, 2, 2, 3])                   # palette group per prototype: pine, bpine, broad, shrub
-GROUPS = ("pine", "bpine", "broad", "shrub")
+PROTOS = [("pine", 0), ("pine", 1), ("pine", 3), ("bpine", 2), ("broad", 0), ("broad", 1), ("broad", 2), ("broad", 3),
+          ("shrub", 0), ("shrub", 1), ("rock", 0), ("rock", 1)]
+SPECIES_OF = np.array([0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 4, 4])    # palette group per prototype: pine, bpine, broad, shrub, rock
+GROUPS = ("pine", "bpine", "broad", "shrub", "rock")
+P_PINE, P_BPINE, P_BROAD, P_SHRUB, P_ROCK = (0, 1, 2), 3, (4, 5, 6, 7), (8, 9), (10, 11)
 
 
-PROXY_PICK = [int(x) for x in os.environ.get("GYROSIM_TREES_PROTO_PICK", "1,2,5").split(",")]   # broad_<k>.npz per broad variant
+PROXY_PICK = [int(x) for x in os.environ.get("GYROSIM_TREES_PROTO_PICK", "1,2,5,6").split(",")]   # broad_<k>.npz per broad variant
 
 
 def proxy_files(group):
@@ -309,8 +349,10 @@ def build_proto(pid, far):
     if nm in ("pine", "bpine"):
         return proto_pine(var, far)
     if nm == "broad":
-        return proto_broad(var, far)
-    return proto_shrub(far)
+        return proto_broad(var % 3, far)
+    if nm == "rock":
+        return proto_rock(var, far)
+    return proto_shrub(far, var)
 
 
 # ---- drop-in prototypes (GYROSIM_TREES_PROTOS) ------------------------------------------------------------------------
@@ -426,34 +468,83 @@ def block_attrs(f):
     logit = (-0.2 + 0.028 * np.clip(tpi, -30, 30) + 0.35 * sw * (slope > 12) + 1.2 * coast - 0.4 * (h0 > 450)
              + 0.3 * np.clip(ph, -2.5, 2.5) + rng.normal(0, 0.6, n))
     pine = logit > 0
-    h = z["h"]
+    h = z["h"].astype(np.float64).copy()
     shrub = ((z["lc"] == 20) & (h < 7.0)) | ((h < 4.5) & (rng.random(n) < 0.6))
-    pid = np.where(pine, np.where(coast | (h < 7.0) | (rng.random(n) < 0.22), 2, rng.integers(0, 2, n)), 3 + rng.integers(0, 3, n))
-    pid = np.where(shrub, 6, pid).astype(np.int8)
-    # tint: species albedo x photo brightness (sqrt, clamped), slight photo hue
+    # round 2: 4 crown shapes per species (no clones), rocks + low scrub on ridges / coastal cliffs / photo rock
+    pine_pid = np.array(P_PINE)[rng.choice(3, n, p=[0.4, 0.35, 0.25])]
+    pid = np.where(pine, np.where(coast | (rng.random(n) < 0.18), P_BPINE, pine_pid), np.array(P_BROAD)[rng.integers(0, 4, n)])
+    pid = np.where(shrub, np.array(P_SHRUB)[rng.integers(0, 2, n)], pid)
+    ridge = (tpi > 18) & (slope > 16) & ~coast
+    cliff = coast & (slope > 22)
+    u = rng.random(n)
+    tor = rock | (ridge & (u < 0.05)) | (cliff & (u < 0.07))
+    scrub = ~tor & ridge & (u > 0.05) & (u < 0.17)
+    pid = np.where(scrub, np.array(P_SHRUB)[rng.integers(0, 2, n)], pid)
+    pid = np.where(tor, np.array(P_ROCK)[rng.integers(0, 2, n)], pid).astype(np.int8)
+    h = np.where(scrub, np.minimum(h * 0.3, 2.5) + 0.8, h)
+    h = np.where(tor, rng.uniform(1.3, 3.2, n), h)
+    # colour: two species palettes, by aspect (sunny SW slopes warmer / lighter, N slopes bluer / darker) and elevation,
+    # +-8 % per tree; the photo only nudges the brightness (^0.25, clamped)
     grp = SPECIES_OF[pid]
     base = np.array([TINT[g] for g in GROUPS])[grp]
+    swk = np.clip(sw * np.clip(slope / 20.0, 0, 1), -1, 1)
+    asp = np.stack((1 + 0.06 * swk, 1 + 0.04 * swk, 1 - 0.06 * swk), 1)
+    elev = (1.0 - 0.06 * np.clip((h0 - 300.0) / 400.0, 0, 1))[:, None]
+    jit = rng.uniform(0.92, 1.08, (n, 1)) * rng.uniform(0.97, 1.03, (n, 3))
     Ym = np.median(Y)
-    bri = np.clip(np.sqrt(Y / Ym), 0.75, 1.30)
-    hue = np.clip(ly - np.median(ly), -0.4, 0.4)                          # yellower photo -> a bit warmer
-    tint = base * bri[:, None] * np.stack((1 + 0.12 * hue, np.ones(n), 1 - 0.15 * hue), 1)
+    bri = np.clip((Y / Ym) ** 0.25, 0.88, 1.12)[:, None]
+    isrock = (grp == 4)[:, None]
+    tint = np.where(isrock, base * rng.uniform(0.85, 1.12, (n, 1)), base * asp * elev * jit * bri)
     # coast-aware rendered terrain (sim/coast_build.py, frozen 11-10 21:29): the shore tiles carry rendered_msl - msl on top
     # of the DEM mesh the prep stood the trees on -> same delta here; trees on the OSM sea side (signed distance < 0) dropped
-    base = z["base"].astype(np.float64)
+    basez = z["base"].astype(np.float64)
     seaside = np.zeros(n, bool)
+    CB = None
     try:
         import coast_build as CB
         sd, _k = CB.field_at(lat, lon)
-        base = base + (CB.rendered_msl(dem, lat, lon) - h0)
+        basez = basez + (CB.rendered_msl(dem, lat, lon) - h0)
         seaside = np.asarray(sd) < 0
     except Exception as e:                                                  # no coast field -> prep heights as they are
         print("coast delta skipped", repr(e)[:100])
-    keep = ~rock & ~seaside
-    r = z["r"] * (R_FAC / 0.6)
-    r = np.minimum(r, np.maximum(1.2, 1.5 + 0.3 * h) * 1.12)
-    out = dict(lat=lat[keep], lon=lon[keep], base=base[keep].astype(np.float32), h=h[keep], r=r[keep].astype(np.float32), pid=pid[keep],
-               tint=tint[keep].astype(np.float32), yaw=z["yaw"][keep])
-    st = dict(n=n, rock=int(rock.sum()), seaside=int((seaside & ~rock).sum()), pine=int(pine[keep & ~shrub].sum()), shrub=int(shrub[keep].sum()),
+    keep = ~seaside
+    r0 = np.asarray(z["r"], np.float64)
+    r = r0 * (R_FAC / 0.6) * rng.uniform(0.6, 1.4, n)                     # crown size 0.6-1.4 x, overlapping
+    r = np.minimum(r, np.maximum(1.2, 1.5 + 0.3 * h) * 1.25)
+    r = np.where(tor, np.clip(r0 * 0.9, 1.5, 4.5), r)
+    r = np.where(scrub, np.clip(r0 * 0.7, 1.0, 2.5), r)
+    yaw = z["yaw"].astype(np.float64)
+    # clumped infill: inside closed broadleaf / pine forest (WorldCover tree, >= 3 tops within 7 m) 35 % of the trees get a
+    # smaller neighbour 0.5-1.0 crown radius away (same species, other shape) -> groups and no lawn between crowns
+    from scipy.spatial import cKDTree
+    x_m = (lon - lon.mean()) * 111320.0 * np.cos(np.radians(lat.mean()))
+    y_m = (lat - lat.mean()) * 111320.0
+    cnt = np.array([len(q) for q in cKDTree(np.stack((x_m, y_m), 1)).query_ball_point(np.stack((x_m, y_m), 1), 7.0)])
+    inner = keep & (z["lc"] == 10) & ~coast & ~tor & ~scrub & ~shrub & (cnt >= 4) & (rng.random(n) < 0.35)
+    ii = np.nonzero(inner)[0]
+    ang = rng.uniform(0, 2 * math.pi, len(ii))
+    dd = r[ii] * rng.uniform(0.5, 1.0, len(ii))
+    slat = lat[ii] + dd * np.sin(ang) / 111320.0
+    slon = lon[ii] + dd * np.cos(ang) / (111320.0 * np.cos(np.radians(lat[ii])))
+    sh0 = dem.msl(slat, slon)
+    sbase = basez[ii] + (sh0 - h0[ii])
+    if CB is not None:
+        try:
+            sbase = sbase + (CB.rendered_msl(dem, slat, slon) - sh0) - (CB.rendered_msl(dem, lat[ii], lon[ii]) - h0[ii])
+        except Exception:
+            pass
+    spid = pid[ii].copy()
+    sp_pine = np.isin(spid, P_PINE)
+    spid = np.where(sp_pine, np.array(P_PINE)[rng.integers(0, 3, len(ii))], np.where(np.isin(spid, P_BROAD), np.array(P_BROAD)[rng.integers(0, 4, len(ii))], spid)).astype(np.int8)
+    out = dict(lat=np.concatenate((lat[keep], slat)), lon=np.concatenate((lon[keep], slon)),
+               base=np.concatenate((basez[keep], sbase)).astype(np.float32),
+               h=np.concatenate((h[keep], h[ii] * rng.uniform(0.6, 0.85, len(ii)))).astype(np.float32),
+               r=np.concatenate((r[keep], r[ii] * rng.uniform(0.55, 0.85, len(ii)))).astype(np.float32),
+               pid=np.concatenate((pid[keep], spid)).astype(np.int8),
+               tint=np.concatenate((tint[keep], tint[ii] * rng.uniform(0.93, 1.07, (len(ii), 1)))).astype(np.float32),
+               yaw=np.concatenate((yaw[keep], rng.random(len(ii)))).astype(np.float32))
+    st = dict(n=n, rock_photo=int(rock.sum()), tor=int((tor & keep).sum()), scrub=int((scrub & keep).sum()), infill=int(len(ii)),
+              seaside=int(seaside.sum()), pine=int((pine & keep & ~shrub & ~tor & ~scrub).sum()), shrub=int((shrub & keep).sum()),
               coast=int(coast[keep].sum()), ridge=int((tpi[keep] > 10).sum()), valley=int((tpi[keep] < -10).sum()),
               pine_ridge=int((pine & keep & ~shrub & (tpi > 10)).sum()), pine_valley=int((pine & keep & ~shrub & (tpi < -10)).sum()))
     return out, st
@@ -532,7 +623,7 @@ def tiles2(args):
                     arr = dropin_arrays(dm[PROTOS[p_][1] % len(dm)], nm)
                     arr = (arr[0], arr[1], np.concatenate((lin_to_srgb8(V.srgb_to_lin(arr[2][:, :3].astype(np.float64)) / np.mean(TINT[nm]) * np.mean(tint)), arr[2][:, 3:]), 1).astype(np.uint8), arr[3])
                 else:
-                    arr = build_proto(p_, not near).arrays(tint, trunk)
+                    arr = build_proto(p_, not near).arrays(tint, tint if nm == "rock" else trunk)
                 pidx[(p_, near, b_)] = len(protos)
                 protos.append(arr)
                 tri.append(len(arr[3]) // 3)
@@ -623,7 +714,7 @@ def preview(outdir):
             g = GROUPS[SPECIES_OF[p_]]
             nm = PROTOS[p_][0]
             trunk = TRUNK["pine" if nm in ("pine", "bpine") else ("broad" if nm == "broad" else "shrub")]
-            P, Nn, Cu, I = build_proto(p_, not near).arrays(TINT[g], trunk)
+            P, Nn, Cu, I = build_proto(p_, not near).arrays(TINT[g], TINT[g] if nm == "rock" else trunk)
             col = V.srgb_to_lin(Cu[:, :3].astype(np.float64))
             ao = (Cu[:, 3] % 64) / 63.0
             sh = (0.25 + 0.9 * np.clip(Nn @ sun, 0, 1))[:, None] * col * (0.4 + 0.6 * ao[:, None]) * 6
