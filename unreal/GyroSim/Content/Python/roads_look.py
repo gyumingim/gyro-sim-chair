@@ -3,11 +3,15 @@ on the local terrain. The map's 'CesiumRoads' tileset (build_level.py, or Script
 off = no URL) is pointed at file:///C:/GyroSimTiles/roads/tiles/tileset.json (GYROSIM_ROADS_TILES moves it). GYROSIM_ROADS=0 = off.
 Called by sim_client._vworld_ground after the buildings; the on-screen credit (© OpenStreetMap contributors) is the
 plate sim/vworld_roads_attribution.png, chosen by sim_client._attribution when this returned True.
-No physics meshes (the server does not know the bridges either: flying through one is not a crash)."""
+No physics meshes (the server does not know the bridges either: flying through one is not a crash).
+GYROSIM_BRIDGES_LM=0 = the generic big-bridge towers / decks of 11-10 morning (tiles_generic, built with the same variable:
+roads_build.py), for A/B against the signature models (광안대교 double-deck truss + towers, 부산항대교 A pylons)."""
 import os
 import unreal
 
 TILES = os.environ.get("GYROSIM_ROADS_TILES", r"C:/GyroSimTiles/roads/tiles").replace("\\", "/")
+if os.environ.get("GYROSIM_BRIDGES_LM", "1") == "0" and os.path.isfile(TILES + "_generic/tileset.json"):
+    TILES = TILES + "_generic"
 TAG = "CesiumRoads"
 SSE = 16.0
 
