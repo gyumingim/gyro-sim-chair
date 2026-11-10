@@ -87,10 +87,24 @@ def _lerp(m, a, b, alpha, x, y, ao="", bo="", lo=""):
     return e
 
 
+def clear_coat(m, cc, cr):
+    """thin clear coat when the material property enum exposes the custom data pins (name differs between versions);
+    else the default lit model (11-10: the first try set the model but not the pins -> a full-strength coat)."""
+    p0 = next((getattr(MP, n) for n in ("MP_CUSTOM_DATA0", "MP_CUSTOMDATA0", "MP_CUSTOM_DATA_0") if hasattr(MP, n)), None)
+    p1 = next((getattr(MP, n) for n in ("MP_CUSTOM_DATA1", "MP_CUSTOMDATA1", "MP_CUSTOM_DATA_1") if hasattr(MP, n)), None)
+    if p0 is None or p1 is None:
+        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
+        log("clear coat pins not exposed - default lit", [n for n in dir(MP) if n.startswith("MP_")][:40])
+        return
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_CLEAR_COAT)
+    MEL.connect_material_property(_sp(m, "ClearCoat", cc, -550, 700), "", p0)
+    MEL.connect_material_property(_sp(m, "ClearCoatRough", cr, -550, 780), "", p1)
+
+
 def airframe_master(tx):
     """BaseColor = Paint * Tint * (1 - LineDark * line * Detail) * lerp(1, GrimeTint, grime * GrimeAmt * Detail)
     Roughness = Rough + (rvar - 0.5) * RoughVar * Detail + line * 0.12 * Detail;  Normal = lerp(flat, Nrm, NormalStr * Detail)."""
-    m = _new_material("M_GyroAirframe", OWN)
+    m = _new_material("M_GyroAirframe", TP + "/Materials")      # GPL textures as defaults -> gitignored folder
     m.set_editor_property("two_sided", True)
     ST = unreal.MaterialSamplerType
     paint = _tp(m, "Paint", tx["tex_f16_paint"], ST.SAMPLERTYPE_COLOR, -1600, -400)
@@ -132,12 +146,7 @@ def airframe_master(tx):
                  amt, -550, 980)
     MEL.connect_material_property(bounce, "", MP.MP_EMISSIVE_COLOR)
     # semi-gloss paint: a thin clear coat (sharper sky / sun reflection at grazing angles) over the matte base
-    try:
-        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_CLEAR_COAT)
-        MEL.connect_material_property(_sp(m, "ClearCoat", 0.15, -550, 700), "", MP.MP_CUSTOM_DATA0)
-        MEL.connect_material_property(_sp(m, "ClearCoatRough", 0.35, -550, 780), "", MP.MP_CUSTOM_DATA1)
-    except Exception as e:
-        log("clear coat", repr(e))
+    clear_coat(m, 0.15, 0.35)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m)
     return m
@@ -196,7 +205,7 @@ def textures():
     return tx
 
 
-def meshes():
+def meshes(suffix=""):
     info = json.load(open(os.path.join(SRC, "airframe.json"), encoding="utf-8"))
     tmp = os.path.join(PROJ, "Intermediate", "f16_airframe_import")
     os.makedirs(tmp, exist_ok=True)
@@ -206,7 +215,7 @@ def meshes():
     except Exception as e:
         log("interchange flag", e)
     out = {}
-    for name in info["parts"]:
+    for name in [n + suffix for n in info["parts"]]:
         src, dst = os.path.join(SRC, name + ".obj"), os.path.join(tmp, name + ".obj")
         with open(src, encoding="utf-8") as f, open(dst, "w", encoding="utf-8") as g:   # = build_level._prep_obj
             for ln in f:
@@ -330,6 +339,92 @@ def map_actors(info, sm, light_mi):
     log("map actors added, saved", MAP, ok)
 
 
+def airframe2_master(tx2):
+    """M_GyroAirframe2 (v2, 4K baked set from airframe_bake.py): BaseColor = Base x Tint (lines, rivets, two-tone, soot,
+    half AO already in it); AO = ORM.r (indirect light); Roughness = ORM.g x RoughScale; Metallic = ORM.b; Normal = lerp(flat,
+    Nrm, NormalStr); thin clear coat; ground bounce + sky fill emissive x AO (same reason as v1: black shaded sides)."""
+    m = _new_material("M_GyroAirframe2", TP + "/Materials")     # GPL textures as defaults -> gitignored folder
+    m.set_editor_property("two_sided", True)
+    ST = unreal.MaterialSamplerType
+    base = _tp(m, "Base", tx2["tex_af2_base"], ST.SAMPLERTYPE_COLOR, -1600, -400)
+    orm = _tp(m, "ORM", tx2["tex_af2_orm"], ST.SAMPLERTYPE_MASKS, -1600, 0)
+    nrm = _tp(m, "Nrm", tx2["tex_af2_n"], ST.SAMPLERTYPE_NORMAL, -1600, 400)
+    col = _op(m, unreal.MaterialExpressionMultiply, base, _vp(m, "Tint", (1, 1, 1), -1450, -300), -1250, -400, "RGB", "")
+    MEL.connect_material_property(col, "", MP.MP_BASE_COLOR)
+    MEL.connect_material_property(orm, "R", MP.MP_AMBIENT_OCCLUSION)
+    MEL.connect_material_property(_op(m, unreal.MaterialExpressionMultiply, orm, _sp(m, "RoughScale", 1.0, -1300, 120), -1100, 60, "G", ""), "", MP.MP_ROUGHNESS)
+    MEL.connect_material_property(_op(m, unreal.MaterialExpressionMultiply, orm, _sp(m, "MetalScale", 1.0, -1300, 220), -1100, 200, "B", ""), "", MP.MP_METALLIC)
+    MEL.connect_material_property(_sp(m, "Spec", 0.5, -1100, 300), "", MP.MP_SPECULAR)
+    n = _lerp(m, _const3(m, (0, 0, 1), -1150, 480), nrm, _sp(m, "NormalStr", 1.0, -1300, 560), -550, 420, "", "RGB", "")
+    MEL.connect_material_property(n, "", MP.MP_NORMAL)
+    wn = _expr(m, unreal.MaterialExpressionVertexNormalWS, -1300, 900)
+    nz = _expr(m, unreal.MaterialExpressionComponentMask, -1150, 900, r=False, g=False, b=True, a=False)
+    MEL.connect_material_expressions(wn, "", nz, "")
+    down = _expr(m, unreal.MaterialExpressionSaturate, -900, 900)
+    MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionMultiply, nz, _const(m, -1.0, -1150, 980), -1000, 900), "", down, "")
+    amt = _op(m, unreal.MaterialExpressionAdd, _op(m, unreal.MaterialExpressionMultiply, down, _sp(m, "Bounce", 0.6, -900, 1080), -750, 1050),
+              _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -1000, 1160), down, -900, 1160),
+                  _sp(m, "SkyFill", 0.4, -900, 1240), -750, 1180), -650, 1100)
+    em = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, col, amt, -500, 1000),
+             _op(m, unreal.MaterialExpressionMultiply, orm, _vp(m, "BounceColor", (0.85, 0.85, 0.8), -900, 1300), -700, 1300, "R", ""), -400, 1100)
+    MEL.connect_material_property(em, "", MP.MP_EMISSIVE_COLOR)
+    clear_coat(m, 0.2, 0.3)
+    MEL.recompile_material(m)
+    EAL.save_loaded_asset(m)
+    return m
+
+
+def glass_ext_master():
+    """M_GyroGlassExt: the canopy seen from OUTSIDE (chase / orbit / flyby / tower; airframe_live swaps it in): gold
+    tinted (ITO coating), strong Fresnel reflection, see-through head on, forward-shaded translucency (sharp reflections)."""
+    m = _new_material("M_GyroGlassExt", OWN)
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    m.set_editor_property("two_sided", True)
+    try:
+        m.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
+    except Exception as e:
+        log("glass lighting mode", repr(e))
+    MEL.connect_material_property(_vp(m, "Tint", (0.42, 0.30, 0.11), -600, -200), "", MP.MP_BASE_COLOR)
+    MEL.connect_material_property(_sp(m, "Metal", 0.55, -600, -100), "", MP.MP_METALLIC)
+    MEL.connect_material_property(_sp(m, "Rough", 0.06, -600, 0), "", MP.MP_ROUGHNESS)
+    MEL.connect_material_property(_const(m, 1.0, -600, 80), "", MP.MP_SPECULAR)
+    fr = _expr(m, unreal.MaterialExpressionFresnel, -800, 200, exponent=3.0)
+    op = _lerp(m, _sp(m, "OpacityFace", 0.35, -800, 300), _sp(m, "OpacityEdge", 0.9, -800, 380), fr, -500, 250)
+    MEL.connect_material_property(op, "", MP.MP_OPACITY)
+    MEL.recompile_material(m)
+    EAL.save_loaded_asset(m)
+    return m
+
+
+def v2(tx, m1):
+    names = ("tex_af2_base", "tex_af2_n", "tex_af2_orm")
+    if not all(os.path.exists(os.path.join(SRC, n + ".png")) for n in names):
+        log("v2 textures missing (run airframe_bake.py) - v2 skipped")
+        return
+    tx2 = import_files([os.path.join(SRC, n + ".png") for n in names], TP + "/Textures")
+    TC = unreal.TextureCompressionSettings
+    tx2["tex_af2_n"].set_editor_property("compression_settings", TC.TC_NORMALMAP)
+    tx2["tex_af2_n"].set_editor_property("srgb", False)
+    tx2["tex_af2_orm"].set_editor_property("compression_settings", TC.TC_MASKS)
+    tx2["tex_af2_orm"].set_editor_property("srgb", False)
+    for t in tx2.values():
+        t.set_editor_property("max_texture_size", 4096)
+        EAL.save_loaded_asset(t)
+    m2 = airframe2_master(tx2)
+    glass_ext_master()
+    folder = TP + "/Materials"
+    mis = dict(paint=instance("MI_AF2_Paint", m2, folder, textures=dict(Base=tx2["tex_af2_base"], ORM=tx2["tex_af2_orm"], Nrm=tx2["tex_af2_n"])),
+               # nozzle: heat-darkened metal (blued / bronze toward the exit), petals from the FG nozzle model
+               nozzle_ge=instance("MI_AF2_NozzleGE", m1, folder, scalars=dict(Detail=0.0, Metal=0.9, Rough=0.42, ClearCoat=0.0, SkyFill=0.25),
+                                  colors=dict(Tint=(0.42, 0.37, 0.33)), textures=dict(Paint=tx["tex_nozzle_GE"])),
+               nozzle_ring=instance("MI_AF2_NozzleRing", m1, folder, scalars=dict(Detail=0.0, Metal=0.85, Rough=0.5, ClearCoat=0.0),
+                                    colors=dict(Tint=(0.16, 0.15, 0.15)), textures=dict(Paint=tx["tex_nozzle_ring"])))
+    _, sm2 = meshes("_v2")
+    for s in sm2.values():
+        assign(s, mis)
+    log("v2 meshes", sorted(sm2))
+
+
 def main():
     tx = textures()
     m = airframe_master(tx)
@@ -345,6 +440,10 @@ def main():
     for s in sm.values():
         assign(s, mis)
     sounds()
+    v2(tx, m)
+    for old in (OWN + "/M_GyroAirframe", OWN + "/M_GyroAirframe2"):     # moved to the gitignored folder (GPL defaults)
+        if EAL.does_asset_exist(old):
+            log("delete old", old, EAL.delete_asset(old))
     if os.environ.get("GYROSIM_AF_MAP", "1") != "0":
         map_actors(info, sm, light_mi)
     log("done")

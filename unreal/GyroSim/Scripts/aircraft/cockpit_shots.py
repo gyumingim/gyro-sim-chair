@@ -116,8 +116,25 @@ def _has(o, k):
         return False
 
 
+def plan_ext():
+    """GYROSIM_CKSHOT_SET=ext: outside views only (airframe rounds), before = GYROSIM_CKSHOT_BEFORE mode (v1), after = v2."""
+    q = [("place", "gwangan", SPOTS[1][1])]
+    for vn, orb in EXT + [("extrear", [150.0, 14.0, 1500.0])]:
+        for st in ("before", "after"):
+            q.append(("state", st, "orbit", orb, DEFLECT)); q.append(("shot", "gwangan_%s_%s" % (vn, st)))
+    q.append(("place", "haeundae", SPOTS[0][1]))
+    for st in ("before", "after"):
+        q.append(("state", st, "chase", None, CRUISE)); q.append(("shot", "haeundae_chase_%s" % st))
+    if LOGF:
+        for st in ("before", "after"):
+            q.append(("state", st, "chase", None, CRUISE)); q.append(("gpu", "chase_%s" % st))
+    return q
+
+
 def plan():
     """the step queue: ('place', spot) / ('state', name, view, orbit, ctrl) / ('shot', file) / ('gpu', label) / ('fly',)"""
+    if os.environ.get("GYROSIM_CKSHOT_SET") == "ext":
+        return plan_ext()
     q = []
     for name, spec in SPOTS:
         q.append(("place", name, spec))
@@ -164,6 +181,9 @@ def tick(dt):
                 SAY({"cmd": "tut", "op": "stop"})
                 cmd("t.MaxFPS 0"); cmd("r.VSync 0"); cmd("t.FPSChart.OpenFolderOnDump 0")
                 ST.update(phase="next", t=now, q=plan())
+                if os.environ.get("GYROSIM_CKSHOT_SET") == "ext":       # compile / stream the v2 materials before any shot
+                    c.af.set_mode("v2"); c.set_view("chase")
+                    ST.update(phase="warm", t=now)
                 log("airframe ok", c.af.ok, "surfaces", sorted(c.af.surf), "lights", sorted(c.af.lights))
                 ST["lighting"] = lighting_report(ues.get_game_world(), c)
                 log("lighting", json.dumps(ST["lighting"], default=str))
@@ -184,8 +204,9 @@ def tick(dt):
                 ST.update(phase="load", t=now)
             elif k == "state":
                 _, st, view, orb, ctrl = step
-                c.af.set_enabled(st == "after")
-                c.fx.set_look(st == "after")                 # canopy glints + cockpit paint: old / new
+                before = os.environ.get("GYROSIM_CKSHOT_BEFORE", "orig")
+                c.af.set_mode("v2" if st == "after" else before) if hasattr(c.af, "set_mode") else c.af.set_enabled(st == "after")
+                c.fx.set_look(st == "after" or os.environ.get("GYROSIM_CKSHOT_SET") == "ext")   # canopy glints + cockpit paint: old / new
                 c.override = dict(ctrl)
                 if c.view != view:
                     c.set_view(view)
@@ -216,10 +237,10 @@ def tick(dt):
                 fn = os.path.join(OUT, step[1] + ".png").replace("\\", "/")
                 cmd("HighResShot %s filename=%s" % (RES, fn))
                 s = c.s or {}
-                ST["res"][step[1]] = dict(file=fn, view=c.view, airframe=c.af.ok, lat=s.get("lat"), lon=s.get("lon"), alt_m=s.get("alt_m"),
+                ST["res"][step[1]] = dict(file=fn, view=c.view, airframe=c.af.ok, mode=getattr(c.af, "mode", None), glass_out=getattr(c.af, "glass_out", None), lat=s.get("lat"), lon=s.get("lon"), alt_m=s.get("alt_m"),
                                           psi=s.get("psi"), defl={k2: round(v, 1) for k2, v in c.af.defl.items()}, load=ST.get("load"))
                 log("shot", fn)
-                ST.update(phase="next", t=now)
+                ST.update(phase="wait_file", t=now, file=fn)
             elif k == "gpu":
                 vp = unreal.WidgetLayoutLibrary.get_viewport_size(ues.get_game_world())
                 sp = max(25.0, min(400.0, 100.0 * math.sqrt(1920 * 1080 / max(1.0, vp.x * vp.y))))
@@ -235,6 +256,14 @@ def tick(dt):
             if (p1 is not None and p1 >= 99.9 and (p2 is None or p2 >= 99.9) and el > 10.0) or el > 90.0:
                 ST["load"] = dict(load_s=round(el, 1), terrain=p1, buildings=p2)
                 ST.update(phase="next", t=now)
+        elif ph == "wait_file":                       # a hitch (shader compile) must not let the next view into this shot
+            if os.path.exists(ST["file"]) or el > 30.0:
+                if el > 30.0:
+                    log("shot file missing after 30 s", ST["file"])
+                ST.update(phase="next", t=now)
+        elif ph == "warm" and el > float(os.environ.get("GYROSIM_CKSHOT_WARM", "25")):
+            c.af.set_mode("v1")
+            ST.update(phase="next", t=now)
         elif ph == "settle" and el > 3.0:
             ST.update(phase="next", t=now)
         elif ph == "gpu_start" and el > 3.0:

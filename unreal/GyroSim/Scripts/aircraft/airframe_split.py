@@ -28,6 +28,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 import fetch_f16_model as F  # noqa: E402
+import airframe_v2 as V2  # noqa: E402
 
 OUT = F.THIRD / "f16_airframe"
 F.OUT = OUT                                     # TexOut / write_obj write here
@@ -109,6 +110,7 @@ def main():
     texout = F.TexOut(repo)
     info = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), script="Scripts/aircraft/airframe_split.py",
                 source=dict(repo=F.REPO_URL, commit=F.SHA, license="GPL-2.0-or-later"), parts={})
+    bake = []
     for nm, part in new.items():
         if not part.chunks:
             F.log(f"[warn] {nm}: no objects")
@@ -117,6 +119,7 @@ def main():
         rec = dict(objects=sorted(set(part.objects)), triangles=int(len(arr["T"])))
         rec["uv_fix"] = fix_uv(arr)                       # (zero-UV-area tris remapped, fin corner normals flipped)
         F.log(f"{nm}: uv / normal fix {rec['uv_fix']}")
+        bake.append({k: arr[k].copy() for k in ("V", "T", "UV", "N", "MK")} | dict(part=nm))   # absolute coords for airframe_bake.py
         if nm in SURF:
             s = SURF[nm]
             c_ue = F.fg_to_ue(np.array(s["c"]))
@@ -132,6 +135,12 @@ def main():
                        centroid_rel_cm=p.round(1).tolist())
         mats, gid = F.material_table(arr, texout, nm)
         F.write_obj(nm, arr, mats, gid)
+        # v2: welded, angle-weighted crease normals, PN-triangle subdivision (2 levels on the body, 1 on surfaces)
+        a2, st = V2.smooth_v2(arr, levels=2 if nm == "F16_Body" else 1)
+        m2, g2 = F.material_table(a2, texout, nm)
+        F.write_obj(nm + "_v2", a2, m2, g2)
+        rec["v2"] = st
+        F.log(f"{nm}_v2: {st}")
         used = arr["V"][np.unique(arr["T"])]
         rec.update(bbox_ue_cm=dict(min=used.min(0).round(1).tolist(), max=used.max(0).round(1).tolist()),
                    materials=[dict(name=g["name"], texture=g["texture"], kd=g["kd"], transparent=g["transparent"],
@@ -151,6 +160,8 @@ def main():
         if p is not None:
             shutil.copyfile(p, OUT / lf)
     (OUT / "airframe.json").write_text(json.dumps(info, indent=1), encoding="utf-8")
+    np.savez_compressed(OUT / "bake_input.npz", **{f"{b['part']}__{k}": v for b in bake for k, v in b.items() if k != "part"},
+                        texkeys=np.array([F.MATKEYS[k][0] or "" for k in range(len(F.MATKEYS))]))
     F.log(f"done in {time.time() - t0:.0f} s -> {OUT}")
 
 

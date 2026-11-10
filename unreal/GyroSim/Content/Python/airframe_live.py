@@ -6,6 +6,10 @@ rudder to the right) and AC_Light_* (lens spheres). When all of them and /Game/T
 exist, the one-piece exterior is swapped for the body without the surfaces and the parts are shown. Anything missing ->
 nothing changes (old exterior). GYROSIM_AIRFRAME=0 keeps the old exterior too.
 
+v2 (GYROSIM_AIRFRAME_V2=0 = v1): smoothed / subdivided meshes (<part>_v2, airframe_v2.py), the 4K baked skin
+(M_GyroAirframe2, airframe_bake.py), heat-darkened nozzle, and in the outside views (chase / orbit / flyby / tower)
+the canopy gets the gold-tinted exterior glass M_GyroGlassExt (the cockpit keeps its own glass from inside).
+
 Surfaces follow the stick / pedal commands in the packet (ail, elev, rud; FBW mixing is approximated) with actuator
 rate limits; the leading-edge flaps follow alpha; trailing-edge flaps drop with the gear handle down. Lights: steady
 red / green / white nav lights, double-flash white strobes, red beacon.
@@ -22,6 +26,11 @@ SURFS = ("FlapL", "FlapR", "StabL", "StabR", "LefL", "LefR", "Rudder")
 RATE = dict(Flap=60.0, Stab=60.0, Lef=25.0, Rudder=90.0)          # deg/s actuator rate limits (approx.)
 LIM = dict(Flap=(-23.0, 20.0), Stab=(-25.0, 25.0), Lef=(-2.0, 25.0), Rudder=(-30.0, 30.0))
 ON = os.environ.get("GYROSIM_AIRFRAME", "1") != "0"
+V2_ON = os.environ.get("GYROSIM_AIRFRAME_V2", "1") != "0"
+MESH_DIR = "/Game/ThirdParty/F16/Airframe/Meshes/"
+PAINT2 = "/Game/ThirdParty/F16/Airframe/Materials/MI_AF2_Paint"
+GLASS_EXT = "/Game/Aircraft/M_GyroGlassExt"
+INSIDE_VIEWS = ("cockpit", "eye")
 
 
 def _log(*a):
@@ -87,7 +96,15 @@ class Airframe:
                 if c and c.static_mesh:
                     self.gear += [(c, i) for i, sl in enumerate(c.static_mesh.static_materials) if str(sl.material_slot_name).lower().endswith("_f16")]
             self.defl = {n: 0.0 for n in SURFS}
-            self.set_enabled(True)
+            # v2 assets (all must load, else v1)
+            self.v1_mesh = {n: a.static_mesh_component.static_mesh for n, (a, _) in self.surf.items()}
+            v2 = dict(body=unreal.load_asset(MESH_DIR + "F16_Body_v2"), paint=unreal.load_asset(PAINT2),
+                      surf={n: unreal.load_asset(MESH_DIR + "F16_%s_v2" % n) for n in SURFS}, glass=unreal.load_asset(GLASS_EXT))
+            self.v2 = v2 if (V2_ON and v2["body"] and v2["paint"] and all(v2["surf"].values())) else None
+            self.canopy = [c for a in unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy")
+                           for c in a.get_components_by_class(unreal.StaticMeshComponent)]
+            self.glass_out, self.view = False, None
+            self.set_mode("v2" if self.v2 else "v1")
             _log("airframe on: body + %d surfaces + %d lights" % (len(self.surf), len(self.lights)))
 
         except Exception as e:
@@ -96,15 +113,47 @@ class Airframe:
 
     def set_enabled(self, on):
         """True = body + moving surfaces + lights + painted skin; False = the old one-piece exterior (A/B shots)."""
+        self.set_mode(("v2" if getattr(self, "v2", None) else "v1") if on else "orig")
+
+    def set_mode(self, mode):
+        """'orig' = the old one-piece exterior, 'v1' = split body + surfaces + v1 skin, 'v2' = smoothed meshes + 4K skin."""
         if not getattr(self, "ext", None):
             return
-        self.ext.static_mesh_component.set_static_mesh(self.body if on else self.orig)
+        if mode == "v2" and not getattr(self, "v2", None):
+            mode = "v1"
+        on = mode != "orig"
+        v2 = self.v2 if mode == "v2" else None
+        self.ext.static_mesh_component.set_static_mesh((v2["body"] if v2 else self.body) if on else self.orig)
+        paint = (v2["paint"] if v2 else self.paint) if on else None
         for c, i in self.gear:
-            c.set_material(i, self.paint if (on and self.paint) else c.static_mesh.get_material(i))
+            c.set_material(i, paint if paint else c.static_mesh.get_material(i))
+        for n, (a, _) in self.surf.items():
+            a.static_mesh_component.set_static_mesh(v2["surf"][n] if v2 else self.v1_mesh[n])
         for a, _ in list(self.surf.values()) + list(self.lights.values()):
             a.set_actor_hidden_in_game(not on)
+        self.mode = mode
+        self.view = None                                     # re-evaluate the exterior glass on the next update
         self.ok = on
         self._placed = False
+        if self.glass_out and not v2:
+            self._glass(False)
+
+    def _glass(self, out):
+        """outside views: gold exterior glass on the canopy (v2); back inside: the materials it had (incl. the cockpit's
+        dynamic instances)."""
+        try:
+            if out and not self.glass_out:
+                self.glass_saved = [[c.get_material(i) for i in range(c.get_num_materials())] for c in self.canopy]
+                for c in self.canopy:
+                    for i in range(c.get_num_materials()):
+                        c.set_material(i, self.v2["glass"])
+            elif not out and self.glass_out:
+                for c, mats in zip(self.canopy, getattr(self, "glass_saved", [])):
+                    for i, m in enumerate(mats):
+                        c.set_material(i, m)
+            self.glass_out = out
+        except Exception as e:
+            _log("glass", repr(e))
 
     def targets(self, s):
         ail, elev, rud = (float(s.get(k, 0.0) or 0.0) for k in ("ail", "elev", "rud"))
@@ -117,9 +166,14 @@ class Airframe:
                     StabL=25.0 * elev + 5.0 * ail, StabR=25.0 * elev - 5.0 * ail,
                     LefL=lef, LefR=lef, Rudder=30.0 * rud)
 
-    def update(self, s, dt):
+    def update(self, s, dt, view=None):
         if not self.ok or s is None:
             return
+        if view is not None and view != self.view:
+            self.view = view
+            want = bool(self.v2 and self.mode == "v2" and self.v2.get("glass") and view not in INSIDE_VIEWS)
+            if want != self.glass_out:
+                self._glass(want)
         try:
             tg = self.targets(s)
             for n, (a, ax) in self.surf.items():

@@ -2043,7 +2043,7 @@ class SimClient:
                 self._apt_sync()
                 self._place(dt, now)
                 self._controls(dt)
-                self.af.update(self.s, dt)                          # control surfaces / lights (airframe_live)
+                self.af.update(self.s, dt, self.view)               # control surfaces / lights / exterior glass (airframe_live)
                 self.fx.eye_view(self.world, self.aircraft, self.view == "eye")
             self.fx.sound(self.world, self.s, dt)
             self.fx.canopy(self.world, now)
