@@ -63,6 +63,8 @@ def prep():
                 a = w * f["field_m"] + (1 - w) * a
                 flat += int((w > 0).sum())
         q = np.clip(np.round(a * 10.0), -32768, 32767).astype(np.int16)
+        import terrain_coastfix                            # coastal DSM building spikes (Busan), proc/coastfix.json
+        q = terrain_coastfix.apply_saved(q, lat0, lon0)
         np.save(os.path.join(T.PROC, "dem_%s.npy" % T.cell_name(lat0, lon0)), q)
         r0, c0 = (T.BOX_N - (lat0 + 1)) * T.PX, (lon0 - T.BOX_W) * T.PX
         h = q.astype(np.float32) * 0.1
