@@ -104,6 +104,11 @@ if (CanopyAmp > 0.0)
     // distances); (b) far away, where single crowns are < 3 px, stand-sized light / dark patches (CanopyFarM m value noise)
     // keep the slopes rough instead of flat paint
     float vu = vegc * (1.0 - m) * CanopyAmp;
+    // bright, colourless photo rock (granite tops, rocky shore; exposure makes them read as snow / paper): down to a
+    // weathered warm grey. Grey roads / roofs are darker or under the 3D buildings; sand is yellower (sat) and stays.
+    float satc = (mxc - mnc) / max(mxc, 1e-4);
+    float rk = smoothstep(0.28, 0.45, lum) * (1.0 - smoothstep(0.08, 0.18, satc)) * (1.0 - m) * CanopyAmp;
+    g = lerp(g, lum * RockGrey * float3(1.0, 0.96, 0.9), rk);
     g = lerp(g, lerp(dot(g, float3(0.2126, 0.7152, 0.0722)).xxx, g, 1.0 - CanopyDesat) * (1.0 - CanopyUnder), vu);
     {
         float2 fq = P.xy * 0.01 / CanopyFarM, fi = floor(fq), ff = fq - fi, fu = ff * ff * (3.0 - 2.0 * ff);

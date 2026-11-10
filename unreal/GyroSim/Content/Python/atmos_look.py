@@ -93,6 +93,7 @@ GROUND = dict(
     # GYROSIM_TREES_CANOPY=0 (or GYROSIM_TREES_V2=0) sets CanopyAmp 0 at Play
     CanopyAmp=1.0, CanopyM=5.5, CanopyDark=0.45, CanopyBump=0.9,
     CanopyUnder=0.25, CanopyDesat=0.3, CanopyFarM=24.0, CanopyFarAmp=0.18,     # round 2: ground under the forest, far stand patches
+    RockGrey=0.62,                     # round 2: bright colourless photo rock -> weathered warm grey (x lum)
 )
 GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
 # Sea pass 11-10 (GYROSIM_SEA_LOOK=0 = the 11-09 values above, MI_GyroGround_Sea0). Measured on the landmark shots
