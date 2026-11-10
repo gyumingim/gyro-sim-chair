@@ -437,12 +437,23 @@ def block_attrs(f):
     bri = np.clip(np.sqrt(Y / Ym), 0.75, 1.30)
     hue = np.clip(ly - np.median(ly), -0.4, 0.4)                          # yellower photo -> a bit warmer
     tint = base * bri[:, None] * np.stack((1 + 0.12 * hue, np.ones(n), 1 - 0.15 * hue), 1)
-    keep = ~rock
+    # coast-aware rendered terrain (sim/coast_build.py, frozen 11-10 21:29): the shore tiles carry rendered_msl - msl on top
+    # of the DEM mesh the prep stood the trees on -> same delta here; trees on the OSM sea side (signed distance < 0) dropped
+    base = z["base"].astype(np.float64)
+    seaside = np.zeros(n, bool)
+    try:
+        import coast_build as CB
+        sd, _k = CB.field_at(lat, lon)
+        base = base + (CB.rendered_msl(dem, lat, lon) - h0)
+        seaside = np.asarray(sd) < 0
+    except Exception as e:                                                  # no coast field -> prep heights as they are
+        print("coast delta skipped", repr(e)[:100])
+    keep = ~rock & ~seaside
     r = z["r"] * (R_FAC / 0.6)
     r = np.minimum(r, np.maximum(1.2, 1.5 + 0.3 * h) * 1.12)
-    out = dict(lat=lat[keep], lon=lon[keep], base=z["base"][keep], h=h[keep], r=r[keep].astype(np.float32), pid=pid[keep],
+    out = dict(lat=lat[keep], lon=lon[keep], base=base[keep].astype(np.float32), h=h[keep], r=r[keep].astype(np.float32), pid=pid[keep],
                tint=tint[keep].astype(np.float32), yaw=z["yaw"][keep])
-    st = dict(n=n, rock=int(rock.sum()), pine=int(pine[keep & ~shrub].sum()), shrub=int(shrub[keep].sum()),
+    st = dict(n=n, rock=int(rock.sum()), seaside=int((seaside & ~rock).sum()), pine=int(pine[keep & ~shrub].sum()), shrub=int(shrub[keep].sum()),
               coast=int(coast[keep].sum()), ridge=int((tpi[keep] > 10).sum()), valley=int((tpi[keep] < -10).sum()),
               pine_ridge=int((pine & keep & ~shrub & (tpi > 10)).sum()), pine_valley=int((pine & keep & ~shrub & (tpi < -10)).sum()))
     return out, st
