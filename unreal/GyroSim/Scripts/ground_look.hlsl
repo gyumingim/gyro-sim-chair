@@ -47,7 +47,8 @@ if (CoastOn > 0.5)
         float footC = max(max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01, 0.05);     // m per screen pixel
         float seaC = saturate(0.5 - sd / footC)                                     // crisp, 1 px anti-aliased edge
                    * (1.0 - smoothstep(2.0, 4.0, h));                               // islets OSM has no coastline for (the coast terrain keeps them)
-        float guard = lerp(1.0, mC * mB, (1.0 - saturate(far / CoastGuardM)) * (1.0 - bin));
+        float guard = lerp(1.0, mC * mB, (1.0 - smoothstep(0.7 * CoastGuardM, CoastGuardM, far)) * (1.0 - bin));   // full near shore
+                                                                                    // (moored boats / pontoons stay photo, no pale half-blend)
         float inland = saturate((sd - CoastInlandM) / 20.0) * mH * mC * mB;         // rivers / ponds well inside the OSM land
         m = saturate(WaterOn * max(seaC * guard, inland));
         photoW = (1.0 - smoothstep(SeaPhotoNear, SeaPhotoFar, far)) * (1.0 - bin);
