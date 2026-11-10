@@ -106,7 +106,9 @@ if (CanopyAmp > 0.0)
     // round 2: (a) the photo ground between / under the 3D trees reads as lawn -> darker, greyer under the forest mask (all
     // distances); (b) far away, where single crowns are < 3 px, stand-sized light / dark patches (CanopyFarM m value noise)
     // keep the slopes rough instead of flat paint
-    float vu = vegc * (1.0 - m) * CanopyAmp;
+    // round 5: the darkening fades out with camera distance (far slopes keep the photo brightness - review 11-11: v1 won at
+    // 900-1500 m because far mountains were too dark)
+    float vu = vegc * (1.0 - m) * CanopyAmp * (1.0 - smoothstep(CanopyFadeNear, CanopyFadeFar, dist));
     // bright, colourless photo rock (granite tops, rocky shore; exposure makes them read as snow / paper): down to a
     // weathered warm grey. Grey roads / roofs are darker or under the 3D buildings; sand is yellower (sat) and stays.
     float satc = (mxc - mnc) / max(mxc, 1e-4);

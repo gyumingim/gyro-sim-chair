@@ -57,8 +57,8 @@ KIND = dict(bark=0, pine=1, broad=2, shrub=3)
 # 참나무 brighter yellow-green, shrubs in between. Starting values from leaf / canopy albedo (~0.04-0.12 green), tuned
 # against the real Busan photos (11-10 after1: forest pixels (71, 90, 45) sRGB vs 금정산 photo (67, 82, 51) -> bluer, darker).
 # round 2 (customer: pine darker blue-green, oak rounder yellow-green): two clearly different species colours
-TINT = dict(pine=(0.027, 0.050, 0.042), bpine=(0.023, 0.044, 0.040), broad=(0.070, 0.112, 0.038), shrub=(0.058, 0.094, 0.044),
-            rock=(0.33, 0.31, 0.28))                     # rock = warm-grey weathered granite (never white); round 3 lighter (c247)
+TINT = dict(pine=(0.037, 0.064, 0.047), bpine=(0.032, 0.058, 0.046), broad=(0.062, 0.100, 0.040), shrub=(0.056, 0.090, 0.044),
+            rock=(0.28, 0.28, 0.27))                     # rock = warm-grey weathered granite (never white); round 3 lighter (c247)
 TRUNK = dict(pine=(0.13, 0.095, 0.07), broad=(0.11, 0.10, 0.085), shrub=(0.10, 0.09, 0.075))  # linear grey-brown bark (round 2)
 
 
@@ -284,21 +284,37 @@ def proto_shrub(far=False, var=0):
 
 
 def proto_rock(var, far=False):
-    """granite tor (round 2): 3-5 weathered, rounded boulders (kind 0 = no foliage shading; colour = the rock tint), base
-    buried a little. Instances: crown radius = tor half-width, height = tor height."""
+    """granite (round 5): a group of angular slabs / blocks (faceted octahedra = flat and near-vertical faces), tilted,
+    tight together and partly buried. kind 0 (no foliage shading); colour = the rock tint (neutral grey)."""
     m = Proto()
     m.env = (np.array([0.0, 0.4, 0.0]), np.array([1.0, 0.6, 1.0]))
-    if var == 0:      # stacked tor
-        parts = [((0.0, 0.25, 0.0), (0.85, 0.42, 0.7)), ((0.12, 0.66, -0.05), (0.55, 0.32, 0.45)), ((-0.42, 0.18, 0.35), (0.42, 0.3, 0.38)),
-                 ((0.5, 0.15, 0.3), (0.35, 0.22, 0.32)), ((-0.05, 0.9, 0.05), (0.3, 0.14, 0.26))]
-    else:             # boulder field
-        parts = [((-0.35, 0.3, -0.1), (0.6, 0.45, 0.55)), ((0.45, 0.22, 0.25), (0.5, 0.36, 0.48)), ((0.05, 0.18, 0.62), (0.38, 0.26, 0.35)),
-                 ((0.2, 0.55, -0.35), (0.4, 0.3, 0.36))]
+    rg = np.random.default_rng(1700 + var)
+    if var == 0:      # tor: stacked blocks
+        parts = [((0.0, 0.2, 0.0), (0.9, 0.45, 0.75)), ((0.1, 0.62, -0.05), (0.62, 0.32, 0.5)), ((-0.05, 0.92, 0.08), (0.36, 0.2, 0.3)),
+                 ((-0.55, 0.15, 0.4), (0.45, 0.3, 0.32)), ((0.6, 0.1, 0.35), (0.4, 0.24, 0.36))]
+    else:             # slab outcrop: tilted plates
+        parts = [((-0.3, 0.25, -0.1), (0.75, 0.3, 0.55)), ((0.4, 0.2, 0.25), (0.6, 0.28, 0.5)), ((0.0, 0.45, 0.5), (0.5, 0.22, 0.35)),
+                 ((0.25, 0.5, -0.4), (0.45, 0.25, 0.4))]
     if far:
         parts = parts[:2]
     for k, (c, s_) in enumerate(parts):
-        facet = far or k % 2 == 1                                   # round 4: faceted blocks = flat / near-vertical faces
-        m.clump(np.array(c), np.array(s_), 1600 + 11 * var + k, KIND["bark"], ONE, far=facet, jit=0.10, soft=0.15, ao_mul=0.85)
+        tilt = rg.uniform(-0.3, 0.3, 2); yaw = rg.uniform(0, math.pi)
+        cy, sy, cx, sx, cz, sz = math.cos(yaw), math.sin(yaw), math.cos(tilt[0]), math.sin(tilt[0]), math.cos(tilt[1]), math.sin(tilt[1])
+        Rm = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]]) @ np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]]) @ np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+        corner = np.array([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], np.float64)
+        corner = corner * (1 + rg.uniform(-0.18, 0.12, (8, 3))) * np.array(s_)     # jittered block = slab with flat faces
+        quads = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+        P, Nn, A, F = [], [], [], []
+        for q in quads:
+            v = corner[list(q)] @ Rm.T + np.array(c)
+            nrm = np.cross(v[1] - v[0], v[2] - v[0]); nrm /= np.linalg.norm(nrm) + 1e-9
+            if np.dot(nrm, v.mean(0) - np.array(c)) < 0:
+                nrm = -nrm; v = v[::-1]
+            b = len(P)
+            P += list(v); Nn += [nrm] * 4
+            A += list(np.clip(0.35 + 0.65 * (v[:, 1] - (c[1] - s_[1])) / (2 * s_[1] + 1e-6), 0.25, 1.0) * (0.75 if nrm[1] < -0.3 else 1.0))
+            F += [(b, b + 1, b + 2), (b, b + 2, b + 3)]
+        m._add(np.array(P), np.array(Nn), ONE, KIND["bark"], np.array(A), np.array(F))
     return m
 
 
@@ -515,14 +531,14 @@ def ridge_tors(f, dem, tree_lat, tree_lon, rng):
     rgb = _photo_rgb(LA, LO)                                     # round 4: bare beige summit ground in the photo -> rock
     mx, mn = rgb.max(1), rgb.min(1)
     beige = (rgb.mean(1) > 105) & (rgb[:, 1] - np.maximum(rgb[:, 0], rgb[:, 2]) < 4) & ((mx - mn) / np.maximum(mx, 1) < 0.35)
-    k = np.isin(lc, (10, 20, 30, 60)) & (rng.random(len(LA)) < np.where(beige, 0.10, 0.006))
+    k = np.isin(lc, (10, 20, 30, 60)) & (rng.random(len(LA)) < np.where(beige, 0.06, 0.003))
     if not k.any():
         return None
     sl, so, ss = LA[k], LO[k], slope[k]
     out_la, out_lo, out_sl = [], [], []
     for a, b, c in zip(sl, so, ss):
-        for _ in range(int(rng.integers(1, 4))):
-            ang, rr = rng.uniform(0, 2 * math.pi), rng.uniform(0, 12.0)
+        for _ in range(int(rng.integers(3, 7))):                       # round 5: grouped
+            ang, rr = rng.uniform(0, 2 * math.pi), rng.uniform(0, 7.0)
             out_la.append(a + rr * math.sin(ang) / 111320.0)
             out_lo.append(b + rr * math.cos(ang) / (111320.0 * math.cos(math.radians(a))))
             out_sl.append(c)
@@ -537,7 +553,7 @@ def ridge_tors(f, dem, tree_lat, tree_lon, rng):
         mh = mh + (CB.rendered_msl(dem, la, lo) - dem.msl(la, lo))
     except Exception:
         pass
-    sink = np.minimum(3.0, r * np.tan(np.radians(np.minimum(sl_, 40.0))) * 0.6)       # bury the downhill side on slopes
+    sink = np.minimum(4.0, r * np.tan(np.radians(np.minimum(sl_, 40.0))) * 0.6 + 0.25 * hh)   # partly embedded
     base = mh - V.SINK - sink + dem.geoid_n(la, lo)
     return dict(lat=la, lon=lo, base=base.astype(np.float32), h=(hh + sink).astype(np.float32), r=r.astype(np.float32),
                 pid=np.array(P_ROCK, np.int8)[rng.integers(0, 2, n)], tint=(np.asarray(TINT["rock"])[None] * rng.uniform(0.85, 1.12, (n, 1))).astype(np.float32),
@@ -616,7 +632,12 @@ def block_attrs(f):
     Ym = np.median(Y)
     bri = np.clip((Y / Ym) ** 0.25, 0.88, 1.12)[:, None]
     isrock = (grp == 4)[:, None]
-    tint = np.where(isrock, base * rng.uniform(0.85, 1.12, (n, 1)), base * asp * elev * jit * bri)
+    # round 5: colours blend across the pine / oak patch edges (logit near 0 -> in-between colour)
+    mixw = (1.0 / (1.0 + np.exp(np.clip(logit, -20, 20) * 1.2)))[:, None]            # 1 = oak side, 0 = pine side
+    tp, tb = np.asarray(TINT["pine"]), np.asarray(TINT["broad"])
+    blend = np.where(np.isin(pid, P_PINE + (P_BPINE,))[:, None], base + (tb - tp) * 0.4 * mixw,
+                     np.where(np.isin(pid, P_BROAD)[:, None], base + (tp - tb) * 0.4 * (1 - mixw), base))
+    tint = np.where(isrock, base * rng.uniform(0.9, 1.08, (n, 1)), blend * asp * elev * jit * bri)
     # coast-aware rendered terrain (sim/coast_build.py, frozen 11-10 21:29): the shore tiles carry rendered_msl - msl on top
     # of the DEM mesh the prep stood the trees on -> same delta here; trees on the OSM sea side (signed distance < 0) dropped
     basez = z["base"].astype(np.float64)
