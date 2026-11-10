@@ -13,7 +13,7 @@ Env:
   GYROSIM_ART_LOG     the -ABSLOG file (GPU numbers are read from it)
   GYROSIM_ART_VARIANTS JSON file (sweeps only): [{"name": .., "ground": {MI param: value}, "bldg": {param: value}, "tree": {param: value},
                       "trees": {"v2": 0|1, "look2": 0|1} (trees_look version / v2 material extras),
-                      "cloud": {VolumetricCloudComponent prop: value}, "sky": {SkyAtmosphereComponent prop: value},
+                      "cloud": {VolumetricCloudComponent prop: value}, "cloudmat": {cloud material param: value}, "sky": {SkyAtmosphereComponent prop: value},
                       "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
                       "cvars": {console variable: value}, "pp": {grade_look extra}}, ..] - each view is shot once per variant (tilesets whose
                       material changes are refreshed and reloaded); file <view>_<variant>.png. Default: one shot, TAG.
@@ -139,6 +139,9 @@ def _mid(tileset, base_attr, params):
     tileset.set_editor_property("material", m)
 
 
+CLOUD_VEC = {"Cloud_AlbedoColor", "Layout_WindControls", "Layout_CloudType"}
+
+
 def set_variant(v):
     """-> True when a tileset was refreshed (wait for the load again)."""
     w = ST["w"]
@@ -156,6 +159,32 @@ def set_variant(v):
     tr = trees_look.find(w)
     if tr is not None and (v.get("tree") != prev.get("tree") or ST["cur"] is None):
         _mid(tr, "tree", v.get("tree")); tr.refresh_tileset(); reload = True
+    if v.get("pp") is not None or prev.get("pp") is not None:
+        # first: apply_look re-applies realism v2 / atmos / light / grade, i.e. it would undo the component values below
+        import grade_look
+        sim_client.apply_look("monitor", w)
+        grade_look.apply(w, "monitor", extra=v.get("pp"))
+        vw = VIEWS[ST["vi"]]                     # apply_look -> atmos_look.apply puts the sun back to its default:
+        set_sun(vw[7] if len(vw) > 7 else {})    # the view's own sun again (a16 / a17 / a18 were shot with the default sun)
+    cm = v.get("cloudmat") or {}                 # cloud material parameters on the cloud component's dynamic instance
+    if cm or prev.get("cloudmat"):
+        for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.VolumetricCloud):
+            c = a.get_component_by_class(unreal.VolumetricCloudComponent)
+            m = c.get_editor_property("material")
+            if not isinstance(m, unreal.MaterialInstanceDynamic):
+                m = unreal.MaterialLibrary.create_dynamic_material_instance(w, m)
+                c.set_editor_property("material", m)
+            co = ST.setdefault("orig_cloudmat", {})
+            for k in set(co) | set(cm):
+                if k not in co:
+                    co[k] = m.get_vector_parameter_value(k) if k in CLOUD_VEC else m.get_scalar_parameter_value(k)
+                val = cm.get(k, co[k])
+                if k in CLOUD_VEC:
+                    if isinstance(val, (list, tuple)):
+                        val = unreal.LinearColor(*(list(val) + [1.0])[:4])
+                    m.set_vector_parameter_value(k, val)
+                else:
+                    m.set_scalar_parameter_value(k, float(val))
     import atmos_look
     for key, cls, ccls in (("cloud", unreal.VolumetricCloud, unreal.VolumetricCloudComponent),
                            ("sky", unreal.SkyAtmosphere, unreal.SkyAtmosphereComponent),
@@ -181,12 +210,6 @@ def set_variant(v):
             log("orig cvar", k, corig[k])
         val = cw.get(k, corig[k])
         cmd("%s %s" % (k, ("%g" % val) if isinstance(val, float) else val))
-    if v.get("pp") is not None or prev.get("pp") is not None:
-        import grade_look
-        sim_client.apply_look("monitor", w)
-        grade_look.apply(w, "monitor", extra=v.get("pp"))
-        vw = VIEWS[ST["vi"]]                     # apply_look -> atmos_look.apply puts the sun back to its default:
-        set_sun(vw[7] if len(vw) > 7 else {})    # the view's own sun again (a16 / a17 / a18 were shot with the default sun)
     ST["cur"] = v
     log("variant", json.dumps(v)[:300])
     return reload
