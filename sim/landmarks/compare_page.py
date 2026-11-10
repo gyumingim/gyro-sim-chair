@@ -3,7 +3,9 @@ offscreen shots (C:\GyroSimTiles\shots\landmarks) and the local reference photos
 line (outside git: the page holds third-party photos and V-World imagery).
     python -I sim/landmarks/compare_page.py <out dir> [shots dir]
 """
-import html, json, os, sys, time
+import html, json, os, sys, time, site
+if sys.flags.isolated:
+    site.addsitedir(site.getusersitepackages())
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))

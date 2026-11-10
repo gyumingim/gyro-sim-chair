@@ -1,7 +1,7 @@
 {
  "note": "camera views for Scripts/landmarks_shots.py (and the comparison page): target lat, lon, target height m MSL, camera bearing from the target deg, horizontal distance m, camera height m MSL; ref = reference photo in C:/GyroSimTiles/landmarks/refs (local only)",
  "views": [
-  ["lct_beach", 35.1606, 129.1690, 200.0, 262.0, 1300.0, 12.0, "lct/Haeundae_Beach_and_Haeundae_LCT_The_Sharp.jpg"],
+  ["lct_beach", 35.1606, 129.1690, 200.0, 250.0, 950.0, 8.0, "lct/Haeundae_Beach_and_Haeundae_LCT_The_Sharp.jpg"],
   ["lct_air", 35.1606, 129.1690, 180.0, 185.0, 1300.0, 350.0, "lct/LCT_From_Dongbaek_Island_2020.01.04.jpg"],
   ["marine_sea", 35.1563, 129.1438, 140.0, 196.0, 1150.0, 25.0, "zenith/Marine_City__Busan.jpg"],
   ["marine_air", 35.1563, 129.1438, 120.0, 140.0, 1000.0, 300.0, "zenith/Haeundae_and_Marine_City_on_a_Cloudy_Day.jpg"],

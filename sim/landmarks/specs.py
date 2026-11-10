@@ -239,36 +239,43 @@ def b_busantower(cx):
 
 
 def b_cinema(cx):
-    """Busan Cinema Center (Coop Himmelb(l)au 2011): Cinemountain (GIS 43.2 m, 9 F) glass block, BIFF Hill (GIS 16.8 m),
-    Big Roof 163 x 60 m cantilevering 85 m (Wikipedia / Trimble) on the Double Cone, Small Roof over Cinemountain.
-    Roof heights est. (OSM Big Roof building:levels 8 -> underside ~33 m)."""
+    """Busan Cinema Center (Coop Himmelb(l)au 2011). The GIS 'Cinemountain' footprint (17,890 m2) is the whole site outline
+    under the roofs, so the parts come from OSM: Cinemountain (way 569696778, glass block, GIS height 43.2 m / 9 F),
+    BIFF Hill (way 569696779, GIS 16.8 m), Big Roof (way 569696783: 163 x 60 m, 85 m cantilever - Wikipedia / Trimble) on the
+    Double Cone (way 569696781), Small Roof (relation 8112573) over Cinemountain. Roof heights est.: Big Roof underside
+    38 -> 42 m towards the cantilever tip, 4 m thick, lit underside; Small Roof 44-47 m."""
     L = _P()
-    cm = cx.foot("gis:2011211519501857697800000000")
-    bh = cx.foot("gis:2011211560151857586300000000")
-    tower(cx, cm, 43.2, "glass_dark", parapet=0.5)
-    tower(cx, bh, 16.8, "white_panel", parapet=0.8)
-    big = cx.foot("way:569696783")
     import shapely
-    big = shapely.geometry.polygon.orient(big, 1.0)
-    ax, c = principal(big)
-    under = lambda x, y: 33.0 + 3.0 * np.clip(((np.column_stack((x, y)) - c) @ ax) / 80.0, -1, 1)
-    L.cap(cx.M, big, under, "led_under", up=False, cell=6.0)
-    L.cap(cx.M, big, lambda x, y: under(x, y) + 5.0, "metal_roof", up=True, cell=6.0)
-    ring = L.densify(L.ring_xy(big.exterior), 3.0)
-    zz = under(ring[:, 0], ring[:, 1])
-    L.wall(cx.M, ring, zz, zz + 5.0, "white_panel")
     try:
-        sm = cx.foot("relation:8112573")
-        sm = shapely.geometry.polygon.orient(sm, 1.0)
-        L.cap(cx.M, sm, 46.0, "led_under", up=False)
-        L.cap(cx.M, sm, 49.0, "metal_roof", up=True)
-        L.wall(cx.M, L.densify(L.ring_xy(sm.exterior), 3.0), 46.0, 49.0, "white_panel")
+        cm = cx.foot("way:569696778")
     except AssertionError:
-        pass
+        cm = cx.foot("gis:2011211519501857697800000000")
+    tower(cx, cm, 43.2, "glass_dark", parapet=0.5)
+    try:
+        bh = cx.foot("way:569696779")
+    except AssertionError:
+        bh = cx.foot("gis:2011211560151857586300000000")
+    tower(cx, bh.difference(cm.buffer(0.5)), 16.8, "white_panel", parapet=0.8)
+    big = shapely.geometry.polygon.orient(cx.foot("way:569696783"), 1.0)
     dc = cx.foot("way:569696781")
     cc = dc.centroid
+    ax, c = principal(big)
+    sgn = 1.0 if (np.array([cc.x, cc.y]) - c) @ ax < 0 else -1.0          # cantilever tip = away from the cone
+    under = lambda x, y: 40.0 + 2.0 * sgn * np.clip(((np.column_stack((x, y)) - c) @ ax) / 80.0, -1, 1)
+    L.cap(cx.M, big, under, "led_under", up=False, cell=6.0)
+    L.cap(cx.M, big, lambda x, y: under(x, y) + 4.0, "metal_roof", up=True, cell=6.0)
+    ring = L.densify(L.ring_xy(big.exterior), 3.0)
+    zz = under(ring[:, 0], ring[:, 1])
+    L.wall(cx.M, ring, zz, zz + 4.0, "white_panel")
+    try:
+        sm = shapely.geometry.polygon.orient(cx.foot("relation:8112573"), 1.0)
+        L.cap(cx.M, sm, 44.0, "led_under", up=False)
+        L.cap(cx.M, sm, 47.0, "metal_roof", up=True)
+        L.wall(cx.M, L.densify(L.ring_xy(sm.exterior), 3.0), 44.0, 47.0, "white_panel")
+    except AssertionError:
+        pass
     R = math.sqrt(dc.area / math.pi)
-    prof = [(R, 0), (R * 0.75, 6), (R * 0.42, 14), (R * 0.75, 24), (R * 1.25, 33)]
+    prof = [(R, 0), (R * 0.75, 6), (R * 0.42, 15), (R * 0.75, 28), (R * 1.25, 38)]
     L.lathe(cx.M, prof, "glass_curtain", cx=cc.x, cy=cc.y, segs=40)
 
 
