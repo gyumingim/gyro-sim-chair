@@ -386,14 +386,14 @@ def glass_ext_master():
         m.set_editor_property("translucency_lighting_mode", tlm)     # forward shading: sharp sky / sun reflections
     except Exception as e:
         log("glass lighting mode", repr(e))
-    # round 4: clear (dark base so the glass is not milky), faint gold, Fresnel reflection toward the edges
+    # round 5: clearer still (pilot / seat / frame through it); round 4: clear (dark base so the glass is not milky), faint gold, Fresnel reflection toward the edges
     # round 3: mostly clear (the pilot shows), faint gold tint, sharp reflections
-    MEL.connect_material_property(_vp(m, "Tint", (0.05, 0.045, 0.02), -600, -200), "", MP.MP_BASE_COLOR)
+    MEL.connect_material_property(_vp(m, "Tint", (0.025, 0.025, 0.02), -600, -200), "", MP.MP_BASE_COLOR)
     MEL.connect_material_property(_sp(m, "Metal", 0.0, -600, -100), "", MP.MP_METALLIC)
     MEL.connect_material_property(_sp(m, "Rough", 0.05, -600, 0), "", MP.MP_ROUGHNESS)
     MEL.connect_material_property(_sp(m, "Spec", 0.9, -600, 80), "", MP.MP_SPECULAR)
     fr = _expr(m, unreal.MaterialExpressionFresnel, -800, 200, exponent=4.0)
-    op = _lerp(m, _sp(m, "OpacityFace", 0.12, -800, 300), _sp(m, "OpacityEdge", 0.7, -800, 380), fr, -500, 250)
+    op = _lerp(m, _sp(m, "OpacityFace", 0.05, -800, 300), _sp(m, "OpacityEdge", 0.55, -800, 380), fr, -500, 250)
     MEL.connect_material_property(op, "", MP.MP_OPACITY)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m)

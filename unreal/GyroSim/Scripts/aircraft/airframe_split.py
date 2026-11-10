@@ -127,6 +127,62 @@ def add_aim9(a2, body):
     return out, int(len(Tn))
 
 
+def add_petals(a2, body, n=15):
+    """round 5: real nozzle petals - 15 slightly overlapping curved strips (2 tris x 4 segments each) on a cone around the
+    exhaust exit, using the nozzle material (MI_AF2_NozzleGE: titanium -> straw -> blued, petal normal map). UVs run
+    along the left (titanium -> straw) part of tex_af2_noz_base."""
+    noz = np.array([bool(F.MATKEYS[k][0]) and "nozzle-GE" in F.MATKEYS[k][0] for k in body["MK"]])
+    if not noz.any():
+        return a2, 0
+    P = body["V"][body["T"][noz]].reshape(-1, 3)
+    cy, cz = float(np.median(P[:, 1])), float(np.median(P[:, 2]))
+    r = np.hypot(P[:, 1] - cy, P[:, 2] - cz)
+    xe = float(P[:, 0].min())                                       # exit (aft end)
+    aft = P[:, 0] < xe + 8.0
+    r_exit = float(r[aft].max()) if aft.any() else float(r.max())
+    xf, x_e = xe + 55.0, xe - 2.0                                   # petals run from 55 cm ahead of the exit to the exit
+    rf, re = r_exit * 1.10, r_exit * 1.01                          # converging cone
+    mk = int(np.bincount(body["MK"][noz]).argmax())
+    V, Tt, UV, N = [], [], [], []
+    seg = 4
+    w = 2 * np.pi / n * 1.12                                         # 12 % overlap
+    for i in range(n):
+        a0 = 2 * np.pi * i / n
+        lift = 0.35 if i % 2 else 0.0                               # alternate petals sit slightly outside (overlap)
+        base = len(V)
+        for s in range(seg + 1):
+            for e in (0, 1):
+                f = s / seg
+                x = xf + (x_e - xf) * f
+                rr = rf + (re - rf) * f + lift
+                ang = a0 - w / 2 + w * e
+                V.append([x, cy + rr * np.cos(ang), cz + rr * np.sin(ang)])
+                UV.append([0.03 + 0.33 * f, 0.25 + 0.6 * e])
+        for s in range(seg):
+            a, b = base + 2 * s, base + 2 * s + 1
+            c, d = a + 2, b + 2
+            Tt += [(a, c, b), (b, c, d)]
+    V, Tt, UV = np.array(V), np.array(Tt), np.array(UV)
+    Pt = V[Tt]
+    fn = np.cross(Pt[:, 1] - Pt[:, 0], Pt[:, 2] - Pt[:, 0])
+    fu = fn / np.maximum(np.linalg.norm(fn, axis=1, keepdims=True), 1e-9)
+    rad = Pt.copy(); rad[..., 0] = 0; rad[..., 1] -= cy; rad[..., 2] -= cz
+    Nn = rad / np.maximum(np.linalg.norm(rad, axis=2, keepdims=True), 1e-9)
+    Nn = Nn * 0.97 + np.array([0.0, 0.0, 0.0])
+    Nn[..., 0] = 0.12                                                # cone tilt (converging toward the exit)
+    Nn /= np.linalg.norm(Nn, axis=2, keepdims=True)
+    UVt = UV[Tt]
+    flip = np.einsum("ij,ij->i", fu, Nn.mean(1)) > 0                 # geometric winding against N (pipeline rule)
+    Tt[flip] = Tt[flip][:, [0, 2, 1]]
+    UVt[flip] = UVt[flip][:, [0, 2, 1]]
+    Nn[flip] = Nn[flip][:, [0, 2, 1]]
+    out = dict(V=np.concatenate([a2["V"], V]), T=np.concatenate([a2["T"], Tt + len(a2["V"])]), UV=np.concatenate([a2["UV"], UVt]),
+               N=np.concatenate([a2["N"], Nn]), MK=np.concatenate([a2["MK"], np.full(len(Tt), mk)]),
+               DS=np.concatenate([a2["DS"], np.ones(len(Tt), a2["DS"].dtype)]))
+    F.log(f"nozzle petals: exit x {xe:.0f}, r_exit {r_exit:.1f}, axis y {cy:.1f} z {cz:.1f}")
+    return out, int(len(Tt))
+
+
 def fix_uv(arr):
     """triangles with zero UV area (the FG fin sides: they were hidden under the full-size marking decal planes, which
     we drop) have no tangent frame -> the normal-mapped paint rendered them near black (r3 shots). They get a planar
@@ -242,6 +298,8 @@ def main():
         a2, st = V2.smooth_v2(arr, levels=2 if nm == "F16_Body" else 1)
         if nm == "F16_Body":
             a2, nm9 = add_aim9(a2, arr)
+            a2, npet = add_petals(a2, arr)
+            F.log(f"nozzle petals: {npet} tris")
             F.log(f"AIM-9 shapes: {nm9} tris")
         m2, g2 = F.material_table(a2, texout, nm)
         F.write_obj(nm + "_v2", a2, m2, g2)
