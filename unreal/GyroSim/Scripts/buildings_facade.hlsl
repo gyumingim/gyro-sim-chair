@@ -166,6 +166,21 @@ if (style == 9)
         Rough = 0.55;
         NormalWS = normalize(Nn + float3(wr_ - 0.5, HSH(wr_ * 9.1) - 0.5, 0.0) * 0.4 * nearP);
     }
+    else if (kind == 7.0)                                   // round 4: tiled pitched roof (clay S-tiles / slate), courses 0.3 m
+    {
+        float cy = m.y / 0.30, cx = m.x / 0.26 + 0.5 * fmod(floor(cy), 2.0);
+        float2 fwc = fwm / float2(0.26, 0.30);
+        float tfade = saturate(1.5 - max(fwc.x, fwc.y));
+        float course = frac(cy);
+        float lap = PULSE(course, 0.80, 1.0, fwc.y);         // shadow under the next course
+        float wave = sin(frac(cx) * 6.2832) * 0.5 + 0.5;
+        c *= (0.88 + 0.24 * HSH(floor(cx) * 3.1 + floor(cy) * 7.3 + ps) * tfade) * (1.0 - 0.35 * lap * tfade) * (0.9 + 0.2 * wave * tfade);
+        c *= 0.92 + 0.16 * HSH(floor(m.x * 0.25) + floor(m.y * 0.5) * 3.0 + ps);           // patches of re-laid tiles
+        c *= 1.0 - 0.25 * saturate(1.0 - m.y * 2.0);                                      // ridge cap / moss line
+        Rough = 0.7;
+        float3 Tr = normalize(cross(up, Nn) + float3(1e-4, 0, 0));
+        NormalWS = normalize(Nn + Tr * (wave - 0.5) * 0.35 * tfade);
+    }
     else if (kind == 6.0)                                   // solar panels: dark blue cells, silver frames
     {
         float2 g = frac(m / float2(1.0, 1.65));
@@ -365,6 +380,21 @@ else if (style == 11)                                        // ground floor of 
 if ((style == 1 || style == 10 || style == 4 || style == 8) && fmod(floor(seed / 9.0), 3.0) < 1.0)
     cbay = (fmod(cell.x + floor(seed / 5.0), 3.0) == 0.0) ? 1.0 : 0.0;    // round 3: every 3rd bay a coloured panel band
 if (style == 12) vsign = (fmod(cell.x + seed, 3.0) == 0.0) ? 1.0 : 0.0;
+// round 4: per-building window module (style 4 punched: 2 windows / wide with transom / single square / tall pairs;
+// apartments: full balcony glazing / glazing + pier / half-height window over a solid wall; ribbon height)
+float mdl = floor(frac(sin(seed * 7.13 + 3.3) * 9137.1) * 4.0);
+if (style == 4 && spand < 0.5)
+{
+    if (mdl == 1.0) { win = float4(0.10, 0.90, 0.28, 0.80); win2 = float4(0, 0, 0, 0); mull = 3.0; }
+    else if (mdl == 2.0) { win = float4(0.30, 0.70, 0.35, 0.75); win2 = float4(0, 0, 0, 0); mull = 1.0; }
+    else if (mdl == 3.0) { win = float4(0.12, 0.38, 0.15, 0.85); win2 = float4(0.62, 0.88, 0.15, 0.85); }
+}
+if (style == 2 && endw < 0.5 && core < 0.5)
+{
+    if (mdl == 1.0) win.y = 0.70;
+    else if (mdl == 2.0) { win.z = 0.40; rail = 0.0; }
+}
+if (style == 8) { if (mdl == 1.0) win.zw = float2(0.20, 0.90); else if (mdl == 2.0) win.zw = float2(0.42, 0.78); }
 if (parapet > 0.5) { win = float4(0, 0, 0, 0); win2 = win; accent = 0.0; louvre = 0.0; acUnit = 0.0; core = 0.0; awning = 0.0; vsign = 0.0; cbay = 0.0; }
 if (style == 1 || style == 4 || style == 8 || style == 10)  // per-building sill / head height (round 2)
 {
@@ -423,7 +453,7 @@ inner *= lerp(1.0, 0.45, h.z);
 float cur = (bayH < 0.35) ? step(1.0 - 0.5 * bayH2, pg.y) : ((bayH > 0.85) ? 1.0 : 0.0);
 inner = lerp(inner, float3(0.55, 0.52, 0.46) * (0.7 + 0.3 * bayH2), cur);
 inner *= 0.35;
-if (style == 3) inner = lerp(inner, inner * 2.2, step(0.5, bayH));
+if (style == 3) inner = lerp(inner, inner * float3(3.4, 3.2, 2.8) + 0.04, step(0.3, bayH));   // round 4: lit shops, warm
 
 // --- glass pane (with mullions / railing panel at the glass plane) -----------------------------------------------------------
 float3 glass = lerp(inner * (0.6 + tint), tint, glassMetal);
@@ -564,16 +594,18 @@ if (style == 3 || (style == 11 && stone < 0.5 && openRoom < 0.5))
 if (podium > 0.5)
 {
     // sign boards over the podium windows (one per bay, most bays): coloured board, light glyph blocks, no brands
-    float has = step(0.45, bayH) * step(0.3, H1(cell.y * 2.9 + 1.7));   // fewer boards, not on every floor
-    float vert = step(0.8, bayH2);                           // a few tall vertical boards at the bay edge
-    float sbx0 = vert > 0.5 ? 0.02 : 0.06, sbx1 = vert > 0.5 ? 0.22 : 0.94;
-    float sby0 = vert > 0.5 ? 0.08 : 0.48, sby1 = 0.92;
+    // round 4: Korean sign walls - each floor carries continuous horizontal boards, one store per 2 bays, above / over the windows
+    float store = floor(cell.x / 2.0);
+    float has = step(0.18, H1(store * 2.3 + cell.y * 5.9 + 0.7));
+    float vert = step(0.88, bayH2);                          // a few tall vertical boards at the bay edge
+    float sbx0 = vert > 0.5 ? 0.02 : -0.01, sbx1 = vert > 0.5 ? 0.22 : 1.01;
+    float sby0 = vert > 0.5 ? 0.08 : 0.50, sby1 = 0.95;
     float sbm = PULSE(f.x, sbx0, sbx1, fw.x) * PULSE(f.y, sby0, sby1, fw.y) * has;
     float3 sp2[6] = { float3(0.85, 0.85, 0.82), float3(0.62, 0.10, 0.08), float3(0.08, 0.20, 0.50),
                       float3(0.85, 0.65, 0.10), float3(0.10, 0.40, 0.20), float3(0.55, 0.12, 0.40) };
-    float3 scl = sp2[(int)min(H1(cell.x * 1.9 + cell.y * 7.3) * 6.0, 5.0)];
-    float2 gq = float2((f.x - sbx0) / max(sbx1 - sbx0, 0.01), (f.y - sby0) / max(sby1 - sby0, 0.01));
-    float2 gn = vert > 0.5 ? float2(1.0, 5.0) : float2(7.0, 1.0);
+    float3 scl = sp2[(int)min(H1(store * 1.9 + cell.y * 7.3) * 6.0, 5.0)];
+    float2 gq = float2((f.x + fmod(cell.x, 2.0) - sbx0) / max(sbx1 - sbx0, 0.01), (f.y - sby0) / max(sby1 - sby0, 0.01));
+    float2 gn = vert > 0.5 ? float2(1.0, 5.0) : float2(2.6, 1.0);
     float2 gc = gq * gn;
     float glyph = step(0.15, frac(gc.x)) * step(frac(gc.x), 0.85) * step(0.18, frac(gc.y)) * step(frac(gc.y), 0.82)
                 * step(0.3, H1(floor(gc.x) * 3.7 + floor(gc.y) * 5.1 + cell.x * 11.0 + cell.y * 3.0));

@@ -635,7 +635,21 @@ def build_glb(D, sel, center):
         area_b = float(D["area"][b])
         # rooftop relief (real geometry, small): parapet on multi-storey blocks, a stair / lift core box on taller ones
         ph = (0.9 if cls == BT.HOUSE else 1.1) if (cls in (BT.APT, BT.OFFICE, BT.SHOP, BT.HOUSE) and nf >= 3 and area_b >= 100) else 0.0
-        if V3 and ph == 0.0 and cls in (BT.HOUSE, BT.APT, BT.SHOP) and nf >= 2 and area_b >= 80:
+        # round 4: old low houses whose roof photo looks like a tiled pitched roof (terracotta / brown or dark slate grey)
+        # get a gable roof over the footprint's min-area box (only near-rectangular footprints, so the eaves barely overhang)
+        pitch = None
+        if V3 and cls == BT.HOUSE and nf <= 2 and float(D["h"][b]) <= 9.0 and 30.0 <= area_b <= 250.0 and smp is not None \
+                and smp.get("color") is not None:
+            r_, g_, b_ = smp["color"]
+            lum_ = 0.3 * r_ + 0.59 * g_ + 0.11 * b_
+            terra = r_ > g_ * 1.12 and r_ > b_ * 1.3
+            slate = lum_ < 0.42 and abs(r_ - g_) < 0.05 and b_ >= r_ - 0.01
+            if terra or slate:
+                P2r = ((ecef(rings[0][0], rings[0][1], np.full(len(rings[0][0]), top)) - C0) @ R)[:, :2]
+                ob_ = obb(P2r)
+                if ob_ is not None and area_b >= 0.85 * ob_[1] * ob_[2]:
+                    pitch = (ob_, terra)
+        if V3 and ph == 0.0 and pitch is None and cls in (BT.HOUSE, BT.APT, BT.SHOP) and nf >= 2 and area_b >= 80:
             ph = 0.9                                      # v3: flat-roofed 2-storey houses have a parapet too (roof edge reads)
         # v3 gable walls: only the two ends of a slab block (min-area box long / short >= 1.7), not every shorter edge -
         # 11-10 the old rule (edge < 0.5 x longest) made whole faces of stepped / faceted blocks into blank gables (Seomyeon)
@@ -732,9 +746,48 @@ def build_glb(D, sel, center):
                     if cs is not None:
                         box(cs, z0 + 0.4, 0.25, BT.ST_PROP, prop_rgba((0.03, 0.05, 0.10), BT.PROP_SOLAR, seed))
                         st["solar"] = st.get("solar", 0) + 1
+            elif pitch is not None:
+                (axp, Lx, Ly, cp), terra = pitch
+                ayp = np.array([-axp[1], axp[0]])
+                hr = min(2.5, 0.28 * Ly)
+                e = 0.25                                  # eaves overhang (m)
+                c4 = [cp - (Lx / 2 + e) * axp - (Ly / 2 + e) * ayp, cp + (Lx / 2 + e) * axp - (Ly / 2 + e) * ayp,
+                      cp + (Lx / 2 + e) * axp + (Ly / 2 + e) * ayp, cp - (Lx / 2 + e) * axp + (Ly / 2 + e) * ayp]
+                r0, r1 = cp - (Lx / 2 + e) * axp, cp + (Lx / 2 + e) * axp
+                zt = z0 - 0.05
+                P3 = lambda q, z: [float(q[0]), float(q[1]), z]
+                pal = ((0.42, 0.14, 0.06), (0.30, 0.12, 0.06), (0.36, 0.18, 0.10)) if terra else ((0.10, 0.11, 0.13), (0.14, 0.15, 0.16))
+                rc = np.asarray(pal[int(hb[2] * len(pal)) % len(pal)])
+                G = WL.setdefault(BT.ST_PROP, dict(P=[], N=[], C=[], UV=[], I=[], n=0))
+                sl = math.hypot(Ly / 2 + e, hr)
+                quadsP = [[P3(c4[0], zt), P3(c4[1], zt), P3(r1, zt + hr), P3(r0, zt + hr)],          # slope 1 (down to -ay)
+                          [P3(c4[2], zt), P3(c4[3], zt), P3(r0, zt + hr), P3(r1, zt + hr)]]          # slope 2
+                n1_ = np.append(-ayp * hr, Ly / 2 + e); n1_ /= np.linalg.norm(n1_)
+                n2_ = np.append(ayp * hr, Ly / 2 + e); n2_ /= np.linalg.norm(n2_)
+                L2 = Lx + 2 * e
+                uvs = [[[0, sl], [L2, sl], [L2, 0], [0, 0]], [[0, sl], [L2, sl], [L2, 0], [0, 0]]]
+                G["P"].append(np.asarray(quadsP, np.float64).reshape(-1, 3))
+                G["N"].append(np.repeat(np.asarray([n1_, n2_]), 4, axis=0))
+                G["UV"].append(np.asarray(uvs, np.float64).reshape(-1, 2))
+                G["C"].append(np.repeat(prop_rgba(rc, BT.PROP_TILEROOF, seed)[None], 8, axis=0))
+                bi = G["n"] + 4 * np.arange(2)
+                G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
+                G["n"] += 8
+                # gable ends (triangles as quads with a repeated apex), wall colour; u offset keeps the room's door off them
+                gq = [[P3(c4[1], zt), P3(c4[2], zt), P3(r1, zt + hr), P3(r1, zt + hr)],
+                      [P3(c4[3], zt), P3(c4[0], zt), P3(r0, zt + hr), P3(r0, zt + hr)]]
+                gn_ = np.asarray([np.append(axp, 0.0), np.append(-axp, 0.0)])
+                G["P"].append(np.asarray(gq, np.float64).reshape(-1, 3))
+                G["N"].append(np.repeat(gn_, 4, axis=0))
+                G["UV"].append(np.asarray([[[20, hr], [20 + Ly, hr], [20 + Ly / 2, 0], [20 + Ly / 2, 0]]] * 2, np.float64).reshape(-1, 2))
+                G["C"].append(np.repeat(prop_rgba(BT.srgb_to_lin(wall), BT.PROP_ROOM, seed)[None], 8, axis=0))
+                bi = G["n"] + 4 * np.arange(2)
+                G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
+                G["n"] += 8
+                st["pitched"] = st.get("pitched", 0) + 1
             elif (cls == BT.HOUSE or upper == BT.ST_VILLA) and nf <= 5 and area_b >= 40:
                 zr = z0
-                if hb[3] < 0.45:                          # water tank: blue FRP / stainless box
+                if hb[3] < 0.62:                          # water tank: FRP / stainless box (round 4: 45 -> 62 %)
                     steel = hb[4] < 0.35
                     col = (0.66, 0.68, 0.70) if steel else ((0.27, 0.43, 0.64) if hb[5] < 0.6 else (0.78, 0.81, 0.82))
                     cs = spot(P2, ax, 1.6, 1.1, hb[2])
@@ -747,10 +800,11 @@ def build_glb(D, sel, center):
                     if cs is not None:
                         box(cs, zr, 2.3, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(wall) * 0.95, BT.PROP_ROOFROOM, seed))
                         st["roof_rooms"] = st.get("roof_rooms", 0) + 1
-                elif hk > 0.86 and area_b >= 50:          # blue tarp weighed down on the roof
-                    cs = spot(P2, ax, 2.8, 2.2, hb[1], margin=0.3)
+                elif hk > 0.78 and area_b >= 50:          # tarp weighed down on the roof (blue / green / grey, round 4: 14 -> 22 %)
+                    cs = spot(P2, ax, 2.2 + 1.6 * hb[5], 1.6 + 1.2 * hb[0], hb[1], margin=0.3)
+                    tc_ = ((0.16, 0.36, 0.66), (0.20, 0.40, 0.25), (0.45, 0.46, 0.45))[int(hk * 97) % 3]
                     if cs is not None:
-                        box(cs, zr, 0.12, BT.ST_PROP, prop_rgba(BT.srgb_to_lin((0.16, 0.36, 0.66)), BT.PROP_TARP, seed))
+                        box(cs, zr, 0.12, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(tc_), BT.PROP_TARP, seed))
                         st["tarps"] = st.get("tarps", 0) + 1
                 if hb[4] > 0.75 and area_b >= 60:         # laundry rack (thin double-faced panel, hanging clothes)
                     cs = spot(P2, np.array([-ax[1], ax[0]]), 2.4, 0.08, 1.0 - hb[2], margin=0.8)
@@ -1006,7 +1060,7 @@ def tiles(args):
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
-                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar"):
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar", "pitched"):
                     tex[k_] = tex.get(k_, 0) + ts_.get(k_, 0)
                 for s_, c_ in ts_["styles"].items():
                     tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_

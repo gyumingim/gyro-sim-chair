@@ -350,7 +350,7 @@ ST_PLAIN, ST_HOUSE, ST_APT, ST_SHOP, ST_PUNCHED, ST_FACTORY, ST_CURTAIN, ST_GLAS
 # low apartments (다세대 / 연립 = 빌라, <= 5 floors) and a ground-floor pilotis / lobby band. Style ids up to 19 fit the
 # material's 0.60 .. 0.79 range (older tiles: 0.8 walls / 0.95 roofs).
 ST_PROP, ST_VILLA, ST_PILOTI, ST_PODIUM = 9, 10, 11, 12
-PROP_TANK, PROP_LAUNDRY, PROP_ROOM, PROP_TANK_STEEL, PROP_ROOFROOM, PROP_TARP, PROP_SOLAR = range(7)
+PROP_TANK, PROP_LAUNDRY, PROP_ROOM, PROP_TANK_STEEL, PROP_ROOFROOM, PROP_TARP, PROP_SOLAR, PROP_TILEROOF = range(8)
 STYLE_NAMES = ("plain", "house", "apartment", "shopfront", "punched", "factory", "curtain", "glass_tower", "ribbon",
                "prop", "villa", "piloti", "podium")
 STYLE_PNG = (0, 1, 2, 3, 4, 5, 6, 6, 4, 0, 4, 3, 3)            # style -> wall_pngs() module for the stock material
