@@ -29,18 +29,71 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import atmos_look                                                     # noqa: E402  (parameter defaults)
 
 
+COAST_PNG = os.environ.get("GYROSIM_COAST_PNG", r"C:/GyroSimTiles/coast/coast_mask.png")
+COAST_TEX = PATH + "/T_GyroCoast"
+MPC = PATH + "/MPC_GyroCoast"
+
+
+def _defaults():
+    return {**atmos_look.GROUND, **getattr(atmos_look, "SEA_COAST_DEF", {})}
+
+
 def _scalar_names():
-    return [k for k, v in atmos_look.GROUND.items() if not isinstance(v, (tuple, list))]
+    return [k for k, v in _defaults().items() if not isinstance(v, (tuple, list))]
 
 
 def _vector_names():
-    return [k for k, v in atmos_look.GROUND.items() if isinstance(v, (tuple, list))]
+    return [k for k, v in _defaults().items() if isinstance(v, (tuple, list))]
+
+
+def coast_assets():
+    """coast v2: T_GyroCoast (the OSM coast mask, sim/coast_build.py --mask; data from OSM, kept out of git like the tiles)
+    and MPC_GyroCoast (CoastU / CoastV world -> mask UV rows, set at Play by coast_look.py). -> (texture or None, mpc)."""
+    tex = None
+    if os.path.isfile(COAST_PNG):
+        t = unreal.AssetImportTask()
+        for k, v in (("filename", COAST_PNG), ("destination_path", PATH), ("destination_name", "T_GyroCoast"), ("automated", True),
+                     ("replace_existing", True), ("save", False)):
+            t.set_editor_property(k, v)
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+        tex = unreal.load_asset(COAST_TEX)
+        if tex:
+            for k, v in (("srgb", False), ("compression_settings", unreal.TextureCompressionSettings.TC_BC7),
+                         ("never_stream", True), ("address_x", unreal.TextureAddress.TA_CLAMP), ("address_y", unreal.TextureAddress.TA_CLAMP),
+                         ("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)):
+                try:
+                    tex.set_editor_property(k, v)
+                except Exception as e:
+                    log("coast tex", k, repr(e))
+            try:
+                tex.set_editor_property("max_texture_size", 8192)
+            except Exception:
+                pass
+            tex.post_edit_change()
+            EAL.save_asset(COAST_TEX, only_if_is_dirty=False)
+            log("coast mask imported", COAST_TEX, tex.blueprint_get_size_x(), tex.blueprint_get_size_y())
+    else:
+        log("no coast mask", COAST_PNG, "- CoastOn stays 0 (python -I sim/coast_build.py --mask)")
+    mpc = unreal.load_asset(MPC) if EAL.does_asset_exist(MPC) else None
+    if mpc is None:
+        mpc = unreal.AssetToolsHelpers.get_asset_tools().create_asset("MPC_GyroCoast", PATH, unreal.MaterialParameterCollection,
+                                                                      unreal.MaterialParameterCollectionFactoryNew())
+    vps = []
+    for n in ("CoastU", "CoastV"):
+        v = unreal.CollectionVectorParameter()
+        v.set_editor_property("parameter_name", n)
+        v.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, -1.0, 0.0))      # u = v = -1: outside -> coast v2 idle
+        vps.append(v)
+    mpc.set_editor_property("vector_parameters", vps)
+    EAL.save_asset(MPC, only_if_is_dirty=False)
+    return tex, mpc
 
 
 def build():
     for p in (atmos_look.GROUND_MI_SEA0, MI, MAT):
         if EAL.does_asset_exist(p):
             EAL.delete_asset(p)
+    ctex, mpc = coast_assets()
     m = EAL.duplicate_asset(SRC_MAT, MAT)
     layers = MEL.get_material_property_input_node(m, unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES)
     X = lambda cls, x, y: MEL.create_material_expression(m, cls, x, y)
@@ -64,17 +117,33 @@ def build():
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     srcs = [("C", brk, "BaseColor"), ("Rg", brk, "Roughness"), ("Sp", brk, "Specular"), ("N", nrm, ""), ("P", wpa, ""),
             ("Q", wpr, ""), ("T", tim, ""), ("WaveTex", wt, "")]
+    ct = X(unreal.MaterialExpressionTextureObjectParameter, 150, 700)            # coast v2 mask (+ its sampler in HLSL)
+    ct.set_editor_property("parameter_name", "CoastTex")
+    if ctex:
+        ct.set_editor_property("texture", ctex)
+    ct.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+    srcs.append(("CoastTex", ct, ""))
+    for i, n in enumerate(("CoastU", "CoastV")):
+        cp = X(unreal.MaterialExpressionCollectionParameter, 150, 800 + 120 * i)
+        cp.set_editor_property("collection", mpc)
+        cp.set_editor_property("parameter_name", n)
+        mk3 = X(unreal.MaterialExpressionComponentMask, 300, 800 + 120 * i)
+        for c in ("r", "g", "b"):
+            mk3.set_editor_property(c, True)
+        MEL.connect_material_expressions(cp, "", mk3, "")
+        srcs.append((n, mk3, ""))
     y = 800
+    D = _defaults()
     for k in _scalar_names():
         e = X(unreal.MaterialExpressionScalarParameter, 400, y)
         e.set_editor_property("parameter_name", k)
-        e.set_editor_property("default_value", float(atmos_look.GROUND[k]))
+        e.set_editor_property("default_value", float(D[k]))
         srcs.append((k, e, ""))
         y += 80
     for k in _vector_names():
         e = X(unreal.MaterialExpressionVectorParameter, 400, y)
         e.set_editor_property("parameter_name", k)
-        e.set_editor_property("default_value", unreal.LinearColor(*(list(atmos_look.GROUND[k]) + [1.0])[:4]))
+        e.set_editor_property("default_value", unreal.LinearColor(*(list(D[k]) + [1.0])[:4]))
         mask = X(unreal.MaterialExpressionComponentMask, 650, y)
         for c in ("r", "g", "b"):
             mask.set_editor_property(c, True)
@@ -111,7 +180,8 @@ def build():
     EAL.save_asset(MAT, only_if_is_dirty=False)
     mi = EAL.duplicate_asset(SRC_MI, MI)
     MEL.set_material_instance_parent(mi, m)
-    atmos_look.write_ground_params(mi, {**atmos_look.GROUND, **atmos_look.SEA_NEW, **atmos_look.SEA_ART})
+    atmos_look.write_ground_params(mi, {**atmos_look.GROUND, **atmos_look.SEA_NEW, **atmos_look.SEA_ART,
+                                        **(getattr(atmos_look, "SEA_COAST", {}) if ctex else {})})
     EAL.save_asset(MI, only_if_is_dirty=False)
     # the sea before the 11-10 pass (GYROSIM_SEA_LOOK=0): the 11-09 values, waves without the grazing fix
     if EAL.does_asset_exist(atmos_look.GROUND_MI_SEA0):

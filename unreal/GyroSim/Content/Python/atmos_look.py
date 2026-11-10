@@ -96,6 +96,14 @@ SEA_ON = os.environ.get("GYROSIM_SEA_LOOK", "1") != "0"
 # C* 14.1 but hue 223 (too green); (0.035, 0.090, 0.140) / spec 0.20 C* 18.5 / hue 257; this is in between.
 SEA_ART = dict(SeaArt=1.0, DeepColor=(0.038, 0.096, 0.128), WaterRough=0.115, WaterRoughFar=0.29, WaterSpec=0.19)
 GROUND_MI_SEA0 = "/Game/Materials/Ground/MI_GyroGround_Sea0"
+# Coast v2 (11-10, ground_look.hlsl "coast v2", coast_look.py, sim/coast_build.py docstring): OSM coastline signed
+# distance field T_GyroCoast -> crisp shore, bridge ghosts masked out of the sea photo, procedural sea beyond SeaPhotoFar m
+# from the shore (no photo-tile seams), concrete faces on the man-made shore step of the coast-aware terrain.
+# SEA_COAST_DEF = material defaults (CoastOn 0 = the sea rule before, also MI_GyroGround_Sea0); SEA_COAST = MI_GyroGround.
+# A/B at Play (dynamic instance): GYROSIM_COAST_V2=0 -> CoastOn 0, GYROSIM_SEA_MASK=0 -> BridgeMaskOn 0.
+SEA_COAST_DEF = dict(CoastOn=0.0, CoastD=40.0, BridgeD=40.0, FarD=1000.0, BridgeMaskOn=1.0, CoastGuardM=40.0, CoastInlandM=60.0,
+                     SeaPhotoNear=40.0, SeaPhotoFar=160.0, WetBandM=0.6, SeaWallColor=(0.30, 0.30, 0.28), SeaWallWet=(0.075, 0.08, 0.07))
+SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0)
 
 
 def _set(obj, k, v, tag):
@@ -226,6 +234,13 @@ def apply_ground(tileset, on=None):
             for k, v in off.items():
                 if isinstance(v, (tuple, list)):
                     m.set_vector_parameter_value(k, unreal.LinearColor(*(list(v) + [1.0])[:4]))
+    if m is not None and SEA_ON:                 # coast v2 A/B toggles + the world -> coast mask mapping (coast_look.py)
+        try:
+            import coast_look
+            off.update(coast_look.ground_params_off())
+            coast_look.start(tileset)
+        except Exception as e:
+            log("coast look", repr(e))
                 else:
                     m.set_scalar_parameter_value(k, float(v))
         except Exception as e:

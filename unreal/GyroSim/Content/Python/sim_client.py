@@ -653,6 +653,11 @@ class SimClient:
                 self.vw_roads = roads_look.apply(self.world, lambda m: _log(m), self.georef) is not None
             except Exception as e:
                 _log("roads", repr(e))
+            try:                                  # OSM piers / breakwaters / port quay faces (piers_look.py, sim/coast_build.py)
+                import piers_look
+                self.vw_piers = piers_look.apply(self.world, lambda m: _log(m), self.georef) is not None
+            except Exception as e:
+                _log("piers", repr(e))
             try:                                  # Busan landmark models (landmarks_look.py, sim/landmarks/landmarks_build.py)
                 import landmarks_look
                 landmarks_look.apply(self.world, lambda m: _log(m), self.georef)
@@ -663,16 +668,16 @@ class SimClient:
                 self.vw_trees = trees_look.apply(self.world, lambda m: _log(m), self.georef) is not None
             except Exception as e:
                 _log("trees", repr(e))
-
-    def _local_buildings(self):
-        """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
-        CesiumBuildings tileset (build_level: off, no URL) pointed at the local URL. Physics meshes on, so the camera
-        floor trace stands on roofs too (crashes are judged by the server's roof raster)."""
             try:                                  # moving cars / ships (life_look.py; GYROSIM_TRAFFIC=0 / GYROSIM_SHIPS=0)
                 import life_look
                 life_look.apply(self.world, lambda m: _log(m), self.georef)
             except Exception as e:
                 _log("life", repr(e))
+
+    def _local_buildings(self):
+        """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
+        CesiumBuildings tileset (build_level: off, no URL) pointed at the local URL. Physics meshes on, so the camera
+        floor trace stands on roofs too (crashes are judged by the server's roof raster)."""
         try:
             b = self.buildings = self._find("CesiumBuildings")
             if b is None:
@@ -719,7 +724,7 @@ class SimClient:
         gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
         self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
         self.buildings, self.vw_terrain, self.vw_note, self.vw_stat, self.attrib = None, False, None, None, None
-        self.vw_local = self.vw_bldg = self.vw_roads = False
+        self.vw_local = self.vw_bldg = self.vw_roads = self.vw_piers = False
         token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
             mode = (mode if mode == "fields" else "grid") if self.grid else "none"
@@ -1740,8 +1745,9 @@ class SimClient:
                     return
                 mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
                 png = (VW_BLDG_ATTRIB_PNG if getattr(self, "vw_bldg", False) else VW_TERRAIN_ATTRIB_PNG) if getattr(self, "vw_local", False) else VW_ATTRIB_PNG
-                if getattr(self, "vw_roads", False) and getattr(self, "vw_bldg", False) and os.path.exists(VW_ROADS_ATTRIB_PNG):
-                    png = VW_ROADS_ATTRIB_PNG                  # + © OpenStreetMap contributors (roads_look.py)
+                osm_on = getattr(self, "vw_roads", False) or getattr(self, "vw_piers", False) or os.environ.get("GYROSIM_COAST_V2", "1") != "0"
+                if osm_on and getattr(self, "vw_bldg", False) and os.path.exists(VW_ROADS_ATTRIB_PNG):
+                    png = VW_ROADS_ATTRIB_PNG                  # + © OpenStreetMap contributors (roads_look / piers_look / coast v2 mask + terrain)
                 if getattr(self, "vw_trees", False) and getattr(self, "vw_bldg", False) and os.path.exists(VW_TREES_ATTRIB_PNG):
                     png = VW_TREES_ATTRIB_PNG                  # + tree data credits (trees_look.py, includes the OSM line)
                 # + Copernicus credit (+ building data credit)

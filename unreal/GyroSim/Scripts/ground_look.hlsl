@@ -3,6 +3,7 @@
 // Inputs:  C (layer base colour = V-World photo, linear), Rg / Sp (layer roughness / specular), N (vertex normal, world),
 //          P (absolute world position, cm; world frame X north, Y east, Z up, Z 0 = mean sea level at the origin),
 //          Q (camera-relative world position, cm), T (time s), WaveTex (+ WaveTexSampler), parameters below.
+//          CoastTex (+ CoastTexSampler), CoastU / CoastV (float3, MPC_GyroCoast) - coast v2 below.
 // Outputs: return = base colour; Rough, Spec, NormalWS (world space: the material has tangent space normals off), Mask.
 // Sea mask: the Copernicus DEM has the sea at exactly 0 m MSL (terrain_build.py; the EGM2008 geoid varies only
 // 28.99..29.42 m over Busan), so the height above the sea - Z plus the curvature drop X^2/2M + Y^2/2N of the local
@@ -19,6 +20,40 @@ float mC = 1.0 - smoothstep(GuardL0, GuardL1, lum);                             
 float mB = smoothstep(GuardB0, GuardB1, C.b - C.r)                                 // grey / brown = rock islet, quay -> land
          * smoothstep(0.70, 0.90, C.b / max(C.g, 1e-4));                           // green = low fields / parks -> land
 float m = saturate(WaterOn * mH * mC * mB);
+
+// ---- coast v2 (11-10, CoastOn 1; GYROSIM_COAST_V2=0 -> 0 = the rule above): the OSM coastline as a signed distance field
+// (T_GyroCoast from sim/coast_build.py --mask, equirectangular over the Busan box; world -> UV affine CoastU / CoastV in
+// MPC_GyroCoast, refitted by coast_look.py whenever the Cesium origin moves). R = coast distance (land +), G = bridge
+// footprint distance (inside +), B = sea distance from the shore, A = shore class (0 natural, 0.5 beach, 1 man-made).
+//  - the sea / land edge is the coastline itself, anti-aliased over one screen pixel (the 30 m DEM ramp no longer decides);
+//  - photo guards (bright = ship / pier, grey = rock) only within CoastGuardM of the shore and never under a bridge mask:
+//    the 광안대교 deck + shadow baked into the photo were 'bright -> land' = the white strip under the 3D bridge;
+//  - the photo's own sea colour is used only near the shore (SeaPhotoNear..Far m): further out the procedural sea alone,
+//    so the rectangular photo-tile seams on the open sea vanish; under the bridge masks (BridgeMaskOn) never;
+//  - inland water (rivers, ponds) more than CoastInlandM from the coast keeps the old height / colour rule.
+// Render-time only: the V-World photo is not modified or stored.
+float photoW = 1.0, coastSteep = 0.0, coastCls = 0.0, coastSd = 1e4;
+if (CoastOn > 0.5)
+{
+    float2 cuv = float2(dot(CoastU.xy, P.xy) + CoastU.z, dot(CoastV.xy, P.xy) + CoastV.z);
+    if (all(cuv > 0.0005) && all(cuv < 0.9995))
+    {
+        float4 cm = Texture2DSample(CoastTex, CoastTexSampler, cuv);
+        float sd = (cm.r - 0.5) * 2.0 * CoastD;                                     // m, land +
+        float bin = BridgeMaskOn * saturate(0.5 + (cm.g - 0.5) * 2.0 * BridgeD / 4.0);  // 1 inside a bridge mask (4 m soft edge)
+        float far = cm.b * FarD;                                                    // m out from the shore (sea)
+        float footC = max(max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01, 0.05);     // m per screen pixel
+        float seaC = saturate(0.5 - sd / footC)                                     // crisp, 1 px anti-aliased edge
+                   * (1.0 - smoothstep(2.0, 4.0, h));                               // islets OSM has no coastline for (the coast terrain keeps them)
+        float guard = lerp(1.0, mC * mB, (1.0 - saturate(far / CoastGuardM)) * (1.0 - bin));
+        float inland = saturate((sd - CoastInlandM) / 20.0) * mH * mC * mB;         // rivers / ponds well inside the OSM land
+        m = saturate(WaterOn * max(seaC * guard, inland));
+        photoW = (1.0 - smoothstep(SeaPhotoNear, SeaPhotoFar, far)) * (1.0 - bin);
+        coastSd = sd;
+        coastCls = cm.a;
+        coastSteep = saturate((0.75 - up.z) * 4.0);                                  // > ~45 deg terrain faces (sea walls)
+    }
+}
 Mask = m;
 
 // ---- land: photo colour match (orthophoto tiles are graded brighter / more saturated than the scene light) --------
@@ -89,11 +124,20 @@ if (CanopyAmp > 0.0)
     }
 }
 
+// coast v2: steep man-made shore faces (the sea wall step of the coast-aware terrain, ~2 m vertex spacing) get a concrete
+// face instead of the photo stretched down the step: weathered concrete, a dark wet band below WetBandM
+if (CoastOn > 0.5)
+{
+    float wall = coastSteep * saturate(coastCls * 2.0 - 1.0) * (1.0 - saturate((coastSd - 6.0) / 4.0)) * (1.0 - m);
+    float3 conc = lerp(SeaWallWet, SeaWallColor, smoothstep(WetBandM - 0.3, WetBandM + 0.3, h));
+    g = lerp(g, conc * (0.9 + 0.2 * saturate(lum * 4.0)), wall);
+}
+
 // ---- sea: dark water body + sky reflection (Fresnel, from the engine's specular), wind waves -------------------------
 // water leaving reflectance of coastal sea is only a few percent: the look is mostly the reflected sky (Specular)
-float detail = clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, 1.8);                  // keep the photo's own variation (wakes, swell)
+float detail = lerp(1.0, clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, 1.8), photoW);   // keep the photo's own variation (wakes, swell) near shore
 float3 desat = lerp(lum.xxx, C, ShallowSat);
-float3 body = lerp(DeepColor * detail, desat * ShallowGain, ShallowMix * saturate((lum - PhotoSeaLum) / max(PhotoSeaLum, 1e-4)));
+float3 body = lerp(DeepColor * detail, desat * ShallowGain, ShallowMix * photoW * saturate((lum - PhotoSeaLum) / max(PhotoSeaLum, 1e-4)));
 float fade = saturate(dist / WaveFadeM);
 // three octaves at unrelated scales / directions (no visible repeat), the small ones fade out with distance (they would
 // alias into a grid); far away only the long swell octave and the growing roughness remain
