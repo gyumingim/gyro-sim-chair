@@ -208,14 +208,14 @@ def lamp_mat():
 
 
 # slot -> instance parameters (linear colours, matched to the reference photos)
-DARK = (0.028, 0.030, 0.032)
+DARK = (0.055, 0.058, 0.06)
 SLOTS = {
     "CK2_Plate": dict(Rough=0.74, EdgeWear=0.40, Dust=0.4, NormalAmt=1.0, Spec=0.35),
     "CK2_Plate0": dict(Tint=DARK, Rough=0.82, NormalAmt=0.0, Spec=0.35),
     "CK2_PlateSide": dict(Tint=(0.02, 0.021, 0.022), Rough=0.82, NormalAmt=0.0, Spec=0.35),
-    "CK2_Paint": dict(Tint=(0.035, 0.038, 0.04), Rough=0.84, EdgeWear=0.25, Dust=0.5, NormalAmt=0.0, Spec=0.35),
-    "CK2_Well": dict(Tint=(0.05, 0.053, 0.055), Rough=0.86, EdgeWear=0.20, Dust=0.8, NormalAmt=0.0, Spec=0.35),
-    "CK2_Wall": dict(Tint=(0.035, 0.037, 0.038), Rough=0.82, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0, Spec=0.35),
+    "CK2_Paint": dict(Tint=(0.07, 0.074, 0.076), Rough=0.84, EdgeWear=0.25, Dust=0.5, NormalAmt=0.0, Spec=0.35),
+    "CK2_Well": dict(Tint=(0.09, 0.094, 0.096), Rough=0.86, EdgeWear=0.20, Dust=0.8, NormalAmt=0.0, Spec=0.35),
+    "CK2_Wall": dict(Tint=(0.05, 0.053, 0.055), Rough=0.82, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0, Spec=0.35),
     "CK2_Glare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.92, RoughVar=0.1, EdgeWear=0.10, Dust=0.9, NormalAmt=0.0, Spec=0.3),
     "CK2_Rubber": dict(Tint=(0.012, 0.012, 0.012), Rough=0.8, EdgeWear=0.00, NormalAmt=0.0),
     "CK2_HUDBody": dict(Tint=(0.012, 0.012, 0.013), Rough=0.86, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
@@ -240,7 +240,7 @@ SLOTS = {
     "CK2_Kneeboard": dict(Tint=(0.03, 0.03, 0.032), Rough=0.5, NormalAmt=0.0),
     "CK2_Strap": dict(Tint=(0.07, 0.08, 0.05), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
 }
-GLASS = {"CK2_Glass": dict(Tint=(0.02, 0.025, 0.03), Opacity=0.05), "CK2_HUDGlass": dict(Tint=(0.03, 0.06, 0.045), Opacity=0.07, Rough=0.03)}
+GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.02), "CK2_HUDGlass": dict(Tint=(0.05, 0.11, 0.07), Opacity=0.16, Rough=0.03)}
 LAMPS = {"amber": (1.0, 0.45, 0.04), "red": (1.0, 0.06, 0.03), "green": (0.15, 1.0, 0.25)}
 
 
@@ -301,6 +301,17 @@ def main():
                 sm.set_material(i, mats[key])
             else:
                 miss.append(sn)
+        try:   # distance field from all triangles, two-sided (thin open panels); rebuilt after the materials are set
+            sms = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem) or unreal.EditorStaticMeshLibrary   # None in the commandlet
+            bs = sms.get_lod_build_settings(sm, 0)
+            for k, v in (("generate_distance_field_as_if_two_sided", True), ("distance_field_resolution_scale", 2.0)):
+                try:
+                    bs.set_editor_property(k, v)
+                except Exception as e:
+                    log("build setting", k, repr(e))
+            sms.set_lod_build_settings(sm, 0, bs)
+        except Exception as e:
+            log("lod build settings", repr(e))
         EAL.save_loaded_asset(sm)
         try:
             nuv = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem).get_num_uv_channels(sm, 0)

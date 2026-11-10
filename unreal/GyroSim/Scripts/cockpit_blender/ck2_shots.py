@@ -73,7 +73,7 @@ def gpu_from_log():
 
 
 def plan():
-    sts = ("v2",) if ONLY == "v2" else ("v1", "v2")
+    sts = ("v2",) if ONLY == "v2" else ("v2", "v1")
     q = []
     if os.environ.get("GYROSIM_CK2SHOT_DEBUG"):        # buffer views of the v2 panel (material debugging)
         q.append(("place",) + SPOTS[0])
@@ -81,16 +81,15 @@ def plan():
             q.append(("state", "v2", -24.0, 0.0, 52.0)); q.append(("buf", b)); q.append(("shot", "dbg_%s" % b))
         q.append(("buf", None))
         return q
-    for name, spec in SPOTS:
-        q.append(("place", name, spec))
-        for st in sts:
+    # all v2 shots first, then v1: Lumen keeps a stale surface cache for a while after a mesh swap
+    for st in sts:
+        for name, spec in SPOTS:
+            q.append(("place", name, spec))
             q.append(("state", st, 0.0, 0.0, 75.0)); q.append(("shot", "%s_eye_%s" % (name, st)))
-        if name == "haeundae":
-            for cn, p, y, fov in CLOSE:
-                for st in sts:
+            if name == "haeundae":
+                for cn, p, y, fov in CLOSE:
                     q.append(("state", st, p, y, fov)); q.append(("shot", "%s_%s_%s" % (name, cn, st)))
-            if LOGF:
-                for st in sts:
+                if LOGF:
                     q.append(("state", st, 0.0, 0.0, 75.0)); q.append(("gpu", "cockpit_%s" % st))
     return q
 
@@ -136,7 +135,7 @@ def tick(dt):
                 SAY(dict(step[2], cmd="place"))
                 SAY({"cmd": "pause", "on": True})
                 c.override = dict(CRUISE)
-                ST.update(phase="load", t=now)
+                ST.update(phase="load", t=now, spec=step[2], resent=0)
             elif k == "state":
                 _, st, p, y, fov = step
                 cockpit_v2.set_mode(st == "v2")
@@ -170,6 +169,12 @@ def tick(dt):
                 cmd("r.ScreenPercentage %.0f" % sp)
                 ST.update(phase="gpu_start", t=now)
         elif ph == "load":
+            sp, s_ = ST.get("spec") or {}, c.s or {}
+            if sp and el > 6.0 + 6.0 * ST.get("resent", 0) and ST.get("resent", 0) < 5 and abs(float(s_.get("lat", 0.0) or 0.0) - sp["lat"]) > 0.01:
+                SAY({"cmd": "tut", "op": "free"}); SAY(dict(sp, cmd="place")); SAY({"cmd": "pause", "on": True})   # server was not ready
+                ST["resent"] = ST.get("resent", 0) + 1
+                log("place resent", ST["resent"], s_.get("lat"), s_.get("lon"))
+                return
             p1, p2 = progress(getattr(c, "tileset", None)), progress(getattr(c, "buildings", None))
             if (p1 is not None and p1 >= 99.9 and (p2 is None or p2 >= 99.9) and el > 10.0) or el > 90.0:
                 ST["load"] = dict(load_s=round(el, 1), terrain=p1, buildings=p2)

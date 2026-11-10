@@ -68,8 +68,8 @@ def wing_pt(side, w, v, off=0.0):
 
 
 # glare shield: lip over the panel top, flat-topped hood running forward under the windscreen
-LIP_HALF, LIP_Z0, LIP_ZC = 33.0, 61.0, 70.0          # lip height LIP_ZC on the centre line, LIP_Z0 at |u| = LIP_HALF
-LIP_OVER = 8.0                                        # hood overhang toward the pilot past the panel face
+LIP_HALF, LIP_Z0, LIP_ZC = 33.0, 61.0, 68.8          # lip height LIP_ZC on the centre line, LIP_Z0 at |u| = LIP_HALF
+LIP_OVER = 6.5                                        # hood overhang toward the pilot past the panel face
 GLARE_X1 = 541.0
 
 
@@ -327,5 +327,6 @@ def swatch_uv(sw=SWATCH):
 
 
 # colours (sRGB 0..255) sampled from the reference photos (003 / 005 / 010, hangar light, approximate)
-COL = dict(panel=(46, 48, 50), panel_light=(64, 67, 69), legend=(232, 232, 226), structure=(78, 82, 84), glare=(22, 22, 23),
+COL = dict(panel=(68, 71, 72),       # dark gull grey (photo 003 hangar ~#4A4D4A, FS 36231 ~ (96, 96, 94)); review: v2 was near-black
+            panel_light=(64, 67, 69), legend=(232, 232, 226), structure=(78, 82, 84), glare=(22, 22, 23),
            well=(70, 73, 75), dial=(16, 16, 17))

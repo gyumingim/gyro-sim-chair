@@ -848,7 +848,12 @@ def bake_masks(ob, res=2048):
     sc.cycles.device = "CPU"
     sc.cycles.samples = 24
     sc.render.bake.margin = 6
+    hidden = [o for o in bpy.context.scene.objects if o != ob and not o.hide_render]
+    for o in hidden:                          # bake against the shell only (the glass discs blacked out the dial AO)
+        o.hide_render = True
     bpy.ops.object.bake(type="EMIT", uv_layer="UV1")
+    for o in hidden:
+        o.hide_render = False
     for i, m in enumerate(orig):
         me.materials[i] = m
     img.filepath_raw = os.path.join(OUT, "T_Ck2Masks.png")

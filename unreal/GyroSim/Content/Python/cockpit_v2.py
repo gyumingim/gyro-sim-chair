@@ -53,14 +53,18 @@ def _save(a):
             return
     rc = a.root_component
     c = _smc(a)
+    mats = [c.get_material(i) for i in range(c.get_num_materials())] if c else []     # component overrides (realism passes set some)
     _st["saved"].append((a, c.static_mesh if c else None, rc.get_editor_property("relative_location"),
-                         rc.get_editor_property("relative_rotation"), rc.get_editor_property("relative_scale3d")))
+                         rc.get_editor_property("relative_rotation"), rc.get_editor_property("relative_scale3d"), mats))
 
 
 def _place(a, loc=None, rot=None, scale=None, mesh=None):
     _save(a)
     if mesh is not None and _smc(a):
-        _smc(a).set_static_mesh(mesh)
+        c = _smc(a)
+        c.set_static_mesh(mesh)
+        for i in range(c.get_num_materials()):      # drop the v1 per-slot overrides (the old glass got an opaque one)
+            c.set_material(i, mesh.get_material(i))
     if loc is not None:
         a.set_actor_relative_location(_v(loc), False, True)
     if rot is not None:
@@ -127,9 +131,12 @@ def _do(world, man, shell, glass):
         n = c.static_mesh.get_name() if c and c.static_mesh else ""
         if n == "ck_shell":
             _place(a, mesh=shell)
-            _lumen_off(c)
+            if os.environ.get("GYROSIM_CK2_DFL", "1") == "0":     # 11-11: DF now built two-sided -> Lumen OK
+                _lumen_off(c)
         elif n == "ck_glass":
             _place(a, mesh=glass)
+            if os.environ.get("GYROSIM_CK2_GLASS", "1") == "0":       # debug: no instrument / HUD glass
+                a.static_mesh_component.set_visibility(False, False)
     PV = man["pivots"]
     for tag, part in (("StickPivot", "ck2_stick"), ("ThrottlePivot", "ck2_throttle"), ("GearHandle", "ck2_gearhandle")):
         if tag == "StickPivot" and STICK == "center":
@@ -219,10 +226,12 @@ def set_mode(on):
     """False = put every changed actor back (v1 look), True = apply again (A/B shots in one Play session)"""
     w = _st["world"]
     if not on:
-        for a, mesh, loc, rot, sc in _st["saved"]:
+        for a, mesh, loc, rot, sc, mats in _st["saved"]:
             try:
                 if mesh is not None and _smc(a):
                     _smc(a).set_static_mesh(mesh)
+                    for i, m in enumerate(mats):
+                        _smc(a).set_material(i, m)
                 a.set_actor_relative_location(loc, False, True)
                 a.set_actor_relative_rotation(rot, False, True)
                 a.set_actor_relative_scale3d(sc)
