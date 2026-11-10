@@ -24,10 +24,10 @@ float o;
 if (part < 0.25) {                                   // stern trail: narrow churned centre, quickly thinning
     float cx = (across - 0.5) * 2.0;
     float core = exp(-cx * cx * 7.0);
-    o = 0.45 * core * saturate(1.0 - along / keep) * foam * (0.5 + 0.5 * saturate(1.0 - along * 6.0));
+    o = 0.75 * core * saturate(1.0 - along / keep) * foam * (0.55 + 0.45 * saturate(1.0 - along * 6.0)) * saturate(along * 40.0);
 } else if (part < 0.75) {                            // Kelvin arms: thin, faint lines
     float cx = (across - 0.5) * 2.0;
-    o = 0.16 * exp(-cx * cx * 10.0) * saturate(1.0 - along / (keep * 1.2)) * foam;
+    o = 0.22 * exp(-cx * cx * 10.0) * saturate(1.0 - along / (keep * 1.2)) * foam;
 } else {                                             // bow wave along the hull
-    o = 0.45 * pow(1.0 - across, 2.0) * (1.0 - along) * saturate(0.5 + foam);
+    o = 0.8 * pow(1.0 - across, 2.0) * (1.0 - along) * saturate(0.5 + foam);
 }return saturate(o * k) * Amt;

@@ -178,6 +178,7 @@ def srgb(r, g, b):
 WHITE, GREYW = srgb(232, 234, 236), srgb(200, 202, 205)
 DARK, GLASS = srgb(40, 42, 46), srgb(25, 32, 40)
 DECK_RED, DECK_GREEN, DECK_GREY = srgb(120, 55, 45), srgb(70, 95, 80), srgb(120, 120, 118)
+DECK_DARK = srgb(62, 64, 66)                                    # container-ship deck / hatch covers (dark grey)
 ANTIFOUL, BOOT = srgb(140, 40, 32), srgb(35, 35, 38)
 CONT = [srgb(*c) for c in ((60, 130, 190), (200, 60, 45), (230, 170, 40), (40, 110, 70), (210, 210, 210), (120, 120, 125),
                            (170, 70, 40), (90, 60, 140), (210, 90, 150), (30, 60, 120), (225, 120, 40), (150, 40, 40))]
@@ -230,14 +231,14 @@ def container_ship(L=300.0, B=48.0, seed=1):
     rng = np.random.default_rng(seed)
     fb = 0.04 * L                                              # freeboard 12 m (300 m)
     # red antifouling band at the waterline, dark topsides (paint 1), flared / raked bow
-    m.hull(L, B, -1.0, 1.6, fb, 0.17 * L, ANTIFOUL, DARK, DECK_RED, 0.0, 1.0, flare=0.5, rake=0.025)
+    m.hull(L, B, -1.0, 1.6, fb, 0.17 * L, ANTIFOUL, DARK, DECK_DARK, 0.0, 1.0, flare=0.5, rake=0.025)
     xs = L / 2
     hx = -xs + (0.30 * L if L > 250 else 0.10 * L)             # accommodation ~ 1/3 from the stern (big), aft (feeder)
     top = superstructure(m, hx, L, B, fb, 9 if L > 250 else 7)
     fx = hx - 0.07 * L if L > 250 else -xs + 0.04 * L          # funnel: behind the house (big ships: separate engine casing)
     m.box(fx - 0.018 * L, fx + 0.018 * L, -0.10 * B, 0.10 * B, fb, fb + (0.06 * L if L > 250 else top - fb + 3.0), DARK, 2.0)
     m.box(xs - 0.155 * L, xs - 0.14 * L, -0.42 * B, 0.42 * B, fb, fb + 4.0, WHITE)                     # breakwater
-    m.box(xs - 0.14 * L, xs - 0.02 * L, -0.30 * B, 0.30 * B, fb, fb + 2.0, DECK_RED)                  # forecastle
+    m.box(xs - 0.14 * L, xs - 0.02 * L, -0.30 * B, 0.30 * B, fb, fb + 2.0, DECK_DARK)                 # forecastle
     hl = 0.05 * L
     containers(m, rng, hx + hl / 2 + 1.0, xs - 0.16 * L, B - 2.0, fb + 1.0, bay=12.8)
     if L > 250:
