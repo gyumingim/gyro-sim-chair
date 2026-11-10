@@ -393,12 +393,12 @@ w *= 1.0 - 0.22 * wet * saturate(1.5 - fw.x * 9.0);
 if (style == 3 || (style == 11 && stone < 0.5 && openRoom < 0.5))
 {
     // shop signs: a board per bay (white / red / blue / yellow / green / dark), light glyph blocks, no brands
-    float sb = PULSE(f.y, 0.76, 0.94, fw.y) * nearD;
+    float sb = PULSE(f.y, 0.70, 0.95, fw.y) * nearD;                  // sign board (taller: thin lines read as trim, review 11-10)
     float3 sp[6] = { float3(0.85, 0.85, 0.82), float3(0.62, 0.10, 0.08), float3(0.08, 0.20, 0.50),
                      float3(0.85, 0.65, 0.10), float3(0.10, 0.40, 0.20), float3(0.12, 0.12, 0.13) };
     float si = H1(cell.x + 1.3);
     float3 sc = sp[(int)min(si * 6.0, 5.0)];
-    float gx = f.x * 9.0, gy = (f.y - 0.79) / 0.12;
+    float gx = f.x * 9.0, gy = (f.y - 0.74) / 0.17;
     float glyph = step(0.12, frac(gx)) * step(frac(gx), 0.88) * step(0.0, gy) * step(gy, 1.0)
                 * step(0.3, H1(floor(gx) * 3.7 + cell.x * 11.0)) * step(0.15, f.x) * step(f.x, 0.85);
     float3 gc = (dot(sc, 0.333.xxx) > 0.5) ? float3(0.10, 0.10, 0.12) : float3(0.95, 0.93, 0.85);
