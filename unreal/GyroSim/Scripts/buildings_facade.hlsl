@@ -215,7 +215,8 @@ else if (style == 2)
         win = (edgeBay && nbE >= 3.0) ? float4(0.30, 0.70, 0.35, 0.72) : float4(0, 0, 0, 0);
         rail = 0.0; dR = 18.0; louvre = 0.0; acUnit = 0.0;
     }
-    accent = (endw > 0.5 && cell.y < 3.0 && fmod(seed, 3.0) < 1.0) ? 1.0 : 0.0;
+    // gable colour band: top 3 floors, outer bays only (the dong number sits on the plain wall between)
+    accent = (endw > 0.5 && cell.y < 3.0 && fmod(seed, 3.0) < 1.0 && (cell.x < 1.0 || cell.x >= nbE - 1.0)) ? 1.0 : 0.0;
     accent = max(accent, (cell.y < 1.5 && fmod(seed, 2.0) < 1.0) ? 0.8 : 0.0);
 }
 else if (style == 3)     { win = float4(0.03, 0.97, 0.05, 0.70); mull = 2.0; bayM = 400.0; floorM = 360.0; wallRough = 0.6; dR = 25.0; }
@@ -433,10 +434,10 @@ if (style == 2 && endw > 0.5 && nbE >= 2.0)
                                    14, 17, 17, 15, 1, 2, 12 };
     float num = 101.0 + fmod(seed, 12.0);
     float gwM = nbE * bayM / 100.0;                              // gable width, m
-    float Hm = min(5.6, 0.8 * gwM / (3.0 * 1.25 * 5.0 / 7.0));   // digit height, m
+    float Hm = min(6.5, 0.92 * gwM / (3.0 * 1.25 * 5.0 / 7.0));   // digit height, m
     float gW = Hm * 5.0 / 7.0;
     float xm = (uvF.x - nbE * 0.5) * bayM / 100.0 + 1.5 * 1.25 * gW;   // from the left edge of the number
-    float ym = (UV.y - 0.7) * floorM / 100.0;                      // down from the top of the number
+    float ym = (UV.y - 0.5) * floorM / 100.0;                      // down from the top of the number
     float gi = floor(xm / (1.25 * gW));
     float gx = (xm - gi * 1.25 * gW) / gW * 5.0;
     float gy = ym / Hm * 7.0;
@@ -473,12 +474,12 @@ NormalWS = normalize(lerp(wN, insN, m));
 // window): light grey box with a dark round fan grille, its shadow on the wall below
 if (acUnit > 0.5 && parapet < 0.5)
 {
-    float ax0 = (style == 2) ? 0.08 : 0.55, ax1 = ax0 + ((style == 2) ? 0.30 : 0.30);
-    float ay0 = (style == 2) ? W.z + 0.02 : 0.06, ay1 = ay0 + 0.24;
+    float ax0 = (style == 2) ? 0.08 : 0.58, ax1 = ax0 + 0.26;
+    float ay0 = (style == 2) ? W.z + 0.02 : 0.06, ay1 = ay0 + 0.20;
     float box = PULSE(f.x, ax0, ax1, fw.x) * PULSE(f.y, ay0, ay1, fw.y);
     float2 fc = float2((f.x - (ax0 + 0.62 * (ax1 - ax0))) * bayM, (f.y - (ay0 + ay1) * 0.5) * floorM);
     float fan = 1.0 - smoothstep(0.75, 1.0, length(fc) / ((ay1 - ay0) * floorM * 0.36));
-    float3 acC = lerp(float3(0.78, 0.78, 0.76), float3(0.12, 0.12, 0.13), fan * nearD);
+    float3 acC = lerp(float3(0.70, 0.70, 0.69), float3(0.38, 0.38, 0.39), fan * nearD);   // grille: low contrast (dark dots read as eyes)
     float shd = PULSE(f.x, ax0, ax1, fw.x) * PULSE(f.y, ay0 - 0.10, ay0, fw.y) * (sunFront ? 1.0 : 0.5);
     col *= 1.0 - 0.35 * shd * nearD;
     col = lerp(col, acC, box * nearD);

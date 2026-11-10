@@ -698,8 +698,8 @@ def build_glb(D, sel, center):
             elif (cls == BT.HOUSE or upper == BT.ST_VILLA) and nf <= 5 and area_b >= 40:
                 zr = z0
                 if hb[3] < 0.45:                          # water tank: blue FRP / stainless box
-                    steel = hb[4] < 0.3
-                    col = (0.66, 0.68, 0.70) if steel else ((0.20, 0.42, 0.74) if hb[5] < 0.7 else (0.80, 0.83, 0.84))
+                    steel = hb[4] < 0.35
+                    col = (0.66, 0.68, 0.70) if steel else ((0.27, 0.43, 0.64) if hb[5] < 0.6 else (0.78, 0.81, 0.82))
                     cs = spot(P2, ax, 1.6, 1.1, hb[2])
                     if cs is not None:
                         box(cs, zr, 1.3, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(col), BT.PROP_TANK_STEEL if steel else BT.PROP_TANK, seed))
