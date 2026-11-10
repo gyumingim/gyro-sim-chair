@@ -363,11 +363,11 @@ def airframe2_master(tx2):
     MEL.connect_material_expressions(wn, "", nz, "")
     down = _expr(m, unreal.MaterialExpressionSaturate, -900, 900)
     MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionMultiply, nz, _const(m, -1.0, -1150, 980), -1000, 900), "", down, "")
-    amt = _op(m, unreal.MaterialExpressionAdd, _op(m, unreal.MaterialExpressionMultiply, down, _sp(m, "Bounce", 1.0, -900, 1080), -750, 1050),
+    amt = _op(m, unreal.MaterialExpressionAdd, _op(m, unreal.MaterialExpressionMultiply, down, _sp(m, "Bounce", 1.3, -900, 1080), -750, 1050),
               _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -1000, 1160), down, -900, 1160),
                   _sp(m, "SkyFill", 0.5, -900, 1240), -750, 1180), -650, 1100)
     em = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, col, amt, -500, 1000),
-             _op(m, unreal.MaterialExpressionMultiply, orm, _vp(m, "BounceColor", (0.78, 0.82, 0.88), -900, 1300), -700, 1300, "R", ""), -400, 1100)
+             _op(m, unreal.MaterialExpressionMultiply, orm, _vp(m, "BounceColor", (0.85, 0.85, 0.85), -900, 1300), -700, 1300, "R", ""), -400, 1100)
     MEL.connect_material_property(em, "", MP.MP_EMISSIVE_COLOR)
     clear_coat(m, 0.2, 0.3)
     MEL.recompile_material(m)
@@ -382,16 +382,18 @@ def glass_ext_master():
     m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     m.set_editor_property("two_sided", True)
     try:
-        m.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
+        tlm = getattr(unreal.TranslucencyLightingMode, "TLM_SURFACE_FORWARD_SHADING", None) or unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING
+        m.set_editor_property("translucency_lighting_mode", tlm)     # forward shading: sharp sky / sun reflections
     except Exception as e:
         log("glass lighting mode", repr(e))
+    # round 4: clear (dark base so the glass is not milky), faint gold, Fresnel reflection toward the edges
     # round 3: mostly clear (the pilot shows), faint gold tint, sharp reflections
-    MEL.connect_material_property(_vp(m, "Tint", (0.9, 0.85, 0.6), -600, -200), "", MP.MP_BASE_COLOR)
+    MEL.connect_material_property(_vp(m, "Tint", (0.05, 0.045, 0.02), -600, -200), "", MP.MP_BASE_COLOR)
     MEL.connect_material_property(_sp(m, "Metal", 0.0, -600, -100), "", MP.MP_METALLIC)
     MEL.connect_material_property(_sp(m, "Rough", 0.05, -600, 0), "", MP.MP_ROUGHNESS)
     MEL.connect_material_property(_sp(m, "Spec", 0.9, -600, 80), "", MP.MP_SPECULAR)
     fr = _expr(m, unreal.MaterialExpressionFresnel, -800, 200, exponent=4.0)
-    op = _lerp(m, _sp(m, "OpacityFace", 0.2, -800, 300), _sp(m, "OpacityEdge", 0.6, -800, 380), fr, -500, 250)
+    op = _lerp(m, _sp(m, "OpacityFace", 0.12, -800, 300), _sp(m, "OpacityEdge", 0.7, -800, 380), fr, -500, 250)
     MEL.connect_material_property(op, "", MP.MP_OPACITY)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m)
@@ -399,7 +401,7 @@ def glass_ext_master():
 
 
 def v2(tx, m1):
-    names = ("tex_af2_base", "tex_af2_n", "tex_af2_orm")
+    names = ("tex_af2_base", "tex_af2_n", "tex_af2_orm", "tex_af2_noz_base", "tex_af2_noz_n", "tex_af2_noz_orm")
     if not all(os.path.exists(os.path.join(SRC, n + ".png")) for n in names):
         log("v2 textures missing (run airframe_bake.py) - v2 skipped")
         return
@@ -407,8 +409,11 @@ def v2(tx, m1):
     TC = unreal.TextureCompressionSettings
     tx2["tex_af2_n"].set_editor_property("compression_settings", TC.TC_NORMALMAP)
     tx2["tex_af2_n"].set_editor_property("srgb", False)
-    tx2["tex_af2_orm"].set_editor_property("compression_settings", TC.TC_MASKS)
-    tx2["tex_af2_orm"].set_editor_property("srgb", False)
+    for o in ("tex_af2_orm", "tex_af2_noz_orm"):
+        tx2[o].set_editor_property("compression_settings", TC.TC_MASKS)
+        tx2[o].set_editor_property("srgb", False)
+    tx2["tex_af2_noz_n"].set_editor_property("compression_settings", TC.TC_NORMALMAP)
+    tx2["tex_af2_noz_n"].set_editor_property("srgb", False)
     for t in tx2.values():
         t.set_editor_property("max_texture_size", 4096)
         EAL.save_loaded_asset(t)
@@ -418,8 +423,10 @@ def v2(tx, m1):
     mis = dict(paint=instance("MI_AF2_Paint", m2, folder, textures=dict(Base=tx2["tex_af2_base"], ORM=tx2["tex_af2_orm"], Nrm=tx2["tex_af2_n"])),
                # nozzle: heat-darkened metal (blued / bronze toward the exit), petals from the FG nozzle model
                # round 3: burnished titanium petals - metal 1, rough 0.35, warm grey-gold
-               nozzle_ge=instance("MI_AF2_NozzleGE", m1, folder, scalars=dict(Detail=0.0, Metal=1.0, Rough=0.35, ClearCoat=0.0, SkyFill=0.25),
-                                  colors=dict(Tint=(0.78, 0.68, 0.52)), textures=dict(Paint=tx["tex_nozzle_GE"])),
+               # round 4: own nozzle set (airframe_bake.nozzle_bake): titanium -> straw -> blued toward the exit, dark liner,
+               # petal ribs in the normal map; metal / rough from its ORM
+               nozzle_ge=instance("MI_AF2_NozzleGE", m2, folder, scalars=dict(RoughScale=1.0, SkyFill=0.25, Bounce=0.5),
+                                  textures=dict(Base=tx2["tex_af2_noz_base"], ORM=tx2["tex_af2_noz_orm"], Nrm=tx2["tex_af2_noz_n"])),
                nozzle_ring=instance("MI_AF2_NozzleRing", m1, folder, scalars=dict(Detail=0.0, Metal=0.85, Rough=0.5, ClearCoat=0.0),
                                     colors=dict(Tint=(0.16, 0.15, 0.15)), textures=dict(Paint=tx["tex_nozzle_ring"])))
     _, sm2 = meshes("_v2")

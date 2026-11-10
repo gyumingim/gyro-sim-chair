@@ -26,7 +26,8 @@ OUT = 4096
 # round 3 (customer / critic): neutral, darker - FS 36270 on the sides / underside / nose ~ sRGB 132/137/140
 # (linear ~0.23), FS 36118 on the upper surfaces ~ sRGB 78/83/89 (linear ~0.08)
 LIGHT = (np.array([132, 137, 140]) / 255.0) ** 2.2
-UNDER = LIGHT
+UNDER = (np.array([158, 163, 167]) / 255.0) ** 2.2   # round 4: belly FS 36375-like (lighter)
+RADOME = (np.array([150, 154, 156]) / 255.0) ** 2.2  # lighter grey radome
 DARK = (np.array([78, 83, 89]) / 255.0) ** 2.2
 FIN_RECT = (0.52, 0.865, 0.74, 0.995)            # = airframe_split.FIN_RECT (fin sides planar-mapped here)
 MISSILE_RECT = (0.45, 0.968, 0.50, 0.992)        # = airframe_split.MISSILE_RECT
@@ -109,7 +110,7 @@ def voxels(parts, vs=4.0):
     return occ, lo, vs
 
 
-def ao_bake(pos, nrm, cov, occ, lo, vs, nray=24, steps=(8, 12, 18, 26, 36, 50, 70, 95, 140)):
+def ao_bake(pos, nrm, cov, occ, lo, vs, nray=24, steps=(6, 9, 13, 18, 24, 32, 42)):     # round 4: ~0.4 m radius (the 1.4 m one blobbed the spine)
     yi, xi = np.nonzero(cov)
     P, N = pos[yi, xi], nrm[yi, xi]
     # cosine-ish hemisphere directions (fixed set, rotated into each normal's frame)
@@ -151,6 +152,87 @@ def up(img, n=OUT, order=1):
     return zoom(img, f, order=order)
 
 
+def lum1k_lines(r):
+    """the FG skin's panel-line art at r x r (0..1), for the streak sources."""
+    src = np.asarray(Image.open(DIR / "tex_f16.png").convert("L"), np.float32) / 255.0
+    hp = src - gaussian_filter(src, 2.5)
+    ln = np.clip(-hp * 10.0, 0, 1)
+    ln[binary_dilation(src > 0.985, iterations=6)] = 0
+    return np.clip(zoom(gaussian_filter(ln, 1.0), r / ln.shape[0], order=1) * 2.0, 0, 1)
+
+
+def flow_streaks(posf, cov, lines, steps=28, step_px=1.3):
+    """streaks that run AFT from panel lines and fasteners (fluid / dirt carried by the airflow): for each texel, look
+    upstream (toward +x, the local UV direction of increasing body x) and collect the line mask with a decay; break the
+    streaks up with a little noise across the flow. Returns 0..1 at the raster resolution."""
+    r = posf.shape[0]
+    gx_v, gx_u = np.gradient(gaussian_filter(posf[..., 0], 1.0))   # d x / d row, d x / d col (cm per px)
+    n = np.hypot(gx_u, gx_v) + 1e-6
+    du, dv = gx_u / n, gx_v / n                                        # unit direction of +x in pixel space
+    yy, xx = np.mgrid[0:r, 0:r].astype(np.float32)
+    acc = np.zeros((r, r), np.float32)
+    for k in range(1, steps + 1):
+        s = map_coordinates(lines, [yy + dv * k * step_px, xx + du * k * step_px], order=1, mode="nearest")
+        acc = np.maximum(acc, s * (0.93 ** k))
+    acc *= cov
+    brk = gaussian_filter(rng.random((r, r)).astype(np.float32), [0.8, 3.0])     # break-up: smooth, not speckle
+    brk = (brk - brk.mean()) / (brk.std() + 1e-6)
+    acc *= np.clip(0.7 + brk * 0.25, 0, 1)
+    return np.clip(acc, 0, 1)
+
+
+def nozzle_bake(z, names):
+    """round 4 nozzle set from its own triangles (FG nozzle-GE geometry, its texture's UVs): burnished titanium petals with
+    a heat gradient toward the exit (straw -> blued), a dark inner liner (faces whose normal points to the axis), petal
+    ribs in the normal map from the angle around the axis. Out: tex_af2_noz_base / _n / _orm.png (1024 x 256)."""
+    global R
+    texkeys = z["texkeys"]
+    tris = []
+    for nm in names:
+        V, T, UV, N, MK = (z[f"{nm}__{k}"] for k in ("V", "T", "UV", "N", "MK"))
+        s = np.array(["nozzle-GE" in texkeys[m] for m in MK])
+        if s.any():
+            tris.append((V, T[s], UV[s], N[s]))
+    if not tris:
+        log("no nozzle tris"); return
+    W, H = 1024, 256
+    keep = R
+    R = W                                                    # raster() is square: rasterise at W x W, keep the top H rows
+    pos, nrm, cov = raster([(V, T, UV * np.array([1.0, H / W]) + np.array([0.0, 1 - H / W]), N) for V, T, UV, N in tris])
+    R = keep
+    pos, nrm, cov = pos[:H], nrm[:H], cov[:H]
+    allV = np.concatenate([V[T].reshape(-1, 3) for V, T, _, _ in tris])
+    cy, cz = np.median(allV[:, 1]), np.median(allV[:, 2])
+    x0, x1 = allV[:, 0].min(), allV[:, 0].max()
+    posf, nrmf = fill(pos, cov), fill(nrm, cov)
+    t_ = np.clip((x1 - posf[..., 0]) / max(1.0, x1 - x0), 0, 1)       # 0 at the front, 1 at the exit
+    radial = np.stack([np.zeros_like(t_), posf[..., 1] - cy, posf[..., 2] - cz], -1)
+    radial /= np.linalg.norm(radial, axis=-1, keepdims=True) + 1e-6
+    inner = np.clip(-(radial * nrmf).sum(-1) * 3.0, 0, 1)            # facing the axis = liner
+    ti = (np.array([150, 146, 140]) / 255.0) ** 2.2                    # titanium grey
+    straw = (np.array([152, 138, 112]) / 255.0) ** 2.2
+    blued = (np.array([96, 98, 116]) / 255.0) ** 2.2
+    g = t_[..., None]
+    col = ti * (1 - g) + straw * np.clip(g * 2 - 0.4, 0, 1) * 0.0 + ti * 0
+    col = np.where(g < 0.55, ti * (1 - g / 0.55) + straw * (g / 0.55), straw * (1 - (g - 0.55) / 0.45) + blued * ((g - 0.55) / 0.45))
+    ang = np.arctan2(posf[..., 2] - cz, posf[..., 1] - cy)
+    rib = 0.5 + 0.5 * np.cos(ang * 15.0)                              # 15 petals
+    streak = gaussian_filter(rng.random((H, W)).astype(np.float32), [0.6, 8.0])
+    streak = (streak - streak.mean()) / (streak.std() + 1e-6)
+    col = col * (0.85 + 0.1 * rib[..., None]) * (1 + 0.06 * streak[..., None])
+    liner = (np.array([28, 26, 24]) / 255.0) ** 2.2
+    col = col * (1 - inner[..., None]) + liner * inner[..., None]
+    Image.fromarray(np.clip(col ** (1 / 2.2) * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_af2_noz_base.png")
+    h = gaussian_filter(rib * (1 - inner), 1.0)
+    gy, gx = np.gradient(h)
+    n3 = np.stack([-gx * 4, -gy * 4, np.ones_like(h)], -1)
+    n3 /= np.linalg.norm(n3, axis=-1, keepdims=True)
+    Image.fromarray(np.clip((n3 * 0.5 + 0.5) * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_af2_noz_n.png")
+    orm = np.stack([np.ones_like(t_) * (1 - 0.4 * inner), 0.35 + 0.1 * inner + 0.03 * streak, 1.0 - 0.7 * inner], -1)
+    Image.fromarray(np.clip(orm * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_af2_noz_orm.png")
+    log("nozzle set", int(cov.sum()), "texels; axis y %.1f z %.1f, x %.0f..%.0f" % (cy, cz, x0, x1))
+
+
 def uvpx(u, v):
     return u * OUT, (1 - v) * OUT
 
@@ -188,10 +270,18 @@ def decals(base, rough, ln, z, names, posf, nrmf):
     base[y0:y1, x0:x1] = finc
     txt = Image.new("L", (x1 - x0, y1 - y0), 0)
     dt = ImageDraw.Draw(txt)
-    dt.text(((x1 - x0) * 0.40, (y1 - y0) * 0.30), "GS", font=font, fill=255)
-    dt.text(((x1 - x0) * 0.40, (y1 - y0) * 0.58), "01", font=ImageFont.truetype("C:/Windows/Fonts/bahnschrift.ttf", 70) if font is not small else font, fill=255)
+    dt.text(((x1 - x0) * 0.38, (y1 - y0) * 0.30), "GS", font=font, fill=255)
+    dt.text(((x1 - x0) * 0.38, (y1 - y0) * 0.60), "26-801", font=ImageFont.truetype("C:/Windows/Fonts/bahnschrift.ttf", 46) if font is not small else font, fill=255)
     tm = gaussian_filter(np.asarray(txt, np.float32) / 255.0, 0.6)
     base[y0:y1, x0:x1] = base[y0:y1, x0:x1] * (1 - tm[..., None]) + STENCIL * tm[..., None]
+    # fin cap: fictional unit colours, blue / white checker in the top ~12 % of the fin (z > ~312 cm)
+    cap_h = int((y1 - y0) * 0.12)
+    cy = np.arange(cap_h)[:, None] // max(1, cap_h // 2)
+    cx = np.arange(x1 - x0)[None, :] // max(1, cap_h // 2)
+    chk = ((cy + cx) % 2).astype(bool)
+    blue, white = (np.array([22, 58, 128]) / 255.0) ** 2.2, (np.array([226, 228, 230]) / 255.0) ** 2.2
+    base[y0:y0 + cap_h, x0:x1] = np.where(chk[..., None], blue, white)
+    rough[y0:y1, x0:x1] = 0.55
     # missiles
     u0, v0, u1, v1 = MISSILE_RECT
     mx0, my1 = uvpx(u0, v0); mx1, my0 = uvpx(u1, v1)
@@ -220,6 +310,50 @@ def decals(base, rough, ln, z, names, posf, nrmf):
         h, w = base[ys, xs].shape[:2]
         base[ys, xs] = base[ys, xs] * (1 - 0.85 * sm[:h, :w, None]) + STENCIL * 0.85 * sm[:h, :w, None]
     log("walkway texels", int(walk.sum()))
+    # national insignia: a generic taegeuk-style roundel (no unit art) on the intake sides and the wing tops,
+    # RESCUE arrow under the canopy rail - placed at the texel nearest to a 3D point with a matching normal
+    side4 = np.abs(zoom(nrmf[..., 1].astype(np.float32), OUT / nrmf.shape[0], order=1)) > 0.75
+
+    def nearest(pt, mask):
+        d = np.where(mask, np.sqrt(((P4 - np.array(pt)) ** 2).sum(-1)), 1e9)
+        iy, ix = np.unravel_index(np.argmin(d), d.shape)
+        return (iy, ix) if d[iy, ix] < 60 else None
+
+    def stamp(rgba, at):
+        if at is None:
+            return False
+        iy, ix = at
+        h, w = rgba.shape[:2]
+        y0_, x0_ = max(iy - h // 2, 0), max(ix - w // 2, 0)
+        reg = base[y0_:y0_ + h, x0_:x0_ + w]
+        a_ = rgba[:reg.shape[0], :reg.shape[1], 3:4]
+        reg[:] = reg * (1 - a_) + rgba[:reg.shape[0], :reg.shape[1], :3] * a_
+        return True
+
+    def roundel(px):
+        im = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.ellipse([0, 0, px - 1, px - 1], fill=(235, 236, 238, 255))                     # white disc
+        m = px * 0.16
+        d.pieslice([m, m, px - m, px - m], 180, 360, fill=(178, 34, 40, 255))              # red upper half
+        d.pieslice([m, m, px - m, px - m], 0, 180, fill=(28, 52, 120, 255))                # blue lower half
+        q = (px - 2 * m) / 4
+        d.ellipse([m, px / 2 - q, m + 2 * q, px / 2 + q], fill=(178, 34, 40, 255))         # taegeuk swirl (simplified)
+        d.ellipse([px - m - 2 * q, px / 2 - q, px - m, px / 2 + q], fill=(28, 52, 120, 255))
+        a = np.asarray(im, np.float32) / 255.0
+        a[..., :3] = a[..., :3] ** 2.2 * 0.85                                                # paint, a bit muted
+        return a
+
+    hits = [stamp(roundel(150), nearest(pt, msk)) for pt, msk in
+            (((-250.0, -75.0, 0.0), side4), ((-250.0, 75.0, 0.0), side4), ((-150.0, -300.0, 20.0), top), ((-150.0, 300.0, 20.0), top))]
+    res = Image.new("RGBA", (220, 60), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(res)
+    dr.polygon([(4, 30), (40, 6), (40, 18), (90, 18), (90, 42), (40, 42), (40, 54)], fill=(214, 160, 30, 255))
+    dr.text((98, 14), "RESCUE", font=small, fill=(30, 30, 30, 255))
+    ra = np.asarray(res, np.float32) / 255.0
+    ra[..., :3] = ra[..., :3] ** 2.2
+    hits += [stamp(ra, nearest((390.0, s * 62.0, 55.0), side4)) for s in (-1, 1)]
+    log("insignia / rescue stamps placed", hits)
 
 
 def main():
@@ -257,16 +391,19 @@ def main():
     col = col * (1 - dark[..., None]) + DARK[None, None] * dark[..., None]
     # streaks along the airflow (long in x, narrow in y / z), soot behind the nozzle area and the gun port
     Pst = P * np.array([0.08, 1.0, 1.0])
-    streak = (noise3(Pst, 25.0, 2) - 0.5).reshape(R, R)
+    streak = np.zeros((R, R))                              # (round 4: noise streaks removed - see flow_streaks)
     x = posf[..., 0]
     soot = np.clip((-x - 430.0) / 140.0, 0, 1) ** 1.5 * (0.55 + 0.45 * np.clip(-nrmf[..., 2] + 0.3, 0, 1))
     g = posf - GUN
     gun = np.exp(-((np.clip(-g[..., 0], 0, None) / 90.0) ** 2 + (g[..., 1] / 14.0) ** 2 + (g[..., 2] / 14.0) ** 2)) * (g[..., 0] < 8)
     soot = np.clip(soot + gun * 0.9, 0, 1)
     sootc = np.array([0.012, 0.011, 0.010])
-    col = col * (1 + streak[..., None] * 0.10)
+    fl = flow_streaks(posf, cov, lum1k_lines(R))
+    col = col * (1 - 0.4 * fl[..., None])                  # ~40-50 % contrast fluid / soot streaks running aft of panel lines
+    nose = np.clip((posf[..., 0] - 690.0) / 40.0, 0, 1)    # radome lighter grey
+    col = col * (1 - nose[..., None]) + RADOME * nose[..., None]
     col = col * (1 - soot[..., None] * 0.65) + sootc * soot[..., None] * 0.65
-    rough1k = 0.48 + streak * 0.05 + soot * 0.18
+    rough1k = 0.5 + fl * 0.08 + soot * 0.15
     # ---- 4K: upsample tone / AO, crisp panel lines + rivets from the FG line art
     col4, ao4, rough4 = up(col), up(aof), up(rough1k)
     hp = lum - gaussian_filter(lum, 2.5)
@@ -310,6 +447,7 @@ def main():
     # small preview for the page / checks
     Image.fromarray(np.clip(base ** (1 / 2.2) * 255, 0, 255).astype(np.uint8)).resize((1024, 1024), Image.LANCZOS).save(DIR / "preview_af2_base.png")
     Image.fromarray((np.clip(aof, 0, 1) * 255).astype(np.uint8)).save(DIR / "preview_af2_ao.png")
+    nozzle_bake(z, names)
     log("done in %.0f s" % (time.time() - t0))
 
 
