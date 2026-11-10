@@ -487,6 +487,85 @@ def build_glb(D, sel, center):
         G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
         G["n"] += 4 * q
         return z0 + hgt
+
+    def box(cs, z0, hgt, style, rgba, top=True):
+        """v3 rooftop prop: 4 walls (+ top) of a box, corners cs (4 x 2, counter-clockwise) from z0 up hgt. UV in metres:
+        walls u along the perimeter / v down from the top edge, top face u, v = local metres (the material tells them
+        apart by the normal). Vertex colour = prop colour, alpha = 128 + 16 x kind + seed (0..15)."""
+        G = WL.setdefault(style, dict(P=[], N=[], C=[], UV=[], I=[], n=0))
+        qp, ns, uvs, u = [], [], [], 0.0
+        for i in range(4):
+            a, b_ = cs[i], cs[(i + 1) % 4]
+            e = b_ - a
+            el = max(float(np.hypot(*e)), 1e-6)
+            qp.append([[a[0], a[1], z0], [b_[0], b_[1], z0], [b_[0], b_[1], z0 + hgt], [a[0], a[1], z0 + hgt]])
+            ns.append([e[1] / el, -e[0] / el, 0.0])
+            uvs.append([[u, hgt], [u + el, hgt], [u + el, 0.0], [u, 0.0]])
+            u += el
+        if top:
+            qp.append([[p_[0], p_[1], z0 + hgt] for p_ in cs])
+            ns.append([0.0, 0.0, 1.0])
+            uvs.append([[p_[0] - cs[0][0], p_[1] - cs[0][1]] for p_ in cs])
+        q = len(qp)
+        G["P"].append(np.asarray(qp, np.float64).reshape(-1, 3))
+        G["N"].append(np.repeat(np.asarray(ns, np.float64), 4, axis=0))
+        G["UV"].append(np.asarray(uvs, np.float64).reshape(-1, 2))
+        G["C"].append(np.repeat(np.asarray(rgba, np.float64)[None], 4 * q, axis=0))
+        bi = G["n"] + 4 * np.arange(q)
+        G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
+        G["n"] += 4 * q
+
+    def inside(P2, pts):
+        x, y = P2[:, 0], P2[:, 1]
+        x1, y1 = np.roll(x, -1), np.roll(y, -1)
+        for px, py in pts:
+            cr = ((y > py) != (y1 > py)) & (px < (x1 - x) * (py - y) / np.where(y1 != y, y1 - y, 1e-12) + x)
+            if cr.sum() % 2 == 0:
+                return False
+        return True
+
+    def rect(c, ax, L, W):
+        ay = np.array([-ax[1], ax[0]])
+        return np.array([c - L / 2 * ax - W / 2 * ay, c + L / 2 * ax - W / 2 * ay, c + L / 2 * ax + W / 2 * ay, c - L / 2 * ax + W / 2 * ay])
+
+    def spot(P2, ax, L, W, hv, margin=0.6):
+        """a rect L x W (long side along ax) inside the footprint: toward a corner picked by hv (0..1), else the middle."""
+        c = P2.mean(0)
+        order = np.roll(np.arange(len(P2)), int(hv * len(P2)))
+        for i in order:
+            for t in (0.62, 0.45):
+                cc = c + t * (P2[i] - c)
+                if inside(P2, rect(cc, ax, L + 2 * margin, W + 2 * margin)):
+                    return rect(cc, ax, L, W)
+        return rect(c, ax, L, W) if inside(P2, rect(c, ax, L + 2 * margin, W + 2 * margin)) else None
+
+    def prop_rgba(rgb, kind, seed_):
+        return np.append(np.asarray(rgb, np.float64), (128 + 16 * kind + (seed_ % 16)) / 255.0)
+
+    def obb(P2):
+        """long axis (unit), long / short extent and the centre of the minimum-area box over the ring's edge directions."""
+        best = None
+        d = np.roll(P2, -1, axis=0) - P2
+        for e in d:
+            l_ = math.hypot(e[0], e[1])
+            if l_ < 0.5:
+                continue
+            ax = e / l_
+            ay = np.array([-ax[1], ax[0]])
+            px, py = P2 @ ax, P2 @ ay
+            a_ = (px.max() - px.min()) * (py.max() - py.min())
+            if best is None or a_ < best[0]:
+                best = (a_, ax, ay, px, py)
+        if best is None:
+            return None
+        _, ax, ay, px, py = best
+        Lx, Ly = px.max() - px.min(), py.max() - py.min()
+        c = ax * (px.max() + px.min()) / 2 + ay * (py.max() + py.min()) / 2
+        if Ly > Lx:
+            ax, Lx, Ly = ay, Ly, Lx
+        return ax, Lx, Ly, c
+    V3 = BT.V3
+    TANK_FRP = ((0.55, 0.68, 0.78), (0.80, 0.83, 0.84), (0.36, 0.55, 0.76), (0.62, 0.74, 0.70))
     ci = 0
     for k, b, rings, cls, smp, wall in blds:
         base = float(D["base"][b] + D["geoid"][b])
@@ -502,15 +581,39 @@ def build_glb(D, sel, center):
         # Band ids = facade styles (buildings_tex.STYLE_NAMES, one primitive each)
         upper = BT.wall_style(cls, nf)
         st["styles"][upper] = st["styles"].get(upper, 0) + 1
+        hb = [(((int(rid[k]) * 2246822519 + 7919 * i_) >> 9) % 1000) / 1000.0 for i_ in range(6)]   # per-building dice
+        ground = None                                     # ground-floor band style (v3: a few shops, pilotis / lobbies)
         if cls == BT.SHOP and upper == BT.ST_PUNCHED:
+            ground = BT.ST_SHOP
+        elif V3 and nf >= 2:
+            if upper == BT.ST_APT and nf >= 6:
+                ground = BT.ST_PILOTI                     # apartment lobby / pilotis floor
+            elif upper == BT.ST_VILLA and hb[0] < 0.7:
+                ground = BT.ST_PILOTI                     # 빌라: pilotis parking under the flats
+            elif cls == BT.OFFICE and upper in (BT.ST_RIBBON, BT.ST_PUNCHED) and hb[0] < 0.6:
+                ground = BT.ST_SHOP
+            elif cls == BT.HOUSE and upper == BT.ST_HOUSE and hb[0] < 0.22:
+                ground = BT.ST_SHOP                       # 상가주택: shop on the ground floor
+        if ground is not None:
             fg = (base + fh - bot) / (top - bot)
-            bands = [(BT.ST_SHOP, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)] + ([(upper, fg, 1.0, nf - 1.0, 0.0)] if nf > 1 else [])
+            bands = [(ground, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)] + ([(upper, fg, 1.0, nf - 1.0, 0.0)] if nf > 1 else [])
+            st["ground_bands"] = st.get("ground_bands", 0) + 1
         else:
             bands = [(upper, 0.0, 1.0, (top - bot) / fh, 0.0)]
         tops = []
         area_b = float(D["area"][b])
         # rooftop relief (real geometry, small): parapet on multi-storey blocks, a stair / lift core box on taller ones
         ph = (0.9 if cls == BT.HOUSE else 1.1) if (cls in (BT.APT, BT.OFFICE, BT.SHOP, BT.HOUSE) and nf >= 3 and area_b >= 100) else 0.0
+        if V3 and ph == 0.0 and cls in (BT.HOUSE, BT.APT, BT.SHOP) and nf >= 2 and area_b >= 80:
+            ph = 0.9                                      # v3: flat-roofed 2-storey houses have a parapet too (roof edge reads)
+        # v3 gable walls: only the two ends of a slab block (min-area box long / short >= 1.7), not every shorter edge -
+        # 11-10 the old rule (edge < 0.5 x longest) made whole faces of stepped / faceted blocks into blank gables (Seomyeon)
+        gab = None
+        if V3 and upper == BT.ST_APT:
+            P2e = ((ecef(rings[0][0], rings[0][1], np.full(len(rings[0][0]), top)) - C0) @ R)[:, :2]
+            ob = obb(P2e)
+            if ob is not None and ob[1] >= 1.7 * ob[2]:
+                gab = ob
         for la, lo in rings:
             Pb = (ecef(la, lo, np.full(len(la), bot)) - C0) @ R          # local ENU
             Pt = (ecef(la, lo, np.full(len(la), top)) - C0) @ R
@@ -532,7 +635,20 @@ def build_glb(D, sel, center):
             n2 = np.stack((d[:, 1] / ln, -d[:, 0] / ln, np.zeros(len(j))), axis=1)    # outward = right of the edge
             A0, A1 = Pb[j], Pb[j1]
             # alpha: 128 + 64 x end wall (apartments: edges much shorter than the longest = gable walls) + seed
-            endw = (ln < BT.END_WALL_K * ln.max()) & (ln >= 5.0) if cls == BT.APT else np.zeros(len(ln), bool)
+            if V3:
+                endw = np.zeros(len(ln), bool)
+                if gab is not None and la is rings[0][0]:
+                    ax_, Lx_, Ly_, c_ = gab
+                    mid = (A0[:, :2] + A1[:, :2]) / 2 - c_
+                    endw = (np.abs((d / ln[:, None]) @ ax_) < 0.5) & (np.abs(mid @ ax_) >= Lx_ / 2 - 0.15 * Lx_) & (ln >= 5.0)
+                if endw.any():
+                    # gable u = 8192 + 64 x bays of this edge + bays along the edge (0 at its start): the material centres
+                    # the painted dong number on it
+                    nbE = np.clip(np.round(ln / BT.BAY[cls]), 1, 63)
+                    u0 = np.where(endw, 8192.0 + 64.0 * nbE, u0)
+                    u1 = np.where(endw, 8192.0 + 65.0 * nbE, u1)
+            else:
+                endw = (ln < BT.END_WALL_K * ln.max()) & (ln >= 5.0) if cls == BT.APT else np.zeros(len(ln), bool)
             wla = np.concatenate((np.repeat(wl[None], len(ln), axis=0), ((128 + 64 * endw + seed) / 255.0)[:, None]), axis=1)
             if ph > 0:
                 # parapet: the top wall band runs on up to top + ph (v < 0 there = parapet, the material draws plain wall),
@@ -548,10 +664,51 @@ def build_glb(D, sel, center):
                     quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wla)
         if ph > 0:
             st["parapets"] = st.get("parapets", 0) + 1
-        if cls in (BT.APT, BT.OFFICE, BT.SHOP) and nf >= 5 and area_b >= 150 and tops:
+        if cls in (BT.APT, BT.OFFICE, BT.SHOP) and nf >= 5 and area_b >= 150 and tops and not V3:
             # footprint and height stay the GIS values (no invented setbacks); only rooftop plant / stair-lift cores
             if roof_core(WL, tops[0][0], area_b, 4.5 if cls == BT.APT else 3.5, wl, seed):
                 st["cores"] = st.get("cores", 0) + 1
+        elif V3 and tops:
+            # v3 rooftop props (footprint / height stay GIS; things ON the roof only): lift machine room + water tank on
+            # apartments / offices, a water tank and a laundry rack on low houses / villas
+            P2 = tops[0][0][:, :2]
+            z0 = float(tops[0][0][:, 2].min())
+            dd = np.roll(P2, -1, axis=0) - P2
+            ll = np.hypot(dd[:, 0], dd[:, 1])
+            ax = dd[int(np.argmax(ll))] / max(ll.max(), 1e-6)
+            if cls in (BT.APT, BT.OFFICE, BT.SHOP) and nf >= 5 and area_b >= 150 and upper != BT.ST_VILLA:
+                L, W = np.clip(0.30 * math.sqrt(area_b), 3.0, 9.0), np.clip(0.18 * math.sqrt(area_b), 2.5, 6.0)
+                hc = 4.5 if cls == BT.APT else 3.5
+                n_core = 2 if (gab is not None and gab[1] > 45.0) else 1   # long slabs: a core per stair group
+                for ic in range(n_core):
+                    axc = ax if n_core == 1 else gab[0]
+                    cc = P2.mean(0) if n_core == 1 else gab[3] + gab[0] * gab[1] * (-0.25 if ic == 0 else 0.25)
+                    cs = rect(cc, axc, L, W)
+                    if not inside(P2, cs):
+                        continue
+                    box(cs, z0, hc, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(wall) * 0.92, BT.PROP_ROOM, seed))
+                    st["cores"] = st.get("cores", 0) + 1
+                    if cls == BT.APT or hb[1] < 0.5:     # water tank on the machine room (FRP panels; offices: steel)
+                        steel = cls != BT.APT
+                        col = (0.62, 0.63, 0.64) if steel else TANK_FRP[int(hb[2] * len(TANK_FRP)) % len(TANK_FRP)]
+                        tl, tw = min(L * 0.6, 6.0), min(W * 0.75, 3.5)
+                        box(rect(cs.mean(0), axc, tl, tw), z0 + hc, 2.0, BT.ST_PROP,
+                            prop_rgba(BT.srgb_to_lin(col), BT.PROP_TANK_STEEL if steel else BT.PROP_TANK, seed))
+                        st["tanks"] = st.get("tanks", 0) + 1
+            elif (cls == BT.HOUSE or upper == BT.ST_VILLA) and nf <= 5 and area_b >= 40:
+                zr = z0
+                if hb[3] < 0.45:                          # water tank: blue FRP / stainless box
+                    steel = hb[4] < 0.3
+                    col = (0.66, 0.68, 0.70) if steel else ((0.20, 0.42, 0.74) if hb[5] < 0.7 else (0.80, 0.83, 0.84))
+                    cs = spot(P2, ax, 1.6, 1.1, hb[2])
+                    if cs is not None:
+                        box(cs, zr, 1.3, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(col), BT.PROP_TANK_STEEL if steel else BT.PROP_TANK, seed))
+                        st["tanks"] = st.get("tanks", 0) + 1
+                if hb[4] > 0.75 and area_b >= 60:         # laundry rack (thin double-faced panel, hanging clothes)
+                    cs = spot(P2, np.array([-ax[1], ax[0]]), 2.4, 0.08, 1.0 - hb[2], margin=0.8)
+                    if cs is not None:
+                        box(cs, zr + 0.35, 1.0, BT.ST_PROP, prop_rgba((0.6, 0.6, 0.6), BT.PROP_LAUNDRY, seed))
+                        st["laundry"] = st.get("laundry", 0) + 1
         # roof: earcut on the top ring points (exterior first, then holes)
         verts = np.concatenate([t[0] for t in tops])
         ends = np.cumsum([len(t[0]) for t in tops]).astype(np.uint32)
@@ -791,7 +948,7 @@ def tiles(args):
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
-                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores"):
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores", "tanks", "laundry", "ground_bands"):
                     tex[k_] = tex.get(k_, 0) + ts_.get(k_, 0)
                 for s_, c_ in ts_["styles"].items():
                     tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_

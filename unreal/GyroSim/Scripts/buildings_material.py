@@ -12,13 +12,17 @@ or exec() it in the editor. Re-running rebuilds the graph in place.
 import os
 import unreal
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 PATH, NAME = os.environ.get("GYROSIM_BLDG_MAT_PATH", "/Game/Buildings"), os.environ.get("GYROSIM_BLDG_MAT_NAME", "M_GyroBuilding")
-HLSL = os.environ.get("GYROSIM_BLDG_HLSL") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "buildings_facade.hlsl")   # A/B: older copies
+HLSL = os.environ.get("GYROSIM_BLDG_HLSL") or os.path.join(HERE, "buildings_facade.hlsl")   # A/B: older copies
+# v3 (11-10): the same graph is also built as M_GyroBuilding_v2 from buildings_facade_v2.hlsl (the look before v3, used by
+# buildings_look when GYROSIM_BLDG_V3=0). GYROSIM_BLDG_MAT_V2=0 skips it.
+V2 = (NAME + "_v2", os.path.join(HERE, "buildings_facade_v2.hlsl"))
 MEL = unreal.MaterialEditingLibrary
 log = lambda *a: unreal.log("[bldg_mat] " + " ".join(str(x) for x in a))
 
 
-def build():
+def build(NAME=NAME, HLSL=HLSL):
     full = PATH + "/" + NAME
     at = unreal.AssetToolsHelpers.get_asset_tools()
     if unreal.EditorAssetLibrary.does_asset_exist(full):
@@ -36,10 +40,16 @@ def build():
     X = lambda cls, x, y: MEL.create_material_expression(m, cls, x, y)
 
     tc = X(unreal.MaterialExpressionTextureCoordinate, -1400, 0)
-    tex = X(unreal.MaterialExpressionTextureSampleParameter2D, -1100, -300)
-    tex.set_editor_property("parameter_name", "baseColorTexture")
-    tex.set_editor_property("texture", unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture"))
+    # v3: the glTF texture as a texture OBJECT parameter (Cesium sets it by name like the sample parameter before), sampled
+    # once here (Tex) and handed to the Custom node too (TexObj: roof sharpening taps, atlas size)
+    tobj = X(unreal.MaterialExpressionTextureObjectParameter, -1400, -300)
+    tobj.set_editor_property("parameter_name", "baseColorTexture")
+    tobj.set_editor_property("texture", unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture"))
+    tobj.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
+    tex = X(unreal.MaterialExpressionTextureSample, -1100, -300)
     tex.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
+    if not MEL.connect_material_expressions(tobj, "", tex, "Tex"):
+        log("connect failed: texture object -> sample")
     MEL.connect_material_expressions(tc, "", tex, "UVs")
     bcf = X(unreal.MaterialExpressionVectorParameter, -1100, -500)
     bcf.set_editor_property("parameter_name", "baseColorFactor")
@@ -68,7 +78,7 @@ def build():
     cu.set_editor_property("description", "GyroFacade")
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ins = []
-    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A"):
+    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A", "TexObj"):
         ci = unreal.CustomInput()
         ci.set_editor_property("input_name", n)
         ins.append(ci)
@@ -86,7 +96,7 @@ def build():
         cu.post_edit_change()
     except Exception:
         pass
-    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A")):
+    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A"), (tobj, "TexObj")):
         if src is vc:                                                    # VertexColor "" is RGB: append A -> RGBA
             app = X(unreal.MaterialExpressionAppendVector, -800, 250)
             MEL.connect_material_expressions(vc, "", app, "A")
@@ -107,3 +117,5 @@ def build():
 
 if __name__ in ("__main__", "gyrosim_bldg_mat"):
     build()
+    if os.environ.get("GYROSIM_BLDG_MAT_V2", "1") != "0" and not os.environ.get("GYROSIM_BLDG_HLSL") and os.path.isfile(V2[1]):
+        build(*V2)

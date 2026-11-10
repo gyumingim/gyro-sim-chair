@@ -20,10 +20,12 @@ import io, math, os
 import numpy as np
 
 SAT = os.path.join(os.environ.get("GYROSIM_VWORLD_CACHE", r"C:\GyroSimTiles\vworld"), "Satellite")
-ZOOMS = (17, 16, 15, 14)                   # best first; 18 / 19 are rare in the cache and only add atlas size
+# best first. v3 (11-10): z18 first (0.49 m/px in Busan, cache 100 % after the 11-09 fill) - z17 roofs (0.98 m/px) were
+# blurry at 150 m. The atlas cap below scales a dense tile back toward z17. GYROSIM_BLDG_V3=0 = the old (17, 16, 15, 14).
+ZOOMS = (17, 16, 15, 14) if os.environ.get("GYROSIM_BLDG_V3", "1") == "0" else (18, 17, 16, 15, 14)
 ROOF_MIN_PX = 8                            # footprint pixels needed for a photo roof (z16 ~ 30 m2, z14 ~ 470 m2)
 COLOR_MIN_PX = 4
-CROP_MAX = 256                             # px, larger cut-outs are scaled down
+CROP_MAX = 256 if os.environ.get("GYROSIM_BLDG_V3", "1") == "0" else 384   # px, larger cut-outs are scaled down
 PAD = 2
 ATLAS_MAX = 2048
 
@@ -231,20 +233,25 @@ def roof_atlas(cuts):
             sz.append((max(1, int(round(w * f))), max(1, int(round(h * f)))))
         area = sum(w * h for w, h in sz)
         width = 1 << max(6, int(math.ceil(math.log2(max(16.0, math.sqrt(area * 1.15))))))
-        width = min(width, ATLAS_MAX)
+        width = min(max(width, 1 << int(math.ceil(math.log2(max(w for w, _ in sz))))), ATLAS_MAX)   # widest cut fits
         pos, hgt = pack(sz, width)
         if hgt <= ATLAS_MAX:
             break
         scale *= 0.75
     hgt = max(4, (hgt + 3) // 4 * 4)
-    atlas = np.zeros((hgt, width, 3), np.uint8)
+    # empty space = the mean photo colour (was black: mip maps bled black into roof edges at distance)
+    mean = np.mean([c.reshape(-1, 3).mean(0) for c in cuts], axis=0) if cuts else np.full(3, 128.0)
+    atlas = np.empty((hgt, width, 3), np.uint8)
+    atlas[:] = np.clip(mean, 0, 255).astype(np.uint8)
     out = []
     for im, (w, h), (x, y) in zip(imgs, sz, pos):
+        w0 = im.shape[1]
         if (w, h) != (im.shape[1], im.shape[0]):
             im = np.asarray(Image.fromarray(im).resize((w, h), Image.BILINEAR))
         atlas[y:y + h, x:x + w] = im
-        out.append((x, y, w / im.shape[1] if im.shape[1] else 1.0))
-    # fill the empty space with the mean colour (less mip-map bleed of black into the roofs at distance)
+        # scale = cut width / ORIGINAL width (bug until 11-10: taken after the resize, so always 1.0 - every scaled-down cut
+        # (big footprints > CROP_MAX px, and whole dense tiles over ATLAS_MAX) got UVs past its cut: black / foreign roofs)
+        out.append((x, y, w / w0 if w0 else 1.0))
     bio = io.BytesIO()
     Image.fromarray(atlas).save(bio, "JPEG", quality=85, optimize=True)
     return bio.getvalue(), width, hgt, out[1:], ((out[0][0] + 2) / width, (out[0][1] + 2) / hgt)
@@ -339,8 +346,16 @@ WALL_NAMES = ("wall_plain", "wall_house", "wall_apartment", "wall_shopfront", "w
 # the material from the UV (u = bays along the ring, v = floors down from the roof); the PNG modules stay for the
 # stock material / lookdev preview.
 ST_PLAIN, ST_HOUSE, ST_APT, ST_SHOP, ST_PUNCHED, ST_FACTORY, ST_CURTAIN, ST_GLASS_TOWER, ST_RIBBON = range(9)
-STYLE_NAMES = ("plain", "house", "apartment", "shopfront", "punched", "factory", "curtain", "glass_tower", "ribbon")
-STYLE_PNG = (0, 1, 2, 3, 4, 5, 6, 6, 4)                     # style -> wall_pngs() module for the stock material
+# v3 (11-10): rooftop props (water tanks, laundry racks, lift machine rooms: alpha = 128 + 16 x kind + seed 0..15),
+# low apartments (다세대 / 연립 = 빌라, <= 5 floors) and a ground-floor pilotis / lobby band. Style ids up to 19 fit the
+# material's 0.60 .. 0.79 range (older tiles: 0.8 walls / 0.95 roofs).
+ST_PROP, ST_VILLA, ST_PILOTI = 9, 10, 11
+PROP_TANK, PROP_LAUNDRY, PROP_ROOM, PROP_TANK_STEEL = range(4)
+STYLE_NAMES = ("plain", "house", "apartment", "shopfront", "punched", "factory", "curtain", "glass_tower", "ribbon",
+               "prop", "villa", "piloti")
+STYLE_PNG = (0, 1, 2, 3, 4, 5, 6, 6, 4, 0, 4, 3)            # style -> wall_pngs() module for the stock material
+V3 = os.environ.get("GYROSIM_BLDG_V3", "1") != "0"
+VILLA_FLOORS = 5                                            # apartments up to this many floors: 빌라 (pilotis, brick / tile)
 STYLE_R0 = 0.60
 GLASS_TOWER_FLOORS = 40                                     # apartments this tall: glass residential towers (Haeundae, Marine City)
 HIGHRISE_FLOORS = 15                                        # non-residential this tall: curtain wall
@@ -354,6 +369,8 @@ def wall_style(cls, nf):
     if cls == HOUSE:
         return ST_HOUSE if nf < HIGHRISE_FLOORS else ST_CURTAIN
     if cls == APT:
+        if V3 and nf <= VILLA_FLOORS:
+            return ST_VILLA
         return ST_GLASS_TOWER if nf >= GLASS_TOWER_FLOORS else ST_APT
     if cls == FACTORY:
         return ST_FACTORY
