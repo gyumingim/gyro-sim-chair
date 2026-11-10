@@ -109,8 +109,8 @@ GROUND = dict(
     SeaArt=0.0, SeaMacroM=420.0, SeaMacroAmp=0.5,
     # trees v2 (11-10, ground_look.hlsl): crown-sized pattern on dark-green photo forest (beyond the 3D trees);
     # GYROSIM_TREES_CANOPY=0 (or GYROSIM_TREES_V2=0) sets CanopyAmp 0 at Play
-    CanopyAmp=1.0, CanopyM=5.5, CanopyDark=0.55, CanopyBump=0.9,
-    CanopyUnder=0.4, CanopyDesat=0.4, CanopyFarM=24.0, CanopyFarAmp=0.3,       # round 2/3: ground under the forest, far stand patches
+    CanopyAmp=1.0, CanopyM=5.5, CanopyDark=0.45, CanopyBump=0.9,
+    CanopyUnder=0.25, CanopyDesat=0.3, CanopyFarM=24.0, CanopyFarAmp=0.18,     # round 2 values (= the 23:32 bake); stronger c2 made far slopes near-black (11-11 review)
     RockGrey=0.62,                     # round 2: bright colourless photo rock -> weathered warm grey (x lum)
 )
 GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
