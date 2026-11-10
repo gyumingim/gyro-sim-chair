@@ -56,6 +56,9 @@ if (CoastOn > 0.5)
         coastCls = cm.a;
         coastSteep = saturate((0.75 - up.z) * 4.0);                                  // > ~45 deg terrain faces (sea walls)
     }
+    else if (CoastFaceOn > 0.5)
+        photoW = 0.0;   // 11-11: outside the mask box the open sea is procedural too (the photo-coloured sea beyond the box edge
+                        // met the procedural sea inside it in a straight dark / light boundary = the 'black bars' far out)
 }
 Mask = m;
 
@@ -151,9 +154,22 @@ if (CanopyAmp > 0.0)
 // face instead of the photo stretched down the step: weathered concrete, a dark wet band below WetBandM
 if (CoastOn > 0.5)
 {
-    float wall = coastSteep * saturate(coastCls * 2.0 - 1.0) * (1.0 - saturate((coastSd - 6.0) / 4.0)) * (1.0 - m);
+    float near6 = (1.0 - saturate((coastSd - 6.0) / 4.0)) * (1.0 - m);
+    float wall = coastSteep * saturate(coastCls * 2.0 - 1.0) * near6;
     float3 conc = lerp(SeaWallWet, SeaWallColor, smoothstep(WetBandM - 0.3, WetBandM + 0.3, h));
     g = lerp(g, conc * (0.9 + 0.2 * saturate(lum * 4.0)), wall);
+    // 11-11 (CoastFaceOn): natural shore steps (태종대 / 이기대 cliffs: the coast terrain drops the sea next to the cliff top to
+    // 0 m, so the photo's few shoreline pixels were stretched down a 10-40 m face = vertical streaks). Rock instead: the photo's
+    // own mean tone, darkened and desaturated, with horizontal strata (height noise) and coarse blocks - no vertical streaks.
+    if (CoastFaceOn > 0.5)
+    {
+        float rockW = coastSteep * (1.0 - saturate(coastCls * 2.0 - 1.0)) * (1.0 - saturate((coastSd - 12.0) / 6.0)) * (1.0 - m);
+        float2 bq = P.xy * 0.01 / 3.7;
+        float bh = frac(sin(dot(floor(bq), float2(127.1, 311.7))) * 43758.5453);
+        float st = frac(sin(floor(h / 1.3 + bh * 3.0) * 78.233) * 43758.5453);
+        float3 rock = RockColor * (0.75 + 0.35 * st) * (0.85 + 0.3 * bh) * lerp(1.0, SeaWallWet.g / max(RockColor.g, 1e-3), 1.0 - smoothstep(WetBandM - 0.3, WetBandM + 0.6, h));
+        g = lerp(g, rock, rockW);
+    }
 }
 
 // ---- sea: dark water body + sky reflection (Fresnel, from the engine's specular), wind waves -------------------------
