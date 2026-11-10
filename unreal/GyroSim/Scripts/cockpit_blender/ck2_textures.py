@@ -219,7 +219,7 @@ def lamp(c, a, b, w, h, colr, txt):
 
 def plate_base(c):
     p = c.p
-    col = {"well": L.COL["well"], "placard": (18, 18, 18), "icp": (34, 35, 36), "mfd": (32, 33, 34)}.get(p["kind"], L.COL["panel"])
+    col = {"well": L.COL["well"], "placard": (18, 18, 18), "icp": (34, 35, 36), "mfd": (32, 33, 34), "pod": (20, 20, 21)}.get(p["kind"], L.COL["panel"])
     c.rect(0, 0, p["w"], p["h"], fill=col)
     # subtle mottling (paint), stronger on wells / structure
     x0, y0, w, h = p["px"]
@@ -250,7 +250,7 @@ def draw_plate(p):
     labels = list(L.TOGGLE_LABELS.get(p["name"], []))
     li = 0
     if p.get("title"):
-        c.text(p["w"] / 2, p["h"] - 1.0, p["title"], 0.5)
+        c.text(p["w"] / 2, p["h"] - 1.0, p["title"], 0.66)
         c.rect(1.4, p["h"] - 1.75, p["w"] - 1.4, p["h"] - 1.69, fill=L.COL["legend"], lit=255)
     for it in p["items"]:
         k = it[0]
@@ -261,18 +261,18 @@ def draw_plate(p):
             c.circle(a, b, 0.55, fill=(22, 22, 23), h=140)
             c.circle(a, b, 0.32, fill=(120, 122, 125))
             if p["kind"] not in ("icp", "wing", "panel"):
-                c.text(a - 1.15, b + 1.05, "ON", 0.26)
-                c.text(a - 1.15, b - 1.05, "OFF", 0.26)
+                c.text(a - 1.2, b + 1.05, "ON", 0.34)
+                c.text(a - 1.2, b - 1.05, "OFF", 0.34)
                 if li < len(labels) and labels[li]:
-                    c.text(a, b + 1.75, labels[li], 0.36)
+                    c.text(a, b + 1.9, labels[li], 0.5)
             li += 1
         elif k == "knob":
             a, b, d = it[1], it[2], it[3]
             ticks(c, a, b, d * 0.62, d * 0.78, -135, 135, 7, max(1, int(c.r(0.06))))
-            c.text(a - d * 0.75, b - d * 0.62, "OFF", 0.24)
+            c.text(a - d * 0.75, b - d * 0.62, "OFF", 0.32)
             name = it[4] if len(it) > 4 else (labels[li] if li < len(labels) else "")
             if name:
-                c.text(a, b + d * 0.95, name, 0.34)
+                c.text(a, b + d * 0.95, name, 0.48)
             li += 1
         elif k == "button":
             a, b, w, h = it[1], it[2], it[3], it[4]
@@ -282,7 +282,7 @@ def draw_plate(p):
             if txt:
                 c.text(a, b, txt, min(0.34, h * 0.24), kind="bold", engrave=False)
             elif p["kind"] != "mfd" and li < len(labels):
-                c.text(a, b + h / 2 + 0.5, labels[li], 0.3)
+                c.text(a, b + h / 2 + 0.55, labels[li], 0.42)
             li += 1 if p["kind"] == "console" else 0
         elif k == "rocker":
             a, b, w, h, t = it[1], it[2], it[3], it[4], it[5]
@@ -368,6 +368,19 @@ for i in range(-4, 8):
     dA.polygon([(x, sy + sh), (x + 16, sy + sh), (x + 16 + sh, sy), (x + sh, sy)], fill=(14, 14, 14))
 dA.rectangle((sx + sw, sy, S, sy + sh), fill=(255, 255, 255))
 dA.rectangle((sx - 80, sy, sx - 1, sy + sh), fill=(40, 40, 40))
+
+# knurl (diamond cross-hatch) and rubber grain regions: height only (albedo white, the slot tint colours them)
+for (x0, y0, w, h), kind in ((L.KNURL_SW, "knurl"), (L.RUBBER_SW, "rubber")):
+    dA.rectangle((x0, y0, x0 + w - 1, y0 + h - 1), fill=(255, 255, 255))
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    if kind == "knurl":
+        k = 2 * np.pi * 16 / w
+        hh = 0.5 + 0.25 * (np.abs(np.sin(k * (xx + yy) / 2)) + np.abs(np.sin(k * (xx - yy) / 2)))
+        hh = 1.0 - hh
+    else:
+        sm = rng.random((h // 4, w // 4)).astype(np.float32)
+        hh = np.array(Image.fromarray((sm * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC)).astype(np.float32) / 255.0
+    hgt.paste(Image.fromarray((90 + hh * 76).clip(0, 255).astype(np.uint8)), (x0, y0))
 
 # normal map from height (DirectX convention for Unreal: G = -dh/drow ... green points down the image)
 h = np.array(hgt.filter(ImageFilter.GaussianBlur(1.2))).astype(np.float32) / 255.0

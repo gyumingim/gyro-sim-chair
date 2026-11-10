@@ -26,6 +26,9 @@ MAN_PATH = os.environ.get("GYROSIM_CK2_MANIFEST", r"C:\GyroSimTiles\assets\cockp
 MESH = "/Game/ThirdParty/Cockpit2/Meshes/"
 V1_SIZE = 7.2                     # v1 dial bezel the needles were made for
 HUD_V1 = dict(C_Wd=27.8, C_H1=31.03357749110842)
+# the real F-16 sidestick is force-sensing and barely moves: the v2 stick mesh follows the sim's StickPivot rotation
+# scaled down and clamped (the pivot itself keeps the full angles for the pilot body / other readers)
+STICK_K, STICK_MAX = 0.2, 3.0
 
 _st = dict(world=None, saved=[], applied=False, man=None)
 
@@ -150,6 +153,14 @@ def _do(world, man, shell, glass):
         for ch in _children(piv):
             if _smc(ch):
                 _place(ch, loc=(0.0, 0.0, 0.0), rot=zero, mesh=m)
+                if tag == "StickPivot":
+                    root = _parent(piv)
+                    if root is not None:
+                        ch.attach_to_actor(root, unreal.Name(""), unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD,
+                                           unreal.AttachmentRule.KEEP_WORLD, False)
+                        ch.set_actor_relative_location(_v(PV[tag]), False, True)
+                        ch.set_actor_relative_rotation(zero, False, True)
+                        _st["stick"] = (ch, piv)
     gl = _tag(world, "GearLights")
     if gl and _mesh(man.get("gearlights", "ck2_gearlights")):
         p = gl[0]
@@ -226,6 +237,14 @@ def set_mode(on):
     """False = put every changed actor back (v1 look), True = apply again (A/B shots in one Play session)"""
     w = _st["world"]
     if not on:
+        st = _st.pop("stick", None)
+        if st:                                   # stick mesh back under its pivot
+            ch, piv = st
+            try:
+                ch.attach_to_actor(piv, unreal.Name(""), unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD,
+                                   unreal.AttachmentRule.KEEP_WORLD, False)
+            except Exception:
+                pass
         for a, mesh, loc, rot, sc, mats in _st["saved"]:
             try:
                 if mesh is not None and _smc(a) and _smc(a).static_mesh != mesh:      # only parts whose mesh we swapped
@@ -250,6 +269,20 @@ def set_mode(on):
         if mid and hc:
             mid.set_scalar_parameter_value("C_Wd", float(hc["w"]))
             mid.set_scalar_parameter_value("C_H1", float(hc["h1"]))
+
+
+def stick_follow():
+    """every frame after sim_client rotated StickPivot: the v2 sidestick mesh gets a few degrees of it"""
+    st = _st.get("stick")
+    if not st or not _st["applied"]:
+        return
+    ch, piv = st
+    try:
+        r = piv.root_component.get_editor_property("relative_rotation")
+        cl = lambda v: max(-STICK_MAX, min(STICK_MAX, v * STICK_K))
+        ch.set_actor_relative_rotation(unreal.Rotator(roll=cl(r.roll), pitch=cl(r.pitch), yaw=0.0), False, True)
+    except Exception:
+        _st["stick"] = None
 
 
 def is_on():

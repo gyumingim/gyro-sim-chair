@@ -1418,6 +1418,7 @@ class SimClient:
         # -THR_SWING (idle, aft) .. +THR_SWING (full, forward), pedals fore/aft + toe brakes, gear handle follows the command
         if "StickPivot" in P:
             P["StickPivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=STICK_ROLL * d["ail"], pitch=-STICK_PITCH * d["elev"], yaw=0.0), False, True)
+            cockpit_v2.stick_follow()                  # v2 sidestick: a few degrees only (the real one barely moves)
         if "ThrottlePivot" in P:
             P["ThrottlePivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=-THR_SWING * (2.0 * d["thr"] - 1.0), yaw=0.0), False, True)
         for tag, sign, bk in (("PedalL", -1.0, "brk_l"), ("PedalR", 1.0, "brk_r")):

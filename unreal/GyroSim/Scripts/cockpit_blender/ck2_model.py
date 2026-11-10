@@ -142,8 +142,20 @@ def slab(P, mat, fr, a0, b0, a1, b1, c0, c1, top_uv=None, side_mat=None, bevel=0
     P.add(vs, _fl(fr, [[4, 5, 6, 7]]), mat, (lambda fi, p: top_uv(*_ab(fr, p))) if top_uv else None)
 
 
-def lathe(P, mat, fr, prof, seg=24, uvf=None, knurl=None, phase=0.0, caps=True):
-    """revolve profile [(r, c), ...] about the frame's n axis at (0, 0). knurl = (r_amp) alternates radii (grip ribs)."""
+DET = 6            # segment multiplier for round parts (lathe / tube / blob); 1 = the first-pass look
+
+
+def reg_uv(reg, fu, fv):
+    """UV inside an atlas region (x, y, w, h px), fu / fv 0..1"""
+    x0, y0, w, h = reg
+    return ((x0 + 2 + (fu % 1.0) * (w - 4)) / L.ATLAS, 1.0 - (y0 + 2 + (fv % 1.0) * (h - 4)) / L.ATLAS)
+
+
+def lathe(P, mat, fr, prof, seg=24, uvf=None, knurl=None, phase=0.0, caps=True, keep=False, reg=None, rep=(8.0, 2.0)):
+    """revolve profile [(r, c), ...] about the frame's n axis at (0, 0). knurl = (r_amp) alternates radii (grip ribs).
+    keep = exact segment count (hex nuts); reg = atlas region tiled around / along (knurl, rubber)."""
+    if not keep:
+        seg = int(seg * DET) if not knurl else int(seg * DET) // 2 * 2
     o, ex, ey, n = fr
     rings = []
     for j, (r, c) in enumerate(prof):
@@ -163,11 +175,19 @@ def lathe(P, mat, fr, prof, seg=24, uvf=None, knurl=None, phase=0.0, caps=True):
         faces.append([(len(prof) - 1) * seg + i for i in range(seg)])
     if caps and prof[0][0] > 1e-4:
         faces.append([i for i in range(seg)][::-1])
+    if reg is not None:
+        nv0 = len(P.V)
+        P.add(vs, _fl(fr, faces), mat)
+        k0 = len(P.F) - len(faces)
+        for k in range(k0, len(P.F)):
+            P.UV[k] = [reg_uv(reg, ((vi - nv0) % seg) / seg * rep[0], ((vi - nv0) // seg) / max(1, len(prof) - 1) * rep[1]) for vi in P.F[k]]
+        return
     P.add(vs, _fl(fr, faces), mat, uvf)
 
 
-def tube(P, mat, path, r, seg=10, closed=False, uv_len=None, rscale=None):
-    """sweep a circle along a polyline (UE points)"""
+def tube(P, mat, path, r, seg=10, closed=False, uv_len=None, rscale=None, reg=None, rep=(6.0, 3.0)):
+    """sweep a circle along a polyline (UE points); reg = atlas region tiled around (rep[0]) / per cm along (rep[1] / 10)"""
+    seg = int(seg * DET)
     m = len(path)
     rings = []
     acc = [0.0]
@@ -194,6 +214,13 @@ def tube(P, mat, path, r, seg=10, closed=False, uv_len=None, rscale=None):
         faces.append(list(range(seg))[::-1])
         faces.append([(m - 1) * seg + j for j in range(seg)])
     uvf = None
+    if reg is not None:
+        nv0 = len(P.V)
+        P.add(vs, faces, mat)
+        k0 = len(P.F) - len(faces)
+        for k in range(k0, len(P.F)):
+            P.UV[k] = [reg_uv(reg, ((vi - nv0) % seg) / seg * rep[0], acc[(vi - nv0) // seg] * rep[1] / 10.0) for vi in P.F[k]]
+        return
     if uv_len:
         x0, y0, w, h = STRIPE
 
@@ -224,7 +251,7 @@ def grid(P, mat, fn, nu, nv, uvf=None, flip=False):
     P.add(vs, faces, mat, uvf)
 
 
-def blob(P, mat, c, r, ex=(1, 0, 0), ey=(0, 1, 0), n=(0, 0, 1), e=0.35, nu=20, nv=12):
+def blob(P, mat, c, r, ex=(1, 0, 0), ey=(0, 1, 0), n=(0, 0, 1), e=0.35, nu=20, nv=12, reg=None):
     """rounded box (superellipsoid, exponent e: 1 = ellipsoid, small = boxy) radii r = (rx, ry, rz) in the frame"""
     def sg(x, p):
         return math.copysign(abs(x) ** p, x)
@@ -236,7 +263,15 @@ def blob(P, mat, c, r, ex=(1, 0, 0), ey=(0, 1, 0), n=(0, 0, 1), e=0.35, nu=20, n
         y = r[1] * sg(math.cos(th), e) * sg(math.sin(ph), e)
         z = r[2] * sg(math.sin(th), e)
         return tuple(c[i] + ex[i] * x + ey[i] * y + n[i] * z for i in range(3))
+    nu, nv = int(nu * DET * 0.75), int(nv * DET * 0.75)
+    if reg is None:
+        grid(P, mat, fn, nu, nv)
+        return
+    nv0 = len(P.V)
     grid(P, mat, fn, nu, nv)
+    k0 = len(P.F) - nu * nv
+    for k in range(k0, len(P.F)):
+        P.UV[k] = [reg_uv(reg, ((vi - nv0) % (nu + 1)) / nu * 6.0, ((vi - nv0) // (nu + 1)) / nv * 4.0) for vi in P.F[k]]
 
 
 def box(P, mat, c, size, ex=(1, 0, 0), ey=(0, 1, 0), n=(0, 0, 1)):
@@ -284,8 +319,19 @@ def build_plate(p):
     else:
         top = p["raise_"]
         slab(P, "CK2_Plate", fr, 0, 0, p["w"], p["h"], -0.3, top, uvp, "CK2_PlateSide", bevel=min(0.12, top * 0.4))
+        if p["kind"] == "pod":               # light housing standing on the glare shield
+            prism(P, "CK2_Bezel", fr, rect(-0.35, -0.35, p["w"] + 0.35, p["h"] + 0.35, 0.3), -3.2, -0.25, cap_bottom=True)
+            for a in (-0.15, p["w"] + 0.15):
+                tube(P, "CK2_Bezel", [frame_pt(o, ex, ey, n, a, -0.3, 0.1), frame_pt(o, ex, ey, n, a, p["h"] + 0.3, 0.1)], 0.18, seg=6)
     for it in p["items"]:
         build_item(p, fr, it, top)
+    if p["kind"] in ("console", "panel", "wing", "well"):     # domed screw heads where the texture draws them
+        m = 0.55
+        pts = [(m, m), (p["w"] - m, m), (m, p["h"] - m), (p["w"] - m, p["h"] - m)]
+        if p["kind"] in ("console", "well") and p["h"] > 14:
+            pts += [(m, p["h"] / 2), (p["w"] - m, p["h"] / 2)]
+        for a, b in pts:
+            lathe(P, "CK2_Metal", (frame_pt(o, ex, ey, n, a, b, top), ex, ey, n), [(0.27, -0.02), (0.26, 0.05), (0.2, 0.11), (0.1, 0.15), (0.0, 0.16)], seg=4)
 
 
 def build_item(p, fr, it, top):
@@ -299,7 +345,7 @@ def build_item(p, fr, it, top):
     if k == "toggle":
         a, b = it[1], it[2]
         f = at(a, b)
-        lathe(P, "CK2_Metal", f, [(0.5, 0.0), (0.5, 0.18), (0.42, 0.3), (0.0, 0.3)], seg=6)
+        lathe(P, "CK2_Metal", f, [(0.5, 0.0), (0.5, 0.18), (0.42, 0.3), (0.0, 0.3)], seg=6, keep=True)
         # lever tilted toward +b (ON) 18 deg
         tilt = math.radians(18.0)
         d = norm(tuple(n[i] * math.cos(tilt) + ey[i] * math.sin(tilt) for i in range(3)))
@@ -327,7 +373,8 @@ def build_item(p, fr, it, top):
         a, b, d = it[1], it[2], it[3]
         r = d / 2.0
         f = at(a, b)
-        lathe(P, "CK2_Bezel", f, [(r + 0.05, -0.05), (r + 0.5, 0.0), (r + 0.5, 0.35), (r + 0.3, 0.6), (r + 0.02, 0.6), (r + 0.02, 0.2)], seg=40, caps=False)
+        lathe(P, "CK2_Bezel", f, [(r + 0.05, -0.05), (r + 0.5, 0.0), (r + 0.52, 0.2), (r + 0.5, 0.38), (r + 0.42, 0.52), (r + 0.3, 0.6), (r + 0.12, 0.62),
+                                  (r + 0.03, 0.55), (r + 0.02, 0.2)], seg=40, caps=False)
         lathe(part("ck2_glass"), "CK2_Glass", (frame_pt(f[0], ex, ey, n, 0, 0, 0.5), ex, ey, n), [(r + 0.05, 0.0), (0.0, 0.0)], seg=32)
     elif k == "lamp":
         a, b, w, h = it[1], it[2], it[3], it[4]
@@ -429,6 +476,13 @@ def build_glareshield():
     pts = [(hb["x0"], -w0, hb["z0"]), (hb["x1"], -w1, hb["z0"]), (hb["x1"], w1, hb["z0"]), (hb["x0"], w0, hb["z0"]),
            (hb["x0"] + 1.5, -w0 + 0.8, hb["z1"]), (hb["x1"], -w1 + 1.5, hb["z1"] - 1.5), (hb["x1"], w1 - 1.5, hb["z1"] - 1.5), (hb["x0"] + 1.5, w0 - 0.8, hb["z1"])]
     P.add(pts, [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]], "CK2_HUDBody")
+    # grille slats on the upper back face, corner bolts (photo 005 / 008: HUD housing grille)
+    for k in range(9):
+        zz = hb["z1"] - 0.9 - 0.55 * k
+        box(P, "CK2_Bezel", (hb["x0"] + 1.2, 0.0, zz), (0.35, 2 * w0 - 3.0, 0.22))
+    for yy in (-w0 + 0.9, w0 - 0.9):
+        for zz in (hb["z0"] + 0.9, hb["z1"] - 0.6):
+            lathe(P, "CK2_Metal", ((hb["x0"] + 0.9, yy, zz), (0, 1, 0), (0, 0, 1), (-1, 0, 0)), [(0.32, 0.0), (0.3, 0.12), (0.2, 0.2), (0.0, 0.22)], seg=6, keep=True)
     # HUD control strip on the housing back face (small knobs)
     for i in range(3):
         c = (hb["x0"] + 0.4, -6.0 + 6.0 * i, hb["z0"] + 3.0)
@@ -443,15 +497,20 @@ def build_glareshield():
     poly = H["poly"]
     G = part("ck2_glass")
     G.add([cpt(a, b) for a, b in poly], [list(range(len(poly)))[::-1]], "CK2_HUDGlass")
+    G.add([cpt(a * 0.94, 2.0 + (b - 2.0) * 0.92, 1.4) for a, b in poly], [list(range(len(poly)))[::-1]], "CK2_HUDGlass")    # second pane
+    edge = [cpt(a, b, 0.0) for a, b in poly]
+    tube(P, "CK2_HUDEdge", edge + [edge[0]], 0.09, seg=4)
     # F-16 style combiner frame (photo 001): thin rim all round, two side posts the full glass height standing on the
     # housing, a foot bar
     rim = [cpt(a, b, 0.05) for a, b in poly]
-    tube(P, "CK2_HUDFrame", rim + [rim[0]], 0.14, seg=6)
+    tube(P, "CK2_HUDFrame", rim + [rim[0]], 0.3, seg=6)
+    rim2 = [cpt(a * 0.94, 2.0 + (b - 2.0) * 0.92, 1.45) for a, b in poly]
+    tube(P, "CK2_HUDFrame", rim2 + [rim2[0]], 0.22, seg=6)
     hw = H["poly"][2][0]
     for s in (-1, 1):
         a = s * (hw + 0.45)
         tube(P, "CK2_HUDFrame", [cpt(a * 0.92, -1.2, 1.0), cpt(a, 4.4, 0.3), cpt(a, H["poly"][3][1], 0.2), cpt(s * (H["poly"][4][0] + 1.0), H["poly"][4][1] + 0.4, 0.2)],
-             0.26, seg=8)
+             0.5, seg=8)
     box(P, "CK2_HUDFrame", cpt(0.0, 3.4, 0.5), (2 * hw + 1.6, 1.4, 1.2), right, up, fw)
     box(P, "CK2_HUDFrame", cpt(0.0, H["poly"][4][1] + 0.5, 0.2), (2 * H["poly"][4][0] + 1.0, 0.4, 0.35), right, up, fw)
 
@@ -501,7 +560,7 @@ def build_consoles():
             lathe(P, "CK2_Metal", (c, (1, 0, 0), (0, 0, 1), (0, -sd, 0)), [(0.32, 0.0), (0.25, 0.12), (0.0, 0.16)], seg=6)
     # console plates
     for p in PLATES.values():
-        if p["kind"] in ("console", "placard"):
+        if p["kind"] in ("console", "placard", "pod"):
             build_plate(p)
     # throttle quadrant housing (left), slot strip
     x0, x1 = 424.0, 470.0
@@ -547,8 +606,8 @@ def build_seat():
         # side handles / rails (black)
         tube(P, "CK2_Knob", [(back(70.0, 2.0), sd * 24.6, 70.0), (back(110.0, 2.0), sd * 15.0, 110.0)], 1.0, seg=8)
     # seat pan cushion (sheepskin) and back cushion
-    grid(P, "CK2_Fleece", lambda s, t: (back(28.0, 3.0) + (457.0 - back(28.0, 3.0)) * t, -21.0 + 42.0 * s, 27.5 + 2.0 * math.sin(math.pi * s) ** 0.5 + 2.0 * t), 12, 10, flip=True)
-    grid(P, "CK2_Fleece", lambda s, t: (back(28.0 + 62.0 * t, 4.0 + 1.5 * math.sin(math.pi * s) ** 0.5), -20.0 + 40.0 * s, 28.0 + 62.0 * t), 12, 10)
+    grid(P, "CK2_Fleece", lambda s, t: (back(28.0, 3.0) + (457.0 - back(28.0, 3.0)) * t, -21.0 + 42.0 * s, 27.5 + 2.0 * math.sin(math.pi * s) ** 0.5 + 2.0 * t), 48, 36, flip=True)
+    grid(P, "CK2_Fleece", lambda s, t: (back(28.0 + 62.0 * t, 4.0 + 1.5 * math.sin(math.pi * s) ** 0.5), -20.0 + 40.0 * s, 28.0 + 62.0 * t), 48, 40)
     # headrest box (ACES II: tall, forward of the back), cloth cover tone
     hz0, hz1 = 92.0, 117.0
     c = (back((hz0 + hz1) / 2, 4.0), 0.0, (hz0 + hz1) / 2)
@@ -584,19 +643,20 @@ def build_stick():
     for i in range(9):
         prof.append((2.6 - 0.09 * i + (0.25 if i % 2 else 0.0), z0 - 1.6 + 0.62 * i))
     prof += [(1.7, z0 + 4.2), (1.5, z0 + 4.4)]
-    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24)
+    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24, reg=L.RUBBER_SW, rep=(6.0, 3.0))
     # collar
     lathe(P, "CK2_Grip", ((s[0], s[1], z0 + 4.4), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(1.9, 0.0), (1.9, 0.7), (1.4, 0.9), (0.0, 0.9)], seg=20)
     # grip: sections swept along a forward-leaning curve
     lean = math.radians(L.STICK_SIDE["lean"])
     path, rs = [], []
-    for i in range(11):
-        t = i / 10.0
+    NS = 28
+    for i in range(NS + 1):
+        t = i / float(NS)
         h = 11.0 * t
         x = s[0] + math.sin(lean) * h + 0.8 * math.sin(math.pi * t)
         path.append((x, s[1] - 0.4 * t, z0 + 5.2 + math.cos(lean) * h))
         rs.append(1.0 + 0.18 * math.sin(math.pi * t * 0.9) + (0.25 if t > 0.75 else 0.0))
-    tube(P, "CK2_Grip", path, 1.55, seg=14, rscale=rs)
+    tube(P, "CK2_Grip", path, 1.55, seg=14, rscale=rs, reg=L.KNURL_SW, rep=(6.0, 4.0))
     # head: rounded box with the trim hat, red button, trigger
     top = path[-1]
     fw = (math.cos(lean), 0.0, -math.sin(lean))
@@ -606,7 +666,21 @@ def build_stick():
     lathe(P, "CK2_Red", (tuple(top[i] + up[i] * 2.1 + fw[i] * 1.6 for i in range(3)), fw, (0, 1, 0), up), [(0.45, 0.0), (0.42, 0.35), (0.0, 0.4)], seg=10)
     lathe(P, "CK2_Chrome", (tuple(top[i] + up[i] * 1.6 - fw[i] * 1.5 + (0, -1.6, 0)[i] for i in range(3)), (0, -1, 0), fw, up), [(0.5, 0.0), (0.45, 0.4), (0.0, 0.5)], seg=10)
     box(P, "CK2_Red", tuple(top[i] - up[i] * 1.6 + fw[i] * 2.0 for i in range(3)), (0.8, 1.4, 2.4), fw, (0, 1, 0), up)     # trigger
-    box(P, "CK2_Knob", tuple(path[3][i] + (0, -1.5, 0)[i] for i in range(3)), (1.0, 0.6, 1.0))                      # pinky switch
+    box(P, "CK2_Knob", tuple(path[8][i] + (0, -1.5, 0)[i] for i in range(3)), (1.0, 0.6, 1.0))                      # pinky switch
+    side = (0.0, -1.0, 0.0)
+    # 4-way trim hat and the TMS / DMS hats on the head (small cylinders + nubs), trigger guard loop
+    for k, (df, du) in enumerate(((0.9, 2.15), (-0.6, 2.1), (-1.7, 1.2))):
+        c = tuple(top[i] + up[i] * du + fw[i] * df + side[i] * (0.9 if k == 2 else 0.0) for i in range(3))
+        nn = up if k < 2 else side
+        aa = fw if k < 2 else up
+        lathe(P, "CK2_Knob", (c, aa, cross(nn, aa), nn), [(0.42, 0.0), (0.4, 0.35), (0.28, 0.45), (0.0, 0.48)], seg=10)
+        for q in range(4):
+            ang = math.pi / 2 * q
+            d = tuple(aa[i] * math.cos(ang) * 0.36 + cross(nn, aa)[i] * math.sin(ang) * 0.36 for i in range(3))
+            box(P, "CK2_Knob", tuple(c[i] + d[i] + nn[i] * 0.42 for i in range(3)), (0.16, 0.16, 0.12), aa, cross(nn, aa), nn)
+    g0 = tuple(top[i] - up[i] * 0.6 + fw[i] * 1.6 for i in range(3))
+    tube(P, "CK2_Grip", [g0, tuple(g0[i] + fw[i] * 1.2 - up[i] * 1.0 for i in range(3)), tuple(g0[i] + fw[i] * 0.9 - up[i] * 3.0 for i in range(3)),
+                         tuple(g0[i] - up[i] * 3.4 for i in range(3))], 0.18, seg=6)
     return s
 
 
@@ -617,7 +691,7 @@ def build_throttle():
     tube(P, "CK2_Metal", [pv, (pv[0] + 0.5, pv[1] - 1.4, pv[2] + 6.0)], 0.9, seg=10)
     # grip: rounded body shaped to the left hand, top bending inboard, thumb shelf on the inboard face (photos / diagram)
     c = (pv[0] + 0.8, pv[1] - 1.6, pv[2] + 10.5)
-    blob(P, "CK2_Grip", c, (5.2, 2.9, 4.2), e=0.45)
+    blob(P, "CK2_Grip", c, (5.2, 2.9, 4.2), e=0.45, reg=L.RUBBER_SW)
     blob(P, "CK2_Grip", (c[0] + 0.6, c[1] + 1.4, c[2] + 3.6), (4.4, 2.4, 1.4), e=0.5)
     blob(P, "CK2_Grip", (c[0] - 3.4, c[1] - 0.2, c[2] - 3.4), (2.0, 2.9, 2.4), e=0.5)
     # switches: speed brake slider, antenna elevation knob, cursor, dogfight switch, red IFF button
@@ -626,6 +700,10 @@ def build_throttle():
     lathe(P, "CK2_Chrome", ((c[0] + 0.5, c[1] + 2.9, c[2] - 0.6), (1, 0, 0), (0, 0, 1), (0, 1, 0)), [(0.4, 0.0), (0.35, 0.45), (0.0, 0.5)], seg=8)
     box(P, "CK2_Knob", (c[0] + 1.5, c[1] + 0.6, c[2] + 5.1), (1.6, 0.8, 0.6))
     box(P, "CK2_Red", (c[0] + 4.2, c[1] - 0.8, c[2] + 3.6), (0.9, 1.2, 0.5))
+    for k, (dx, dz) in enumerate(((2.0, 4.6), (-0.8, 4.9), (3.8, 2.6), (-2.6, 3.6))):       # more thumb switches / hats on top
+        lathe(P, "CK2_Knob" if k % 2 else "CK2_Chrome", ((c[0] + dx, c[1] + 0.8, c[2] + dz), (1, 0, 0), (0, 1, 0), (0, 0, 1)),
+              [(0.38, 0.0), (0.35, 0.4), (0.2, 0.5), (0.0, 0.52)], seg=10)
+    tube(P, "CK2_Grip", [(c[0] - 5.0, c[1] - 1.0, c[2] - 1.0), (c[0] - 5.8, c[1] - 1.0, c[2] - 4.6)], 0.5, seg=8)       # cutoff release lever
     return pv
 
 
@@ -732,7 +810,7 @@ PREVIEW = dict(CK2_Plate=None, CK2_Plate0=(0.03, 0.032, 0.034, 0.6), CK2_PlateSi
                CK2_Screen_L=(0.003, 0.004, 0.005, 0.1), CK2_Screen_R=(0.003, 0.004, 0.005, 0.1), CK2_SeatPaint=(0.09, 0.1, 0.08, 0.6),
                CK2_Fleece=(0.012, 0.012, 0.012, 0.95), CK2_Headrest=(0.12, 0.13, 0.11, 0.9), CK2_Boot=(0.2, 0.21, 0.21, 0.7),
                CK2_Grip=(0.018, 0.018, 0.019, 0.65), CK2_GearKnob=(0.75, 0.75, 0.72, 0.4), CK2_Glass=(0.9, 0.9, 0.9, 0.05),
-               CK2_HUDGlass=(0.7, 0.85, 0.75, 0.05), CK2_Kneeboard=(0.04, 0.04, 0.042, 0.6), CK2_Strap=(0.08, 0.09, 0.06, 0.9))
+               CK2_HUDGlass=(0.7, 0.85, 0.75, 0.05), CK2_HUDEdge=(0.35, 0.4, 0.2, 0.3), CK2_Kneeboard=(0.04, 0.04, 0.042, 0.6), CK2_Strap=(0.08, 0.09, 0.06, 0.9))
 
 
 def preview_materials():

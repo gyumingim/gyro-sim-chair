@@ -69,7 +69,7 @@ def wing_pt(side, w, v, off=0.0):
 
 # glare shield: lip over the panel top, flat-topped hood running forward under the windscreen
 LIP_HALF, LIP_Z0, LIP_ZC = 33.0, 61.0, 68.8          # lip height LIP_ZC on the centre line, LIP_Z0 at |u| = LIP_HALF
-LIP_OVER = 6.5                                        # hood overhang toward the pilot past the panel face
+LIP_OVER = 4.0                                        # hood overhang toward the pilot past the panel face
 GLARE_X1 = 541.0
 
 
@@ -117,7 +117,7 @@ EYEBROW_R = dict(u0=13.0, u1=29.0, v0=61.9, v1=65.0)
 # sim lights: name -> (where, u/w, v, w, h, colour, legend)
 # sim lights: name -> (plate, a, b, w, h, colour, legend) in plate cm. MC / WARN take the first / last eyebrow lamp cells,
 # the others sit on the left auxiliary console (front of the left console) next to the gear handle
-LIGHTS = {"MC": ("EB_L", 1.3, 1.8, 2.3, 2.6, "amber", "MASTER|CAUTION"), "WARN": ("EB_R", 14.3, 1.8, 2.3, 2.6, "red", "WARNING"),
+LIGHTS = {"MC": ("UF_L", 1.75, 1.45, 3.0, 2.3, "amber", "MASTER|CAUTION"), "WARN": ("UF_R", 4.85, 1.45, 3.0, 2.3, "red", "WARNING"),
           "BRAKE": ("AUX_L", 3.6, 4.8, 3.4, 1.8, "amber", "BRAKES"), "ASSIST": ("AUX_L", 7.6, 4.8, 3.4, 1.8, "green", "ASSIST"),
           "SLOW": ("AUX_L", 3.6, 2.4, 3.4, 1.8, "green", "SLOW"), "VOICE": ("AUX_L", 7.6, 2.4, 3.4, 1.8, "green", "VOICE")}
 GEAR = dict(plate="AUX_L", a=14.0, b=8.0, travel=16.0)       # gear handle (wheel knob) on the left auxiliary console
@@ -275,13 +275,41 @@ def panel_plates():
     return P
 
 
+UF_PODS = {"UF_L": (-15.5, [("amber", "MASTER|CAUTION"), ("amber", "TF FAIL")]), "UF_R": (15.5, [("red", "ENGINE"), ("red", "WARNING")])}
+
+
+def uf_frame(u):
+    """up-front warning light pod on the glare shield lip at lateral u: (centre, ex, ey, n) with n toward the eye"""
+    x = panel_x(LIP_ZC) - LIP_OVER + 3.2
+    c = (x, u, lip_z(u) + 2.6)
+    n = tuple(e - q for e, q in zip(EYE, c))
+    l = math.sqrt(sum(v * v for v in n))
+    n = tuple(v / l for v in n)
+    ex = (n[1], -n[0], 0.0)                                  # n x z, horizontal
+    l = math.hypot(ex[0], ex[1])
+    ex = (ex[0] / l, ex[1] / l, 0.0)
+    if ex[1] < 0:
+        ex = (-ex[0], -ex[1], 0.0)
+    ey = (ex[1] * n[2] - ex[2] * n[1], ex[2] * n[0] - ex[0] * n[2], ex[0] * n[1] - ex[1] * n[0])
+    if ey[2] < 0:
+        ey = tuple(-v for v in ey)
+    return c, ex, ey, n
+
+
 def side_plates():
     """small placards on the sloped side walls / sill (generic warning text)"""
     P = []
-    for s, x0, name, txt in ((-1, 436.0, "SW_L", "EJECTION CONTROLS\nLOCKED BEFORE\nGROUND EGRESS"), (1, 470.0, "SW_R", "CANOPY JETTISON\nPULL HANDLE\nFULL TRAVEL")):
+    for s, x0, name, txt in ((-1, 436.0, "SW_L", "EJECTION CONTROLS|LOCKED BEFORE|GROUND EGRESS"), (1, 470.0, "SW_R", "CANOPY JETTISON|PULL HANDLE|FULL TRAVEL"),
+                             (-1, 404.0, "SW_L2", "OXYGEN|CHECK PRESSURE|BEFORE FLIGHT"), (1, 420.0, "SW_R2", "DANGER|EJECTION SEAT|NO STEP")):
         y = s * (CONSOLE_OUT + 3.0)
         P.append(dict(name=name, origin=(x0, y, 47.0), ex=(1.0, 0.0, 0.0) if s < 0 else (-1.0, 0.0, 0.0), ey=(0.0, -s * 0.5, 0.866), w=13.0, h=5.0, ppc=40,
                       raise_=0.15, title="", kind="placard", items=[("label", 6.5, 2.5, txt, 0.62)]))
+    w, h = 6.4, 2.9
+    for name, (u, cells) in UF_PODS.items():
+        c, ex, ey, n = uf_frame(u)
+        o = tuple(c[i] - ex[i] * w / 2 - ey[i] * h / 2 for i in range(3))
+        P.append(dict(name=name, origin=o, ex=ex, ey=ey, w=w, h=h, ppc=60, raise_=0.0, title="", kind="pod",
+                      items=[("lamp", 1.75 + 3.1 * i, 1.45, 3.0, 2.3, col, txt) for i, (col, txt) in enumerate(cells)]))
     return P
 
 
@@ -292,6 +320,8 @@ def all_plates():
 # ---------------------------------------------------------------------------------------------------------------------
 # atlas packing (deterministic shelf packing, shared by both scripts)
 ATLAS = 4096
+KNURL_SW = (0, 3776, 256, 256)               # diamond knurl / grip texture (height -> normal), tiled inside by the model
+RUBBER_SW = (272, 3776, 256, 256)            # fine rubber / boot grain
 SWATCH = (4096 - 64, 4096 - 64, 64, 64)       # white swatch (x, y, w, h) bottom-right corner, flat normal
 STRIPE_SW = (4096 - 192, 4096 - 64, 128, 64)  # yellow / black hazard stripes swatch (ejection loop)
 
