@@ -364,6 +364,29 @@ def gwangan_zones(G):
     return extra
 
 
+COAST_BAND = 200.0                                        # m: inside this signed coast distance the ground = coast rule
+
+
+def ground_height(dem, lat, lon):
+    """rendered ground m MSL for anchors / pier feet: the terrain mesh (buildings_build.mesh_height), and within COAST_BAND of
+    the OSM coastline the coast-aware terrain swapped in 11-10 / 11-11 (sim/coast_build.rendered_msl: sea walls, beaches,
+    sea = 0), as buildings / life use it. GYROSIM_ROADS_COAST=0 = mesh only (before 11-11)."""
+    import buildings_build as B
+    lat, lon = np.asarray(lat, np.float64), np.asarray(lon, np.float64)
+    h = B.mesh_height(dem, lat, lon)
+    if os.environ.get("GYROSIM_ROADS_COAST", "1") == "0":
+        return h
+    try:
+        import coast_build as CB
+        sd, _ = CB.field_at(lat, lon)
+        near = np.abs(sd) < COAST_BAND
+        if np.any(near):
+            h = np.where(near, CB.rendered_msl(dem, lat, lon), h)
+    except Exception as e:                                # no coast field: mesh only
+        print("coast field not used:", e)
+    return h
+
+
 def solve_heights(G, dem, mesh_height, extra=None):
     n = len(G.px)
     lat, lon = latlon(G.px, G.py)
@@ -1127,12 +1150,12 @@ def tiles():
     if SIG:
         nst = stack_double_deck(G)
         extra = gwangan_zones(G)
-    h, mesh, low, water, anchors = solve_heights(G, dem, B.mesh_height, extra)
+    h, mesh, low, water, anchors = solve_heights(G, dem, ground_height, extra)
     if SIG:
         part = stack_partner(G, h)
     print("graph %d points, %d anchors, %d stacked (광안대교 double deck), %d truss-zone points, heights %.0f s, signature %s" % (
         len(G.px), len(anchors), nst, len(extra), time.time() - t0, SIG), flush=True)
-    parts, stat, groups = build(G, h, mesh, water, dem, B.mesh_height, part)
+    parts, stat, groups = build(G, h, mesh, water, dem, ground_height, part)
     imgs = textures()
     dla, dlo = STEP_A
     bins = {}
@@ -1200,7 +1223,7 @@ def tiles():
     out = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0), input=dict(osm=OSM_FILE, osm_base=osm_base),
                content_tiles=len(sizes), bytes=sum(sizes.values()), largest_tile=max(sizes.values()), verts=int(verts),
                graph_points=int(len(G.px)), anchors=len(anchors), named_structures=len(named), **stat,
-               signature=SIG, rules=dict(grade=GRADE, grade_big=GRADE_BIG, clear_layer=CLEAR_LAYER, clear_water=CLEAR_WATER, big=BIG, ge=GE))
+               signature=SIG, coast_band=COAST_BAND if os.environ.get("GYROSIM_ROADS_COAST", "1") != "0" else None, rules=dict(grade=GRADE, grade_big=GRADE_BIG, clear_layer=CLEAR_LAYER, clear_water=CLEAR_WATER, big=BIG, ge=GE))
     with open(os.path.join(tmp, "build.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
     with open(os.path.join(tmp, "groups.json"), "w", encoding="utf-8") as f:
