@@ -556,9 +556,14 @@ python -I sim/buildings_build.py --tiles --ground                       # work �
   사무실·상가 일부 화강석 판 (줄눈), 1 층 간판 (색 판 + 글자 모양 덩어리, 상표 없음), 필로티 (어두운 주차장 + 차), 옥상선 빗물 줄, 층별 보수색.
   `TexObj` (텍스처 객체 파라미터 `baseColorTexture`) 를 Custom 노드에도 넘김 — Cesium 이 이름으로 넣어 줌.
 - **측정** (화면 밖 에디터, 같은 시점·같은 설정, 전 = `GYROSIM_BLDG_V3=0`, 후 = tiles_new; 전·후는 별도 실행 = 구름 다름):
-  GPU (1080p 화소로 맞춤, 2 회) 서면 200 m 4.34 / 4.23 → 4.57 / 4.45 ms, 센텀 300 m 4.36 / 4.26 → 4.52 / 4.39 ms = **+0.15–0.23 ms (약 +5 %)**.
+  GPU (1080p 화소로 맞춤, 3 회) 서면 200 m 4.34 / 4.23 / 4.15 → 4.57 / 4.45 / 4.44 ms, 센텀 300 m 4.36 / 4.26 / 4.33 → 4.52 / 4.39 / 4.84 ms
+  (마지막 4.84 = 프레임 수 적은 회차, 흔들림 추정) = **약 +0.2 ms (+5 %)**.
   타일 1.40 → 2.03 GB (+45 %: 꼭짓점 28.9 → 41.5 M = 1 층 띠·난간벽·소품, 지붕 JPEG 88 → 188 MB = z18).
-  눈가림 A/B (새 에이전트, 실사진 비교, 6 시점): **후 6 / 전 0** (높음 3, 중 2, 낮음 1).
+  눈가림 A/B (새 에이전트, 실사진 비교, 6 시점, 2 번 따로): **후 6 / 전 0** 두 번 다.
+  남은 지적: 지붕 사진 늘어남 (정사영상), 중층 사무실 크림색 격자 반복, 사무실 같은 높은 공동주택에도 동 번호, 숫자 조금 큼.
+- **교체 (11-10 21:37)**: 해안 지형 고정 표시 (`terrain/FROZEN_20261110.txt`) 뒤 `--prep` 다시 (부산 + osmfill: 바닥 = mesh_height 와
+  `coast_build.rendered_msl` 중 낮은 쪽, 1,426 동이 최대 6 m 내려감; `GYROSIM_BLDG_COAST=0` = 끔, 이전 work 는 `buildings/work_prev_20261110`)
+  → `--tiles` (랜드마크 24 동 제외 유지) → tiles → `tiles_prev_20261110_v3`, tiles_new → tiles. 충돌 격자 `--ground` 는 안 다시 만듦.
 - 시점: `C:\GyroSimTiles\shots\bldg_v3\views.json` (서면 200 m, 좌동 아파트 150 m, 동래 주택가 120 m, 센텀 300 m, 초량 = 값 고를 때 안 본 시점, 서면 근접 120 m).
   실행 = `art_shots.py` (`-GyroSimArtShots`) + `GYROSIM_BLDG_TILES_DIR=tiles_new` (buildings_look 이 그 폴더를 씀).
 
