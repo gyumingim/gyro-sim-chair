@@ -8,7 +8,8 @@ any other map; never saved; the launcher deletes the copy). (Duplicating the map
 Ground = local terrain + cached V-World photo by file:// (no proxy, no API call). States:
   before = live building tiles (GYROSIM_LSHOT_OLD, default 'tiles') + landmarks hidden
   after  = building tiles built with exclude.json (GYROSIM_LSHOT_NEW, default 'tiles_lmtest') + landmarks shown
-Both with /Game/Buildings/M_GyroBuilding on the buildings. Views: sim/landmarks/views.json. Out: GYROSIM_SHOTS_DIR
+Both with /Game/Buildings/M_GyroBuilding on the buildings, and the OSM bridges (roads_look, GYROSIM_LSHOT_ROADS=0 = off,
+as in the shots before 11-10). Views: sim/landmarks/views.json (+ GYROSIM_LSHOT_VIEWS_FILE). Out: GYROSIM_SHOTS_DIR
 (default C:/GyroSimTiles/shots/landmarks - V-World imagery stays outside git) + shots.json. GPU (startfpschart, ~1080p
 pixels) on GYROSIM_LSHOT_GPU views. Quits the editor when done.
 """
@@ -16,6 +17,7 @@ import json, math, os, re, time
 import unreal
 import sim_client
 import landmarks_look
+import roads_look
 
 log = lambda *a: unreal.log("[lshots] " + " ".join(str(x) for x in a))
 les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -30,6 +32,10 @@ TMP_MAP = "/Game/Maps/_tmp/FlightMap_lmtest"
 GEOID = 29.2
 REPO = os.path.abspath(os.path.join(unreal.Paths.project_dir(), "..", ".."))
 VIEWS = [tuple(v[:7]) for v in json.load(open(os.path.join(REPO, "sim", "landmarks", "views.json"), encoding="utf-8"))["views"]]
+# extra views (same format, optional 9th item = horizontal FOV deg), e.g. sea views at the atmosphere reference spots
+if os.environ.get("GYROSIM_LSHOT_VIEWS_FILE"):
+    VIEWS += [tuple(v[:7]) + ((float(v[8]),) if len(v) > 8 and v[8] else ()) for v in
+              json.load(open(os.environ["GYROSIM_LSHOT_VIEWS_FILE"], encoding="utf-8"))["views"]]
 if os.environ.get("GYROSIM_LSHOT_VIEWS"):
     VIEWS = [v for v in VIEWS if v[0] in os.environ["GYROSIM_LSHOT_VIEWS"].split(",")]
 GPU_VIEWS = os.environ.get("GYROSIM_LSHOT_GPU", "marine_air,haeundae_overview").split(",")
@@ -103,6 +109,8 @@ def setup_cesium(world):
         except Exception as e:
             log("atmos ground", repr(e))
     ST["lm"] = landmarks_look.apply(world, log, gr)
+    # OSM bridges / elevated roads (CesiumRoads, as at Play). Before 11-10 the shots had no roads (GYROSIM_LSHOT_ROADS=0)
+    ST["roads"] = roads_look.apply(world, log, gr) if os.environ.get("GYROSIM_LSHOT_ROADS", "1") == "1" else None
     return gr, ts, b
 
 
@@ -117,7 +125,8 @@ def set_state(st):
 
 
 def place_view(v):
-    name, lat, lon, th, brg, dist, ch = v
+    name, lat, lon, th, brg, dist, ch = v[:7]
+    ST["cam"].camera_component.set_editor_property("field_of_view", v[7] if len(v) > 7 else float(os.environ.get("GYROSIM_LSHOT_FOV", "55")))
     ST["gr"].set_origin_longitude_latitude_height(unreal.Vector(lon, lat, GEOID))
     br = math.radians(brg)
     n, e = dist * math.cos(br), dist * math.sin(br)
@@ -147,6 +156,8 @@ def tick(dt):
         if ph == "wait_editor" and el > float(os.environ.get("GYROSIM_LSHOT_WAIT", "40")):
             if on_temp_map():
                 landmarks_look.spawn_editor(log)
+                if os.environ.get("GYROSIM_LSHOT_ROADS", "1") == "1":
+                    roads_look.spawn_editor(log)          # no-op when the map already has the CesiumRoads actor
             else:
                 log("not on the temporary map copy - landmarks actor NOT spawned (shots without landmarks)")
             les.editor_request_begin_play()
@@ -198,7 +209,8 @@ def tick(dt):
         elif ph == "load":
             p1, p2 = progress(ST["ts"]), progress(ST["b"])
             p3 = progress(ST["lm"]) if ST.get("lm") is not None else 100.0
-            if (p1 >= 99.9 and p2 >= 99.9 and p3 >= 99.9 and el > 6.0) or el > 90.0:
+            p4 = progress(ST["roads"]) if ST.get("roads") is not None else 100.0
+            if (p1 >= 99.9 and p2 >= 99.9 and p3 >= 99.9 and p4 >= 99.9 and el > 6.0) or el > 90.0:
                 ST["load"] = dict(load_s=round(el, 1), terrain=round(p1, 1), buildings=round(p2, 1), landmarks=round(p3, 1))
                 ST.update(phase="shoot", t=now)
         elif ph == "shoot" and el > 3.0:
@@ -238,7 +250,8 @@ def tick(dt):
             ST.update(phase="view", t=now)
         elif ph == "end" and el > 2.0:
             res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(now - ST["t0"]), landmark_tiles=landmarks_look.TILES,
-                       landmarks_on=ST.get("lm") is not None, buildings_before=OLD, buildings_after=NEW, views=VIEWS, shots=ST["res"], gpu=ST["gpu"],
+                       landmarks_on=ST.get("lm") is not None, roads_on=ST.get("roads") is not None,
+                       env={k: v for k, v in os.environ.items() if k.startswith(("GYROSIM_LSHOT", "GYROSIM_LM_", "GYROSIM_SEA", "GYROSIM_ATMOS", "GYROSIM_ROADS", "GYROSIM_LANDMARK"))}, buildings_before=OLD, buildings_after=NEW, views=VIEWS, shots=ST["res"], gpu=ST["gpu"],
                        note="editor PIE on a temporary map copy, no sim server; local terrain / cached photo; lighting = map + monitor preset + atmos_look")
             with open(os.path.join(OUT, "shots.json"), "w", encoding="utf-8") as f:
                 json.dump(res, f, indent=1, ensure_ascii=False)
