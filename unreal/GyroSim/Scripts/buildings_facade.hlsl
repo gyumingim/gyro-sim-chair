@@ -548,6 +548,7 @@ if (podium > 0.5)
     float glyph = step(0.15, frac(gc.x)) * step(frac(gc.x), 0.85) * step(0.18, frac(gc.y)) * step(frac(gc.y), 0.82)
                 * step(0.3, H1(floor(gc.x) * 3.7 + floor(gc.y) * 5.1 + cell.x * 11.0 + cell.y * 3.0));
     float3 gcol = (dot(scl, 0.333.xxx) > 0.5) ? float3(0.10, 0.10, 0.12) : float3(0.95, 0.93, 0.85);
+    scl = lerp(dot(scl, 0.333.xxx).xxx, scl, 0.75);          // a bit less candy
     scl = lerp(scl, gcol, glyph * saturate(1.5 - fw.x * 7.0));
     ST_SIGN = sbm * nearD + sbm * far * 0.6;
     SIGNC = scl;
@@ -612,6 +613,8 @@ float3 insN = onGlass ? gN : nRev;
 float3 avgIn = lerp(glass, rev, 0.25);
 insC = lerp(insC, avgIn, far);
 insN = normalize(lerp(insN, Nn, far));
+insR = lerp(insR, lerp(gRough, 0.8, 0.25 * (1.0 - glassMetal)), far);   // round 2: far glass keeps its gloss (was matte where reveals won)
+insM = lerp(insM, gMetal, far);
 float m = lerp(open, area, far);
 float3 col = lerp(w, insC, m);
 Rough = lerp(wr, insR, m);
