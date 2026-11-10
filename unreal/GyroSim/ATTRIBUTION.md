@@ -55,3 +55,10 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 - 실제 부대 표식(꼬리 코드·부대 띠·국적/부대 로고 객체)은 뺐다. 타이어 옆면의 상표·문구는 `airframe_tex.py` 가 지운 파생 텍스처를 쓴다.
 - 도장 재질 `M_GyroAirframe`, 패널선·리벳 노멀/마스크 계산, 항법등·충돌방지등: 우리 코드.
 - 엔진·바람 소리 (`Art/Sounds/*.wav`): 녹음 없이 `make_sounds.py` 가 노이즈·사인파로 합성한 우리 소리 (외부 음원 없음).
+
+## 3D 나무 v2 (11-10, `sim/veg_v2.py`, `sim/veg_proxy.py`)
+- 나무 모양·재질·잎 무늬·바닥 숲 무늬(`Scripts/trees_foliage2.hlsl`, `ground_look.hlsl` 숲 부분): 우리 코드 (외부 텍스처 없음).
+- 활엽수 3 종의 수관 모양: Fab 의 Quixel Megascans "Tree English Oak Forest 01" / "Tree Black Alder 01" (사용자가 직접 받음, Fab 표준 라이선스 —
+  Unreal Engine 안에서만) 에서 잎 위치·줄기 축만 뽑은 덩어리 근사 (`veg_proxy.py`). 원본·근사 파일·타일은 모두 git 밖
+  (`C:\GyroSimTiles\assets\trees_src`, `C:\GyroSimTiles\veg\protos_fab`, `tiles_v2`). 저장소에 올리지 않음.
+- 안 쓴 것 (라이선스 불명 또는 형식): 3ds Max 단풍나무 팩, 크리스마스트리 .blend 팩, Mobile Trees (docs/fab-trees.md).
