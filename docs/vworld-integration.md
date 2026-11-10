@@ -675,6 +675,40 @@ sim_client._vworld_ground      vworld + 로컬 지형이면 다리 다음에 tre
 - **남은 것 / 확인 안 한 것**: 실제 Play (서버 연결, 맵에 액터) 화면과 VR 헤드셋, 종 비율, 먼 지형 LOD 에서 밑동이 1–3 m 묻히거나 뜰 수 있음,
   나무 충돌 없음 (서버도 모름), 바람·계절 없음, 100 m 안 가까이는 단순한 덩어리 모양.
 
+## 6-6. 나무 v2 — 공 나무 대신 숲 (11-10 저녁)
+
+문제: v1 나무는 "막대 위 매끈한 초록 공" (나무 하나 = 타원체 1–5 개), 공 사이로 땅이 보이고, 바위·길 사진 위에 흰 나무가 섬.
+고친 것 (`sim/veg_v2.py`, 자리·높이·폭은 6-5 의 `--prep` 그대로):
+
+```
+veg_build.py --prep          ─▶ work\b_*.npz (6-5, 지형 고정 뒤 다시 구움: coastfix + 해안 지형)
+veg_proxy.py --out protos_fab broad=<USD> ...   ─▶ C:\GyroSimTiles\veg\protos_fab\broad_<k>.npz (받은 모델의 수관 모양, git 밖)
+veg_v2.py --tiles            ─▶ C:\GyroSimTiles\veg\tiles_v2 (편집기가 돌면 tiles_v2_tmp 에 두고, 편집기 없을 때 --swap)
+Scripts/trees_material.py    ─▶ /Game/Trees/M_GyroTree2 (+ M_GyroTree2W 바람), trees_foliage2.hlsl
+trees_look.py                Play 때 v2 타일 + M_GyroTree2 (토글은 아래)
+```
+
+- **모양**: 가지 뼈대 위 잎 덩어리 (덩어리 = 흔든 20 삼각형 정이십면체). 소나무 2 종 (휜 주황 줄기, 가지 끝 바늘잎 덩어리, 납작·불규칙),
+  곰솔/어린 소나무 1 종, 활엽수 3 종 (**사용자가 받은 Fab Megascans English Oak Forest / Black Alder 의 잎 위치를 k-means 로 14 덩어리로 줄인 모양**),
+  관목 1 종. 가까운 나무 140–400 삼각형, 먼 나무 (1–2.6 km) 24–32 삼각형 (공 1 개 대신 덩어리 3–4 개).
+- **자기 그늘**: 꼭짓점 AO (수관 안쪽·아래쪽 어둡게), 덩어리 법선을 수관 겉면 쪽으로 섞음. 재질은 Two Sided Foliage (잎 투과광).
+- **종 (가정, 임상도 없음)**: 30 m DEM 의 능선/골짜기 (높이 − 480 m 평균), 남서 사면, 바다 300 m 안 (곰솔), 450 m 위 (참나무 조금 더) + v1 사진 점수.
+  결과 소나무 47 % (능선 71 %, 골짜기 11 %), 관목 58 만.
+- **색**: 종별 잎 반사율 (선형) × 사진 밝기 (√, 0.75–1.3 로 자름). 실사진 금정산 숲 화소 sRGB (67, 82, 51) 에 맞춰 파랑 올리고 밝기 내림
+  (첫 판 (71, 90, 45)). 나무마다 PerInstanceRandom 으로 밝기 ±12 %·색조 변화, 계절 파라미터 Season (0 = 여름).
+- **바위**: 수관 아래 사진이 밝고 회색이면 나무 안 세움 (3.7 만 그루) → 금정산 화강암·이기대 절벽이 사진 그대로 보임. v1 의 흰 나무 없어짐.
+- **닫힌 숲**: 수관 반경 = 주변 간격 × 0.7 (v1 0.6).
+- **해안**: 해안 지형(코스트 에이전트, 11-10 21:29 고정)의 `coast_build.rendered_msl − msl` 만큼 밑동을 옮김, OSM 바다 쪽 146 그루 뺌.
+- **먼 산 숲 무늬** (`ground_look.hlsl` CanopyAmp, 사진이 짙은 초록인 곳에 수관 크기 무늬 + 수관별 법선): 코드는 들어갔으나 (e0605d2)
+  **M_GyroGround 를 아직 다시 굽지 않아 화면에 없음** (공용 재질, 해안 작업과 같이 다시 구울 때 들어감). 측정 안 함.
+- **토글**: `GYROSIM_TREES_V2=0` = v1 타일 + M_GyroTree (전), `GYROSIM_TREES_LOOK2=0` = v2 모양에 재질 추가분 끔, `GYROSIM_TREES_CANOPY=0` = 숲 무늬 끔,
+  `GYROSIM_TREES_WIND=1` = 바람 흔들림 (WPO, 기본 끔 — 그림자 캐시 비용 측정 안 함), `GYROSIM_TREES_PROTOS=none` = 받은 모델 모양 안 씀,
+  `GYROSIM_TREES_PROTO_PICK` = 활엽수 3 종에 쓸 근사 번호. 점검: `art_shots.py` 변형 키 `"trees": {"v2": 0|1, "look2": 0|1}` (한 번 실행 안에서 전/후).
+- **수**: 나무 16,488,556 그루, 타일 8,094 개 약 2.4 GB (v1 1.6 GB). 가까운 타일 하나에 노드 (= ISM 컴포넌트 = 그리기 호출) 평균 13.8, 최대 28 (v1 최대 24).
+- **결과·GPU·검토**: 아래 RESULTS 칸 (같은 실행 안 A/B).
+- **남은 것**: 100 m 아래 가까이는 아직 덩어리 나무 (진짜 잎 없음 — Nanite/HISM 로 가까운 나무만 바꾸는 다음 단계), 소나무는 실제 모델 없음
+  (`docs/fab-trees.md` 의 Baltic Pine 받으면 `veg_proxy.py pine=...` 로 바로 바뀜), 금정산 능선 위 낮은 관목 (수관고 3 m 미만) 없음, 바람 비용, VR 헤드셋.
+
 ## 7. 위험 정리
 
 1. 기지 가림: RKTU·군 비행장 주변은 V-World 가 숲으로 덮음 → 활주로 메시와 어긋나 보임. 피할 수 없음.
