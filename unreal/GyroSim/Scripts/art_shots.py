@@ -316,7 +316,7 @@ def tick(dt):
             git = {}
             try:                               # which code made these shots: HEAD + hash of the uncommitted diff
                 import subprocess, hashlib
-                repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                repo = os.path.abspath(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
                 run = lambda *a: subprocess.run(["git", "-C", repo] + list(a), capture_output=True, timeout=20,
                                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
                 git = dict(head=run("rev-parse", "HEAD").decode().strip(),
