@@ -302,6 +302,11 @@ def apply_look(name, world):
         atmos_look.apply(world, name)
     except Exception as e:
         _log("atmos", repr(e))
+    try:                                         # global colour grade (grade_look.py), last: owns the global grade keys
+        import grade_look
+        grade_look.apply(world, name)
+    except Exception as e:
+        _log("grade", repr(e))
 
 
 def _realism_v2(name, world):

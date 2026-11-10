@@ -122,6 +122,13 @@ if "-gyrosimatmosshots" in _cmd:
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "atmos_shots.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_atmos_shots"})
 
+# Busan colour grade before-after shots + GPU (developer use, Scripts/grade_shots.py): a SECOND editor launched with
+# -GyroSimGradeShots -RenderOffscreen stops its own sim client (never talks to the server) and quits when done.
+if "-gyrosimgradeshots" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "grade_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_grade_shots"})
+
 # Busan OSM bridges / elevated roads before-after shots (developer use, Scripts/roads_shots.py): a SECOND editor launched with
 # -GyroSimRoadShots -RenderOffscreen stops its own sim client (never talks to the server) and quits when done.
 if "-gyrosimroadshots" in _cmd:

@@ -36,9 +36,9 @@ AIR = dict(
              aerial_pespective_view_distance_scale=1.0),
     # the old height fog had a fixed blue in-scatter colour (no sun direction): now mostly the sky atmosphere does the haze
     fog=dict(fog_density=0.00002, fog_height_falloff=0.2),
-    # photo-like grade: the hazier air lowers contrast everywhere; a little global contrast / saturation brings the near
-    # field back to the reference photos' numbers (near-field sigma L* 20-25, chroma 7-13) - measured, not by eye only
-    pp=dict(color_saturation=(1.0, 1.0, 1.0, 1.06), color_contrast=(1.0, 1.0, 1.0, 1.08)),
+    # global colour grade (was saturation x1.06 / contrast x1.08 here): moved to grade_look.py (11-10, single owner;
+    # those values are grade_look.LEGACY = GYROSIM_GRADE=0)
+    pp=dict(),
     # camera-like finish: photos are sharpened in-camera; a light tonemapper sharpen on the monitor only (VR: none,
     # it shimmers on the headset's moving pixels)
     cvars=dict(monitor={"r.Tonemapper.Sharpen": 0.5}, vr={"r.Tonemapper.Sharpen": 0.0}),
