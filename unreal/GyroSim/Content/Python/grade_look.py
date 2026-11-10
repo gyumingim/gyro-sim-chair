@@ -35,11 +35,19 @@ GRADE = dict(
     # bluer sky luminance (realism v2 0.80 / 0.86 / 1.0), sky pixels (and the sky light it captures)
     **{"sky.sky_luminance_factor": (0.42, 0.72, 1.35)},
 )
+# Round 2 (11-10 night): upper sky ~15 % less saturated (critic / local pilot: "too blue"): the sky factor moved 15 % toward
+# its grey mean (0.42, 0.72, 1.35) -> (0.48, 0.74, 1.27). GYROSIM_HAZE_V3=0 = the round-1 factor.
+if os.environ.get("GYROSIM_HAZE_V2", "1") != "0" and os.environ.get("GYROSIM_HAZE_V3", "1") != "0":
+    GRADE["sky.sky_luminance_factor"] = (0.48, 0.74, 1.27)
+# Sun view: the realism v2 hexagon lens flare drew green ghost rings across into-the-sun views (a16). Off, with a slightly
+# stronger convolution bloom (wide veiling glare). GYROSIM_FLARE_OLD=1 = the user-chosen realism v2 flare (0.4) / bloom.
+FLARE_OLD = os.environ.get("GYROSIM_FLARE_OLD", "0") == "1"
+FLARE = {} if FLARE_OLD else dict(lens_flare_intensity=0.0, bloom_intensity=0.8)
 # per preset additions (VR: same colour; nothing preset-specific yet)
-PRESET = {"monitor": {}, "vr": {}}
+PRESET = {"monitor": dict(FLARE), "vr": {}}
 # keys other modules set on every apply_look before this one (sim_client.PRESET_LOOK, realism_v2): overridden when the
 # grade has them, never restored here
-OTHERS = {"vignette_intensity", "bloom_intensity", "local_exposure_shadow_contrast_scale",
+OTHERS = {"vignette_intensity", "bloom_intensity", "lens_flare_intensity", "local_exposure_shadow_contrast_scale",
           "local_exposure_highlight_contrast_scale", "auto_exposure_min_brightness"}
 
 

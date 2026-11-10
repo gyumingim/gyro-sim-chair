@@ -24,7 +24,21 @@ VALUES = dict(
     skylight=dict(lower_hemisphere_is_black=True, lower_hemisphere_color=(0.25, 0.25, 0.235)),
     sky=dict(),
     pp=dict(),
+    cloud=dict(),
+    cloudmat=dict(),
 )
+# Round 2 (atmos_look.HAZE_V3, GYROSIM_HAZE_V3=0 = round 1): the denser near fog now lifts shadowed / back-lit terrain, so the
+# lower hemisphere goes back down (0.25 lifted the city's darkest 5 % to L* 21.6 vs photos 12.6). Clouds: salmon / beige
+# at noon with flat bright bases -> darker sky-lit bases (bottom occlusion 0.6 -> 0.85) and a slightly cool albedo
+# (0.98 grey -> (0.94, 0.95, 1.0); (0.85, 0.9, 1.0) turned back-lit clouds lavender in the sweep).
+try:
+    import atmos_look as _al
+    if _al.HAZE_V3:
+        VALUES["skylight"]["lower_hemisphere_color"] = (0.15, 0.15, 0.14)
+        VALUES["cloud"] = dict(sky_light_cloud_bottom_occlusion=0.85)
+        VALUES["cloudmat"] = dict(Cloud_AlbedoColor=(0.94, 0.95, 1.0, 0.5))
+except Exception:
+    pass
 
 
 def _actors(world, cls):
@@ -38,9 +52,10 @@ def apply(world, preset="monitor", on=None):
     import atmos_look
     _get, _set = atmos_look._get, atmos_look._set
     try:
-        orig = STATE["orig"].setdefault(world.get_path_name(), dict(skylight={}, sky={}, pp={}))
+        orig = STATE["orig"].setdefault(world.get_path_name(), dict(skylight={}, sky={}, pp={}, cloud={}, cloudmat={}))
         for tag, cls, ccls in (("skylight", unreal.SkyLight, unreal.SkyLightComponent),
-                               ("sky", unreal.SkyAtmosphere, unreal.SkyAtmosphereComponent)):
+                               ("sky", unreal.SkyAtmosphere, unreal.SkyAtmosphereComponent),
+                               ("cloud", unreal.VolumetricCloud, unreal.VolumetricCloudComponent)):
             for a in _actors(world, cls):
                 c = a.get_component_by_class(ccls)
                 if c is None:
@@ -61,6 +76,17 @@ def apply(world, preset="monitor", on=None):
                 if on or v0 is not None:
                     _set(ps, k, v if on else v0, "pp")
             a.set_editor_property("settings", ps)
+        for a in _actors(world, unreal.VolumetricCloud):       # cloud material (realism v2's dynamic instance of MI_Clouds)
+            c = a.get_component_by_class(unreal.VolumetricCloudComponent)
+            m = c.get_editor_property("material") if c else None
+            if not isinstance(m, unreal.MaterialInstanceDynamic):
+                continue
+            for k, v in VALUES["cloudmat"].items():
+                if k not in orig["cloudmat"]:
+                    x = m.get_vector_parameter_value(k)
+                    orig["cloudmat"][k] = (x.r, x.g, x.b, x.a)
+                want = v if on else orig["cloudmat"][k]
+                m.set_vector_parameter_value(k, unreal.LinearColor(*want))
         log(preset, "on" if on else "off (map values)")
     except Exception as e:
         log("apply failed", repr(e))

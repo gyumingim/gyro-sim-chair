@@ -65,8 +65,22 @@ SUN_ROT = (-SUN_EL, SUN_AZ - 180.0)
 HAZE_V2 = os.environ.get("GYROSIM_HAZE_V2", "1") != "0"
 HAZE_FOG = dict(fog_density=0.0008, fog_height_falloff=0.012, start_distance=300000.0,
                 fog_inscattering_luminance=(0.35, 0.45, 0.6))
+# Round 2 (11-10 night, GYROSIM_HAZE_V3=0 = the round-1 values above): local pilot 6/10 "too clean and too blue", critic:
+# backlit ridge at ~3 km a black cutout (the fog only started at 3 km), down views from 300-500 m too crisp, sea / sky
+# not melting into a pale band. Sweep s1 (same run, frozen clouds, C:/GyroSimTiles/shots/haze/s1):
+#  - fog from 0.3 km (in-scatter on shadowed / back-lit terrain too: it does not depend on the surface lighting), 1.5x
+#    denser, neutral milky grey in-scatter (the engine light blue read blue; beige (0.47, 0.45, 0.41) pushed far land to
+#    b* -0.1 vs photos -5.4), a warm sun-side glow (directional in-scatter) for into-the-sun views;
+#  - Mie colour less blue (0.62 : 0.78 : 1 instead of 0.45 : 0.70 : 1): blue only where the Rayleigh / Mie path is long.
+HAZE_V3 = HAZE_V2 and os.environ.get("GYROSIM_HAZE_V3", "1") != "0"
+HAZE_FOG_V3 = dict(fog_density=0.0012, start_distance=30000.0, fog_inscattering_luminance=(0.43, 0.44, 0.44),
+                   directional_inscattering_luminance=(0.25, 0.22, 0.17), directional_inscattering_exponent=6.0,
+                   directional_inscattering_start_distance=0.0)
 if HAZE_V2:
     AIR["fog"] = dict(AIR["fog"], **HAZE_FOG)
+if HAZE_V3:
+    AIR["fog"].update(HAZE_FOG_V3)
+    AIR["sky"] = dict(AIR["sky"], mie_scattering=(0.62, 0.78, 1.0))
 
 # ---- ground material parameters (MI_GyroGround; defaults of M_GyroGround) ---------------------------------------------
 GROUND = dict(
