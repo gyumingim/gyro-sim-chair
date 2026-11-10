@@ -237,7 +237,7 @@ def uvpx(u, v):
     return u * OUT, (1 - v) * OUT
 
 
-def decals(base, rough, ln, z, names, posf, nrmf):
+def decals(base, rough, ln, z, names, posf, nrmf, cov):
     """round 3 'toy-clean' fixes, all generic (no real unit): gear bays painted as closed doors, fin sides in the fin grey
     with a generic code 'GS 01', missiles light grey, walkway outlines and NO STEP text on the wing tops (placed from
     the 3D position of each texel), small rescue / warning style stencils without real wording."""
@@ -282,11 +282,6 @@ def decals(base, rough, ln, z, names, posf, nrmf):
     blue, white = (np.array([22, 58, 128]) / 255.0) ** 2.2, (np.array([226, 228, 230]) / 255.0) ** 2.2
     base[y0:y0 + cap_h, x0:x1] = np.where(chk[..., None], blue, white)
     rough[y0:y1, x0:x1] = 0.55
-    # missiles
-    u0, v0, u1, v1 = MISSILE_RECT
-    mx0, my1 = uvpx(u0, v0); mx1, my0 = uvpx(u1, v1)
-    base[int(my0):int(my1), int(mx0):int(mx1)] = (np.array([206, 208, 210]) / 255.0) ** 2.2
-    rough[int(my0):int(my1), int(mx0):int(mx1)] = 0.38
     # walkway outlines / NO STEP on the wing tops: texel 3D position at 4K (bilinear from the 1K maps)
     P4 = np.stack([zoom(posf[..., c].astype(np.float32), OUT / posf.shape[0], order=1) for c in range(3)], -1)
     nz4 = zoom(nrmf[..., 2].astype(np.float32), OUT / nrmf.shape[0], order=1)
@@ -312,7 +307,9 @@ def decals(base, rough, ln, z, names, posf, nrmf):
     log("walkway texels", int(walk.sum()))
     # national insignia: a generic taegeuk-style roundel (no unit art) on the intake sides and the wing tops,
     # RESCUE arrow under the canopy rail - placed at the texel nearest to a 3D point with a matching normal
-    side4 = np.abs(zoom(nrmf[..., 1].astype(np.float32), OUT / nrmf.shape[0], order=1)) > 0.75
+    cov4 = zoom(cov.astype(np.float32), OUT / cov.shape[0], order=0) > 0.5
+    side4 = (np.abs(zoom(nrmf[..., 1].astype(np.float32), OUT / nrmf.shape[0], order=1)) > 0.75) & cov4
+    top = top & cov4
 
     def nearest(pt, mask):
         d = np.where(mask, np.sqrt(((P4 - np.array(pt)) ** 2).sum(-1)), 1e9)
@@ -354,6 +351,12 @@ def decals(base, rough, ln, z, names, posf, nrmf):
     ra[..., :3] = ra[..., :3] ** 2.2
     hits += [stamp(ra, nearest((390.0, s * 62.0, 55.0), side4)) for s in (-1, 1)]
     log("insignia / rescue stamps placed", hits)
+    # missiles
+    u0, v0, u1, v1 = MISSILE_RECT
+    mx0, my1 = uvpx(u0, v0); mx1, my0 = uvpx(u1, v1)
+    base[int(my0):int(my1), int(mx0):int(mx1)] = (np.array([206, 208, 210]) / 255.0) ** 2.2
+    rough[int(my0):int(my1), int(mx0):int(mx1)] = 0.38
+
 
 
 def main():
@@ -432,7 +435,7 @@ def main():
     base = (paint * pm4 + orig4 * (1 - pm4)) * (0.85 + 0.15 * ao4[..., None])
     ln = ln * pm4[..., 0]; rivet = rivet * pm4[..., 0]
     rough4 = rough4.copy()
-    decals(base, rough4, ln, z, names, posf, nrmf)
+    decals(base, rough4, ln, z, names, posf, nrmf, cov)
     Image.fromarray(np.clip(base ** (1 / 2.2) * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_af2_base.png")
     # normal: lines recessed, rivets domed
     h = gaussian_filter(-ln * 1.0 + rivet * 0.6, 1.0)

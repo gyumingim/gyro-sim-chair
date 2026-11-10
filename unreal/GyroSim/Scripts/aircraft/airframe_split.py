@@ -163,6 +163,20 @@ def fix_uv(arr):
                 u[left] = u0 + u1 - u[left]
                 v = v0 + (F_[:, :, 2] - FIN_Z[0]) / (FIN_Z[1] - FIN_Z[0]) * (v1 - v0)
                 UV[idx[on_fin]] = np.stack([u, v], -1)
+    # round 4: ALL fin / rudder side faces (not only the zero-UV ones) get the planar fin-rect mapping, so the fin code,
+    # serial and fin cap cover the whole side
+    Pa = V[T]
+    ca = Pa.mean(1)
+    fn_a = np.cross(Pa[:, 1] - Pa[:, 0], Pa[:, 2] - Pa[:, 0])
+    side = (np.abs(ca[:, 1]) < 8.0) & (ca[:, 2] > 110.0) & (ca[:, 0] < -350.0) &            (np.abs(fn_a[:, 1]) > 0.7 * np.linalg.norm(fn_a, axis=1))
+    if side.any():
+        u0, v0, u1, v1 = FIN_RECT
+        Fs = Pa[side]
+        u = u0 + (Fs[:, :, 0] - FIN_X[0]) / (FIN_X[1] - FIN_X[0]) * (u1 - u0)
+        left = Fs[:, :, 1].mean(1) < 0.3
+        u[left] = u0 + u1 - u[left]
+        v = v0 + (Fs[:, :, 2] - FIN_Z[0]) / (FIN_Z[1] - FIN_Z[0]) * (v1 - v0)
+        UV[side] = np.stack([u, v], -1)
     c = V[T].mean(1)
     fin = (np.abs(c[:, 1]) < 8.0) & (c[:, 2] > 110.0) & (c[:, 0] < -350.0) & (np.abs(N.mean(1)[:, 1]) > 0.5)
     flips = 0
