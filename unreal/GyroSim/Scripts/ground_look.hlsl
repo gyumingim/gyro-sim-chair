@@ -100,6 +100,19 @@ if (CanopyAmp > 0.0)
     float vegc = saturate((C.g - max(C.r, C.b)) * 30.0) * saturate((mxc - mnc) / max(mxc, 1e-4) * 4.0) * (1.0 - smoothstep(0.08, 0.16, lum));
     float footc = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;
     float wc = vegc * saturate(1.5 - footc / (CanopyM / 3.0)) * (1.0 - m) * CanopyAmp;
+    // round 2: (a) the photo ground between / under the 3D trees reads as lawn -> darker, greyer under the forest mask (all
+    // distances); (b) far away, where single crowns are < 3 px, stand-sized light / dark patches (CanopyFarM m value noise)
+    // keep the slopes rough instead of flat paint
+    float vu = vegc * (1.0 - m) * CanopyAmp;
+    g = lerp(g, lerp(dot(g, float3(0.2126, 0.7152, 0.0722)).xxx, g, 1.0 - CanopyDesat) * (1.0 - CanopyUnder), vu);
+    {
+        float2 fq = P.xy * 0.01 / CanopyFarM, fi = floor(fq), ff = fq - fi, fu = ff * ff * (3.0 - 2.0 * ff);
+        #define CF_H(a) frac(sin(dot((a), float2(41.3, 289.1))) * 15731.743)
+        float fv = lerp(lerp(CF_H(fi), CF_H(fi + float2(1, 0)), fu.x), lerp(CF_H(fi + float2(0, 1)), CF_H(fi + float2(1, 1)), fu.x), fu.y);
+        #undef CF_H
+        float wf = vu * saturate(footc / (CanopyM / 3.0) - 0.5) * saturate(1.5 - footc / (CanopyFarM / 3.0));
+        g *= 1.0 + CanopyFarAmp * (fv * 2.0 - 1.0) * wf;
+    }
     if (wc > 0.001)
     {
         float2 q = P.xy * 0.01 / CanopyM, ci = floor(q);
