@@ -342,7 +342,7 @@ else if (style == 4)
     float v4 = fmod(seed, 6.0);                              // stone / stained concrete / tile / brick / spandrel / paint
     stone = (v4 < 1.0) ? 1.0 : 0.0; conc = (v4 == 1.0) ? 1.0 : 0.0; tile = (v4 == 2.0) ? 1.0 : 0.0; brick = (v4 == 3.0) ? 1.0 : 0.0;
     if (v4 == 4.0) { win = float4(0.03, 0.97, 0.32, 0.86); win2 = float4(0, 0, 0, 0); mull = 3.0; spand = 1.0; }   // office band glazing
-    vsign = (fmod(floor(seed / 6.0), 3.0) < 1.0 && fmod(cell.x + seed, 4.0) == 0.0) ? 1.0 : 0.0;           // big vertical sign column
+    // (round 3 vertical sign columns on all floors of style 4 removed in round 4: review "confetti up the facade"; podium keeps them)
     acUnit = (stone < 0.5 && bayH2 < 0.12) ? 1.0 : 0.0;
 }
 else if (style == 5)     { win = float4(0.06, 0.94, 0.78, 0.90); mull = 4.0; bayM = 600.0; floorM = 600.0; wallRough = 0.5; wallMetal = 0.35; dR = 8.0; }
@@ -526,7 +526,7 @@ if (stone > 0.5)                                             // granite / stone 
 float vcl = clamp(dot(VC.rgb, float3(0.3, 0.59, 0.11)) / 0.55, 0.35, 1.15);
 if (tile > 0.5)                                              // ceramic tiles ~15 cm (beige / brown / white / grey-green)
 {
-    float3 tcs[4] = { float3(0.62, 0.52, 0.40), float3(0.40, 0.28, 0.20), float3(0.80, 0.78, 0.72), float3(0.48, 0.52, 0.47) };
+    float3 tcs[4] = { float3(0.62, 0.52, 0.40), float3(0.40, 0.28, 0.20), float3(0.80, 0.78, 0.72), float3(0.50, 0.49, 0.47) };   // grey-green tile -> warm grey (review: mottled green)
     float3 tc = tcs[(int)fmod(floor(seed / 3.0), 4.0)];
     float2 tq = uvF * float2(bayM, floorM) / 15.0;
     float2 tfw = fw * float2(bayM, floorM) / 15.0;
@@ -553,7 +553,7 @@ if (spand > 0.5)
 }
 if (cbay > 0.5)
 {
-    float3 cbc[5] = { float3(0.45, 0.16, 0.10), float3(0.10, 0.28, 0.30), float3(0.30, 0.32, 0.40), float3(0.55, 0.42, 0.20), float3(0.22, 0.30, 0.18) };
+    float3 cbc[5] = { float3(0.45, 0.16, 0.10), float3(0.10, 0.28, 0.30), float3(0.30, 0.32, 0.40), float3(0.55, 0.42, 0.20), float3(0.40, 0.36, 0.32) };
     w = lerp(w, cbc[(int)fmod(floor(seed / 3.0), 5.0)] * vcl, 0.85);
 }
 if (style == 6 || style == 7) w = lerp(wall, gtint * 0.9, 0.45);   // spandrel panels between the glass bands
