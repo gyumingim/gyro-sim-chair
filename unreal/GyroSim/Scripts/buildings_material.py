@@ -60,12 +60,15 @@ def build():
         log("world position offset option", repr(e))
 
     sun = X(unreal.MaterialExpressionSkyAtmosphereLightDirection, -1100, 700)     # direction to the sun (light index 0)
+    art = X(unreal.MaterialExpressionScalarParameter, -1100, 800)                   # art pass 11-10 on / off (buildings_look)
+    art.set_editor_property("parameter_name", "ArtFix")
+    art.set_editor_property("default_value", 1.0)
     cu = X(unreal.MaterialExpressionCustom, -500, 0)
     cu.set_editor_property("code", open(HLSL, encoding="utf-8").read())
     cu.set_editor_property("description", "GyroFacade")
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ins = []
-    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L"):
+    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A"):
         ci = unreal.CustomInput()
         ci.set_editor_property("input_name", n)
         ins.append(ci)
@@ -83,7 +86,7 @@ def build():
         cu.post_edit_change()
     except Exception:
         pass
-    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L")):
+    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A")):
         if src is vc:                                                    # VertexColor "" is RGB: append A -> RGBA
             app = X(unreal.MaterialExpressionAppendVector, -800, 250)
             MEL.connect_material_expressions(vc, "", app, "A")

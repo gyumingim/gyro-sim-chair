@@ -64,6 +64,10 @@ GROUND = dict(
     # at 0.13 / 0.37 m, full on vegetation, 55 % on grey ground / roads, 25 % on bright roofs, faded 150 -> 700 m
     DetailAmp=0.07, DetailL1=0.13, DetailL2=0.37, DetailVeg=1.0, DetailGrey=0.55, DetailBright=0.25,
     DetailNear=150.0, DetailFar=700.0,
+    # art pass 11-10 (ground_look.hlsl, SeaArt 1 only in MI_GyroGround via SEA_ART): sea without a visible wave-texture
+    # repeat - rotated second copy of the small octaves, rough / calm patches (noise SeaMacroM m, +-SeaMacroAmp), small
+    # octaves faded by screen footprint
+    SeaArt=0.0, SeaMacroM=420.0, SeaMacroAmp=0.5,
 )
 GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
 # Sea pass 11-10 (GYROSIM_SEA_LOOK=0 = the 11-09 values above, MI_GyroGround_Sea0). Measured on the landmark shots
@@ -81,6 +85,13 @@ GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
 # against the photo's teal (54, 115, 120) - and Gwangan bridge view (31, 70, 119) vs (40, 89, 141): a bit greener, less blue.
 SEA_NEW = dict(DeepColor=(0.030, 0.085, 0.165), WaveStrength=0.2)
 SEA_ON = os.environ.get("GYROSIM_SEA_LOOK", "1") != "0"
+# Art pass 11-10 (docs/art-busan.md): GYROSIM_SEA_ART=0 = the sea of SEA_NEW (dynamic instance at Play).
+# Measured (SegFormer sea region, median of the sweep views vs 66 real photos with sea, refs/grade): SEA_NEW sea C* 22-25 /
+# hue 263-265 / b* -21..-25 (royal blue) vs photos 14.4 / 241 / -12.1 (steel / teal blue). Most of the colour is the
+# reflected (blue-graded) sky: a slightly lower water specular (0.19: F0 0.015, grazing reflection ~0.75) and rougher
+# water (reflections blur toward the pale horizon) + a greener deep colour. Sweep: (0.040, 0.100, 0.115) / spec 0.18 hit
+# C* 14.1 but hue 223 (too green); (0.035, 0.090, 0.140) / spec 0.20 C* 18.5 / hue 257; this is in between.
+SEA_ART = dict(SeaArt=1.0, DeepColor=(0.038, 0.096, 0.128), WaterRough=0.115, WaterRoughFar=0.29, WaterSpec=0.19)
 GROUND_MI_SEA0 = "/Game/Materials/Ground/MI_GyroGround_Sea0"
 
 
@@ -199,15 +210,25 @@ def apply_ground(tileset, on=None):
             m = unreal.load_asset(GROUND_MI if SEA_ON else GROUND_MI_SEA0)     # Sea0 = the sea before 11-10
         except Exception:
             m = None
-    if m is not None and not GROUND_SHARP:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's
+    off = {}
+    if m is not None and SEA_ON and os.environ.get("GYROSIM_SEA_ART", "1") == "0":
+        off.update({k: dict(GROUND, **SEA_NEW)[k] for k in SEA_ART})
+    if m is not None and not GROUND_SHARP:
+        off["DetailAmp"] = 0.0
+    if off:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's
         try:                                     # parameter values onto every tile's material)
-            m = unreal.KismetMaterialLibrary.create_dynamic_material_instance(tileset, m)
-            m.set_scalar_parameter_value("DetailAmp", 0.0)
+            m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
+            for k, v in off.items():
+                if isinstance(v, (tuple, list)):
+                    m.set_vector_parameter_value(k, unreal.LinearColor(*(list(v) + [1.0])[:4]))
+                else:
+                    m.set_scalar_parameter_value(k, float(v))
         except Exception as e:
-            log("ground sharp off failed", repr(e))
+            log("ground params off failed", repr(e))
     try:
         tileset.set_editor_property("material", m)
-        log("ground material", (GROUND_MI if SEA_ON else GROUND_MI_SEA0) if m else "Cesium default", "sharp", GROUND_SHARP)
+        log("ground material", (GROUND_MI if SEA_ON else GROUND_MI_SEA0) if m else "Cesium default", "sharp", GROUND_SHARP,
+            "sea art", os.environ.get("GYROSIM_SEA_ART", "1"))
     except Exception as e:
         log("ground material failed", repr(e))
     return m is not None

@@ -111,7 +111,7 @@ def build():
     EAL.save_asset(MAT, only_if_is_dirty=False)
     mi = EAL.duplicate_asset(SRC_MI, MI)
     MEL.set_material_instance_parent(mi, m)
-    atmos_look.write_ground_params(mi, dict(atmos_look.GROUND, **atmos_look.SEA_NEW))
+    atmos_look.write_ground_params(mi, {**atmos_look.GROUND, **atmos_look.SEA_NEW, **atmos_look.SEA_ART})
     EAL.save_asset(MI, only_if_is_dirty=False)
     # the sea before the 11-10 pass (GYROSIM_SEA_LOOK=0): the 11-09 values, waves without the grazing fix
     if EAL.does_asset_exist(atmos_look.GROUND_MI_SEA0):

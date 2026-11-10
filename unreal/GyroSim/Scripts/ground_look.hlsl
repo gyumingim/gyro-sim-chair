@@ -69,7 +69,35 @@ float2 n1 = Texture2DSample(WaveTex, WaveTexSampler, uv1).xy * 2.0 - 1.0;
 float2 n2 = Texture2DSample(WaveTex, WaveTexSampler, uv2).xy * 2.0 - 1.0;
 float2 n3 = Texture2DSample(WaveTex, WaveTexSampler, uv3).xy * 2.0 - 1.0;
 float near = 1.0 - fade;
-float2 nxy = (n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStrength * 0.5 * (1.0 - 0.5 * fade);
+float macroW = 1.0;
+// ---- art pass 11-10 (SeaArt 1; GYROSIM_SEA_ART=0 -> 0 = the sea before): from 100-1000 m the one wave texture repeated
+// every ~18 m / 7 m read as a regular waffle grid of the same ripples to the horizon. Real sea from the air: patches of
+// rougher and calmer water (wind gusts / slicks, hundreds of m), no visible repeat. (1) a second, rotated / rescaled copy
+// of each small octave blended in by a smooth large-scale noise (no repeat at the texture period), (2) wave strength
+// modulated by a slower noise (SeaMacroM m, +-SeaMacroAmp), (3) the small octaves fade out by screen footprint (a pixel
+// larger than ~1/8 of their wavelength only shows their tiling, not waves).
+if (SeaArt > 0.5)
+{
+    float2 wm2 = P.xy * 0.01;
+    #define SA_H(a) frac(sin(dot((a), float2(127.1, 311.7))) * 43758.5453)
+    float2 mq = wm2 / SeaMacroM, mi = floor(mq), mf = mq - mi, mu = mf * mf * (3.0 - 2.0 * mf);
+    float mv = lerp(lerp(SA_H(mi), SA_H(mi + float2(1, 0)), mu.x), lerp(SA_H(mi + float2(0, 1)), SA_H(mi + float2(1, 1)), mu.x), mu.y);
+    float2 bq = wm2 / (WaveScale * 0.01 * 3.1), bi = floor(bq), bf = bq - bi, bu = bf * bf * (3.0 - 2.0 * bf);
+    float bv = lerp(lerp(SA_H(bi), SA_H(bi + float2(1, 0)), bu.x), lerp(SA_H(bi + float2(0, 1)), SA_H(bi + float2(1, 1)), bu.x), bu.y);
+    #undef SA_H
+    float2 uv1b = float2(P.x * 0.79 + P.y * 0.61, -P.x * 0.61 + P.y * 0.79) / (WaveScale * 1.37) + T * float2(0.009, 0.012);
+    float2 uv2b = float2(P.x * 0.26 - P.y * 0.97, P.x * 0.97 + P.y * 0.26) / (WaveScale * 0.53) + T * float2(0.014, -0.008);
+    float2 n1b = Texture2DSample(WaveTex, WaveTexSampler, uv1b).xy * 2.0 - 1.0;
+    float2 n2b = Texture2DSample(WaveTex, WaveTexSampler, uv2b).xy * 2.0 - 1.0;
+    float bw = smoothstep(0.3, 0.7, bv);
+    n1 = lerp(n1, n1b, bw) * 1.25;                          // the blend of two lowers the slope variance: keep it
+    n2 = lerp(n2, n2b, 1.0 - bw) * 1.25;
+    float footS = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;                    // m per pixel
+    near *= saturate(1.5 - footS / (WaveScale * 0.01 / 8.0));                          // octave 1 (WaveScale)
+    macroW = 1.0 + SeaMacroAmp * (mv * 2.0 - 1.0);
+    n2 *= saturate(1.5 - footS / (WaveScale * 0.01 * 0.37 / 8.0));                     // octave 2, own footprint
+}
+float2 nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStrength * 0.5 * (1.0 - 0.5 * fade)) * macroW;
 float3 tx = normalize(cross(float3(0.0, 1.0, 0.0), up));                          // ~ north on the sea plane
 float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);

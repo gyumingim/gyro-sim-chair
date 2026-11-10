@@ -164,3 +164,10 @@ if "-gyrosimcockpitshots" in _cmd and "-run=" not in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "aircraft", "cockpit_shots.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_cockpit_shots"})
+
+# Art-direction survey / before-after shots + GPU (developer use, Scripts/art_shots.py): a SECOND editor launched with
+# -GyroSimArtShots -RenderOffscreen stops its own sim client (never talks to the server) and quits when done.
+if "-gyrosimartshots" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "art_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_art_shots"})

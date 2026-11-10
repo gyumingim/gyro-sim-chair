@@ -4,13 +4,16 @@ file:///C:/GyroSimTiles/veg/tiles/tileset.json (GYROSIM_TREES_TILES moves it). G
 Streaming by distance is the tileset itself: nothing beyond ~3 km (empty tiles), one-lump far trees 1-3 km, full trees
 inside ~1 km (REPLACE refinement, veg_build.GE). Instanced meshes (glTF EXT_mesh_gpu_instancing), no physics (the server
 does not know trees either). Called by sim_client._vworld_ground after the roads; credit line in
-sim/vworld_trees_attribution.png (sim_client._attribution uses it when this returned an actor)."""
+sim/vworld_trees_attribution.png (sim_client._attribution uses it when this returned an actor).
+Art pass 11-10: material /Game/Trees/M_GyroTree (Scripts/trees_material.py + trees_foliage.hlsl: leaf clumps, dark gaps,
+per-clump lighting on the vertex-coloured blob crowns); GYROSIM_TREES_ART=0 = Cesium's stock material (the look before)."""
 import os
 import unreal
 
 TILES = os.environ.get("GYROSIM_TREES_TILES", r"C:/GyroSimTiles/veg/tiles").replace("\\", "/")
 TAG = "CesiumTrees"
 SSE = float(os.environ.get("GYROSIM_TREES_SSE", "16"))
+MAT = "/Game/Trees/M_GyroTree"
 
 
 def url():
@@ -66,9 +69,19 @@ def apply(world, log=unreal.log, georef=None):
                 a.set_editor_property(k, v)
             except Exception as e:
                 log("[trees] %s %r" % (k, e))
+        m = None
+        if os.environ.get("GYROSIM_TREES_ART", "1") != "0":
+            try:
+                m = unreal.load_asset(MAT)
+            except Exception:
+                m = None
+        try:
+            a.set_editor_property("material", m)
+        except Exception as e:
+            log("[trees] material %r" % (e,))
         a.set_actor_hidden_in_game(False)
         a.refresh_tileset()
-        log("[trees] on: %s (sse %.0f)" % (u, SSE))
+        log("[trees] on: %s (sse %.0f) material %s" % (u, SSE, MAT if m else "Cesium default"))
         return a
     except Exception as e:
         log("[trees] failed %r" % (e,))

@@ -4,7 +4,8 @@
 //          VC (vertex colour: rgb = wall tint, a = 128 + 64 * end-wall flag + seed 0..63),
 //          R (glTF roughnessFactor = 0.60 + 0.01 * style; 0.8 / 0.95 = older tiles), Tex (baseColorTexture * factor:
 //          roof photo / stock wall module), N (vertex normal, world), V (camera vector, world, surface -> eye),
-//          P (camera-relative world position, cm), L (direction to the sun, SkyAtmosphereLightDirection)
+//          P (camera-relative world position, cm), L (direction to the sun, SkyAtmosphereLightDirection),
+//          A (ArtFix parameter, 11-10 art pass: 1 = on, 0 = the look before; buildings_look GYROSIM_BLDG_ART=0 sets 0)
 // Outputs: return = base colour; Rough, Metal, Spec, NormalWS (world space: the material has tangent space normals off)
 // Styles: 0 plain, 1 house, 2 apartment (balcony glazing + railing panels), 3 shopfront, 4 punched windows,
 //         5 factory panels, 6 office curtain wall (half with deep vertical fins), 7 glass residential tower, 8 ribbon windows
@@ -24,6 +25,19 @@ float a255 = round(VC.a * 255.0);
 float endw = (a255 >= 192.0) ? 1.0 : 0.0;
 float seed = fmod(a255, 64.0);
 float3 wall = VC.rgb * float3(1.05, 1.0, 0.92);             // warmer: the photo-derived tints read lavender under the blue sky light
+// art pass 11-10 (A): Busan photos (refs/grade, 90 photos) have city L* p50 49 / b* -0.1; the renders 58 / +4.0 (too bright,
+// too yellow) and every block in the same grey-white. Per-building paint from a small palette of the colours seen on
+// Busan apartment / office walls (white, cream, pale grey, beige, salmon, grey-blue), +-6 % brightness, a bit darker
+// overall and not warmed (sweep 11-10: x0.9 / warm left city b* +2.1, L* 52.8); the per-building tint (VC) stays the base.
+if (A > 0.5)
+{
+    float3 pal[6] = { float3(1.00, 1.00, 1.00), float3(1.00, 0.96, 0.88), float3(0.90, 0.91, 0.92),
+                      float3(0.96, 0.90, 0.80), float3(1.00, 0.86, 0.80), float3(0.86, 0.90, 0.96) };
+    float pk = frac(sin(seed * 3.731 + 1.7) * 43758.5453);
+    float3 paint = pal[(int)min(pk * 6.0, 5.0)];
+    float pb = 0.94 + 0.12 * frac(sin(seed * 9.17 + 4.3) * 24634.6345);
+    wall = VC.rgb * float3(0.97, 0.98, 1.0) * lerp(1.0.xxx, paint, 0.6) * pb * 0.86;
+}
 
 #define H1(x) frac(sin((x) * 12.9898 + seed * 78.233) * 43758.5453)
 // box-filtered 1D pulse [a, b] in a cell coordinate x with filter width w (anti-aliased edges)
@@ -67,6 +81,7 @@ else if (style == 2)
         win = (fmod(cell.x, 3.0) == 1.0) ? float4(0.35, 0.65, 0.35, 0.72) : float4(0, 0, 0, 0);
         rail = 0.0; dR = 18.0;
         accent = (fmod(cell.x + floor(seed / 16.0), 4.0) == 0.0) ? 1.0 : 0.0;
+        if (A > 0.5) accent *= (cell.y < 3.0 && fmod(seed, 3.0) < 1.0) ? 1.0 : 0.0;   // art pass: no full-height stripes
     }
     accent = max(accent, (cell.y < 1.5 && fmod(seed, 2.0) < 1.0) ? 0.8 : 0.0);
 }
@@ -174,7 +189,8 @@ if (style == 6 && dR > 30.0) rev = lerp(wall, gtint, 0.3) * 0.8 * revAO * lerp(0
 // --- wall finish: tint, accents, slab bands, weathering streaks, patching -------------------------------------------------------
 float3 w = wall;
 if (style == 6 || style == 7) w = lerp(wall, gtint * 0.9, 0.45);   // spandrel panels between the glass bands
-w = lerp(w, acc, saturate(accent) * (1.0 - open));
+float3 accC = (A > 0.5) ? lerp(dot(acc, float3(0.3, 0.59, 0.11)).xxx, acc, 0.6) : acc;   // art pass: muted brand colours
+w = lerp(w, accC, saturate(accent) * (1.0 - open));
 float slab = PULSE(f.y, 0.0, 0.05, fw.y) * (1.0 - far);
 w *= 1.0 - 0.08 * slab;
 float under = (style == 2 && endw < 0.5) ? (1.0 - far) * PULSE(f.y, 0.92, 1.0, fw.y) : 0.0;   // underside of the slab above
