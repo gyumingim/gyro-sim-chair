@@ -77,8 +77,8 @@ if (R > 0.9)
     {
         float3 gp[3] = { float3(0.13, 0.27, 0.19), float3(0.16, 0.30, 0.22), float3(0.11, 0.22, 0.20) };
         base = gp[(int)fmod(rs, 3.0)];
-        float worn = smoothstep(0.62, 0.8, n2 * 0.6 + n3 * 0.4);                  // worn-through patches = grey concrete
-        base = lerp(base, float3(0.32, 0.31, 0.29), worn * 0.8);
+        float worn = smoothstep(0.55 + 0.2 * frac(rs * 0.37), 0.85, n2 * 0.5 + n3 * 0.5);   // worn patches, amount per building
+        base = lerp(base, float3(0.32, 0.31, 0.29), worn * (0.3 + 0.4 * frac(rs * 0.61)));
         Rough = lerp(0.5, 0.85, worn);
     }
     else
@@ -89,9 +89,9 @@ if (R > 0.9)
     }
     // photo as a low-frequency tint only: relative brightness and a little of its hue (no detail)
     float3 tintP = low / max(lowL, 0.02);
-    base *= lerp(1.0.xxx, clamp(tintP, 0.6, 1.5), 0.25) * clamp(lerp(1.0, lowL / 0.35, 0.3), 0.75, 1.25);
+    base *= lerp(1.0.xxx, clamp(tintP, 0.6, 1.5), 0.45) * clamp(lerp(1.0, lowL / 0.35, 0.45), 0.7, 1.3);
     // stains / puddle marks / grain, expansion joints (~6 m), patch repairs
-    float st = smoothstep(0.55, 0.85, n2) * 0.25 + smoothstep(0.6, 0.9, n3) * 0.2;
+    float st = smoothstep(0.6, 0.9, n2) * 0.15 + smoothstep(0.65, 0.95, n3) * 0.12;
     base *= 1.0 - st;
     base *= 1.0 + dg * 0.10 * (n1 - 0.5);
     float2 jq = ap * 0.08 + rs * 0.37;                                            // ~1 joint per 12 atlas texels
@@ -534,7 +534,7 @@ if (style == 3 || (style == 11 && stone < 0.5 && openRoom < 0.5))
 if (podium > 0.5)
 {
     // sign boards over the podium windows (one per bay, most bays): coloured board, light glyph blocks, no brands
-    float has = step(0.25, bayH);
+    float has = step(0.45, bayH) * step(0.3, H1(cell.y * 2.9 + 1.7));   // fewer boards, not on every floor
     float vert = step(0.8, bayH2);                           // a few tall vertical boards at the bay edge
     float sbx0 = vert > 0.5 ? 0.02 : 0.06, sbx1 = vert > 0.5 ? 0.22 : 0.94;
     float sby0 = vert > 0.5 ? 0.08 : 0.48, sby1 = 0.92;

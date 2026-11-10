@@ -778,7 +778,10 @@ def build_glb(D, sel, center):
             RF["P"].append(verts)
             RF["N"].append(np.tile([0.0, 0.0, 1.0], (len(verts), 1)))
             ra = 1.0
-            if V3:
+            # round 2b (review 11-10 23:40): the photo stays on low roofs (it is right there and reads better than any noise);
+            # tall / big roofs, where the ortho lean smears walls, cars and neighbours over them, get the procedural roof
+            lean = float(D["h"][b]) >= 18.0 or float(D["area"][b]) >= 1500.0
+            if V3 and (lean or smp is None):
                 pc = smp["color"] if (smp is not None and smp.get("color") is not None) else None
                 greenish = pc is not None and pc[1] > pc[0] * 1.04 and pc[1] >= pc[2] * 0.97
                 lowrise = cls in (BT.HOUSE,) or upper == BT.ST_VILLA
