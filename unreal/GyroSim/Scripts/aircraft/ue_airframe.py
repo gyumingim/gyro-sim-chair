@@ -116,6 +116,28 @@ def airframe_master(tx):
     nstr = _op(m, unreal.MaterialExpressionMultiply, _sp(m, "NormalStr", 1.0, -1300, 560), detail, -1150, 560)
     n = _lerp(m, _const3(m, (0, 0, 1), -1150, 480), nrm, nstr, -550, 420, "", "RGB", "")
     MEL.connect_material_property(n, "", MP.MP_NORMAL)
+    # light bounced up from the ground / sea (the sky light's lower half is black and Lumen does not see the far Cesium
+    # ground, so the belly went near black, r4): emissive = base x BounceColor x Bounce x saturate(-normal.z)
+    wn = _expr(m, unreal.MaterialExpressionVertexNormalWS, -1300, 900)
+    nz = _expr(m, unreal.MaterialExpressionComponentMask, -1150, 900, r=False, g=False, b=True, a=False)
+    MEL.connect_material_expressions(wn, "", nz, "")
+    down = _expr(m, unreal.MaterialExpressionSaturate, -900, 900)
+    MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionMultiply, nz, _const(m, -1.0, -1150, 980), -1000, 900), "", down, "")
+    # + sky fill on every side (r6: the shaded fin side measured sRGB ~30 against ~170 on the lit nose; real photos keep
+    # the shaded grey around a third of the lit side): amount = Bounce x down + SkyFill x (1 - down)
+    amt = _op(m, unreal.MaterialExpressionAdd, _op(m, unreal.MaterialExpressionMultiply, down, _sp(m, "Bounce", 0.6, -900, 1080), -750, 1050),
+              _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -1000, 1160), down, -900, 1160),
+                  _sp(m, "SkyFill", 0.4, -900, 1240), -750, 1180), -650, 1100)
+    bounce = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, base, _vp(m, "BounceColor", (0.85, 0.85, 0.8), -900, 1000), -750, 950),
+                 amt, -550, 980)
+    MEL.connect_material_property(bounce, "", MP.MP_EMISSIVE_COLOR)
+    # semi-gloss paint: a thin clear coat (sharper sky / sun reflection at grazing angles) over the matte base
+    try:
+        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_CLEAR_COAT)
+        MEL.connect_material_property(_sp(m, "ClearCoat", 0.15, -550, 700), "", MP.MP_CUSTOM_DATA0)
+        MEL.connect_material_property(_sp(m, "ClearCoatRough", 0.35, -550, 780), "", MP.MP_CUSTOM_DATA1)
+    except Exception as e:
+        log("clear coat", repr(e))
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m)
     return m
@@ -313,10 +335,10 @@ def main():
     m = airframe_master(tx)
     lm = light_master()
     folder = TP + "/Materials"
-    mis = dict(paint=instance("MI_AF_Paint", m, folder, scalars=dict(LineDark=0.3, NormalStr=0.7), textures=dict(Paint=tx["tex_f16_paint"], Mask=tx["tex_f16_m"], Nrm=tx["tex_f16_n"])),
-               nozzle_ge=instance("MI_AF_NozzleGE", m, folder, scalars=dict(Detail=0.0, Metal=0.85, Rough=0.38), colors=dict(Tint=(0.75, 0.72, 0.68)),
+    mis = dict(paint=instance("MI_AF_Paint", m, folder, scalars=dict(LineDark=0.25, NormalStr=0.6, Rough=0.5, RoughVar=0.08, GrimeAmt=0.18), textures=dict(Paint=tx["tex_f16_paint"], Mask=tx["tex_f16_m"], Nrm=tx["tex_f16_n"])),
+               nozzle_ge=instance("MI_AF_NozzleGE", m, folder, scalars=dict(Detail=0.0, Metal=0.85, Rough=0.38, ClearCoat=0.0), colors=dict(Tint=(0.75, 0.72, 0.68)),
                                   textures=dict(Paint=tx["tex_nozzle_GE"])),
-               nozzle_ring=instance("MI_AF_NozzleRing", m, folder, scalars=dict(Detail=0.0, Metal=0.8, Rough=0.45), colors=dict(Tint=(0.3, 0.3, 0.3)),
+               nozzle_ring=instance("MI_AF_NozzleRing", m, folder, scalars=dict(Detail=0.0, Metal=0.8, Rough=0.45, ClearCoat=0.0), colors=dict(Tint=(0.3, 0.3, 0.3)),
                                     textures=dict(Paint=tx["tex_nozzle_ring"])))
     light_mi = instance("MI_AF_Light", lm, OWN)
     info, sm = meshes()

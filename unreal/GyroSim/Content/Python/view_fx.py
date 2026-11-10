@@ -4,6 +4,7 @@ rumble, and the engine / wind sound. Everything is small on purpose (cm and tent
 Comfort: the motion is OFF in VR (the headset owns the view; moving the world around the head makes people sick) and
 OFF while the motion chair runs (it already moves the body). Chair = the chair bridge (control/chair_bridge.py) holds
 UDP 127.0.0.1:4210 on this PC (checked every 5 s by trying to bind it), or GYROSIM_CHAIR=1 (=0 forces 'no chair').
+Canopy scratch glints faint and only near the sun, cockpit paint matte (CANOPY / COCKPIT_LOOK, GYROSIM_CKLOOK=0 = before).
 GYROSIM_COCKPIT=0: start in the eye view without the cockpit and no head motion (the old feel). GYROSIM_SHAKE=0: cockpit
 kept, head motion off. GYROSIM_SOUND=0: no sound.
 
@@ -26,6 +27,24 @@ COCKPIT_ON = os.environ.get("GYROSIM_COCKPIT", "1") != "0"
 SHAKE_ON = COCKPIT_ON and os.environ.get("GYROSIM_SHAKE", "1") != "0"
 SOUND_ON = os.environ.get("GYROSIM_SOUND", "1") != "0"
 CHAIR_PORT = 4210
+# canopy (realism v3 glass + fx layer): scratch glints only close to the sun direction and faint (v3: Gain 3, GlintPow 10)
+LOOK_ON = os.environ.get("GYROSIM_CKLOOK", "1") != "0"
+CANOPY = dict(Gain=float(os.environ.get("GYROSIM_CANOPY_GAIN", "0.35")), GlintPow=40.0, AnisoPow=10.0)
+# cockpit paint (M_CkSurface instances): matte painted metal, no grazing sheen, darker, edges worn on the canopy bow;
+# glare shield / panels dark matte (11-10 review: the bow read as smooth plastic, the coaming as glossy)
+COCKPIT_LOOK = {
+    "MI_Frame": dict(Tint=(0.014, 0.015, 0.016), Rough=0.9, RoughVar=0.1, Sheen=0.0, Polish=0.0, Spec=0.15, Wear=0.25, EdgeGain=1.0),
+    "MI_Metal": dict(Tint=(0.18, 0.18, 0.18), Rough=0.6, Sheen=0.0),          # bolt heads on the bow: dull, not white
+    "MI_Chrome": dict(Tint=(0.35, 0.35, 0.35), Rough=0.35),
+    "MI_AntiGlare": dict(Rough=0.96, RoughVar=0.05, Sheen=0.0, Polish=0.0, Spec=0.2),
+    "MI_Panel": dict(Rough=0.88, Sheen=0.0, Polish=0.3, Spec=0.3),
+    "MI_Paint": dict(Tint=(0.07, 0.075, 0.075), Rough=0.8, Sheen=0.0, Polish=0.3, Spec=0.35),
+    "MI_Paint2": dict(Rough=0.8, Sheen=0.0, Polish=0.3, Spec=0.35),
+    "MI_Wall": dict(Rough=0.8, Sheen=0.0, Polish=0.3, Spec=0.35),
+    "MI_Black": dict(Rough=0.8, Sheen=0.0, Spec=0.35),
+    "MI_HUDFrame": dict(Rough=0.8, Sheen=0.0, Polish=0.2, Spec=0.35),
+    "MI_Bezel": dict(Rough=0.7, Sheen=0.0, Spec=0.35),
+}
 SND = dict(engine="/Game/Aircraft/Sounds/SW_EngineLoop", wind="/Game/Aircraft/Sounds/SW_WindLoop")
 
 
@@ -163,29 +182,60 @@ class ViewFx:
 
     # ---- canopy: scratch glints toned down (realism v3 had Gain 3 = bright arcs over the whole sky) ------------------
     def canopy(self, world, now):
-        """every 1 s: canopy materials that are not our dynamic instance (a preset change re-sets them) get one with
-        Gain = GYROSIM_CANOPY_GAIN (default 1.5; 3 = the earlier look)."""
+        """every 1 s: canopy and cockpit materials that are not our dynamic instances (a preset change re-sets them)
+        get one with our values (CANOPY / COCKPIT_LOOK); set_look(False) puts the old values back (A/B shots)."""
         if world is None or now - getattr(self, "ck_t", -1e9) < 1.0:
             return
         self.ck_t = now
         try:
-            gain = float(os.environ.get("GYROSIM_CANOPY_GAIN", "1.5"))
-            for a in unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"):
-                smc = a.get_component_by_class(unreal.StaticMeshComponent)
-                if not smc:
-                    continue
-                for i in range(smc.get_num_materials()):
-                    m = smc.get_material(i)
-                    if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
-                        continue
-                    mid = smc.create_dynamic_material_instance(i, m)
-                    if mid:
-                        mid.set_scalar_parameter_value("Gain", gain)
-                        _log("canopy slot", i, m.get_name(), "Gain", gain)
+            if getattr(self, "look_world", None) is not world:
+                self.look_world, self.look_mids, self.look_on = world, [], LOOK_ON
+            acts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
+            ac = unreal.GameplayStatics.get_all_actors_with_tag(world, "Aircraft")
+            if ac:
+                acts += [a for a in ac[0].get_attached_actors(True, True) if a not in acts]
+            n, names = 0, set()
+            for a in acts:
+                for smc in a.get_components_by_class(unreal.StaticMeshComponent):
+                    for i in range(smc.get_num_materials()):
+                        m = smc.get_material(i)
+                        if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
+                            continue
+                        name = m.get_name()
+                        vals = CANOPY if "Canopy" in name else COCKPIT_LOOK.get(name)
+                        if vals is None:
+                            continue
+                        mid = smc.create_dynamic_material_instance(i, m)
+                        if not mid:
+                            continue
+                        old = {k: (mid.get_scalar_parameter_value(k) if not isinstance(v, tuple) else mid.get_vector_parameter_value(k))
+                               for k, v in vals.items()}
+                        self.look_mids.append((mid, vals, old))
+                        self._apply(mid, vals if self.look_on else old)
+                        n += 1
+                        names.add(name)
+            if n:
+                _log("look: %d material slots (canopy glints / cockpit paint), on=%s" % (n, self.look_on), sorted(names))
         except Exception as e:
             if not getattr(self, "_ck_err", None):
                 self._ck_err = repr(e)
-                _log("canopy", repr(e))
+                _log("canopy / cockpit look", repr(e))
+
+    @staticmethod
+    def _apply(mid, vals):
+        for k, v in vals.items():
+            if isinstance(v, tuple):
+                mid.set_vector_parameter_value(k, unreal.LinearColor(v[0], v[1], v[2], 1.0))
+            elif isinstance(v, unreal.LinearColor):
+                mid.set_vector_parameter_value(k, v)
+            else:
+                mid.set_scalar_parameter_value(k, float(v))
+
+    def set_look(self, on):
+        """True = toned-down canopy glints + matte cockpit paint, False = the values before (A/B)."""
+        self.look_on = on
+        for mid, vals, old in getattr(self, "look_mids", []):
+            self._apply(mid, vals if on else old)
 
     # ---- sound --------------------------------------------------------------------------------------------------
     def sound(self, world, s, dt):

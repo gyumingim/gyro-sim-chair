@@ -75,6 +75,47 @@ def gpu_from_log():
         return None
 
 
+def lighting_report(w, c):
+    """shadow / fog facts for the airframe check: cast shadow flags of the aircraft parts, the sun light's shadow
+    settings, height fog / sky atmosphere present."""
+    r = {}
+    try:
+        parts = [c.aircraft] + list(c.aircraft.get_attached_actors(True, True))
+        cs = {p.get_name(): p.static_mesh_component.get_editor_property("cast_shadow") for p in parts if getattr(p, "static_mesh_component", None)}
+        r["aircraft_parts"], r["cast_shadow_on"] = len(cs), sum(1 for x in cs.values() if x)
+        r["no_shadow"] = sorted(k for k, v in cs.items() if not v)
+        mats = set()
+        for p in parts:
+            for smc in p.get_components_by_class(unreal.StaticMeshComponent):
+                for i in range(smc.get_num_materials()):
+                    m = smc.get_material(i)
+                    if m:
+                        mats.add(m.get_name() if not isinstance(m, unreal.MaterialInstanceDynamic) else "MID:" + (m.parent.get_name() if m.parent else "?"))
+        r["materials"] = sorted(mats)
+        for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.DirectionalLight):
+            lc = a.light_component
+            r.setdefault("sun", []).append({k: lc.get_editor_property(k) for k in ("cast_shadows", "cast_dynamic_shadows", "dynamic_shadow_distance_movable_light",
+                                                                                 "dynamic_shadow_cascades", "contact_shadow_length", "intensity", "atmosphere_sun_light")
+                                            if _has(lc, k)})
+        r["height_fog"] = len(unreal.GameplayStatics.get_all_actors_of_class(w, unreal.ExponentialHeightFog))
+        r["sky_atmosphere"] = len(unreal.GameplayStatics.get_all_actors_of_class(w, unreal.SkyAtmosphere))
+        ext = getattr(c.af, "ext", None)
+        if ext:
+            m = ext.static_mesh_component.get_material(0)
+            r["exterior_mat0"] = m.get_name() if m else None
+    except Exception as e:
+        r["error"] = repr(e)
+    return r
+
+
+def _has(o, k):
+    try:
+        o.get_editor_property(k)
+        return True
+    except Exception:
+        return False
+
+
 def plan():
     """the step queue: ('place', spot) / ('state', name, view, orbit, ctrl) / ('shot', file) / ('gpu', label) / ('fly',)"""
     q = []
@@ -87,6 +128,9 @@ def plan():
             for vn, orb in EXT:
                 for st in ("before", "after"):
                     q.append(("state", st, "orbit", orb, DEFLECT)); q.append(("shot", "%s_%s_%s" % (name, vn, st)))
+                if os.environ.get("GYROSIM_CKSHOT_DIAG") and vn == "ext34front":     # diagnosis: paint without the normal map / fin parts
+                    for dg in ("nonormal", "noshadow", "norudder"):
+                        q.append(("state", "after", "orbit", orb, DEFLECT)); q.append(("diag", dg)); q.append(("shot", "%s_%s_diag_%s" % (name, vn, dg))); q.append(("undiag", dg))
         if name == "haeundae":
             for st in ("before", "after"):
                 q.append(("state", st, "chase", None, CRUISE)); q.append(("shot", "%s_chase_%s" % (name, st)))
@@ -121,6 +165,8 @@ def tick(dt):
                 cmd("t.MaxFPS 0"); cmd("r.VSync 0"); cmd("t.FPSChart.OpenFolderOnDump 0")
                 ST.update(phase="next", t=now, q=plan())
                 log("airframe ok", c.af.ok, "surfaces", sorted(c.af.surf), "lights", sorted(c.af.lights))
+                ST["lighting"] = lighting_report(ues.get_game_world(), c)
+                log("lighting", json.dumps(ST["lighting"], default=str))
             elif el > 180:
                 log("no game world / packets after 180 s"); ST.update(phase="end", t=now)
         elif ph == "next" and el > 0.5:
@@ -139,12 +185,7 @@ def tick(dt):
             elif k == "state":
                 _, st, view, orb, ctrl = step
                 c.af.set_enabled(st == "after")
-                for a in unreal.GameplayStatics.get_all_actors_with_tag(ues.get_game_world(), "Canopy"):   # canopy glints: old 3 / new
-                    smc = a.get_component_by_class(unreal.StaticMeshComponent)
-                    for i in range(smc.get_num_materials() if smc else 0):
-                        m = smc.get_material(i)
-                        if isinstance(m, unreal.MaterialInstanceDynamic):
-                            m.set_scalar_parameter_value("Gain", 3.0 if st == "before" else float(os.environ.get("GYROSIM_CANOPY_GAIN", "1.5")))
+                c.fx.set_look(st == "after")                 # canopy glints + cockpit paint: old / new
                 c.override = dict(ctrl)
                 if c.view != view:
                     c.set_view(view)
@@ -152,6 +193,24 @@ def tick(dt):
                 if orb is not None:
                     c.orbit[view] = list(orb)
                     c.orbit_world_yaw = None
+                ST.update(phase="settle", t=now)
+            elif k in ("diag", "undiag"):
+                on, dg = k == "diag", step[1]
+                ext = c.af.ext
+                if dg == "nonormal":
+                    smc = ext.static_mesh_component
+                    if on:
+                        ST["diag_mat"] = smc.get_material(0)
+                        mid = smc.create_dynamic_material_instance(0, ST["diag_mat"])
+                        mid.set_scalar_parameter_value("NormalStr", 0.0)
+                    else:
+                        smc.set_material(0, ST.get("diag_mat"))
+                elif dg == "noshadow":
+                    for a in [ext] + [x for x, _ in c.af.surf.values()]:
+                        a.static_mesh_component.set_cast_shadow(not on)
+                elif dg == "norudder":
+                    c.af.surf["Rudder"][0].set_actor_hidden_in_game(on)
+                log("diag", dg, on)
                 ST.update(phase="settle", t=now)
             elif k == "shot":
                 fn = os.path.join(OUT, step[1] + ".png").replace("\\", "/")
@@ -222,7 +281,7 @@ def tick(dt):
         elif ph == "end" and el > 2.0:
             if c:
                 c.override = None
-            res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(now - ST["t0"]), shots=ST["res"], gpu=ST["gpu"],
+            res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(now - ST["t0"]), shots=ST["res"], gpu=ST["gpu"], lighting=ST.get("lighting"),
                        note="editor PIE (second, off-screen editor), sim server Busan start paused at each spot; before = airframe pass off "
                             "(old one-piece exterior), after = body + moving surfaces + lights + painted skin; head motion only when unpaused")
             with open(os.path.join(OUT, "shots.json"), "w", encoding="utf-8") as f:

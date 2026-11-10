@@ -45,6 +45,46 @@ SURF = {
 DROP = r"Logo|USAF|VstabBand"
 
 
+def fix_uv(arr):
+    """triangles with zero UV area (the FG fin sides: they were hidden under the full-size marking decal planes, which
+    we drop) have no tangent frame -> the normal-mapped paint rendered them near black (r3 shots). They get a planar
+    mapping (dominant axis) shrunk to ~1.5 texels around the texel they used, so the colour stays and the tangent
+    frame exists. Corner normals of the fin sides are pointed away from the fin's mid plane."""
+    V, T, UV, N = arr["V"], arr["T"], arr["UV"], arr["N"]
+    e1, e2 = UV[:, 1] - UV[:, 0], UV[:, 2] - UV[:, 0]
+    bad = np.abs(e1[:, 0] * e2[:, 1] - e1[:, 1] * e2[:, 0]) < 1e-9
+    if bad.any():
+        P = V[T[bad]]                                         # (n, 3, 3)
+        fn = np.cross(P[:, 1] - P[:, 0], P[:, 2] - P[:, 0])
+        ax = np.argmax(np.abs(fn), axis=1)
+        for k in range(3):
+            s = ax == k
+            if not s.any():
+                continue
+            a, b = [i for i in range(3) if i != k]
+            Q = P[s]
+            lo, hi = Q.reshape(-1, 3).min(0), Q.reshape(-1, 3).max(0)
+            idx = np.nonzero(bad)[0][s]
+            c0 = UV[idx].mean(1, keepdims=True)                # keep the colour they had (their single texel) ...
+            cc = Q.mean(1)
+            on_fin = (np.abs(cc[:, 1]) < 8.0) & (cc[:, 2] > 110.0) & (cc[:, 0] < -350.0)
+            c0[on_fin] = np.array([[0.62, 0.935]])             # ... except the fin sides: their texel is the dark top-wing grey;
+                                                                # a real fin is the light grey (plain patch, no panel lines)
+            q = Q - Q.mean(1, keepdims=True)
+            sc = 0.0008 / max(1e-6, float(np.abs(q).max()))      # ~1.5 texel tangent-frame triangle around it
+            UV[idx] = c0 + np.stack([q[:, :, a], q[:, :, b]], -1) * sc
+    c = V[T].mean(1)
+    fin = (np.abs(c[:, 1]) < 8.0) & (c[:, 2] > 110.0) & (c[:, 0] < -350.0) & (np.abs(N.mean(1)[:, 1]) > 0.5)
+    flips = 0
+    if fin.any():
+        mid = float(np.median(c[fin, 1]))
+        want = np.where(c[:, 1] >= mid, 1.0, -1.0)
+        flip = fin[:, None] & (np.sign(N[:, :, 1]) != want[:, None])
+        N[flip] = -N[flip]
+        flips = int(flip.sum())
+    return int(bad.sum()), flips
+
+
 def main():
     t0 = time.time()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -75,6 +115,8 @@ def main():
             continue
         arr = F.build_part_arrays(part)
         rec = dict(objects=sorted(set(part.objects)), triangles=int(len(arr["T"])))
+        rec["uv_fix"] = fix_uv(arr)                       # (zero-UV-area tris remapped, fin corner normals flipped)
+        F.log(f"{nm}: uv / normal fix {rec['uv_fix']}")
         if nm in SURF:
             s = SURF[nm]
             c_ue = F.fg_to_ue(np.array(s["c"]))

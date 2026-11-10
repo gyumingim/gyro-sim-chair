@@ -5,7 +5,7 @@ ThirdParty/f16_airframe, GPL-2.0 -> the outputs are GPL derived files and stay o
   tex_f16_paint.png  the skin with the brand / slogan text on the tyre sidewalls painted out (plain rubber)
   tex_f16_n.png      tangent-space normal map: panel lines and rivet rows as shallow recesses (from the skin's line art)
   tex_f16_m.png      masks: R = panel line / rivet (0..1), G = grime (soft dirt around lines, more on the lower half of
-                     each UV island), B = paint roughness variation (low-frequency noise, 0.5 = neutral)
+                     each UV island), B = paint roughness grain (fine noise, 0.5 = neutral)
 Run: python Scripts/aircraft/airframe_tex.py   (numpy, Pillow, scipy)
 """
 from pathlib import Path
@@ -66,9 +66,9 @@ def main():
 
     # --- masks
     grime = np.clip(blur(line, 6 * s) * 2.2, 0, 1)                 # dirt collects around panel edges / fasteners
-    low = blur((rng.random((H // 32 + 1, W // 32 + 1)) - 0.5).repeat(32, 0).repeat(32, 1)[:H, :W].astype(np.float32), 24 * s)
-    grime = np.clip(grime + np.clip(low * 1.5, 0, 1) * 0.5, 0, 1)
-    rough = np.clip(0.5 + blur((rng.random((H // 16 + 1, W // 16 + 1)) - 0.5).repeat(16, 0).repeat(16, 1)[:H, :W].astype(np.float32), 10 * s) * 2.5, 0, 1)
+    # (11-10 review: the large low-frequency grime / roughness blobs read as smeared camouflage -> fine grain only)
+    grime = np.clip(grime * 0.8, 0, 1)
+    rough = np.clip(0.5 + blur(rng.random((H, W)).astype(np.float32) - 0.5, 1.5 * s) * 3.0, 0, 1)
     grime[bg] = 0.0
     M = np.stack([line, grime, rough], -1)
     Image.fromarray(np.clip(M * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_f16_m.png", optimize=True)
