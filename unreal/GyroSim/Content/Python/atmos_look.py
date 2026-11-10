@@ -226,6 +226,13 @@ def apply_ground(tileset, on=None):
         off.update({k: dict(GROUND, **SEA_NEW)[k] for k in SEA_ART})
     if m is not None and not GROUND_SHARP:
         off["DetailAmp"] = 0.0
+    if m is not None and SEA_ON:                 # coast v2 A/B toggles + the world -> coast mask mapping (coast_look.py)
+        try:
+            import coast_look
+            off.update(coast_look.ground_params_off())
+            coast_look.start(tileset)
+        except Exception as e:
+            log("coast look", repr(e))
     if m is not None and os.environ.get("GYROSIM_TREES_CANOPY", os.environ.get("GYROSIM_TREES_V2", "1")) == "0":
         off["CanopyAmp"] = 0.0                   # trees v2 ground canopy pattern off (A/B)
     if off:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's
@@ -234,13 +241,6 @@ def apply_ground(tileset, on=None):
             for k, v in off.items():
                 if isinstance(v, (tuple, list)):
                     m.set_vector_parameter_value(k, unreal.LinearColor(*(list(v) + [1.0])[:4]))
-    if m is not None and SEA_ON:                 # coast v2 A/B toggles + the world -> coast mask mapping (coast_look.py)
-        try:
-            import coast_look
-            off.update(coast_look.ground_params_off())
-            coast_look.start(tileset)
-        except Exception as e:
-            log("coast look", repr(e))
                 else:
                     m.set_scalar_parameter_value(k, float(v))
         except Exception as e:
