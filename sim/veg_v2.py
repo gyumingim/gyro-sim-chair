@@ -58,7 +58,7 @@ KIND = dict(bark=0, pine=1, broad=2, shrub=3)
 # against the real Busan photos (11-10 after1: forest pixels (71, 90, 45) sRGB vs 금정산 photo (67, 82, 51) -> bluer, darker).
 # round 2 (customer: pine darker blue-green, oak rounder yellow-green): two clearly different species colours
 TINT = dict(pine=(0.034, 0.060, 0.043), bpine=(0.028, 0.052, 0.043), broad=(0.070, 0.112, 0.038), shrub=(0.058, 0.094, 0.044),
-            rock=(0.16, 0.15, 0.135))                    # rock = warm-grey weathered granite (never white)
+            rock=(0.21, 0.20, 0.18))                     # rock = warm-grey weathered granite (never white); round 3 lighter (c247)
 TRUNK = dict(pine=(0.13, 0.095, 0.07), broad=(0.11, 0.10, 0.085), shrub=(0.10, 0.09, 0.075))  # linear grey-brown bark (round 2)
 
 
@@ -427,7 +427,95 @@ _D = {}
 
 def _init2():
     import terrain_dem as T
+    import rasterio
     _D["dem"] = T.Dem()
+    _D["wc"] = {k: rasterio.open(os.path.join(V.RAW, f)) for k, f in V.WC.items()}
+
+
+def _vnoise(lat, lon, cell_m, seed):
+    """smooth value noise 0..1 on a cell_m metre grid (world-fixed: same value across block edges)."""
+    X = np.asarray(lon) * 111320.0 * math.cos(math.radians(35.2)) / cell_m
+    Y = np.asarray(lat) * 111320.0 / cell_m
+    xi, yi = np.floor(X), np.floor(Y)
+    fx, fy = X - xi, Y - yi
+    fx, fy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    H = lambda a, b: np.modf(np.sin(a * 127.1 + b * 311.7 + seed * 74.7) * 43758.5453)[0] % 1.0
+    return (H(xi, yi) * (1 - fx) + H(xi + 1, yi) * fx) * (1 - fy) + (H(xi, yi + 1) * (1 - fx) + H(xi + 1, yi + 1) * fx) * fy
+
+
+def _landcover(lat, lon):
+    from rasterio.windows import Window
+    lc = np.zeros(len(lat), np.uint8)
+    for k, ds in _D["wc"].items():
+        m = (lon >= k) & (lon < k + 3)
+        if not m.any():
+            continue
+        tr = ds.transform
+        cw = ((lon[m] - tr.c) / tr.a).astype(np.int64)
+        rw = ((lat[m] - tr.f) / tr.e).astype(np.int64)
+        blk = ds.read(1, window=Window(int(cw.min()), int(rw.min()), int(cw.max() - cw.min() + 1), int(rw.max() - rw.min() + 1)))
+        lc[m] = blk[rw - rw.min(), cw - cw.min()]
+    return lc
+
+
+def ridge_tors(f, dem, tree_lat, tree_lon, rng):
+    """round 3: granite tors clustered on treeless / sparse ridge and summit cells of this block (12 m candidate grid):
+    ~480 m TPI > 20 m or a local summit (120 m TPI > 6 m), slope > 10 deg, WorldCover tree / shrub / grass / bare, > 7 m
+    from any tree top. Seeds (3 %) carry 2-5 tors within 14 m; tor half-width 2.5-6 m, height 2-5 m (35 %: 5-12 m)."""
+    import buildings_build as B
+    from scipy.spatial import cKDTree
+    i, j = (int(x) for x in os.path.basename(f)[2:-4].split("_"))
+    s_, w_ = i * V.DLA, j * V.DLO
+    dla, dlo = 12.0 / 111320.0, 12.0 / (111320.0 * math.cos(math.radians(s_ + V.DLA / 2)))
+    LA, LO = np.meshgrid(np.arange(s_ + dla / 2, s_ + V.DLA, dla), np.arange(w_ + dlo / 2, w_ + V.DLO, dlo), indexing="ij")
+    LA, LO = LA.ravel(), LO.ravel()
+    h0 = dem.msl(LA, LO)
+    ok = h0 > 40.0
+    if not ok.any():
+        return None
+    LA, LO, h0 = LA[ok], LO[ok], h0[ok]
+    t16 = h0 - dem.msl_ov(LA, LO, 16)
+    t4 = h0 - dem.msl_ov(LA, LO, 4)
+    d = 12.0
+    gx = (dem.msl(LA, LO + dlo) - dem.msl(LA, LO - dlo)) / (2 * d)
+    gy = (dem.msl(LA + dla, LO) - dem.msl(LA - dla, LO)) / (2 * d)
+    slope = np.degrees(np.arctan(np.hypot(gx, gy)))
+    cand = ((t16 > 20) | ((t4 > 6) & (t16 > 8))) & (slope > 10)
+    if len(tree_lat):
+        kd = cKDTree(np.stack(((tree_lon - w_) * 111320.0 * math.cos(math.radians(s_)), (tree_lat - s_) * 111320.0), 1))
+        dd, _ = kd.query(np.stack(((LO - w_) * 111320.0 * math.cos(math.radians(s_)), (LA - s_) * 111320.0), 1))
+        cand &= dd > 7.0
+    if not cand.any():
+        return None
+    LA, LO, slope = LA[cand], LO[cand], slope[cand]
+    lc = _landcover(LA, LO)
+    k = np.isin(lc, (10, 20, 30, 60)) & (rng.random(len(LA)) < 0.03)
+    if not k.any():
+        return None
+    sl, so, ss = LA[k], LO[k], slope[k]
+    out_la, out_lo, out_sl = [], [], []
+    for a, b, c in zip(sl, so, ss):
+        for _ in range(int(rng.integers(2, 6))):
+            ang, rr = rng.uniform(0, 2 * math.pi), rng.uniform(0, 14.0)
+            out_la.append(a + rr * math.sin(ang) / 111320.0)
+            out_lo.append(b + rr * math.cos(ang) / (111320.0 * math.cos(math.radians(a))))
+            out_sl.append(c)
+    la, lo, sl_ = np.array(out_la), np.array(out_lo), np.array(out_sl)
+    n = len(la)
+    big = rng.random(n) < 0.35
+    hh = np.where(big, rng.uniform(5.0, 12.0, n), rng.uniform(2.0, 5.0, n))
+    r = np.maximum(rng.uniform(2.5, 6.0, n), hh * 0.5)
+    mh = B.mesh_height(dem, la, lo)
+    try:
+        import coast_build as CB
+        mh = mh + (CB.rendered_msl(dem, la, lo) - dem.msl(la, lo))
+    except Exception:
+        pass
+    sink = np.minimum(3.0, r * np.tan(np.radians(np.minimum(sl_, 40.0))) * 0.6)       # bury the downhill side on slopes
+    base = mh - V.SINK - sink + dem.geoid_n(la, lo)
+    return dict(lat=la, lon=lo, base=base.astype(np.float32), h=(hh + sink).astype(np.float32), r=r.astype(np.float32),
+                pid=np.array(P_ROCK, np.int8)[rng.integers(0, 2, n)], tint=(np.asarray(TINT["rock"])[None] * rng.uniform(0.85, 1.12, (n, 1))).astype(np.float32),
+                yaw=rng.random(n).astype(np.float32))
 
 
 def block_attrs(f):
@@ -465,8 +553,12 @@ def block_attrs(f):
     yel = (lin[:, 0] + lin[:, 1]) / (2 * lin[:, 2] + 1e-4)
     lY, ly = np.log(Y), np.log(yel)
     ph = -((lY - np.median(lY)) / (np.std(lY) + 1e-6) + 0.6 * (ly - np.median(ly)) / (np.std(ly) + 1e-6))   # + = pine-like
-    logit = (-0.2 + 0.028 * np.clip(tpi, -30, 30) + 0.35 * sw * (slope > 12) + 1.2 * coast - 0.4 * (h0 > 450)
-             + 0.3 * np.clip(ph, -2.5, 2.5) + rng.normal(0, 0.6, n))
+    # round 3: finer-grained mix (no single-colour carpet): ~120 m micro-ridges / gullies and 70 m stand patches drive the
+    # species as much as the ~480 m ridge / valley; per-tree noise smaller so patches stay coherent
+    tpi4 = h0 - dem.msl_ov(lat, lon, 4)
+    patch = _vnoise(lat, lon, 70.0, 3) * 2 - 1
+    logit = (-0.15 + 0.02 * np.clip(tpi, -30, 30) + 0.07 * np.clip(tpi4, -12, 12) + 0.5 * sw * (slope > 10) + 1.2 * coast
+             - 0.3 * (h0 > 450) + 0.25 * np.clip(ph, -2.5, 2.5) + 1.2 * patch + rng.normal(0, 0.35, n))
     pine = logit > 0
     h = z["h"].astype(np.float64).copy()
     shrub = ((z["lc"] == 20) & (h < 7.0)) | ((h < 4.5) & (rng.random(n) < 0.6))
@@ -482,7 +574,7 @@ def block_attrs(f):
     pid = np.where(scrub, np.array(P_SHRUB)[rng.integers(0, 2, n)], pid)
     pid = np.where(tor, np.array(P_ROCK)[rng.integers(0, 2, n)], pid).astype(np.int8)
     h = np.where(scrub, np.minimum(h * 0.3, 2.5) + 0.8, h)
-    h = np.where(tor, rng.uniform(1.3, 3.2, n), h)
+    h = np.where(tor, rng.uniform(2.0, 6.0, n), h)
     # colour: two species palettes, by aspect (sunny SW slopes warmer / lighter, N slopes bluer / darker) and elevation,
     # +-8 % per tree; the photo only nudges the brightness (^0.25, clamped)
     grp = SPECIES_OF[pid]
@@ -511,7 +603,7 @@ def block_attrs(f):
     r0 = np.asarray(z["r"], np.float64)
     r = r0 * (R_FAC / 0.6) * rng.uniform(0.6, 1.4, n)                     # crown size 0.6-1.4 x, overlapping
     r = np.minimum(r, np.maximum(1.2, 1.5 + 0.3 * h) * 1.25)
-    r = np.where(tor, np.clip(r0 * 0.9, 1.5, 4.5), r)
+    r = np.where(tor, np.clip(r0 * 1.2, 2.5, 6.0), r)
     r = np.where(scrub, np.clip(r0 * 0.7, 1.0, 2.5), r)
     yaw = z["yaw"].astype(np.float64)
     # clumped infill: inside closed broadleaf / pine forest (WorldCover tree, >= 3 tops within 7 m) 35 % of the trees get a
@@ -543,7 +635,11 @@ def block_attrs(f):
                pid=np.concatenate((pid[keep], spid)).astype(np.int8),
                tint=np.concatenate((tint[keep], tint[ii] * rng.uniform(0.93, 1.07, (len(ii), 1)))).astype(np.float32),
                yaw=np.concatenate((yaw[keep], rng.random(len(ii)))).astype(np.float32))
-    st = dict(n=n, rock_photo=int(rock.sum()), tor=int((tor & keep).sum()), scrub=int((scrub & keep).sum()), infill=int(len(ii)),
+    rt = ridge_tors(f, dem, lat[keep], lon[keep], rng)
+    if rt is not None:
+        for kk in out:
+            out[kk] = np.concatenate((out[kk], rt[kk].astype(out[kk].dtype)))
+    st = dict(n=n, ridge_tors=0 if rt is None else int(len(rt["lat"])), rock_photo=int(rock.sum()), tor=int((tor & keep).sum()), scrub=int((scrub & keep).sum()), infill=int(len(ii)),
               seaside=int(seaside.sum()), pine=int((pine & keep & ~shrub & ~tor & ~scrub).sum()), shrub=int((shrub & keep).sum()),
               coast=int(coast[keep].sum()), ridge=int((tpi[keep] > 10).sum()), valley=int((tpi[keep] < -10).sum()),
               pine_ridge=int((pine & keep & ~shrub & (tpi > 10)).sum()), pine_valley=int((pine & keep & ~shrub & (tpi < -10)).sum()))
