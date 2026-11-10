@@ -414,9 +414,20 @@ def mask():
     binside = _raster(bp, x, y)
     bsd, _ = signed_field(binside, bp, x, y, 48.0) if binside.any() else (np.full(sd.shape, -1e3, np.float32), None)
     print("bridge mask: %d footprints, %.2f km2" % (len(bp), binside.sum() * (x[1] - x[0]) * (y[0] - y[1]) / 1e6), flush=True)
-    far = np.where(inside, 0.0, -sd).astype(np.float32)
+    # big pier / wharf areas (new port wharves mapped as man_made=pier polygons, e.g. 북항 재개발) are LAND in the render mask:
+    # the photo shows them (with their quay edge crisp), no procedural slab. The terrain field (npz) keeps the plain coastline
+    # (terrain frozen 11-10 21:29: rendered_msl must stay equal to the swapped tiles).
+    bigs = [p["geom"] for p in data["piers"] if p["area"] and p["geom"].area > BIG_PIER]
+    sd_r = sd
+    if bigs:
+        land_r = unary_union([land] + bigs)
+        inside_r = _raster(land_r, x, y)
+        sd_r, _ = signed_field(inside_r, [shapely.orient_polygons(land_r, exterior_cw=False)], x, y, 64.0)
+        inside = inside_r
+        print("big pier areas -> land in the render mask: %d (%.2f km2)" % (len(bigs), sum(g.area for g in bigs) / 1e6), flush=True)
+    far = np.where(inside, 0.0, -sd_r).astype(np.float32)
     enc = lambda v, D: np.clip(np.round((v / (2 * D) + 0.5) * 255), 0, 255).astype(np.uint8)
-    img = np.stack((enc(sd, MASK_D), enc(bsd, BRIDGE_D), np.clip(np.round(far / FAR_D * 255), 0, 255).astype(np.uint8),
+    img = np.stack((enc(sd_r, MASK_D), enc(bsd, BRIDGE_D), np.clip(np.round(far / FAR_D * 255), 0, 255).astype(np.uint8),
                     np.clip(np.round(cls * 255), 0, 255).astype(np.uint8)), -1)
     Image.fromarray(img, "RGBA").save(os.path.join(ROOT, "coast_mask.png"), optimize=False)
     np.savez_compressed(os.path.join(ROOT, "coast_field.npz"), sd=sd, cls=cls.astype(np.float16), lat=lat, lon=lon, seg_a=a, seg_b=b, seg_cls=cls_seg)
@@ -590,6 +601,7 @@ def terrain():
 # ---- piers / breakwaters / quay faces (3D Tiles) -----------------------------------------------------------------------
 # heights m MSL (추정, not in OSM): deck / crown tops; sides go down to SIDE_Z (under the 0 m sea surface)
 TOP = dict(pier=2.5, breakwater=4.5, groyne=2.2, quay=2.8)
+BIG_PIER = 3000.0                                         # m2: pier / wharf polygons above this = land (photo), see mask()
 WIDTH = dict(pier=6.0, breakwater=10.0, groyne=5.0)       # m, line ways without a width tag (가정)
 SIDE_Z = -1.5
 C_DECK = (0.66, 0.65, 0.62)                               # weathered concrete
@@ -655,6 +667,9 @@ def piers():
             fl = t.get("floating") == "yes"
             fp = g
         if fp.is_empty:
+            continue
+        if p["area"] and g.area > BIG_PIER:               # wharf areas: land in the render mask (photo), no slab
+            stat["big_areas_photo"] = stat.get("big_areas_photo", 0) + 1
             continue
         inl = fp.intersection(land).area / max(fp.area, 1e-6)
         if inl > 0.7:

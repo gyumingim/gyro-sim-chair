@@ -102,7 +102,7 @@ def sync(world, force=False):
             ST["key"] = o
             return False
     cu, cv, err = fit(*o)
-    K = unreal.KismetMaterialLibrary
+    K = unreal.MaterialLibrary                             # (UKismetMaterialLibrary, ScriptName MaterialLibrary)
     K.set_vector_parameter_value(world, ST["mpc"], "CoastU", unreal.LinearColor(cu[0], cu[1], cu[2], 0.0))
     K.set_vector_parameter_value(world, ST["mpc"], "CoastV", unreal.LinearColor(cv[0], cv[1], cv[2], 0.0))
     ST["key"], ST["fit"] = o, dict(u=cu, v=cv, max_err_m=round(err, 2))
