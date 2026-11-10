@@ -3,7 +3,8 @@ Applied at Play from Python (never baked into FlightMap.umap, so the map file is
   apply(world, preset)    sim_client.apply_look (every quality preset switch, after realism v2): sun, sky atmosphere,
                           height fog, sky light, post process. The first call remembers the map's values ('before').
   apply_ground(tileset)   sim_client._vworld_ground: the V-World terrain tileset gets /Game/Materials/Ground/MI_GyroGround
-                          (Scripts/ground_material.py + ground_look.hlsl: sea surface + photo colour match).
+                          (Scripts/ground_material.py + ground_look.hlsl: sea surface + photo colour match);
+                          GYROSIM_SEA_LOOK=0 = MI_GyroGround_Sea0, the sea before the 11-10 pass (A/B).
 Switch: GYROSIM_ATMOS=off (or STATE['on'] = False and apply again) = the look before this pass (map + realism v2 values,
 Cesium's stock ground material). Reasons, sources and before / after numbers: docs/atmosphere-busan.md.
 """
@@ -59,7 +60,26 @@ GROUND = dict(
     WaveScale=1800.0, WaveStrength=0.12, WaveFadeM=1500.0,
     LandSat=1.0, LandContrast=1.0, LandMid=0.12, LandGain=1.0,     # photo colours as they are (x1.08 overshot the photos' chroma)
     DeepColor=(0.045, 0.090, 0.140), LandTint=(1.0, 1.0, 1.0),
+    # land micro-texture (11-10, ground_look.hlsl; GYROSIM_GROUND_SHARP=0 sets DetailAmp 0 at Play): +-7 % luminance noise
+    # at 0.13 / 0.37 m, full on vegetation, 55 % on grey ground / roads, 25 % on bright roofs, faded 150 -> 700 m
+    DetailAmp=0.07, DetailL1=0.13, DetailL2=0.37, DetailVeg=1.0, DetailGrey=0.55, DetailBright=0.25,
+    DetailNear=150.0, DetailFar=700.0,
 )
+GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
+# Sea pass 11-10 (GYROSIM_SEA_LOOK=0 = the 11-09 values above, MI_GyroGround_Sea0). Measured on the landmark shots
+# (same view, Play look): Marine City from the sea, near sea sRGB ~(102, 127, 144) vs the photo ~(40, 89, 141) - the
+# blue matches, red / green are too high = too much grey horizon sky in the reflection, too little blue body.
+#  - wave slopes: WaveStrength 0.12 gave ~3-7 deg slopes, so the far sea mirrored only the pale hazy horizon. Sea-surface
+#    slope statistics (Cox & Munk 1954: variance ~0.003 + 0.00512 U, U = wind m/s) give ~10 deg rms at 5 m/s -> 0.2: the
+#    wave faces reflect higher, bluer sky (and the backs show the water body);
+#  - water body: bluer, a little brighter deep colour (the deep sea took the V-World photo's dark teal-green, from the
+#    orthophoto grade / sun angle; daylight Busan sea in the photos is medium blue). The shallow mix toward the photo stays
+#    (turquoise water at rocks / beaches: Taejongdae photo near the cliffs sRGB ~(54, 115, 120)).
+# Measured after (same views): Marine City from the sea (75, 117, 159), behind the Gwangan bridge (43, 87, 130) vs photo
+# (40, 89, 141) - first pass with ShallowMix 0.15 turned the Taejongdae shallows deep blue (18, 76, 135), so it is back to 0.4.
+SEA_NEW = dict(DeepColor=(0.022, 0.075, 0.185), WaveStrength=0.2)
+SEA_ON = os.environ.get("GYROSIM_SEA_LOOK", "1") != "0"
+GROUND_MI_SEA0 = "/Game/Materials/Ground/MI_GyroGround_Sea0"
 
 
 def _set(obj, k, v, tag):
@@ -174,12 +194,18 @@ def apply_ground(tileset, on=None):
     m = None
     if on:
         try:                                     # load_asset, not does_asset_exist: the asset registry may still be scanning
-            m = unreal.load_asset(GROUND_MI)
+            m = unreal.load_asset(GROUND_MI if SEA_ON else GROUND_MI_SEA0)     # Sea0 = the sea before 11-10
         except Exception:
             m = None
+    if m is not None and not GROUND_SHARP:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's
+        try:                                     # parameter values onto every tile's material)
+            m = unreal.KismetMaterialLibrary.create_dynamic_material_instance(tileset, m)
+            m.set_scalar_parameter_value("DetailAmp", 0.0)
+        except Exception as e:
+            log("ground sharp off failed", repr(e))
     try:
         tileset.set_editor_property("material", m)
-        log("ground material", GROUND_MI if m else "Cesium default")
+        log("ground material", (GROUND_MI if SEA_ON else GROUND_MI_SEA0) if m else "Cesium default", "sharp", GROUND_SHARP)
     except Exception as e:
         log("ground material failed", repr(e))
     return m is not None

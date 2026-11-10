@@ -26,6 +26,34 @@ float3 g = lerp(lum.xxx, C, LandSat);
 g = LandMid * pow(max(g, 1e-5) / LandMid, LandContrast);
 g *= LandGain * LandTint;
 
+// ---- land micro-texture (11-10, from Scripts/ground_detail.hlsl part B): the 0.24 m photo texel turns to blur below
+// ~300 m AGL. Faint luminance-only value noise (mean 1.0) at DetailL1 / DetailL2 m, finer than the photo texel, weighted by
+// a land class read from the photo colour (vegetation full, grey ground / roads DetailGrey, bright roofs DetailBright),
+// faded out with camera distance (DetailNear..DetailFar m) and per octave when a screen pixel gets too big for it (no
+// shimmer). No new structure and the photo itself is not changed (V-World terms: no modified copies) - render-time only.
+// Thresholds re-tuned for linear C (the numpy preview worked in sRGB). DetailAmp 0 = off (GYROSIM_GROUND_SHARP=0).
+if (DetailAmp > 0.0)
+{
+    float2 wm = P.xy * 0.01;                                                           // metres
+    float foot = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;                   // m per screen pixel
+    float mx = max(C.r, max(C.g, C.b)), mn = min(C.r, min(C.g, C.b));
+    float veg = saturate((C.g - max(C.r, C.b)) * 24.0) * saturate((mx - mn) / max(mx, 1e-4) * 4.0);
+    float bright = saturate((lum - 0.25) * 8.0);
+    float cls = DetailVeg * veg + DetailGrey * (1.0 - veg) * (1.0 - bright) + DetailBright * bright * (1.0 - veg);
+    float dn = 0.0;
+    float2 DL = float2(DetailL1, DetailL2), DW = float2(0.6, 0.4);
+    [unroll] for (int o = 0; o < 2; o++) {
+        float2 q = wm / DL[o], i = floor(q), fr = q - i, u = fr * fr * (3.0 - 2.0 * fr);
+        uint2 ii = uint2(int2(i));
+        #define GD_H(a) ((float)(((((a).x * 374761393u + (a).y * 668265263u) ^ (((a).x * 374761393u + (a).y * 668265263u) >> 13)) * 1274126177u) ^ (((((a).x * 374761393u + (a).y * 668265263u) ^ (((a).x * 374761393u + (a).y * 668265263u) >> 13)) * 1274126177u) >> 16)) * 2.3283064e-10)
+        float v = lerp(lerp(GD_H(ii), GD_H(ii + uint2(1, 0)), u.x), lerp(GD_H(ii + uint2(0, 1)), GD_H(ii + uint2(1, 1)), u.x), u.y);
+        #undef GD_H
+        dn += DW[o] * saturate(1.0 - (foot / (0.5 * DL[o]) - 0.5)) * (v * 2.0 - 1.0);
+    }
+    float fadeD = 1.0 - saturate((dist - DetailNear) / max(DetailFar - DetailNear, 1.0));
+    g *= 1.0 + DetailAmp * cls * fadeD * (1.0 - m) * dn;
+}
+
 // ---- sea: dark water body + sky reflection (Fresnel, from the engine's specular), wind waves -------------------------
 // water leaving reflectance of coastal sea is only a few percent: the look is mostly the reflected sky (Specular)
 float detail = clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, 1.8);                  // keep the photo's own variation (wakes, swell)
