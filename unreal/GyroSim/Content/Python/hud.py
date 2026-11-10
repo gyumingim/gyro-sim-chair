@@ -40,6 +40,7 @@ HUD_PLATE = 0.12                 # grey of the backing plates behind HUD text (M
 PLATE = unreal.LinearColor(HUD_PLATE, HUD_PLATE, HUD_PLATE, 1.0)
 HUD_BIG, HUD_NUM = 1.5, 1.15     # HUD numbers (x ts 1.6): speed / altitude boxes, other values (was 1.3 / 0.8-0.9)
 LINE_MAXW = 740.0                # instructor line max width (px): the 28 cm combiner foot is ~ +-10.2 deg (Scripts/cockpit/layout.py HUD_W)
+HUD_LABELS = os.environ.get("GYROSIM_HUD_LABELS", "0") == "1"
 HUD_LBL = 44                     # HUD Korean labels (was 34; symbology callouts 0.85 x)
 D_TITLE, D_LBL, D_VAL, D_SUB = 84, 72, 5.6, 2.4    # displays: title / row label height (px), big value / small value size
 LBL_COL = unreal.LinearColor(0.72, 0.78, 0.84, 1.0)    # row labels (was GREY 0.45 - too dim)
@@ -203,7 +204,9 @@ class Painter:
 
     def _hud(self, s, ex):
         C = RT_HUD / 2
-        beg = ex.get("beginner")
+        # Korean captions on the HUD only with GYROSIM_HUD_LABELS=1 (review 11-10: F-16 style symbology by default;
+        # the beginner names stay on the panel callouts and the displays)
+        beg = ex.get("beginner") and HUD_LABELS
         lc = unreal.LinearColor(0.5, 1.0, 0.6, 1.0)
         lh = HUD_LBL
         # boresight (gun cross) at body X

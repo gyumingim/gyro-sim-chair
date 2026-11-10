@@ -30,6 +30,8 @@ import geo, hud, cockpit_gauges as gauges
 importlib.reload(geo); importlib.reload(hud); importlib.reload(gauges)
 import view_fx, airframe_live         # cockpit view feel + sound (view_fx), moving surfaces / lights (airframe_live)
 importlib.reload(view_fx); importlib.reload(airframe_live)
+import cockpit_v2                      # F-16 style cockpit v2: mesh swap at Play (GYROSIM_COCKPIT_V2=0 = v1)
+importlib.reload(cockpit_v2)
 import pie_fullscreen                 # not reloaded: it defines a UObject class (PIE full screen, F11 / Alt+Enter)
 # Play started by GyroSim_Busan.bat (-GyroSimPlay): PIE window in true full screen (borderless, whole main monitor) on a
 # monitor (not VR). GYROSIM_FULLSCREEN=0 keeps the old maximized window, =1 forces it for a Play pressed by hand too.
@@ -417,6 +419,7 @@ class SimClient:
 
     def _bind_world(self, world):
         self.world = world
+        cockpit_v2.apply(world)                        # before the pivots / needles / screens are read below
         self.apt_key = None                            # _apt_sync: Cesium origin / airfield meshes follow the packet's start airfield
         self.aircraft = self._find("Aircraft")
         self.camera = self._find("SimCamera")          # rig: moved by us, carries the overlays
@@ -464,6 +467,7 @@ class SimClient:
                     self.screens[tag] = (a, mid)
         except Exception as e:
             _log("HUD painter", repr(e))
+        cockpit_v2.after_bind(self)                    # HUD clip to the v2 combiner glass
         self.terrain_hit = False
         self.cesium_failed = None
         self.trace_ignore = [self.aircraft] + list(unreal.GameplayStatics.get_all_actors_with_tag(world, "AircraftPart"))
