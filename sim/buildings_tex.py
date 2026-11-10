@@ -349,11 +349,11 @@ ST_PLAIN, ST_HOUSE, ST_APT, ST_SHOP, ST_PUNCHED, ST_FACTORY, ST_CURTAIN, ST_GLAS
 # v3 (11-10): rooftop props (water tanks, laundry racks, lift machine rooms: alpha = 128 + 16 x kind + seed 0..15),
 # low apartments (다세대 / 연립 = 빌라, <= 5 floors) and a ground-floor pilotis / lobby band. Style ids up to 19 fit the
 # material's 0.60 .. 0.79 range (older tiles: 0.8 walls / 0.95 roofs).
-ST_PROP, ST_VILLA, ST_PILOTI = 9, 10, 11
-PROP_TANK, PROP_LAUNDRY, PROP_ROOM, PROP_TANK_STEEL = range(4)
+ST_PROP, ST_VILLA, ST_PILOTI, ST_PODIUM = 9, 10, 11, 12
+PROP_TANK, PROP_LAUNDRY, PROP_ROOM, PROP_TANK_STEEL, PROP_ROOFROOM, PROP_TARP, PROP_SOLAR = range(7)
 STYLE_NAMES = ("plain", "house", "apartment", "shopfront", "punched", "factory", "curtain", "glass_tower", "ribbon",
-               "prop", "villa", "piloti")
-STYLE_PNG = (0, 1, 2, 3, 4, 5, 6, 6, 4, 0, 4, 3)            # style -> wall_pngs() module for the stock material
+               "prop", "villa", "piloti", "podium")
+STYLE_PNG = (0, 1, 2, 3, 4, 5, 6, 6, 4, 0, 4, 3, 3)            # style -> wall_pngs() module for the stock material
 V3 = os.environ.get("GYROSIM_BLDG_V3", "1") != "0"
 VILLA_FLOORS = 5                                            # apartments up to this many floors: 빌라 (pilotis, brick / tile)
 STYLE_R0 = 0.60

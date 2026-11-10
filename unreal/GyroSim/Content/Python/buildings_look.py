@@ -9,7 +9,8 @@ v3 (11-10 evening): building-type detail (gables with dong numbers, stair cores,
 brick / stone, rooftop tanks / machine rooms / laundry, sharpened roof photo). GYROSIM_BLDG_V3=0 = the look before v3:
 material M_GyroBuilding_v2 and, when it exists, the tile folder kept at the v3 swap (buildings/tiles_prev_<date>_v3, newest).
 GYROSIM_BLDG_TILES_DIR = a tile folder name under C:/GyroSimTiles/buildings (or a full path) to load instead of the URL the
-caller set (offscreen before / after shots of a tiles_new build)."""
+caller set (offscreen before / after shots of a tiles_new build).
+Round 2 (11-10 night): roofs procedural by default (photo = low-frequency tint), GYROSIM_BLDG_ROOF_PHOTO=1 = the photo roofs."""
 import glob, os
 import unreal
 
@@ -52,12 +53,17 @@ def apply(tileset, log=unreal.log):
                 m = unreal.load_asset(MAT)
         except Exception:
             m = None
-    if m is not None and os.environ.get("GYROSIM_BLDG_ART", "1") == "0":
+    art_off = os.environ.get("GYROSIM_BLDG_ART", "1") == "0"
+    roof_photo = os.environ.get("GYROSIM_BLDG_ROOF_PHOTO", "0") == "1"      # round 2: 1 = photo roofs (default procedural)
+    if m is not None and (art_off or roof_photo):
         try:
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
-            m.set_scalar_parameter_value("ArtFix", 0.0)
+            if art_off:
+                m.set_scalar_parameter_value("ArtFix", 0.0)
+            if roof_photo:
+                m.set_scalar_parameter_value("RoofPhoto", 1.0)
         except Exception as e:
-            log("[buildings_look] art off failed %r" % (e,))
+            log("[buildings_look] parameter instance failed %r" % (e,))
     try:
         tileset.set_editor_property("material", m)
         log("[buildings_look] material %s art %s v3 %s" % (m.get_name() if m else "Cesium default", os.environ.get("GYROSIM_BLDG_ART", "1"), v3))

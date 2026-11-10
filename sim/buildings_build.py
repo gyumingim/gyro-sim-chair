@@ -443,6 +443,9 @@ def build_glb(D, sel, center):
     RF = dict(P=[], N=[], C=[], UV=[], I=[], n=0)
     WL = {}                                               # wall texture id -> geometry (one primitive each)
 
+    V3 = BT.V3
+    BASE_AO = 0.45                                        # foot of the walls (1 floor band; walls start 1 m below the ground)
+
     def quads(t, A0, A1, D0, D1, fa, fb, u0, u1, va, vb, n2, wl):
         """one quad per edge between height fractions fa..fb (of bot..top), v = va (bottom) .. vb (top)."""
         G = WL.setdefault(t, dict(P=[], N=[], C=[], UV=[], I=[], n=0))
@@ -451,7 +454,12 @@ def build_glb(D, sel, center):
         G["N"].append(np.repeat(n2, 4, axis=0))
         G["UV"].append(np.stack((np.stack((u0, np.full(q, va)), 1), np.stack((u1, np.full(q, va)), 1),
                                  np.stack((u1, np.full(q, vb)), 1), np.stack((u0, np.full(q, vb)), 1)), axis=1).reshape(-1, 2))
-        G["C"].append(np.repeat(wl, 4, axis=0))                         # per edge RGBA (alpha = seed / end-wall flag)
+        C4 = np.repeat(wl, 4, axis=0)                                   # per edge RGBA (alpha = seed / end-wall flag)
+        if V3 and fa == 0.0 and t != BT.ST_PLAIN:
+            C4 = C4.copy()                                              # contact shadow at the foot: bottom vertices darker
+            C4[0::4, :3] *= BASE_AO
+            C4[1::4, :3] *= BASE_AO
+        G["C"].append(C4)
         bi = G["n"] + 4 * np.arange(q)
         G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
         G["n"] += 4 * q
@@ -574,7 +582,6 @@ def build_glb(D, sel, center):
         if Ly > Lx:
             ax, Lx, Ly = ay, Ly, Lx
         return ax, Lx, Ly, c
-    V3 = BT.V3
     TANK_FRP = ((0.55, 0.68, 0.78), (0.80, 0.83, 0.84), (0.36, 0.55, 0.76), (0.62, 0.74, 0.70))
     ci = 0
     for k, b, rings, cls, smp, wall in blds:
@@ -604,10 +611,24 @@ def build_glb(D, sel, center):
                 ground = BT.ST_SHOP
             elif cls == BT.HOUSE and upper == BT.ST_HOUSE and hb[0] < 0.22:
                 ground = BT.ST_SHOP                       # 상가주택: shop on the ground floor
+        if V3 and ground is None and nf >= 2:
+            ground = upper                                # foot band in the upper style (only for the contact shadow gradient)
         if ground is not None:
             fg = (base + fh - bot) / (top - bot)
-            bands = [(ground, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)] + ([(upper, fg, 1.0, nf - 1.0, 0.0)] if nf > 1 else [])
-            st["ground_bands"] = st.get("ground_bands", 0) + 1
+            bands = [(ground, 0.0, fg, nf - 1 + (base + fh - bot) / fh, nf - 1.0)]
+            npod = 0
+            if V3 and ground == BT.ST_SHOP and nf >= 3 and upper != BT.ST_CURTAIN:
+                npod = int(min(nf - 2, 1 + int(hb[1] * 3)))   # 근생 podium: sign-covered floors 2..1+npod
+            if npod > 0:
+                fp = (base + (1 + npod) * fh - bot) / (top - bot)
+                bands.append((BT.ST_PODIUM, fg, fp, nf - 1.0, nf - 1.0 - npod))
+                st["podiums"] = st.get("podiums", 0) + 1
+            else:
+                fp = fg
+            if nf > 1 + npod:
+                bands.append((upper, fp, 1.0, nf - 1.0 - npod, 0.0))
+            if ground != upper:
+                st["ground_bands"] = st.get("ground_bands", 0) + 1
         else:
             bands = [(upper, 0.0, 1.0, (top - bot) / fh, 0.0)]
         tops = []
@@ -705,6 +726,12 @@ def build_glb(D, sel, center):
                         box(rect(cs.mean(0), axc, tl, tw), z0 + hc, 2.0, BT.ST_PROP,
                             prop_rgba(BT.srgb_to_lin(col), BT.PROP_TANK_STEEL if steel else BT.PROP_TANK, seed))
                         st["tanks"] = st.get("tanks", 0) + 1
+                hs_ = (((int(rid[k]) * 69069 + 777) >> 7) % 1000) / 1000.0
+                if hs_ < 0.15:                            # solar panel row on a flat roof
+                    cs = spot(P2, ax, min(8.0, 0.35 * math.sqrt(area_b)), 2.0, hs_ * 6.0 % 1.0, margin=1.0)
+                    if cs is not None:
+                        box(cs, z0 + 0.4, 0.25, BT.ST_PROP, prop_rgba((0.03, 0.05, 0.10), BT.PROP_SOLAR, seed))
+                        st["solar"] = st.get("solar", 0) + 1
             elif (cls == BT.HOUSE or upper == BT.ST_VILLA) and nf <= 5 and area_b >= 40:
                 zr = z0
                 if hb[3] < 0.45:                          # water tank: blue FRP / stainless box
@@ -714,6 +741,17 @@ def build_glb(D, sel, center):
                     if cs is not None:
                         box(cs, zr, 1.3, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(col), BT.PROP_TANK_STEEL if steel else BT.PROP_TANK, seed))
                         st["tanks"] = st.get("tanks", 0) + 1
+                hk = (((int(rid[k]) * 40503 + 12345) >> 6) % 1000) / 1000.0
+                if hk < 0.18 and area_b >= 70:            # 옥탑방: small rooftop room (door + window)
+                    cs = spot(P2, ax, 3.2, 2.6, 1.0 - hb[3], margin=0.5)
+                    if cs is not None:
+                        box(cs, zr, 2.3, BT.ST_PROP, prop_rgba(BT.srgb_to_lin(wall) * 0.95, BT.PROP_ROOFROOM, seed))
+                        st["roof_rooms"] = st.get("roof_rooms", 0) + 1
+                elif hk > 0.86 and area_b >= 50:          # blue tarp weighed down on the roof
+                    cs = spot(P2, ax, 2.8, 2.2, hb[1], margin=0.3)
+                    if cs is not None:
+                        box(cs, zr, 0.12, BT.ST_PROP, prop_rgba(BT.srgb_to_lin((0.16, 0.36, 0.66)), BT.PROP_TARP, seed))
+                        st["tarps"] = st.get("tarps", 0) + 1
                 if hb[4] > 0.75 and area_b >= 60:         # laundry rack (thin double-faced panel, hanging clothes)
                     cs = spot(P2, np.array([-ax[1], ax[0]]), 2.4, 0.08, 1.0 - hb[2], margin=0.8)
                     if cs is not None:
@@ -739,7 +777,14 @@ def build_glb(D, sel, center):
                 col = roof_pal[k]
             RF["P"].append(verts)
             RF["N"].append(np.tile([0.0, 0.0, 1.0], (len(verts), 1)))
-            RF["C"].append(np.repeat(np.append(np.asarray(col, np.float64), 1.0)[None], len(verts), axis=0))
+            ra = 1.0
+            if V3:
+                pc = smp["color"] if (smp is not None and smp.get("color") is not None) else None
+                greenish = pc is not None and pc[1] > pc[0] * 1.04 and pc[1] >= pc[2] * 0.97
+                lowrise = cls in (BT.HOUSE,) or upper == BT.ST_VILLA
+                gr = greenish or (hb[5] < (0.45 if lowrise else 0.2))
+                ra = (128 + 64 * int(gr) + seed) / 255.0
+            RF["C"].append(np.repeat(np.append(np.asarray(col, np.float64), ra)[None], len(verts), axis=0))
             RF["UV"].append(uv)
             RF["I"].append(tri.reshape(-1) + RF["n"])
             RF["n"] += len(verts)
@@ -958,7 +1003,7 @@ def tiles(args):
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
-                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores", "tanks", "laundry", "ground_bands"):
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar"):
                     tex[k_] = tex.get(k_, 0) + ts_.get(k_, 0)
                 for s_, c_ in ts_["styles"].items():
                     tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_
