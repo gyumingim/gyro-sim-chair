@@ -77,7 +77,9 @@ GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
 #    (turquoise water at rocks / beaches: Taejongdae photo near the cliffs sRGB ~(54, 115, 120)).
 # Measured after (same views): Marine City from the sea (75, 117, 159), behind the Gwangan bridge (43, 87, 130) vs photo
 # (40, 89, 141) - first pass with ShallowMix 0.15 turned the Taejongdae shallows deep blue (18, 76, 135), so it is back to 0.4.
-SEA_NEW = dict(DeepColor=(0.022, 0.075, 0.185), WaveStrength=0.2)
+# Second pass: deep colour (0.022, 0.075, 0.185) measured Taejongdae from 120 m (11, 50, 112) - too dark / saturated
+# against the photo's teal (54, 115, 120) - and Gwangan bridge view (31, 70, 119) vs (40, 89, 141): a bit greener, less blue.
+SEA_NEW = dict(DeepColor=(0.030, 0.085, 0.165), WaveStrength=0.2)
 SEA_ON = os.environ.get("GYROSIM_SEA_LOOK", "1") != "0"
 GROUND_MI_SEA0 = "/Game/Materials/Ground/MI_GyroGround_Sea0"
 

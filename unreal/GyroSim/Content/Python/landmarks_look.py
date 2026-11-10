@@ -18,12 +18,15 @@ GLASS_MI = "/Game/Landmarks/MI_GyroLandmark"
 # glass parameters (defaults of M_GyroLandmark, written into MI_GyroLandmark by Scripts/landmarks_material.py).
 # PaneM / FrameM / PaneR / FrameR = the glb's glass-pane and frame metallic / roughness (specs.MATS: panes 0.5-0.6 / 0.07-0.1,
 # frames 0.1 / 0.55): pixels on that blend line are glass modules, everything else keeps the glb look.
-# Pane: base x GlassDark (dark body), metallic 0.7 / specular 1 -> F0 ~0.12-0.18 tinted by the glass colour (reflective
-# coated curtain wall: ~10-30 % visible reflectance, 추정 from maker data sheets), roughness 0.03 + up to 0.05 per pane.
+# Pane: base x GlassDark, metallic 0.6 / specular 1 -> F0 ~0.2 tinted by the glass colour (reflective coated curtain
+# wall: ~10-30 % visible reflectance, 추정 from maker data sheets), roughness 0.03 + up to 0.05 per pane.
+# GlassDark 0.45 / metallic 0.7 (first pass) measured too dark against the photos: Zenith from the air sRGB (62, 73, 89),
+# LCT from the beach (63, 89, 121) vs photos (93, 116, 144) / (104, 129, 160) - the photos' glass is about as bright on
+# average as the old look; what differs is the pane / floor variation and the sharp reflections, so 0.8 / 0.6.
 # Variation per pane / floor (brightness +-PaneVar/2, +-FloorVar/2) and a random pane tilt up to TiltDeg plus a pillow of
 # BowDeg inside each pane - fades out where panes get smaller than a pixel. Mullions: base x FrameGain, brushed aluminium.
 GLASS = dict(GlassOn=1.0, Grid=4.0, PaneM=0.55, FrameM=0.10, PaneR=0.09, FrameR=0.55,
-             GlassDark=0.45, GlassMetal=0.7, GlassSpec=1.0, GlassRough=0.03, GlassRoughVar=0.05,
+             GlassDark=0.8, GlassMetal=0.6, GlassSpec=1.0, GlassRough=0.03, GlassRoughVar=0.05,
              PaneVar=0.30, FloorVar=0.20, TiltDeg=0.8, BowDeg=0.4,
              FrameGain=0.75, FrameMetal=0.6, FrameRough=0.35)
 
