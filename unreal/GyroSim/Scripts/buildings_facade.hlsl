@@ -57,9 +57,13 @@ if (R > 0.9)
         float3 c0 = Tex;
         float3 bl = 0.25 * (Texture2DSample(TexObj, TexObjSampler, UV + float2(ts.x, 0)).rgb + Texture2DSample(TexObj, TexObjSampler, UV - float2(ts.x, 0)).rgb
                           + Texture2DSample(TexObj, TexObjSampler, UV + float2(0, ts.y)).rgb + Texture2DSample(TexObj, TexObjSampler, UV - float2(0, ts.y)).rgb);
-        float3 c = max(c0 + 0.9 * mag * (c0 - bl), 0.0);                           // unsharp mask (z18 photo ~0.5 m / texel)
+        float3 bl2 = 0.25 * (Texture2DSample(TexObj, TexObjSampler, UV + float2(2.5 * ts.x, 1.0 * ts.y)).rgb + Texture2DSample(TexObj, TexObjSampler, UV - float2(2.5 * ts.x, 1.0 * ts.y)).rgb
+                           + Texture2DSample(TexObj, TexObjSampler, UV + float2(-1.0 * ts.x, 2.5 * ts.y)).rgb + Texture2DSample(TexObj, TexObjSampler, UV - float2(-1.0 * ts.x, 2.5 * ts.y)).rgb);
+        // round 3: unsharp at 1 texel (1.2) + local contrast at ~2.5 texels (0.5), clamped against halos
+        float3 c = c0 + mag * (1.2 * (c0 - bl) + 0.5 * (bl - bl2));
+        c = clamp(c, min(c0, bl) * 0.75, max(c0, bl) * 1.25 + 0.02);
         float green = saturate((c.g - max(c.r, c.b)) * 10.0);                     // green urethane waterproofing paint
-        c *= 1.0 + dg * (0.12 * (n1 - 0.5) * (1.0 - 0.5 * green) + 0.10 * (n2 - 0.5)) + 0.06 * (n3 - 0.5);
+        c *= 1.0 + dg * (0.16 * (n1 - 0.5) * (1.0 - 0.4 * green) + 0.10 * (n2 - 0.5)) + 0.06 * (n3 - 0.5);
         Rough = lerp(0.9, 0.55, green) + 0.08 * (n2 - 0.5);
         Spec = 0.4;
         NormalWS = normalize(Nn + float3(n1 - n2, n2 - n3, 0.0) * 0.06 * dg * mag);
@@ -75,8 +79,12 @@ if (R > 0.9)
     float3 base;
     if (gpaint)
     {
-        float3 gp[3] = { float3(0.13, 0.27, 0.19), float3(0.16, 0.30, 0.22), float3(0.11, 0.22, 0.20) };
-        base = gp[(int)fmod(rs, 3.0)];
+        // round 3: faded urethane greens (sRGB ~ (0.42, 0.53, 0.48) .. (0.48, 0.56, 0.54): grey-teal, low chroma), patchy re-coats
+        float3 gp[4] = { float3(0.16, 0.23, 0.20), float3(0.19, 0.25, 0.23), float3(0.14, 0.20, 0.18), float3(0.20, 0.26, 0.21) };
+        base = gp[(int)fmod(rs, 4.0)];
+        float2 rc = floor(ap * (0.04 + 0.02 * frac(rs * 0.29)) + rs);
+        float recoat = step(0.55, HSH(dot(rc, float2(1, 57)) + rs * 3.1));
+        base = lerp(base, gp[(int)fmod(rs + 1.0, 4.0)] * 1.08, recoat * 0.8);
         float worn = smoothstep(0.55 + 0.2 * frac(rs * 0.37), 0.85, n2 * 0.5 + n3 * 0.5);   // worn patches, amount per building
         base = lerp(base, float3(0.32, 0.31, 0.29), worn * (0.3 + 0.4 * frac(rs * 0.61)));
         Rough = lerp(0.5, 0.85, worn);
@@ -127,6 +135,7 @@ if (style == 9)
     {
         float2 g = frac(m);
         float rib = max(PULSE(g.x, 0.0, 0.05, fwm.x), PULSE(g.y, 0.0, 0.05, fwm.y)) * nearP;
+        c = lerp(dot(c, float3(0.3, 0.59, 0.11)).xxx, c, (kind == 0.0) ? 0.55 : 0.2) * 0.78;   // round 3: weathered, dull (not toy blue)
         c *= 1.0 - 0.3 * rib;
         float2 b = (g - 0.5) * nearP;
         NormalWS = topF ? Nn : normalize(Nn + Tp * b.x * 0.25 - up * b.y * 0.25);
@@ -257,6 +266,9 @@ float tile = 0.0;                                           // small ceramic til
 float conc = 0.0;                                           // exposed / stained concrete with formwork seams
 float awning = 0.0;
 float podium = 0.0;
+float spand = 0.0;                                          // coloured metal spandrel panels between window bands
+float vsign = 0.0;                                          // vertical sign column (commercial blocks)
+float cbay = 0.0;                                           // coloured bay panel (low / mid-rise accents)
 float3 tints[6] = { float3(0.36, 0.50, 0.56), float3(0.44, 0.52, 0.60), float3(0.42, 0.36, 0.28),
                     float3(0.34, 0.38, 0.42), float3(0.32, 0.46, 0.40), float3(0.26, 0.36, 0.52) };
 float3 accents[6] = { float3(0.05, 0.16, 0.45), float3(0.02, 0.30, 0.30), float3(0.40, 0.08, 0.05),
@@ -270,8 +282,8 @@ float older = (fmod(seed, 3.0) < 1.0) ? 1.0 : 0.0;          // a third of the bl
 if (style == 1 || style == 10)                              // house / villa
 {
     float vv = fmod(seed, 20.0);
-    brick = (vv < 7.0) ? 1.0 : 0.0;                          // red brick 적벽돌 (35 %), tile (35 % villas / 20 % houses), paint
-    tile = (brick < 0.5 && vv < ((style == 10) ? 14.0 : 11.0)) ? 1.0 : 0.0;
+    brick = (vv < 9.0) ? 1.0 : 0.0;                          // round 3: red brick 45 %, tile 35 % (villas) / 30 % (houses), paint
+    tile = (brick < 0.5 && vv < ((style == 10) ? 16.0 : 15.0)) ? 1.0 : 0.0;
     if (style == 1) { win = float4(0.27, 0.73, 0.30, 0.76); mull = 1.0; bayM = 360.0; dR = 18.0; grille = (bayH < 0.5) ? 1.0 : 0.0; }
     else
     {
@@ -312,21 +324,25 @@ else if (style == 12)                                        // 근생 podium fl
 else if (style == 4)
 {
     win = float4(0.08, 0.44, 0.30, 0.76); win2 = float4(0.56, 0.92, 0.30, 0.76); bayM = 320.0; floorM = 340.0; dR = 22.0;
-    float v4 = fmod(seed, 4.0);                              // stone / stained concrete / tile / paint
-    stone = (v4 < 1.0) ? 1.0 : 0.0; conc = (v4 == 1.0) ? 1.0 : 0.0; tile = (v4 == 2.0) ? 1.0 : 0.0;
+    float v4 = fmod(seed, 6.0);                              // stone / stained concrete / tile / brick / spandrel / paint
+    stone = (v4 < 1.0) ? 1.0 : 0.0; conc = (v4 == 1.0) ? 1.0 : 0.0; tile = (v4 == 2.0) ? 1.0 : 0.0; brick = (v4 == 3.0) ? 1.0 : 0.0;
+    if (v4 == 4.0) { win = float4(0.03, 0.97, 0.32, 0.86); win2 = float4(0, 0, 0, 0); mull = 3.0; spand = 1.0; }   // office band glazing
+    vsign = (fmod(floor(seed / 6.0), 3.0) < 1.0 && fmod(cell.x + seed, 4.0) == 0.0) ? 1.0 : 0.0;           // big vertical sign column
     acUnit = (stone < 0.5 && bayH2 < 0.12) ? 1.0 : 0.0;
 }
 else if (style == 5)     { win = float4(0.06, 0.94, 0.78, 0.90); mull = 4.0; bayM = 600.0; floorM = 600.0; wallRough = 0.5; wallMetal = 0.35; dR = 8.0; }
 else if (style == 6)
 {
-    bayM = 320.0; floorM = 360.0; glassMetal = 0.85; glassRough = 0.02; tint = gtint * 0.8; wallMetal = 0.7; wallRough = 0.2;
+    // round 3: curtain glass as a dark dielectric (F0 0.08, Fresnel to the sky at grazing view) with a light metallic coat;
+    // as a tinted metal (0.85) it reflected only ~30 % of the sky everywhere and read as flat cardboard at 300 m
+    bayM = 320.0; floorM = 360.0; glassMetal = 0.3; glassRough = 0.02; tint = gtint * 0.55; wallMetal = 0.5; wallRough = 0.2;
     bool fins = fmod(seed, 2.0) < 1.0;                       // half of the office towers: deep vertical fins at each bay edge
     win = fins ? float4(0.035, 0.965, 0.16, 0.99) : float4(0.015, 0.985, 0.16, 0.985);
     mull = fins ? 1.0 : 2.0; dR = fins ? 60.0 : 10.0;
 }
 else if (style == 7)                                         // Marine City / Haeundae residential towers: light blue / silver glass
 {
-    win = float4(0.02, 0.98, 0.12, 0.93); mull = 2.0; bayM = 300.0; floorM = 300.0; glassMetal = 0.6; glassRough = 0.02; wallRough = 0.25; wallMetal = 0.5; dR = 15.0;
+    win = float4(0.02, 0.98, 0.12, 0.93); mull = 2.0; bayM = 300.0; floorM = 300.0; glassMetal = 0.25; glassRough = 0.02; wallRough = 0.25; wallMetal = 0.4; dR = 15.0;
     gtint = (fmod(seed, 3.0) < 1.0) ? float3(0.44, 0.54, 0.62) : ((fmod(seed, 3.0) < 2.0) ? float3(0.38, 0.52, 0.60) : float3(0.50, 0.56, 0.60));
     tint = gtint * 1.2;
 }
@@ -346,7 +362,10 @@ else if (style == 11)                                        // ground floor of 
         mull = 2.0; dR = 25.0;
     }
 }
-if (parapet > 0.5) { win = float4(0, 0, 0, 0); win2 = win; accent = 0.0; louvre = 0.0; acUnit = 0.0; core = 0.0; awning = 0.0; }
+if ((style == 1 || style == 10 || style == 4 || style == 8) && fmod(floor(seed / 9.0), 3.0) < 1.0)
+    cbay = (fmod(cell.x + floor(seed / 5.0), 3.0) == 0.0) ? 1.0 : 0.0;    // round 3: every 3rd bay a coloured panel band
+if (style == 12) vsign = (fmod(cell.x + seed, 3.0) == 0.0) ? 1.0 : 0.0;
+if (parapet > 0.5) { win = float4(0, 0, 0, 0); win2 = win; accent = 0.0; louvre = 0.0; acUnit = 0.0; core = 0.0; awning = 0.0; vsign = 0.0; cbay = 0.0; }
 if (style == 1 || style == 4 || style == 8 || style == 10)  // per-building sill / head height (round 2)
 {
     float jz = (frac(sin(seed * 2.17 + 0.9) * 9631.7) - 0.5) * 0.12, jw = (frac(sin(seed * 6.31 + 2.2) * 7351.3) - 0.5) * 0.10;
@@ -496,6 +515,17 @@ if (conc > 0.5)                                              // exposed concrete
     w *= (1.0 - 0.15 * seam) * (1.0 - 0.3 * tie) * (0.9 + 0.2 * H1(floor(cq.x) * 1.1 + floor(cq.y) * 2.3));
     wr = 0.9;
 }
+if (spand > 0.5)
+{
+    float3 spc[4] = { float3(0.20, 0.22, 0.24), float3(0.35, 0.33, 0.30), float3(0.10, 0.16, 0.22), float3(0.42, 0.40, 0.38) };
+    w = spc[(int)fmod(floor(seed / 7.0), 4.0)] * vcl;
+    wr = 0.35; wallMetal = 0.6;
+}
+if (cbay > 0.5)
+{
+    float3 cbc[5] = { float3(0.45, 0.16, 0.10), float3(0.10, 0.28, 0.30), float3(0.30, 0.32, 0.40), float3(0.55, 0.42, 0.20), float3(0.22, 0.30, 0.18) };
+    w = lerp(w, cbc[(int)fmod(floor(seed / 3.0), 5.0)] * vcl, 0.85);
+}
 if (style == 6 || style == 7) w = lerp(wall, gtint * 0.9, 0.45);   // spandrel panels between the glass bands
 if (core > 0.5) w = lerp(w, accC, 0.18);                            // stair core column: a slightly different colour
 w = lerp(w, accC, saturate(accent) * (1.0 - open));
@@ -619,13 +649,30 @@ float m = lerp(open, area, far);
 float3 col = lerp(w, insC, m);
 Rough = lerp(wr, insR, m);
 Metal = lerp(wallMetal, insM, m);
-Spec = lerp(0.35, 0.5, m);
+Spec = lerp(0.35, (style == 6 || style == 7) ? 1.0 : 0.5, m);   // round 3: glass F0 0.08
 NormalWS = normalize(lerp(wN, insN, m));
 if (ST_SIGN > 0.0)
 {
     col = lerp(col, SIGNC, saturate(ST_SIGN));
     Rough = lerp(Rough, 0.35, saturate(ST_SIGN)); Metal = lerp(Metal, 0.0, saturate(ST_SIGN));
     NormalWS = normalize(lerp(NormalWS, Nn, saturate(ST_SIGN)));
+}
+if (vsign > 0.5)
+{
+    // tall vertical signboard on the bay edge: one store per floor (colour block + stacked glyphs), sticks out of the wall
+    float vx = PULSE(f.x, 0.02, 0.30, fw.x);
+    float3 vp[6] = { float3(0.80, 0.80, 0.76), float3(0.55, 0.08, 0.06), float3(0.06, 0.16, 0.42), float3(0.75, 0.55, 0.08),
+                     float3(0.08, 0.32, 0.16), float3(0.12, 0.12, 0.13) };
+    float3 vc = vp[(int)min(H1(cell.x * 2.1 + cell.y * 5.3 + 0.4) * 6.0, 5.0)];
+    vc = lerp(dot(vc, 0.333.xxx).xxx, vc, 0.8);
+    float gy2 = f.y * 4.0;
+    float vgl = step(0.2, frac(gy2)) * step(frac(gy2), 0.8) * PULSE(f.x, 0.07, 0.25, fw.x) * step(0.25, H1(floor(gy2) + cell.y * 7.0 + cell.x));
+    float3 vg = (dot(vc, 0.333.xxx) > 0.5) ? float3(0.10, 0.10, 0.12) : float3(0.95, 0.93, 0.85);
+    vc = lerp(vc, vg, vgl * saturate(1.5 - fw.y * 4.0));
+    float frameV = 1.0 - PULSE(f.y, 0.04, 0.96, fw.y);
+    vc = lerp(vc, float3(0.25, 0.25, 0.26), frameV);
+    col = lerp(col, vc, vx * (nearD + far * 0.5));
+    Rough = lerp(Rough, 0.4, vx); Metal = lerp(Metal, 0.0, vx); NormalWS = normalize(lerp(NormalWS, Nn, vx));
 }
 if (awning > 0.5 && parapet < 0.5)                           // striped awning over the shop window, its shadow below
 {
