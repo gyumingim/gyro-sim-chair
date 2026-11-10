@@ -16,16 +16,18 @@ a = frac(sin(dot(i0, float2(127.1, 311.7))) * 43758.55); b = frac(sin(dot(i0 + f
 c = frac(sin(dot(i0 + float2(0, 1), float2(127.1, 311.7))) * 43758.55); d = frac(sin(dot(i0 + float2(1, 1), float2(127.1, 311.7))) * 43758.55);
 float n2 = lerp(lerp(a, b, uu.x), lerp(c, d, uu.x), uu.y);
 float foam = saturate(0.35 + 0.9 * n1 * n2 + 0.25 * n2);
-float k = saturate(Spd / 450.0);
+float k = saturate(Spd / 600.0);
+// fade with distance behind the ship: faster ships keep their wake longer (along 0..1 = ~4.5 ship lengths; a 300 m ship at
+// 11 kn fades out over ~500 m, a 165 m ferry at 17 kn over ~600 m)
+float keep = lerp(0.25, 0.55, saturate(Spd / 900.0));
 float o;
-if (part < 0.25) {                                   // stern trail: churned centre, spreading and fading
+if (part < 0.25) {                                   // stern trail: narrow churned centre, quickly thinning
     float cx = (across - 0.5) * 2.0;
-    float core = exp(-cx * cx * 2.5);
-    o = 0.85 * core * pow(1.0 - along, 1.6) * foam * (0.6 + 0.4 * saturate(1.0 - along * 3.0));
-} else if (part < 0.75) {                            // Kelvin arms: thin lines of broken water
+    float core = exp(-cx * cx * 7.0);
+    o = 0.45 * core * saturate(1.0 - along / keep) * foam * (0.5 + 0.5 * saturate(1.0 - along * 6.0));
+} else if (part < 0.75) {                            // Kelvin arms: thin, faint lines
     float cx = (across - 0.5) * 2.0;
-    o = 0.45 * exp(-cx * cx * 4.0) * pow(1.0 - along, 2.2) * foam;
+    o = 0.16 * exp(-cx * cx * 10.0) * saturate(1.0 - along / (keep * 1.2)) * foam;
 } else {                                             // bow wave along the hull
-    o = 0.8 * pow(1.0 - across, 1.5) * (1.0 - along) * saturate(0.5 + foam);
-}
-return saturate(o * k) * Amt;
+    o = 0.45 * pow(1.0 - across, 2.0) * (1.0 - along) * saturate(0.5 + foam);
+}return saturate(o * k) * Amt;

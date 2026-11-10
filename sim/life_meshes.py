@@ -69,7 +69,7 @@ class Mesh:
         if bottom:
             self.quad(p(0, 0, 0), p(1, 0, 0), p(1, 1, 0), p(0, 1, 0), col, u, normal=(0, 0, -1))
 
-    def hull(self, L, B, zbot, zmid, ztop, bow, col_lo, col_hi, deck, u_lo=0.0, u_hi=1.0, stern_r=0.12, bow_pow=1.6, n_bow=8):
+    def hull(self, L, B, zbot, zmid, ztop, bow, col_lo, col_hi, deck, u_lo=0.0, u_hi=1.0, stern_r=0.12, bow_pow=1.6, n_bow=8, flare=0.45, rake=0.02):
         """ship hull: plan outline (flat stern with rounded corners, parallel body, pointed bow over `bow` m), sides in two
         bands (zbot..zmid boot-top / antifouling, zmid..ztop topsides), flat deck."""
         hb = B / 2.0
@@ -87,14 +87,32 @@ class Mesh:
         ring = pts + right                                          # port stern -> bow -> starboard stern (closed implicitly)
         ring = [np.array(p) for p in ring]
         c = np.mean(ring, axis=0)
+
+        def level(lev):
+            """the outline at a height fraction lev (0 = keel line, 1 = deck): bow flare (narrower and shorter low down,
+            raked stem), small transom overhang at the stern."""
+            out = []
+            for p in ring:
+                tb = max(0.0, (p[0] - x_b) / max(bow, 1e-6))             # 0 aft of the bow entrance .. 1 at the stem
+                ts = max(0.0, (-xs + 0.08 * L - p[0]) / (0.08 * L))      # 0 .. 1 towards the transom
+                y = p[1] * (1.0 - flare * (1.0 - lev) * tb ** 0.7) * (1.0 - 0.06 * (1.0 - lev))
+                x = p[0] + rake * L * lev * tb ** 2 - 0.01 * L * lev * ts
+                out.append(np.array((x - rake * L * tb ** 2 * 0.0, y)))
+            return out
+        levs = ((zbot, zmid, 0.0, 0.35, col_lo, u_lo), (zmid, ztop, 0.35, 1.0, col_hi, u_hi))
+        for z0, z1, l0, l1, col, u in levs:
+            r0, r1 = level(l0), level(l1)
+            for i in range(len(ring)):
+                j = (i + 1) % len(ring)
+                mid = (r1[i] + r1[j]) / 2 - c
+                nrm = np.array((mid[0], mid[1], 0.0))
+                self.quad((r0[i][0], r0[i][1], z0), (r0[j][0], r0[j][1], z0), (r1[j][0], r1[j][1], z1), (r1[i][0], r1[i][1], z1), col, u, normal=nrm)
+        top = level(1.0)
         for i in range(len(ring)):
-            a, b = ring[i], ring[(i + 1) % len(ring)]
-            mid = (a + b) / 2 - c
-            nrm = np.array((mid[0], mid[1], 0.0))
-            for z0, z1, col, u in ((zbot, zmid, col_lo, u_lo), (zmid, ztop, col_hi, u_hi)):
-                self.quad((a[0], a[1], z0), (b[0], b[1], z0), (b[0], b[1], z1), (a[0], a[1], z1), col, u, normal=nrm)
+            a, b = top[i], top[(i + 1) % len(ring)]
             self.tri((c[0], c[1], ztop), (a[0], a[1], ztop), (b[0], b[1], ztop), deck, 0.0, normal=(0, 0, 1))
-        return ring
+        # bulwark / sheer at the bow: a raised forecastle edge
+        return top
 
     def arrays(self):
         return (np.array(self.P, np.float32), np.array(self.N, np.float32), np.array(self.C, np.float32),
@@ -177,42 +195,60 @@ def vehicle():
     return m
 
 
-def containers(m, rng, x0, x1, B, z0, tiers=(4, 8), bay=13.0, blocks=4, gap=0.6):
+def containers(m, rng, x0, x1, B, z0, tiers=(4, 8), bay=13.0, blocks=6, gap=0.5):
+    """container stacks: per bay `blocks` stacks across the beam, random tier count. U = 3: the ship material paints
+    every 6.1 x 2.44 x 2.59 m box its own muted colour with dark seams (no colour here)."""
     x = x0
+    hb = B / 2.0
+    w = B / blocks
     while x + bay <= x1 + 0.01:
-        hb = B / 2.0
-        w = B / blocks
+        base = int(rng.integers(tiers[0], tiers[1] + 1))
         for k in range(blocks):
-            t = int(rng.integers(tiers[0], tiers[1] + 1))
-            col = CONT[int(rng.integers(0, len(CONT)))]
-            m.box(x + gap / 2, x + bay - gap / 2, -hb + k * w + 0.15, -hb + (k + 1) * w - 0.15, z0, z0 + t * 2.6, col)
+            t = max(1, base + int(rng.integers(-1, 2)) - (1 if k in (0, blocks - 1) else 0))
+            m.box(x + gap / 2, x + bay - gap / 2, -hb + k * w + 0.1, -hb + (k + 1) * w - 0.1, z0, z0 + t * 2.59, GREYW, 3.0)
         x += bay
+
+
+def superstructure(m, x, L, B, fb, decks, wing=True, glass=True):
+    """stepped white accommodation block: `decks` levels, narrower and shorter going up, bridge with wings and a window band."""
+    hl = 0.05 * L
+    z = fb
+    for d in range(decks):
+        s = 1.0 - 0.06 * d
+        m.box(x - hl / 2 * s, x + hl / 2, -0.30 * B * s, 0.30 * B * s, z, z + 2.8, WHITE)
+        z += 2.8
+    if wing:
+        m.box(x + hl / 2 - 3.0, x + hl / 2, -0.5 * B, 0.5 * B, z - 2.8, z - 0.4, WHITE)                 # bridge wings
+    if glass:
+        m.box(x + hl / 2 - 0.2, x + hl / 2 + 0.15, -0.28 * B, 0.28 * B, z - 2.2, z - 0.9, GLASS)        # bridge windows
+    m.box(x - hl / 2 * 0.7, x + hl / 2 * 0.6, -0.2 * B, 0.2 * B, z, z + 0.6, WHITE)                    # bridge roof
+    return z
 
 
 def container_ship(L=300.0, B=48.0, seed=1):
     m = Mesh()
     rng = np.random.default_rng(seed)
     fb = 0.04 * L                                              # freeboard 12 m (300 m)
-    m.hull(L, B, -1.0, 0.012 * L, fb, 0.17 * L, BOOT, DARK, DECK_RED, 0.0, 1.0)
+    # red antifouling band at the waterline, dark topsides (paint 1), flared / raked bow
+    m.hull(L, B, -1.0, 1.6, fb, 0.17 * L, ANTIFOUL, DARK, DECK_RED, 0.0, 1.0, flare=0.5, rake=0.025)
     xs = L / 2
-    # superstructure (accommodation + bridge) at ~ 1/3 from the stern on big ships, aft on feeders
-    hx = -xs + (0.33 * L if L > 250 else 0.12 * L)
-    hl, hh = 0.045 * L, 0.11 * L
-    m.box(hx - hl / 2, hx + hl / 2, -0.30 * B, 0.30 * B, fb, fb + hh, WHITE)
-    m.box(hx + hl / 2 - 0.012 * L, hx + hl / 2, -0.5 * B, 0.5 * B, fb + hh - 0.012 * L, fb + hh - 0.004 * L, WHITE)   # bridge wings
-    m.box(hx + hl / 2 - 0.006 * L, hx + hl / 2 + 0.0005 * L, -0.28 * B, 0.28 * B, fb + hh - 0.012 * L, fb + hh - 0.006 * L, GLASS)
-    fx = -xs + 0.06 * L                                         # funnel / engine casing aft
-    m.box(fx - 0.02 * L, fx + 0.02 * L, -0.12 * B, 0.12 * B, fb, fb + 0.07 * L, DARK, 2.0)
-    containers(m, rng, hx + hl / 2 + 1.0, xs - 0.16 * L, B - 2.0, fb, bay=13.0 if L > 250 else 12.5)
-    containers(m, rng, fx + 0.03 * L, hx - hl / 2 - 1.0, B - 2.0, fb, tiers=(3, 6))
-    m.box(xs - 0.16 * L, xs - 0.14 * L, -0.4 * B, 0.4 * B, fb, fb + 3.0, WHITE)   # breakwater
+    hx = -xs + (0.30 * L if L > 250 else 0.10 * L)             # accommodation ~ 1/3 from the stern (big), aft (feeder)
+    top = superstructure(m, hx, L, B, fb, 9 if L > 250 else 7)
+    fx = hx - 0.07 * L if L > 250 else -xs + 0.04 * L          # funnel: behind the house (big ships: separate engine casing)
+    m.box(fx - 0.018 * L, fx + 0.018 * L, -0.10 * B, 0.10 * B, fb, fb + (0.06 * L if L > 250 else top - fb + 3.0), DARK, 2.0)
+    m.box(xs - 0.155 * L, xs - 0.14 * L, -0.42 * B, 0.42 * B, fb, fb + 4.0, WHITE)                     # breakwater
+    m.box(xs - 0.14 * L, xs - 0.02 * L, -0.30 * B, 0.30 * B, fb, fb + 2.0, DECK_RED)                  # forecastle
+    hl = 0.05 * L
+    containers(m, rng, hx + hl / 2 + 1.0, xs - 0.16 * L, B - 2.0, fb + 1.0, bay=12.8)
+    if L > 250:
+        containers(m, rng, fx + 0.03 * L, hx - hl / 2 - 1.0, B - 2.0, fb + 1.0, tiers=(3, 6), bay=12.8)
+        containers(m, rng, -xs + 0.03 * L, fx - 0.03 * L, B - 4.0, fb + 1.0, tiers=(2, 5), bay=12.8)
     return m
-
 
 def ferry(L=165.0, B=26.0):
     m = Mesh()
     fb = 9.0
-    m.hull(L, B, -1.0, 2.5, fb, 0.22 * L, BOOT, WHITE, DECK_GREEN, 0.0, 0.0)
+    m.hull(L, B, -1.0, 1.5, fb, 0.22 * L, ANTIFOUL, WHITE, DECK_GREEN, 0.0, 0.0, flare=0.45, rake=0.035)
     xs = L / 2
     m.box(-xs + 4, xs - 0.22 * L, -B / 2 - 0.05, B / 2 + 0.05, 4.0, 5.6, WHITE, 2.0)              # trim stripe (paint)
     decks = [(-xs + 10, xs - 0.20 * L - 4, 0.48 * B), (-xs + 14, xs - 0.24 * L - 4, 0.46 * B),
@@ -231,7 +267,7 @@ def ferry(L=165.0, B=26.0):
 def bulk(L=225.0, B=32.0):
     m = Mesh()
     fb = 13.0                                                  # in ballast at anchor: high freeboard, red bottom shows
-    m.hull(L, B, -1.0, 6.0, fb, 0.12 * L, ANTIFOUL, DARK, DECK_RED, 0.0, 1.0, bow_pow=1.3)
+    m.hull(L, B, -1.0, 6.0, fb, 0.12 * L, ANTIFOUL, DARK, DECK_RED, 0.0, 1.0, bow_pow=1.3, flare=0.35, rake=0.02)
     xs = L / 2
     for k in range(7):                                         # hatch covers
         x = -xs + 0.17 * L + k * 0.105 * L
@@ -272,14 +308,18 @@ def fishing(L=24.0, B=6.0):
 
 
 def boat(L=13.0, B=3.8):
+    """small tour / pleasure boat: white hull with a dark sheer stripe, raised cabin with a dark window band, flybridge."""
     m = Mesh()
-    fb = 1.2
-    m.hull(L, B, -0.3, 0.25, fb, 0.40 * L, BOOT, WHITE, srgb(190, 170, 140), 0.0, 1.0, bow_pow=2.0, stern_r=0.2)
-    m.box(-2.5, 2.0, -1.4, 1.4, fb, fb + 1.6, WHITE)
-    m.box(1.0, 2.05, -1.3, 1.3, fb + 0.5, fb + 1.5, GLASS)
-    m.box(-2.6, -2.4, -1.45, 1.45, fb + 0.4, fb + 1.4, GLASS)
+    fb = 1.3
+    m.hull(L, B, -0.3, 0.25, fb, 0.40 * L, BOOT, WHITE, srgb(150, 120, 90), 0.0, 1.0, bow_pow=2.0, stern_r=0.25, flare=0.35, rake=0.04)
+    m.box(-L / 2 + 0.3, L / 2 - 2.5, -B / 2 - 0.05, B / 2 + 0.05, fb - 0.45, fb - 0.15, srgb(30, 45, 80), 2.0)   # sheer stripe
+    m.box(-3.5, 2.6, -1.45, 1.45, fb, fb + 1.9, WHITE)                                   # cabin
+    m.box(-3.4, 2.7, -1.5, 1.5, fb + 0.9, fb + 1.5, GLASS)                               # window band all round
+    m.box(-2.8, 1.2, -1.25, 1.25, fb + 1.9, fb + 2.4, WHITE)                            # flybridge
+    m.box(-2.9, 0.0, -1.3, 1.3, fb + 2.9, fb + 3.0, srgb(40, 50, 70))                   # bimini top
+    for y in (-1.2, 1.2):
+        m.box(-2.85, -2.75, y - 0.05, y + 0.05, fb + 2.4, fb + 2.9, DARK)
     return m
-
 
 def wake():
     """foam for a 100 m ship (instance scale = length / 100): stern trail, two Kelvin arms (19.5 deg), bow waves.
@@ -301,7 +341,7 @@ def wake():
         for a, b in zip(us, us[1:]):
             xa, xb = 45 - 495 * a, 45 - 495 * b
             ya, yb = side * (8 + (45 - xa) * t), side * (8 + (45 - xb) * t)
-            wa, wb = 2 + 10 * a, 2 + 10 * b
+            wa, wb = 1.2 + 4 * a, 1.2 + 4 * b
             m.quad((xa, ya - wa, 0), (xb, yb - wb, 0), (xb, yb + wb, 0), (xa, ya + wa, 0), (a, 0.5, 0.5), 0.0, normal=up)
     # bow waves along the hull sides
     for side in (-1, 1):
@@ -317,7 +357,7 @@ def wake():
     along = np.where(part < 0.25, (-50 - P[:, 0]) / 400, np.where(part < 0.75, (45 - P[:, 0]) / 495, (50 - P[:, 0]) / 65))
     across = np.where(part < 0.25, P[:, 1] / np.maximum(6 + 30 * np.clip(along, 0, 1) ** 0.7, 1e-3) * 0.5 + 0.5, 0.5)
     arm_c = np.sign(P[:, 1]) * (8 + (45 - P[:, 0]) * t)
-    arm_w = 2 + 10 * np.clip(along, 0, 1)
+    arm_w = 1.2 + 4 * np.clip(along, 0, 1)
     across = np.where((part >= 0.25) & (part < 0.75), (P[:, 1] - arm_c) / arm_w * 0.5 + 0.5, across)
     across = np.where(part >= 0.75, np.clip((np.abs(P[:, 1]) - 7.5 * np.clip((50 - P[:, 0]) / 17, 0, 1) ** 0.6) / 4.5, 0, 1), across)
     m.C = [tuple(x) for x in np.stack((np.clip(along, 0, 1), np.clip(across, 0, 1), part), 1)]

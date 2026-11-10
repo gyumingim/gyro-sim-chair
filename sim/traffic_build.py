@@ -33,9 +33,11 @@ OVERPASS = os.environ.get("GYROSIM_OVERPASS", "https://overpass-api.de/api/inter
 UA = "gyro-sim-chair traffic_build.py (personal flight sim; one request per manual run)"
 # class: (lanes drawn per direction on a two-way road, car spacing per lane m, speed m/s, bus share, truck share)
 # spacing / speed = 추정 daytime flow (moving traffic ~ 25-60 m gap in a lane), kept sparse enough for the GPU budget
-CLASS = dict(motorway=(2, 45.0, 22.0, 0.04, 0.22), trunk=(2, 45.0, 18.0, 0.05, 0.15), primary=(2, 50.0, 14.0, 0.10, 0.08),
-             secondary=(1, 60.0, 12.0, 0.08, 0.06), tertiary=(1, 85.0, 10.0, 0.04, 0.05),
-             motorway_link=(1, 70.0, 15.0, 0.02, 0.15), trunk_link=(1, 70.0, 13.0, 0.03, 0.10), primary_link=(1, 75.0, 11.0, 0.05, 0.05),
+# 11-10 round 2: denser on the arterials / bridges (first pass looked sparse from the air): 28-30 m per lane on
+# motorway / trunk / primary (busy daytime flow, 추정), 42 m secondary
+CLASS = dict(motorway=(2, 28.0, 20.0, 0.04, 0.22), trunk=(2, 28.0, 16.0, 0.05, 0.15), primary=(2, 30.0, 12.0, 0.10, 0.08),
+             secondary=(1, 42.0, 11.0, 0.08, 0.06), tertiary=(1, 70.0, 10.0, 0.04, 0.05),
+             motorway_link=(1, 50.0, 14.0, 0.02, 0.15), trunk_link=(1, 50.0, 12.0, 0.03, 0.10), primary_link=(1, 55.0, 11.0, 0.05, 0.05),
              secondary_link=(1, 90.0, 10.0, 0.03, 0.04), tertiary_link=(1, 110.0, 9.0, 0.02, 0.04))
 LANE_M = 3.3
 STEP = 25.0                                               # densify ground ways (terrain following), m

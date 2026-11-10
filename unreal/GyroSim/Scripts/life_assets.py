@@ -164,12 +164,12 @@ def _new(name):
 
 
 def _code(body_file, head_extra=""):
-    head = open(os.path.join(HERE, "life_motion.hlsl"), encoding="utf-8").read()
-    body = open(os.path.join(HERE, body_file), encoding="utf-8").read() if body_file.endswith(".hlsl") else body_file
+    head = open(os.path.join(HERE, "life_motion.hlsl"), encoding="utf-8-sig").read()
+    body = open(os.path.join(HERE, body_file), encoding="utf-8-sig").read() if body_file.endswith(".hlsl") else body_file
     return "float SC = length(AX);\n" + head + head_extra + "\n" + body
 
 
-def build_opaque(name, body_file, far, extra_inputs=()):
+def build_opaque(name, body_file, far, extra_inputs=(), px_file=None):
     m, full = _new(name)
     F1, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMaterialOutputType.CMOT_FLOAT3,
                   unreal.CustomMaterialOutputType.CMOT_FLOAT4)
@@ -186,14 +186,20 @@ def build_opaque(name, body_file, far, extra_inputs=()):
     MEL.connect_material_property(wpo, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET)
     vi = _x(m, unreal.MaterialExpressionVertexInterpolator, -500, 0)
     MEL.connect_material_expressions(cu, "CR", vi, "")
+    src = vi
+    if px_file:                                                  # pixel stage (container boxes)
+        lp = _x(m, unreal.MaterialExpressionLocalPosition, -700, 500) if hasattr(unreal, "MaterialExpressionLocalPosition") else None
+        uv2 = _x(m, unreal.MaterialExpressionTextureCoordinate, -700, 600)
+        ins = [("CR", vi, ""), ("UV", uv2, "")] + ([("LP", lp, "")] if lp else [])
+        src = _custom(m, open(os.path.join(HERE, px_file), encoding="utf-8-sig").read(), ins, -450, 0, F4)
     rgb = _x(m, unreal.MaterialExpressionComponentMask, -300, 0)
     for k, v in (("r", True), ("g", True), ("b", True), ("a", False)):
         rgb.set_editor_property(k, v)
     al = _x(m, unreal.MaterialExpressionComponentMask, -300, 120)
     for k, v in (("r", False), ("g", False), ("b", False), ("a", True)):
         al.set_editor_property(k, v)
-    MEL.connect_material_expressions(vi, "", rgb, "")
-    MEL.connect_material_expressions(vi, "", al, "")
+    MEL.connect_material_expressions(src, "", rgb, "")
+    MEL.connect_material_expressions(src, "", al, "")
     MEL.connect_material_property(rgb, "", unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(al, "", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.recompile_material(m)
@@ -232,7 +238,7 @@ def build_wake():
     amt.set_editor_property("parameter_name", "Amt")
     amt.set_editor_property("default_value", 1.0)
     ps = [("VC", vc, ""), ("P", wp, ""), ("Spd", spd, ""), ("T", tm, ""), ("TFix", tf, ""), ("Amt", amt, "")]
-    op = _custom(m, open(os.path.join(HERE, "life_wake.hlsl"), encoding="utf-8").read(), ps, -900, 900, F1)
+    op = _custom(m, open(os.path.join(HERE, "life_wake.hlsl"), encoding="utf-8-sig").read(), ps, -900, 900, F1)
     MEL.connect_material_property(op, "", unreal.MaterialProperty.MP_OPACITY)
     col = _x(m, unreal.MaterialExpressionConstant3Vector, -500, 700)
     col.set_editor_property("constant", unreal.LinearColor(0.72, 0.78, 0.80, 1))
@@ -249,7 +255,7 @@ def build_materials():
     build_opaque("M_GyroLifeVehicle", "life_vehicle.hlsl", FAR["vehicle"])
     kind = (("Kind", unreal.MaterialExpressionScalarParameter, "parameter_name", "Kind"),
             ("VC", unreal.MaterialExpressionVertexColor, None, None))
-    build_opaque("M_GyroLifeShip", "life_ship.hlsl", FAR["ship"], kind)
+    build_opaque("M_GyroLifeShip", "life_ship.hlsl", FAR["ship"], kind, px_file="life_ship_px.hlsl")
     build_wake()
 
 
