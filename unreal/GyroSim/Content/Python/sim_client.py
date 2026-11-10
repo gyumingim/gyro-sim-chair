@@ -288,6 +288,11 @@ def apply_look(name, world):
     except Exception as e:
         _log("look", name, repr(e))
     _realism_v2(name, world)
+    try:                                         # Busan / Korea air and light (atmos_look.py), after realism v2
+        import atmos_look
+        atmos_look.apply(world, name)
+    except Exception as e:
+        _log("atmos", repr(e))
 
 
 def _realism_v2(name, world):
@@ -605,6 +610,11 @@ class SimClient:
             ts.set_actor_location_and_rotation(unreal.Vector(0, 0, h * 100.0 - 30.0), unreal.Rotator(roll=0, pitch=0, yaw=90.0), False, True)
             ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_ELLIPSOID)
         self.vw_terrain = local or bool(token)
+        try:                                      # sea surface + photo colour match (atmos_look.py, MI_GyroGround)
+            import atmos_look
+            atmos_look.apply_ground(ts)
+        except Exception as e:
+            _log("ground look", repr(e))
         if ov:
             ov.set_editor_property("template_url", "http://127.0.0.1:%d/vworld/sat/{z}/{reverseY}/{x}.jpg" % self.vworld_port())
             ov.set_editor_property("minimum_level", 0)                 # the proxy answers 0-5 / outside Korea locally (blank)
