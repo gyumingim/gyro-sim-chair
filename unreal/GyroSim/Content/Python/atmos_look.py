@@ -47,6 +47,27 @@ AIR = dict(
 # sun direction -> light rotator (light travels away from the sun: yaw = azimuth - 180, pitch = -elevation)
 SUN_ROT = (-SUN_EL, SUN_AZ - 180.0)
 
+# ---- haze v2 (11-10, docs/haze-backlight-busan.md; GYROSIM_HAZE_V2=0 = the values above) --------------------------------
+# Distant clouds stayed sharp down to the horizon with a thin lavender line under them, distant land too clear / yellow.
+# Measured causes (offscreen A/B, same run, frozen clouds):
+#  - the Mie haze lives in the sky atmosphere with a 1.2 km scale height, so clouds (1.06-3.7 km) and the air in front of
+#    them are nearly clean; the clouds DO get aerial perspective (r.VolumetricCloud.EnableAerialPerspectiveSampling 0 made
+#    them visibly harder), there is just too little of it at cloud height. Mie x3.2 hazed them but turned the whole land
+#    beige / flat (it scales the haze near the camera too).
+#  - the height fog was effectively off (density 0.00002) and its falloff 0.2 means a layer ~50 m thick (UE halves the
+#    density every 1000 / falloff cm): the art pass's fog test (falloff 0.35) was a 29 m layer under the camera - no effect.
+#  - the lavender line = clear sky between the sea horizon and the last clouds, tinted by the grade's sky luminance factor
+#    (0.42, 0.72, 1.35); nothing in front of it to hide it.
+# Fix: a boundary-layer height fog (the sea-level haze of Busan's 15-25 km visibility): falloff 0.012 = density halves
+# every ~0.8 km (Korean mixed layer ~1-1.5 km), starting 3 km from the camera so near views keep their contrast, blue-grey
+# in-scatter (the engine default light-blue luminance; the sky-ambient-only version, in-scatter 0, gave a dark blue band).
+# The fog is applied to the volumetric clouds too (r.VolumetricCloud.ApplyFogLate 1): far clouds fade into the haze band.
+HAZE_V2 = os.environ.get("GYROSIM_HAZE_V2", "0") != "0"     # TEMP default off while tuning
+HAZE_FOG = dict(fog_density=0.0008, fog_height_falloff=0.012, start_distance=300000.0,
+                fog_inscattering_luminance=(0.35, 0.45, 0.6))
+if HAZE_V2:
+    AIR["fog"] = dict(AIR["fog"], **HAZE_FOG)
+
 # ---- ground material parameters (MI_GyroGround; defaults of M_GyroGround) ---------------------------------------------
 GROUND = dict(
     WaterOn=1.0,
@@ -109,10 +130,16 @@ SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0)
 def _set(obj, k, v, tag):
     try:
         if isinstance(v, (tuple, list)):
+            v0 = v
             v = unreal.Vector4(*v) if len(v) == 4 else unreal.LinearColor(v[0], v[1], v[2], 1.0)   # colour grading = Vector4
+            if k in FCOLOR_KEYS:                 # FColor properties (sRGB bytes), e.g. SkyAtmosphere ground_albedo
+                v = unreal.Color(r=int(v0[0]), g=int(v0[1]), b=int(v0[2]), a=255)
         obj.set_editor_property(k, v)
     except Exception as e:
         log("skip", tag, k, repr(e)[:120])
+
+
+FCOLOR_KEYS = {"ground_albedo"}
 
 
 def _get(obj, k):
@@ -122,6 +149,8 @@ def _get(obj, k):
             return (v.r, v.g, v.b)
         if isinstance(v, unreal.Vector4):
             return (v.x, v.y, v.z, v.w)
+        if isinstance(v, unreal.Color):
+            return (v.r, v.g, v.b)
         return v
     except Exception:
         return None
@@ -190,6 +219,11 @@ def apply(world, preset="monitor", on=None):
         log("air", preset, "on" if on else "off (map values)")
     except Exception as e:
         log("apply failed", repr(e))
+    try:                                         # backlight fill (sky light lower hemisphere): light_look.py
+        import light_look
+        light_look.apply(world, preset, on=(light_look.STATE["on"] and on))
+    except Exception as e:
+        log("light look", repr(e))
 
 
 def _pps(world):
