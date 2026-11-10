@@ -127,6 +127,7 @@ def _do(world, man, shell, glass):
         n = c.static_mesh.get_name() if c and c.static_mesh else ""
         if n == "ck_shell":
             _place(a, mesh=shell)
+            _lumen_off(c)
         elif n == "ck_glass":
             _place(a, mesh=glass)
     PV = man["pivots"]
@@ -178,6 +179,16 @@ def _do(world, man, shell, glass):
         k = mn[len("MI_Lbl_"):] if mn.startswith("MI_Lbl_") else None
         if k in cal:
             _place(a, loc=cal[k]["center"], rot=_rot_zx(cal[k]["normal"]))
+
+
+def _lumen_off(c):
+    """the v2 shell's mesh distance field comes out empty (thin open surfaces): Lumen's surface cache then lit it in bright
+    blotches (HUD body, upper panel). Keep it out of distance-field lighting; screen-space GI / shadows still apply."""
+    for k, v in (("affect_distance_field_lighting", False),):
+        try:
+            c.set_editor_property(k, v)
+        except Exception as e:
+            _log("component flag", k, repr(e))
 
 
 def _right(s):
