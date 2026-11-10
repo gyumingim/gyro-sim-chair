@@ -12,7 +12,12 @@ def apply(tileset, log=unreal.log):
     if tileset is None:
         return False
     want = os.environ.get("GYROSIM_BLDG_MAT", "1") != "0"
-    m = unreal.load_asset(MAT) if want and unreal.EditorAssetLibrary.does_asset_exist(MAT) else None
+    m = None
+    if want:                                    # load_asset, not does_asset_exist: the asset registry may still be
+        try:                                    # scanning right after editor start (-GyroSimPlay autoplay)
+            m = unreal.load_asset(MAT)
+        except Exception:
+            m = None
     try:
         tileset.set_editor_property("material", m)
         log("[buildings_look] material %s" % (MAT if m else "Cesium default"))
