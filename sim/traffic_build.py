@@ -106,7 +106,7 @@ def ground_msl(dem, la, lo):
     try:
         import coast_build as CB
         sd, _ = CB.field_at(la, lo)
-        near = sd < 200.0
+        near = sd < 1e4                                       # whole Busan box (coast tiles re-encoded at levels 13-16 everywhere there)
         if np.any(near):
             h = np.where(near, CB.rendered_msl(dem, la, lo), h)
     except Exception as e:                                   # no coast field built: plain mesh
