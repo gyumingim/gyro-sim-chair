@@ -3,14 +3,29 @@ The map's 'CesiumLandmarks' tileset (Scripts/add_landmarks_actor.py, run once wi
 pointed at file:///C:/GyroSimTiles/landmarks/tiles/tileset.json (GYROSIM_LANDMARK_TILES moves it). GYROSIM_LANDMARKS=0 = off.
 Called by sim_client._vworld_ground after the roads. The GIS boxes of the same buildings are left out of the building
 tiles through C:/GyroSimTiles/landmarks/exclude.json (sim/buildings_build.py --tiles).
-Glass / panels use Cesium's default glTF material (base colour + metallic-roughness textures baked in the glb), physics
-meshes on so the camera floor trace stands on them like on the building tiles."""
+Glass: /Game/Landmarks/MI_GyroLandmark (Scripts/landmarks_material.py + landmarks_glass.hlsl, 11-10): Cesium's glTF
+material layers (base colour + metallic-roughness textures baked in the glb) and then reflective curtain-wall glass on the
+glass-module pixels (dark body, ~10-20 % sky reflection, per-pane / per-floor variation and tilt, darker mullions).
+GYROSIM_LM_GLASS=0 = Cesium's default material (the look before 11-10, A/B). Physics meshes on so the camera floor trace
+stands on them like on the building tiles."""
 import os
 import unreal
 
 TILES = os.environ.get("GYROSIM_LANDMARK_TILES", r"C:/GyroSimTiles/landmarks/tiles").replace("\\", "/")
 TAG = "CesiumLandmarks"
 SSE = 8.0
+GLASS_MI = "/Game/Landmarks/MI_GyroLandmark"
+# glass parameters (defaults of M_GyroLandmark, written into MI_GyroLandmark by Scripts/landmarks_material.py).
+# PaneM / FrameM / PaneR / FrameR = the glb's glass-pane and frame metallic / roughness (specs.MATS: panes 0.5-0.6 / 0.07-0.1,
+# frames 0.1 / 0.55): pixels on that blend line are glass modules, everything else keeps the glb look.
+# Pane: base x GlassDark (dark body), metallic 0.7 / specular 1 -> F0 ~0.12-0.18 tinted by the glass colour (reflective
+# coated curtain wall: ~10-30 % visible reflectance, 추정 from maker data sheets), roughness 0.03 + up to 0.05 per pane.
+# Variation per pane / floor (brightness +-PaneVar/2, +-FloorVar/2) and a random pane tilt up to TiltDeg plus a pillow of
+# BowDeg inside each pane - fades out where panes get smaller than a pixel. Mullions: base x FrameGain, brushed aluminium.
+GLASS = dict(GlassOn=1.0, Grid=4.0, PaneM=0.55, FrameM=0.10, PaneR=0.09, FrameR=0.55,
+             GlassDark=0.45, GlassMetal=0.7, GlassSpec=1.0, GlassRough=0.03, GlassRoughVar=0.05,
+             PaneVar=0.30, FloorVar=0.20, TiltDeg=0.8, BowDeg=0.4,
+             FrameGain=0.75, FrameMetal=0.6, FrameRough=0.35)
 
 
 def url():
@@ -65,10 +80,17 @@ def apply(world, log=unreal.log, georef=None):
                 a.set_editor_property(k, v)
             except Exception as e:
                 log("[landmarks] %s %r" % (k, e))
+        m = None
+        if os.environ.get("GYROSIM_LM_GLASS", "1") != "0":
+            try:                                               # load_asset: the registry may still be scanning at autoplay
+                m = unreal.load_asset(GLASS_MI)
+            except Exception:
+                m = None
         try:
-            a.set_editor_property("material", None)            # Cesium default glTF material (PBR from the glb)
-        except Exception:
-            pass
+            a.set_editor_property("material", m)               # None = Cesium default glTF material (PBR from the glb)
+            log("[landmarks] material %s" % (GLASS_MI if m else "Cesium default"))
+        except Exception as e:
+            log("[landmarks] material %r" % (e,))
         a.set_actor_hidden_in_game(False)
         a.refresh_tileset()
         log("[landmarks] on: %s" % u)
