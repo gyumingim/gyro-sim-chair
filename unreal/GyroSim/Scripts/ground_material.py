@@ -78,7 +78,7 @@ def coast_assets():
         mpc = unreal.AssetToolsHelpers.get_asset_tools().create_asset("MPC_GyroCoast", PATH, unreal.MaterialParameterCollection,
                                                                       unreal.MaterialParameterCollectionFactoryNew())
     vps = []
-    for n in ("CoastU", "CoastV"):
+    for n in ("CoastU", "CoastV", "CoastU2", "CoastV2"):
         v = unreal.CollectionVectorParameter()
         v.set_editor_property("parameter_name", n)
         v.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, -1.0, 0.0))      # u = v = -1: outside -> coast v2 idle
@@ -122,7 +122,7 @@ def build():
         ct.set_editor_property("texture", ctex)
     ct.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
     srcs.append(("CoastTex", ct, ""))
-    for i, n in enumerate(("CoastU", "CoastV")):
+    for i, n in enumerate(("CoastU", "CoastV", "CoastU2", "CoastV2")):
         cp = X(unreal.MaterialExpressionCollectionParameter, 150, 800 + 120 * i)
         cp.set_editor_property("collection", mpc)
         cp.set_editor_property("parameter_name", n)

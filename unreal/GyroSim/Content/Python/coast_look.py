@@ -35,45 +35,47 @@ def _box():
 
 
 def fit(lat0, lon0, h0):
-    """affine rows (a, b, c) for u and v: u = a Px + b Py + c, with P in cm of the world frame at origin (lat0, lon0, h0)."""
+    """quadratic rows for u and v: u = a x + b y + c + d x^2 + e xy + f y^2, x / y = P / 1e5 (km) in the world frame at
+    origin (lat0, lon0, h0); residual ~0.25 m over the box."""
     import geo
     s, w, n, e = _box()
     fr = geo.Frame(lat0, lon0, h0)
     rows, us, vs = [], [], []
-    for i in range(9):
-        for j in range(9):
-            lat, lon = s + (n - s) * i / 8.0, w + (e - w) * j / 8.0
+    for i in range(13):
+        for j in range(13):
+            lat, lon = s + (n - s) * i / 12.0, w + (e - w) * j / 12.0
             x, y, _ = fr.world(lat, lon, 29.0)
-            rows.append((x, y, 1.0))
+            xk, yk = x * 1e-5, y * 1e-5                   # km; the u / v rows are quadratic (meridian convergence: a plane
+            rows.append((xk, yk, 1.0, xk * xk, xk * yk, yk * yk))   # fit was off by ~75 m at the box edges)
             us.append((lon - w) / (e - w))
             vs.append((n - lat) / (n - s))
-    # 3 x 3 normal equations (no numpy in every editor python): scale x, y to km for conditioning
-    def solve(t):
-        A = [[0.0] * 3 for _ in range(3)]
-        bb = [0.0] * 3
-        for (x, y, o), tv in zip(rows, t):
-            r = (x * 1e-5, y * 1e-5, o)
-            for p in range(3):
+
+    def solve(t):                                         # 6 x 6 normal equations, Gauss-Jordan (no numpy needed)
+        K = 6
+        A = [[0.0] * K for _ in range(K)]
+        bb = [0.0] * K
+        for r, tv in zip(rows, t):
+            for p in range(K):
                 bb[p] += r[p] * tv
-                for q in range(3):
+                for q in range(K):
                     A[p][q] += r[p] * r[q]
-        for p in range(3):                                # Gauss-Jordan
+        for p in range(K):
+            m = max(range(p, K), key=lambda r2: abs(A[r2][p]))
+            A[p], A[m], bb[p], bb[m] = A[m], A[p], bb[m], bb[p]
             piv = A[p][p]
-            for q in range(3):
-                A[p][q] /= piv
+            A[p] = [a / piv for a in A[p]]
             bb[p] /= piv
-            for r2 in range(3):
+            for r2 in range(K):
                 if r2 != p:
                     f = A[r2][p]
-                    for q in range(3):
-                        A[r2][q] -= f * A[p][q]
+                    A[r2] = [a - f * c for a, c in zip(A[r2], A[p])]
                     bb[r2] -= f * bb[p]
-        return (bb[0] * 1e-5, bb[1] * 1e-5, bb[2])
+        return bb
     cu, cv = solve(us), solve(vs)
     err = 0.0
-    for (x, y, _), u, v in zip(rows, us, vs):
-        du = (cu[0] * x + cu[1] * y + cu[2] - u) * (e - w) * 111320.0 * math.cos(math.radians((s + n) / 2))
-        dv = (cv[0] * x + cv[1] * y + cv[2] - v) * (n - s) * 110574.0
+    for r, u, v in zip(rows, us, vs):
+        du = (sum(a * b for a, b in zip(cu, r)) - u) * (e - w) * 111320.0 * math.cos(math.radians((s + n) / 2))
+        dv = (sum(a * b for a, b in zip(cv, r)) - v) * (n - s) * 110574.0
         err = max(err, math.hypot(du, dv))
     return cu, cv, err
 
@@ -103,8 +105,9 @@ def sync(world, force=False):
             return False
     cu, cv, err = fit(*o)
     K = unreal.MaterialLibrary                             # (UKismetMaterialLibrary, ScriptName MaterialLibrary)
-    K.set_vector_parameter_value(world, ST["mpc"], "CoastU", unreal.LinearColor(cu[0], cu[1], cu[2], 0.0))
-    K.set_vector_parameter_value(world, ST["mpc"], "CoastV", unreal.LinearColor(cv[0], cv[1], cv[2], 0.0))
+    for nm, c in (("CoastU", cu), ("CoastV", cv)):
+        K.set_vector_parameter_value(world, ST["mpc"], nm, unreal.LinearColor(c[0], c[1], c[2], 0.0))
+        K.set_vector_parameter_value(world, ST["mpc"], nm + "2", unreal.LinearColor(c[3], c[4], c[5], 0.0))
     ST["key"], ST["fit"] = o, dict(u=cu, v=cv, max_err_m=round(err, 2))
     log("mask mapping for origin %.5f %.5f: max fit error %.2f m" % (o[0], o[1], err))
     return True

@@ -23,7 +23,7 @@ float m = saturate(WaterOn * mH * mC * mB);
 
 // ---- coast v2 (11-10, CoastOn 1; GYROSIM_COAST_V2=0 -> 0 = the rule above): the OSM coastline as a signed distance field
 // (T_GyroCoast from sim/coast_build.py --mask, equirectangular over the Busan box; world -> UV affine CoastU / CoastV in
-// MPC_GyroCoast, refitted by coast_look.py whenever the Cesium origin moves). R = coast distance (land +), G = bridge
+// MPC_GyroCoast with quadratic rows CoastU2 / CoastV2, P in km; refitted by coast_look.py whenever the Cesium origin moves). R = coast distance (land +), G = bridge
 // footprint distance (inside +), B = sea distance from the shore, A = shore class (0 natural, 0.5 beach, 1 man-made).
 //  - the sea / land edge is the coastline itself, anti-aliased over one screen pixel (the 30 m DEM ramp no longer decides);
 //  - photo guards (bright = ship / pier, grey = rock) only within CoastGuardM of the shore and never under a bridge mask:
@@ -35,7 +35,9 @@ float m = saturate(WaterOn * mH * mC * mB);
 float photoW = 1.0, coastSteep = 0.0, coastCls = 0.0, coastSd = 1e4;
 if (CoastOn > 0.5)
 {
-    float2 cuv = float2(dot(CoastU.xy, P.xy) + CoastU.z, dot(CoastV.xy, P.xy) + CoastV.z);
+    float2 ck = P.xy * 1e-5;                                                       // km (quadratic fit: meridian convergence)
+    float3 cq = float3(ck.x * ck.x, ck.x * ck.y, ck.y * ck.y);
+    float2 cuv = float2(dot(CoastU.xy, ck) + CoastU.z + dot(CoastU2, cq), dot(CoastV.xy, ck) + CoastV.z + dot(CoastV2, cq));
     if (all(cuv > 0.0005) && all(cuv < 0.9995))
     {
         float4 cm = Texture2DSample(CoastTex, CoastTexSampler, cuv);
