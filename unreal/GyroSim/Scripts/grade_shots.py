@@ -14,6 +14,7 @@ Quits the editor when done. Only one offscreen editor at a time: the caller hold
 """
 import json, math, os, re, time
 import unreal
+import photo_src                      # V-World photo with the white-gap fix (cache-only proxy), as at Play
 import sim_client
 import roads_look
 import trees_look
@@ -84,7 +85,7 @@ def setup_cesium(world):
     for o in ovs.values():
         o.remove_from_tileset()
     ov = ovs.get("CesiumUrlTemplateRasterOverlay")
-    ov.set_editor_property("template_url", "file:///C:/GyroSimTiles/vworld/Satellite/{z}/{reverseY}/{x}.jpg")
+    ov.set_editor_property("template_url", photo_src.template())
     ov.set_editor_property("minimum_level", 6)
     ov.set_editor_property("maximum_level", 19)
     ov.set_maximum_screen_space_error(1.0)

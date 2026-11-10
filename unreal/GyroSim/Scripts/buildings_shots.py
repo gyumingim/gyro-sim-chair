@@ -11,6 +11,7 @@ fog follow), so compare before / after, not against PIE screenshots. Quits the e
 """
 import json, math, os, re, time
 import unreal
+import photo_src                      # V-World photo with the white-gap fix (cache-only proxy), as at Play
 import sim_client
 
 log = lambda *a: unreal.log("[bshots] " + " ".join(str(x) for x in a))
@@ -81,7 +82,7 @@ def setup_cesium(world):
     for o in ovs.values():
         o.remove_from_tileset()
     ov = ovs.get("CesiumUrlTemplateRasterOverlay")
-    ov.set_editor_property("template_url", "file:///C:/GyroSimTiles/vworld/Satellite/{z}/{reverseY}/{x}.jpg" if local else
+    ov.set_editor_property("template_url", photo_src.template() if local else
                            "http://127.0.0.1:%d/vworld/sat/{z}/{reverseY}/{x}.jpg" % PORT)
     ov.set_editor_property("minimum_level", 6 if local else 0)
     ov.set_editor_property("maximum_level", 19)

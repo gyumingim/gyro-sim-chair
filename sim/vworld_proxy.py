@@ -27,6 +27,14 @@ example: sim/vworld_proxy.example.json):
   - when a tile cannot be fetched (budget, back-off, cache-only, zoom > 16 ...): the tile from the cache -> a lower-zoom
     cached tile cut out and upscaled -> a plain blank tile. Fallback replies carry no-store so Cesium asks again later.
     Out of Korea and zoom 0-5 are always the blank tile (no Sentinel-2 or other imagery is ever mixed in: terms 14).
+  - white no-data gaps (11-10, GYROSIM_VW_GAPFIX=0 = off): some V-World z16-z19 tiles carry a pure-white band where two
+    photo sets meet (Busan: an east-west seam at ~35.25 N, ~700 tiles; it draped over 금정산 as a "white road").
+    A cached tile with white full rows / columns (gap_fraction >= GAP_MIN) is not served; the same "lower-zoom tile cut
+    out and upscaled" fallback is, from the first ancestor whose cut-out has no gap (source 'gapfix', no-store). The
+    stored tiles are never changed (terms 13조 10항 / 19조 4항: display-time choice of which V-World tile to show only).
+    Results are remembered in <cache_dir>/gapfix.json (per tile file size + mtime).
+    Offscreen shots: `python -I sim/vworld_proxy.py --cache-only-port <port> --parent-pid <pid>` = a cache-only instance
+    (never calls the API, never reads the key) that exits with its parent (Content/Python/photo_src.py starts it).
 TERMS (V-World 이용약관 19조 "오픈플랫폼에서 제공되는 데이터는 무단으로 저장하지 못합니다", 18조):
   - `permanent_cache` is OFF by default: every cached tile is deleted when the server's Cache-Control max-age has run
     out (259200 s = 3 days, measured), counted from the download.
@@ -69,6 +77,9 @@ DEFAULTS = dict(
 STOP_CODES = ("OVER_REQUEST_LIMIT", "INVALID_KEY", "UNAVAILABLE_KEY", "등록되지 않은 인증키", "사용할 수 없는 인증키", "일일 제한")
 EMPTY_CODES = ("FileNotFound", "FILE_NOT_FOUND", "NOT_FOUND")
 KST = 9 * 3600
+GAPFIX = os.environ.get("GYROSIM_VW_GAPFIX", "1") != "0"
+GAP_MIN = 0.03                       # fraction of full white rows / columns (seam tile 19/207217/450086 = 0.64; white roofs 0)
+GAP_ZMIN = 14
 
 try:
     from PIL import Image
@@ -110,6 +121,16 @@ def next_kst_midnight(t=None):
     return (int((t + KST) // 86400) + 1) * 86400 - KST
 
 
+def gap_fraction(im, lo=250, frac=0.98):
+    """no-data gap measure of a PIL image: the larger of the fractions of rows / columns that are >= 98 % pure white
+    (L >= 250). White roofs score 0 (texture, never whole rows); the V-World seam bands score their height."""
+    import numpy as np
+    a = np.asarray(im.convert("L")) >= lo
+    if a.size == 0:
+        return 0.0
+    return float(max((a.mean(1) >= frac).mean(), (a.mean(0) >= frac).mean()))
+
+
 def tile_lonlat_box(z, y, x):
     """(lon W, lat S, lon E, lat N) of a Web-Mercator tile, y = row from the north."""
     import math
@@ -140,7 +161,14 @@ class Proxy:
         self.sem = threading.BoundedSemaphore(max(1, int(self.cfg["concurrency"])))
         self.bucket, self.bucket_t = 1.0, time.monotonic()
         self.backoff_s, self.backoff_until = 0.0, 0.0
-        self.served = dict(cache=0, online=0, parent=0, blank=0)
+        self.served = dict(cache=0, online=0, parent=0, blank=0, gapfix=0)
+        self.gap_path = os.path.join(self.dir, "gapfix.json")
+        try:
+            with open(self.gap_path, encoding="utf-8") as f:
+                self.gaps = json.load(f)
+        except (OSError, ValueError):
+            self.gaps = {}
+        self.gaps_new = 0
         self.served_z = {}
         self.session_api = 0
         self._blank = None
@@ -333,8 +361,45 @@ class Proxy:
                 pass
         return kind, data, max_age or float(self.cfg["default_max_age"])
 
+    def gap(self, z, y, x, path=None, data=None):
+        """gap_fraction of the cached tile z/y/x (memo + gapfix.json, keyed by file size and mtime). 0 when unknown."""
+        if Image is None:
+            return 0.0
+        path = path or self._path(z, y, x)
+        try:
+            st = os.stat(path)
+        except OSError:
+            return 0.0
+        k = "%d/%d/%d" % (z, y, x)
+        e = self.gaps.get(k)
+        if e and e[0] == st.st_size and abs(e[1] - st.st_mtime) < 1.0:
+            return e[2]
+        try:
+            im = Image.open(io.BytesIO(data) if data is not None else path)
+            g = round(gap_fraction(im), 4)
+        except OSError:
+            return 0.0
+        with self.lock:
+            self.gaps[k] = [st.st_size, st.st_mtime, g]
+            self.gaps_new += 1
+            if self.gaps_new >= 200:
+                self.save_gaps()
+        return g
+
+    def save_gaps(self):
+        with self.lock:
+            try:
+                tmp = self.gap_path + ".%d.tmp" % os.getpid()
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(self.gaps, f, separators=(",", ":"))
+                os.replace(tmp, self.gap_path)
+                self.gaps_new = 0
+            except OSError as e:
+                self.log("gapfix.json not saved", repr(e))
+
     def _parent(self, z, y, x, now):
-        """a cached lower-zoom tile, cut out and upscaled to 256 px (no-store), or None."""
+        """a cached lower-zoom tile, cut out and upscaled to 256 px (no-store), or None. With GAPFIX a cut-out that holds
+        a white no-data band is skipped (next ancestor)."""
         if Image is None:
             return None
         for dz in range(1, 7):
@@ -349,7 +414,10 @@ class Proxy:
                 im = Image.open(self._path(pz, py, px)).convert("RGB")
                 n, s = 2 ** dz, 256 / 2 ** dz
                 ox, oy = (x - px * n) * s, (y - py * n) * s
-                im = im.crop((int(ox), int(oy), int(ox + s), int(oy + s))).resize((256, 256), Image.BILINEAR)
+                im = im.crop((int(ox), int(oy), int(ox + s), int(oy + s)))
+                if GAPFIX and gap_fraction(im, 235, 0.9) > 0.0:    # any (near) white row / column in the cut-out: next ancestor
+                    continue                                        # (locally derived parents carry the seam, blurred)
+                im = im.resize((256, 256), Image.BILINEAR)
                 b = io.BytesIO()
                 im.save(b, "JPEG", quality=85)
                 return b.getvalue()
@@ -372,7 +440,12 @@ class Proxy:
                 return self.blank(), "blank", False
             try:
                 with open(self._path(z, y, x), "rb") as f:
-                    return f.read(), "cache", True
+                    data = f.read()
+                if GAPFIX and z >= GAP_ZMIN and self.gap(z, y, x, data=data) >= GAP_MIN:
+                    p = self._parent(z, y, x, now)               # white no-data band: an ancestor without the gap
+                    if p is not None:
+                        return p, "gapfix", False
+                return data, "cache", True
             except OSError:
                 row = None
         blocked = row is not None and row[2] == "fail" and row[4] > now
@@ -741,6 +814,30 @@ if __name__ == "__main__":
         sys.exit(0)
     if "--prefetch" in a:
         sys.exit(prefetch())
+    if "--cache-only-port" in a:                          # offscreen shots: cache only, no key, dies with its parent
+        cfg = dict(load_config(), mode="cache-only", port=int(a[a.index("--cache-only-port") + 1]))
+        ppid = int(a[a.index("--parent-pid") + 1]) if "--parent-pid" in a else 0
+        srv, px = serve(cfg, Proxy(cfg, key=""), block=False)
+
+        def alive(pid):
+            if os.name == "nt":
+                import ctypes
+                h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)        # PROCESS_QUERY_LIMITED_INFORMATION
+                if not h:
+                    return False
+                code = ctypes.c_ulong()
+                ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+                ctypes.windll.kernel32.CloseHandle(h)
+                return code.value == 259                                        # STILL_ACTIVE
+            try:
+                os.kill(pid, 0)
+                return True
+            except OSError:
+                return False
+        while not ppid or alive(ppid):
+            time.sleep(2.0)
+        px.save_gaps()
+        sys.exit(0)
     if "--status" in a:
         p = Proxy()
         print(json.dumps(p.status(), ensure_ascii=False, indent=1))
