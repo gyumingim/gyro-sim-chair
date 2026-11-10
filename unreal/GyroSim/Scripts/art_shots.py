@@ -185,6 +185,8 @@ def set_variant(v):
         import grade_look
         sim_client.apply_look("monitor", w)
         grade_look.apply(w, "monitor", extra=v.get("pp"))
+        vw = VIEWS[ST["vi"]]                     # apply_look -> atmos_look.apply puts the sun back to its default:
+        set_sun(vw[7] if len(vw) > 7 else {})    # the view's own sun again (a16 / a17 / a18 were shot with the default sun)
     ST["cur"] = v
     log("variant", json.dumps(v)[:300])
     return reload
