@@ -44,6 +44,7 @@ import terrain_dem as T                                   # noqa: E402
 ROOT = os.environ.get("GYROSIM_BUILDINGS", r"C:\GyroSimTiles\buildings")
 WORK, TILES, GROUND = (os.path.join(ROOT, d) for d in ("work", "tiles", "ground"))
 TILES = os.environ.get("GYROSIM_BUILDINGS_TILES", TILES)  # build somewhere else (e.g. tiles_new), then swap folders: the proxy keeps serving
+EXCLUDE = os.environ.get("GYROSIM_LANDMARK_EXCLUDE", r"C:\GyroSimTiles\landmarks\exclude.json")  # landmark rids left out of the tiles (no file = none)
 INCOMING = r"C:\GyroSimTiles\incoming"
 DEFAULT_SHP = [os.path.join(INCOMING, "bldg_43", "AL_D010_43_20261009.shp")]
 RKTU = (36.7166, 127.4993)
@@ -238,7 +239,7 @@ def prep(args):
         if w is not None:
             xs, ys = to_src.transform([w, e, w, e], [s, s, n, n])
             bbox = (min(xs), min(ys), max(xs), max(ys))
-        df = pyogrio.read_dataframe(shp, encoding="cp949", columns=["A0", "A8", "A9", "A12", "A16", "A26", "A27", "A24"], bbox=bbox)
+        df = pyogrio.read_dataframe(shp, encoding="cp949", columns=["A0", "A1", "A8", "A9", "A12", "A16", "A26", "A27", "A24"], bbox=bbox)
         df["src_file"] = os.path.basename(shp)
         parts.append(df)
         st = os.stat(shp.split("/vsizip/")[-1].split(".zip/")[0] + ".zip" if shp.startswith("/vsizip/") else shp)
@@ -298,7 +299,7 @@ def prep(args):
     np.savez(os.path.join(WORK, "buildings_%s.npz" % name), lon=lon, lat=lat, nring=nring.astype(np.int32), ring_of_poly=ring_of_poly.astype(np.int32),
              h=h.astype(np.float32), src=src, base=base.astype(np.float32), geoid=geoid.astype(np.float32), area=area.astype(np.float32),
              clat=clat, clon=clon, rid=rid, dsm_max=dsm_max.astype(np.float32), dsm_c=dsm_c.astype(np.float32),
-             floors=np.nan_to_num(rec.A26.values.astype(float)).astype(np.int16), use=use, a16=np.nan_to_num(rec.A16.values.astype(float)).astype(np.float32))
+             floors=np.nan_to_num(rec.A26.values.astype(float)).astype(np.int16), use=use, uid=rec.A1.fillna("").values.astype("U32"), a16=np.nan_to_num(rec.A16.values.astype(float)).astype(np.float32))
     roof = base + h
     nb = len(h)
     stats = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), region=dict(name=name, bbox=[w, s, e, n], center=center, radius_m=radius),
@@ -444,6 +445,48 @@ def build_glb(D, sel, center):
         bi = G["n"] + 4 * np.arange(q)
         G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
         G["n"] += 4 * q
+    def roof_core(WL, Pt, area, hgt, wl, seed, k=1.0, z0=None):
+        """box (stair / lift core) on the roof, along the longest edge, centred on the ring's vertex mean; only if all
+        four corners are inside the footprint. Plain-wall style (no windows); top face = same primitive."""
+        P2 = Pt[:, :2]
+        d = np.roll(P2, -1, axis=0) - P2
+        ln = np.hypot(d[:, 0], d[:, 1])
+        if ln.max() < 1e-3:
+            return False
+        ax = d[int(np.argmax(ln))] / ln.max()
+        ay = np.array([-ax[1], ax[0]])
+        c = P2.mean(0)
+        L, W = np.clip(0.30 * k * math.sqrt(area), 3.0, 9.0 * k), np.clip(0.18 * k * math.sqrt(area), 2.5, 6.0 * k)
+        cs = np.array([c - L / 2 * ax - W / 2 * ay, c + L / 2 * ax - W / 2 * ay, c + L / 2 * ax + W / 2 * ay, c - L / 2 * ax + W / 2 * ay])
+        x, y = P2[:, 0], P2[:, 1]
+        x1, y1 = np.roll(x, -1), np.roll(y, -1)
+        for px, py in cs:                                  # even-odd point in polygon
+            cr = ((y > py) != (y1 > py)) & (px < (x1 - x) * (py - y) / np.where(y1 != y, y1 - y, 1e-12) + x)
+            if cr.sum() % 2 == 0:
+                return False
+        z0 = float(Pt[:, 2].min()) if z0 is None else z0
+        G = WL.setdefault(BT.ST_PLAIN, dict(P=[], N=[], C=[], UV=[], I=[], n=0))
+        col = np.append(wl * 0.92, (128 + seed) / 255.0)
+        quadsP, ns, uvs = [], [], []
+        for i in range(4):
+            a, b_ = cs[i], cs[(i + 1) % 4]
+            e = b_ - a
+            el = float(np.hypot(*e))
+            quadsP.append([[a[0], a[1], z0], [b_[0], b_[1], z0], [b_[0], b_[1], z0 + hgt], [a[0], a[1], z0 + hgt]])
+            ns.append([e[1] / el, -e[0] / el, 0.0])
+            uvs.append([[0, 1], [el / 4.0, 1], [el / 4.0, 0], [0, 0]])
+        quadsP.append([[p[0], p[1], z0 + hgt] for p in cs])
+        ns.append([0.0, 0.0, 1.0])
+        uvs.append([[0, 0]] * 4)
+        q = len(quadsP)
+        G["P"].append(np.asarray(quadsP, np.float64).reshape(-1, 3))
+        G["N"].append(np.repeat(np.asarray(ns, np.float64), 4, axis=0))
+        G["UV"].append(np.asarray(uvs, np.float64).reshape(-1, 2))
+        G["C"].append(np.repeat(col[None], 4 * q, axis=0))
+        bi = G["n"] + 4 * np.arange(q)
+        G["I"].append(np.stack((bi, bi + 1, bi + 2, bi, bi + 2, bi + 3), axis=1).reshape(-1))
+        G["n"] += 4 * q
+        return z0 + hgt
     ci = 0
     for k, b, rings, cls, smp, wall in blds:
         base = float(D["base"][b] + D["geoid"][b])
@@ -465,6 +508,9 @@ def build_glb(D, sel, center):
         else:
             bands = [(upper, 0.0, 1.0, (top - bot) / fh, 0.0)]
         tops = []
+        area_b = float(D["area"][b])
+        # rooftop relief (real geometry, small): parapet on multi-storey blocks, a stair / lift core box on taller ones
+        ph = (0.9 if cls == BT.HOUSE else 1.1) if (cls in (BT.APT, BT.OFFICE, BT.SHOP, BT.HOUSE) and nf >= 3 and area_b >= 100) else 0.0
         for la, lo in rings:
             Pb = (ecef(la, lo, np.full(len(la), bot)) - C0) @ R          # local ENU
             Pt = (ecef(la, lo, np.full(len(la), top)) - C0) @ R
@@ -488,8 +534,24 @@ def build_glb(D, sel, center):
             # alpha: 128 + 64 x end wall (apartments: edges much shorter than the longest = gable walls) + seed
             endw = (ln < BT.END_WALL_K * ln.max()) & (ln >= 5.0) if cls == BT.APT else np.zeros(len(ln), bool)
             wla = np.concatenate((np.repeat(wl[None], len(ln), axis=0), ((128 + 64 * endw + seed) / 255.0)[:, None]), axis=1)
-            for t, fa, fb, va, vb in bands:
-                quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wla)
+            if ph > 0:
+                # parapet: the top wall band runs on up to top + ph (v < 0 there = parapet, the material draws plain wall),
+                # plus one inner face; no extra outer quads
+                Pp = (ecef(la, lo, np.full(len(la), top + ph)) - C0) @ R
+                vp = ph / fh
+                k_ = (top - bot) / (top + ph - bot)
+                for t, fa, fb, va, vb in bands:
+                    quads(t, A0, A1, Pp[j] - A0, Pp[j1] - A1, fa * k_, 1.0 if fb >= 1.0 else fb * k_, u0, u1, va, -vp if fb >= 1.0 else vb, n2, wla)
+                quads(BT.ST_PLAIN, Pt[j1], Pt[j], Pp[j1] - Pt[j1], Pp[j] - Pt[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
+            else:
+                for t, fa, fb, va, vb in bands:
+                    quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wla)
+        if ph > 0:
+            st["parapets"] = st.get("parapets", 0) + 1
+        if cls in (BT.APT, BT.OFFICE, BT.SHOP) and nf >= 5 and area_b >= 150 and tops:
+            # footprint and height stay the GIS values (no invented setbacks); only rooftop plant / stair-lift cores
+            if roof_core(WL, tops[0][0], area_b, 4.5 if cls == BT.APT else 3.5, wl, seed):
+                st["cores"] = st.get("cores", 0) + 1
         # roof: earcut on the top ring points (exterior first, then holes)
         verts = np.concatenate([t[0] for t in tops])
         ends = np.cumsum([len(t[0]) for t in tops]).astype(np.uint32)
@@ -605,6 +667,8 @@ def stats_file(work):
 
 MERGED = os.path.join(WORK, "_merged")
 KEYS = ("lon", "lat", "nring", "ring_of_poly", "h", "src", "base", "geoid", "area", "clat", "clon", "rid", "floors", "use")
+# uid = SHP field A1 (unique per building record: 472,581 values in 472,608 Busan records; A0 = rid repeats, 63,720 values)
+OPT_KEYS = ("uid",)
 
 
 def merge_work(files):
@@ -622,6 +686,13 @@ def merge_work(files):
         npoly += len(z["h"])
     for k in KEYS:
         np.save(os.path.join(MERGED, k + ".npy"), np.concatenate(out[k]))
+    for k in OPT_KEYS:                                    # only when every work file has it (older preps: --prep again)
+        zs = [np.load(f) for f in files]
+        p_ = os.path.join(MERGED, k + ".npy")
+        if all(k in z.files for z in zs):
+            np.save(p_, np.concatenate([z[k] for z in zs]))
+        elif os.path.exists(p_):
+            os.remove(p_)
     with open(os.path.join(MERGED, "inputs.json"), "w") as fo:
         json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), files=files, buildings=npoly), fo, indent=1)
 
@@ -633,6 +704,9 @@ def load_work(path=None):
         D = {k: z[k] for k in KEYS}
     else:
         D = {k: np.load(os.path.join(MERGED, k + ".npy"), mmap_mode="r") for k in KEYS}
+        for k in OPT_KEYS:
+            if os.path.exists(os.path.join(MERGED, k + ".npy")):
+                D[k] = np.load(os.path.join(MERGED, k + ".npy"), mmap_mode="r")
     nring = D["nring"].astype(np.int64)
     D["ring_v"] = np.concatenate(([0], np.cumsum(nring)))
     rp = D["ring_of_poly"].astype(np.int64)
@@ -666,7 +740,7 @@ def tiles(args):
     merge_work(files)
     D = load_work()
     h, area, lat, lon = D["h"], D["area"], D["clat"], D["clon"]
-    roof_e = D["base"] + h + D["geoid"]
+    roof_e = D["base"] + h + D["geoid"] + 5.0                 # + parapet / rooftop core (build_glb)
     bot_e = D["base"] + D["geoid"] - WALL_SINK
     cls = np.where(is_a(h, area), 0, np.where(is_b(h, area), 1, 2))
     dla, dlo = STEP_A
@@ -678,8 +752,21 @@ def tiles(args):
     pmax_lat = np.maximum.reduceat(D["lat"], D["ring_v"][D["poly_ring"][:-1]])
     pmin_lon = np.minimum.reduceat(D["lon"], D["ring_v"][D["poly_ring"][:-1]])
     pmax_lon = np.maximum.reduceat(D["lon"], D["ring_v"][D["poly_ring"][:-1]])
+    # landmarks replaced by real 3D models (other tool): C:/GyroSimTiles/landmarks/exclude.json = list of uid
+    # (= the SHP field A1, a 28-digit string, work npz "uid"; NOT A0 / rid, which repeats); left out of the tiles.
+    # No file = nothing skipped.
+    skip = np.zeros(len(h), bool)
+    if os.path.isfile(EXCLUDE):
+        with open(EXCLUDE, encoding="utf-8") as f:
+            ex = json.load(f)
+        ids = ex.get("ids", ex.get("rid", [])) if isinstance(ex, dict) else ex
+        assert "uid" in D, "work files without uid (A1): run --prep again before using " + EXCLUDE
+        skip = np.isin(np.asarray(D["uid"]), np.asarray([str(x).strip() for x in ids]))
+        print("landmarks: %d ids in %s, %d buildings left out" % (len(ids), EXCLUDE, int(skip.sum())), flush=True)
     groups = {}
     for b in range(len(h)):
+        if skip[b]:
+            continue
         c = int(cls[b])
         key = ("a", int(ia[b]), int(ja[b])) if c == 0 else ("b", int(ib[b]), int(jb[b])) if c == 1 else ("c", int(ic[b]), int(jc[b]))
         groups.setdefault(key, []).append(b)
@@ -704,8 +791,8 @@ def tiles(args):
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
-                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts"):
-                    tex[k_] += ts_[k_]
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores"):
+                    tex[k_] = tex.get(k_, 0) + ts_.get(k_, 0)
                 for s_, c_ in ts_["styles"].items():
                     tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_
                 for z_, c_ in ts_["roof_photo"].items():

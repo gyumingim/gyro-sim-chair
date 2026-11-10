@@ -31,7 +31,14 @@ VIEWS = [("haeundae_300", 35.1565, 129.1435, 80.0, 160.0, 900.0, 300.0),      # 
          ("seomyeon_300", 35.1578, 129.0600, 20.0, 200.0, 700.0, 300.0),
          ("seomyeon_1000", 35.1578, 129.0600, 20.0, 210.0, 2200.0, 1000.0),
          ("busanstation_300", 35.1151, 129.0414, 15.0, 120.0, 700.0, 300.0),
-         ("busanstation_1000", 35.1151, 129.0414, 15.0, 135.0, 2200.0, 1000.0)]
+         ("busanstation_1000", 35.1151, 129.0414, 15.0, 135.0, 2200.0, 1000.0),
+         # depth close-ups (11-10): ~150 m and ~300 m up, oblique
+         ("apartments_150", 35.1700, 129.1760, 40.0, 200.0, 260.0, 150.0),
+         ("apartments_300o", 35.1700, 129.1760, 40.0, 230.0, 420.0, 300.0),
+         ("marinecity_150", 35.1560, 129.1430, 120.0, 190.0, 380.0, 150.0),
+         ("marinecity_300o", 35.1565, 129.1435, 120.0, 140.0, 650.0, 300.0),
+         ("seomyeon_150", 35.1578, 129.0600, 20.0, 200.0, 300.0, 150.0),
+         ("seomyeon_300o", 35.1578, 129.0600, 20.0, 240.0, 450.0, 300.0)]
 if os.environ.get("GYROSIM_BSHOT_VIEWS"):
     VIEWS = [v for v in VIEWS if v[0] in os.environ["GYROSIM_BSHOT_VIEWS"].split(",")]
 GPU_VIEWS = os.environ.get("GYROSIM_BSHOT_GPU", "seomyeon_300,haeundae_1000").split(",")
@@ -66,13 +73,17 @@ def setup_cesium(world):
     ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), rot, False, True)
     ts.set_actor_hidden_in_game(False)
     ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
-    ts.set_editor_property("url", "http://127.0.0.1:%d/terrain/layer.json" % PORT)
+    # GYROSIM_BSHOT_LOCAL=1: terrain + photo straight from the local folders (file://, no proxy / server needed; the
+    # photo cache is read only, no API call; missing tiles just stay empty)
+    local = os.environ.get("GYROSIM_BSHOT_LOCAL") == "1"
+    ts.set_editor_property("url", "file:///C:/GyroSimTiles/terrain/tiles/layer.json" if local else "http://127.0.0.1:%d/terrain/layer.json" % PORT)
     ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
     for o in ovs.values():
         o.remove_from_tileset()
     ov = ovs.get("CesiumUrlTemplateRasterOverlay")
-    ov.set_editor_property("template_url", "http://127.0.0.1:%d/vworld/sat/{z}/{reverseY}/{x}.jpg" % PORT)
-    ov.set_editor_property("minimum_level", 0)
+    ov.set_editor_property("template_url", "file:///C:/GyroSimTiles/vworld/Satellite/{z}/{reverseY}/{x}.jpg" if local else
+                           "http://127.0.0.1:%d/vworld/sat/{z}/{reverseY}/{x}.jpg" % PORT)
+    ov.set_editor_property("minimum_level", 6 if local else 0)
     ov.set_editor_property("maximum_level", 19)
     ov.set_maximum_screen_space_error(1.0)
     ov.set_maximum_simultaneous_tile_loads(8)
@@ -87,8 +98,20 @@ def setup_cesium(world):
     return gr, ts, b
 
 
+# GYROSIM_BSHOT_SPEC = "state=folder|material,..." overrides the two default states (material '-' = Cesium stock)
+SPEC = dict(x.split("=", 1) for x in os.environ.get("GYROSIM_BSHOT_SPEC", "").split(",") if "=" in x)
+
+
 def set_state(st):
     b = ST["b"]
+    if st in SPEC:
+        folder, mp = SPEC[st].split("|")
+        mat = None if mp == "-" else unreal.load_asset(mp)
+        b.set_editor_property("url", "file:///%s/%s/tileset.json" % (ROOT, folder))
+        b.set_editor_property("material", mat)
+        b.refresh_tileset()
+        log("state", st, folder, "material", mat.get_name() if mat else "Cesium default")
+        return
     folder = os.environ.get("GYROSIM_BSHOT_OLD", "tiles") if st == "before" else NEW
     b.set_editor_property("url", "file:///%s/%s/tileset.json" % (ROOT, folder))
     mat = unreal.load_asset("/Game/Buildings/M_GyroBuilding") if st == "after" else None
@@ -172,7 +195,7 @@ def tick(dt):
             ST.update(phase="load", t=now)
         elif ph == "load":
             p1, p2 = progress(ST["ts"]), progress(ST["b"])
-            if (p1 >= 99.9 and p2 >= 99.9 and el > 6.0) or el > 90.0:
+            if (p1 >= 99.9 and p2 >= 99.9 and el > 6.0) or el > float(os.environ.get("GYROSIM_BSHOT_LOADMAX", "90")):
                 ST["load"] = dict(load_s=round(el, 1), terrain=round(p1, 1), buildings=round(p2, 1))
                 ST.update(phase="shoot", t=now)
         elif ph == "shoot" and el > 3.0:

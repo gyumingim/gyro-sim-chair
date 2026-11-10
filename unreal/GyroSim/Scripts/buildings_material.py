@@ -12,8 +12,8 @@ or exec() it in the editor. Re-running rebuilds the graph in place.
 import os
 import unreal
 
-PATH, NAME = "/Game/Buildings", "M_GyroBuilding"
-HLSL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "buildings_facade.hlsl")
+PATH, NAME = os.environ.get("GYROSIM_BLDG_MAT_PATH", "/Game/Buildings"), os.environ.get("GYROSIM_BLDG_MAT_NAME", "M_GyroBuilding")
+HLSL = os.environ.get("GYROSIM_BLDG_HLSL") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "buildings_facade.hlsl")   # A/B: older copies
 MEL = unreal.MaterialEditingLibrary
 log = lambda *a: unreal.log("[bldg_mat] " + " ".join(str(x) for x in a))
 
@@ -59,12 +59,13 @@ def build():
     except Exception as e:
         log("world position offset option", repr(e))
 
+    sun = X(unreal.MaterialExpressionSkyAtmosphereLightDirection, -1100, 700)     # direction to the sun (light index 0)
     cu = X(unreal.MaterialExpressionCustom, -500, 0)
     cu.set_editor_property("code", open(HLSL, encoding="utf-8").read())
     cu.set_editor_property("description", "GyroFacade")
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ins = []
-    for n in ("UV", "VC", "R", "Tex", "N", "V", "P"):
+    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L"):
         ci = unreal.CustomInput()
         ci.set_editor_property("input_name", n)
         ins.append(ci)
@@ -82,7 +83,7 @@ def build():
         cu.post_edit_change()
     except Exception:
         pass
-    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P")):
+    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L")):
         if src is vc:                                                    # VertexColor "" is RGB: append A -> RGBA
             app = X(unreal.MaterialExpressionAppendVector, -800, 250)
             MEL.connect_material_expressions(vc, "", app, "A")
