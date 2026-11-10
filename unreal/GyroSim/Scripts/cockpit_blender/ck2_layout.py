@@ -82,8 +82,8 @@ def lip_z(u):
 # v2 (11-10): narrower / shorter glass (review: the 27.8 x 31 cm glass and its heavy frame looked oversized). Same base and
 # tilt (the HUD clip material's constants); the width / height are scalar params (C_Wd / C_H1) set at Play by cockpit_v2.
 # 24 cm wide = +-9.8 deg at ~70 cm (speed / altitude boxes fit), top 28 cm = about +5 deg (F-16 HUD TFOV ~25 deg).
-HUD = dict(base=(500.5, 0.0, 78.2), fwd=(0.9510565, 0.0, 0.309017), up=(-0.309017, 0.0, 0.9510565), w=24.0, h0=0.9, h1=28.0, r=1.6,
-           poly=[(-10.5, 4.42), (10.5, 4.42), (12.0, 11.42), (12.0, 21.0), (6.4, 28.0), (-6.4, 28.0), (-12.0, 21.0), (-12.0, 11.42)])
+HUD = dict(base=(500.5, 0.0, 78.2), fwd=(0.9510565, 0.0, 0.309017), up=(-0.309017, 0.0, 0.9510565), w=22.4, h0=0.9, h1=26.4, r=1.6,
+           poly=[(-9.7, 4.42), (9.7, 4.42), (11.2, 11.42), (11.2, 19.6), (5.8, 26.4), (-5.8, 26.4), (-11.2, 19.6), (-11.2, 11.42)])    # round 4: a little smaller
 HUD_BODY = dict(x0=500.0, x1=528.0, w=17.0, z0=69.5, z1=76.8)   # HUD housing on the glare shield
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -407,6 +407,6 @@ def swatch_uv(sw=SWATCH):
 
 
 # colours (sRGB 0..255) sampled from the reference photos (003 / 005 / 010, hangar light, approximate)
-COL = dict(panel=(68, 71, 72),       # dark gull grey (photo 003 hangar ~#4A4D4A, FS 36231 ~ (96, 96, 94)); review: v2 was near-black
+COL = dict(panel=(84, 88, 90),       # dark gull grey (photo 003 hangar ~#4A4D4A, FS 36231 ~ (96, 96, 94)); review: v2 was near-black
             panel_light=(64, 67, 69), legend=(232, 232, 226), structure=(78, 82, 84), glare=(22, 22, 23),
            well=(70, 73, 75), dial=(16, 16, 17))

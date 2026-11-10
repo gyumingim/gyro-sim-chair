@@ -313,6 +313,8 @@ def build_plate(p):
                 prism(P, "CK2_Plate", fr, poly, -depth, 0.0, uvp, "CK2_Bezel")
             scr = "CK2_Screen_L" if p["name"].startswith("MFD_L") else "CK2_Screen_R"
             prism(P, scr, fr, rect(m0, m0, m1, m1), -depth, -0.55, None, "CK2_Bezel")
+            G = part("ck2_glass")
+            G.add([frame_pt(o, ex, ey, n, a, b, -0.22) for a, b in rect(m0, m0, m1, m1)], [[0, 1, 2, 3]] if not _lh(fr) else [[3, 2, 1, 0]], "CK2_Glass")
         else:
             prism(P, "CK2_Plate", fr, rect(0, 0, p["w"], p["h"], 0.25), -depth, 0.0, uvp, "CK2_Bezel")
         top = 0.0
@@ -633,6 +635,37 @@ def build_seat():
         path = [(back(30.0, 2.0) + 2.0, sd * 21.5, 30.5), (430.0, sd * 15.0, 32.4), (446.0, sd * 7.0, 33.2), (452.0, sd * 2.0, 33.0)]
         tube(P, "CK2_Strap", path, 0.9, seg=6, rscale=[1.0, 1.0, 1.0, 1.0])
     box(P, "CK2_Metal", (452.5, 0.0, 33.2), (3.6, 4.4, 0.8))
+    # shoulder harness straps draped over the seat edges (pilot body is a separate asset: straps kept outboard)
+    for sd in (-1, 1):
+        path = [(back(98.0, 3.0), sd * 12.5, 98.0), (back(80.0, 6.0), sd * 17.5, 80.0), (back(55.0, 8.0), sd * 21.0, 55.0), (432.0, sd * 22.2, 36.0),
+                (440.0, sd * 22.6, 31.0)]
+        tube(P, "CK2_Strap", path, 0.8, seg=6, rscale=[1.0, 1.0, 1.0, 1.0, 1.0])
+        box(P, "CK2_Metal", (440.5, sd * 22.6, 31.0), (2.6, 0.8, 3.0))
+    # oxygen hose (corrugated, olive) from the right console aft side to the seat front; G-suit hose on the left
+    def hose(pts, r, mat, n=60):
+        import bisect
+        acc = [0.0]
+        for q in range(1, len(pts)):
+            acc.append(acc[-1] + math.dist(pts[q], pts[q - 1]))
+        out, rs = [], []
+        for k in range(n + 1):
+            d = acc[-1] * k / n
+            q = min(len(pts) - 2, max(0, bisect.bisect_right(acc, d) - 1))
+            t = (d - acc[q]) / max(1e-6, acc[q + 1] - acc[q])
+            out.append(lerp3(pts[q], pts[q + 1], t))
+            rs.append(1.0 + (0.12 if k % 2 else 0.0))
+        tube(P, mat, out, r, seg=8, rscale=rs)
+    hose([(404.0, 26.5, 36.0), (418.0, 24.0, 30.0), (436.0, 18.0, 27.5), (452.0, 12.0, 29.0), (458.0, 6.0, 31.5)], 1.1, "CK2_Hose")
+    hose([(420.0, -26.0, 34.0), (432.0, -23.5, 28.5), (446.0, -19.0, 27.0), (455.0, -15.0, 28.0)], 0.9, "CK2_Hose", n=44)
+    box(P, "CK2_Metal", (458.5, 6.0, 31.5), (2.4, 2.4, 1.6))
+    # two cable runs along the leg-well walls and a map case on the left wall aft of the throttle
+    for sd in (-1, 1):
+        u = sd * (L.COL_HALF + 0.9)
+        pts = [L.add(L.panel_pt(u, 40.0, 0.0), (L.WELL_DEPTH * 0.6, 0, 0)), L.add(L.panel_pt(u, 28.0, 0.0), (L.WELL_DEPTH * 0.8, 0, 0)),
+               L.add(L.panel_pt(u, 12.0, 0.0), (L.WELL_DEPTH * 0.9, 0, 0))]
+        tube(P, "CK2_Rubber", [(p[0], p[1] + sd * 0.4, p[2]) for p in pts], 0.35, seg=6)
+    box(P, "CK2_Strap", (412.0, -46.5, 52.0), (16.0, 2.6, 10.0), (1, 0, 0), (0, 1, 0), (0, 0, 1))
+    box(P, "CK2_Metal", (412.0, -45.0, 56.6), (10.0, 0.4, 0.6))
     tube(P, "CK2_Plate", [(446.0, 25.2, 36.0), (452.0, 25.2, 37.0), (452.0, 25.2, 31.0)], 0.7, seg=8, uv_len=4.0)
 
 
@@ -641,21 +674,21 @@ def build_stick():
     P = part("ck2_stick")
     s = L.STICK_SIDE["pivot"]
     z0 = s[2]
-    # bellows boot (grey rubber, ribs)
-    prof = [(2.7, z0 - 2.0)]
-    for i in range(9):
-        prof.append((2.6 - 0.09 * i + (0.25 if i % 2 else 0.0), z0 - 1.6 + 0.62 * i))
-    prof += [(1.7, z0 + 4.2), (1.5, z0 + 4.4)]
-    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24, reg=L.RUBBER_SW, rep=(6.0, 3.0))
-    # collar
-    lathe(P, "CK2_Grip", ((s[0], s[1], z0 + 4.4), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(1.9, 0.0), (1.9, 0.7), (1.4, 0.9), (0.0, 0.9)], seg=20)
+    # small fixed force-sensor base (round 4: the real stick is a short grip on a small base, short grey boot)
+    lathe(P, "CK2_Metal", ((s[0], s[1], z0 - 2.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(2.3, 0.0), (2.3, 1.0), (2.0, 1.3), (1.8, 1.3)], seg=24)
+    prof = [(1.8, z0 - 0.7)]
+    for k in range(4):
+        prof.append((1.75 - 0.06 * k + (0.18 if k % 2 else 0.0), z0 - 0.4 + 0.45 * k))
+    prof += [(1.45, z0 + 1.5), (1.35, z0 + 1.7)]
+    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24, reg=L.RUBBER_SW, rep=(6.0, 2.0))
+    z0 = z0 - 2.7                              # grip starts right above the short boot
     # grip: sections swept along a forward-leaning curve
     lean = math.radians(L.STICK_SIDE["lean"])
     path, rs = [], []
     NS = 28
     for i in range(NS + 1):
         t = i / float(NS)
-        h = 11.0 * t
+        h = 8.5 * t
         x = s[0] + math.sin(lean) * h + 0.8 * math.sin(math.pi * t)
         path.append((x, s[1] - 0.4 * t, z0 + 5.2 + math.cos(lean) * h))
         rs.append(1.0 + 0.18 * math.sin(math.pi * t * 0.9) + (0.25 if t > 0.75 else 0.0))
@@ -817,7 +850,7 @@ PREVIEW = dict(CK2_Plate=None, CK2_Plate0=(0.03, 0.032, 0.034, 0.6), CK2_PlateSi
                CK2_Screen_L=(0.003, 0.004, 0.005, 0.1), CK2_Screen_R=(0.003, 0.004, 0.005, 0.1), CK2_SeatPaint=(0.09, 0.1, 0.08, 0.6),
                CK2_Fleece=(0.012, 0.012, 0.012, 0.95), CK2_Headrest=(0.12, 0.13, 0.11, 0.9), CK2_Boot=(0.2, 0.21, 0.21, 0.7),
                CK2_Grip=(0.018, 0.018, 0.019, 0.65), CK2_GearKnob=(0.75, 0.75, 0.72, 0.4), CK2_Glass=(0.9, 0.9, 0.9, 0.05),
-               CK2_HUDGlass=(0.7, 0.85, 0.75, 0.05), CK2_HUDEdge=(0.35, 0.4, 0.2, 0.3), CK2_Kneeboard=(0.04, 0.04, 0.042, 0.6), CK2_Strap=(0.08, 0.09, 0.06, 0.9))
+               CK2_HUDGlass=(0.7, 0.85, 0.75, 0.05), CK2_HUDEdge=(0.35, 0.4, 0.2, 0.3), CK2_Kneeboard=(0.04, 0.04, 0.042, 0.6), CK2_Strap=(0.08, 0.09, 0.06, 0.9), CK2_Hose=(0.07, 0.08, 0.045, 0.75))
 
 
 def preview_materials():
