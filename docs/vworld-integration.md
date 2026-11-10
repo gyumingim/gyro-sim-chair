@@ -567,6 +567,14 @@ python -I sim/buildings_build.py --tiles --ground                       # work �
 - 시점: `C:\GyroSimTiles\shots\bldg_v3\views.json` (서면 200 m, 좌동 아파트 150 m, 동래 주택가 120 m, 센텀 300 m, 초량 = 값 고를 때 안 본 시점, 서면 근접 120 m).
   실행 = `art_shots.py` (`-GyroSimArtShots`) + `GYROSIM_BLDG_TILES_DIR=tiles_new` (buildings_look 이 그 폴더를 씀).
 
+**v3 2 차 (11-10 밤, 고객 6/10 "멀리선 부산, 가까이선 심시티")**: 블라인드 (새 에이전트) **2 차가 1 차에 5:1** (센텀 300 m 만 1 차, 낮은 확신), 검토 점수 약 5.5/10.
+- 지붕: 18 m 이상 또는 1,500 m² 이상만 **절차적 지붕** (초록 방수 / 회색 콘크리트, 얼룩·이음·보수, 사진은 4 m 저주파 색), 낮은 건물은 사진. 지붕 꼭짓점 알파 = 128 + 64 × 초록 + seed
+  (255 = 사진). 전부 절차적으로 한 r2a 는 "모든 지붕이 같은 얼룩" 으로 1 차에 2:4 로 졌음. `GYROSIM_BLDG_ROOF_PHOTO=1` = 사진 지붕 (재질 파라미터 RoofPhoto).
+- 벽: 칠 8 색 ±15 %, 칸 너비 0.8–1.25 배, 창 높이 흔들기, 타일·노출 콘크리트·화강석·벽돌, 유리 타워 거칠기 0.02 + 먼 곳 광택 유지. 1 층 상가 어둡게 + 차양,
+  근생 2–4 층 간판 판 (새 종류 12 podium, 상표 없음), 창틀 끝 빗물, 밑동 접촉 그림자 (1 층 띠 아래 꼭짓점 색 × 0.45). 옥탑방·방수포·태양광 추가.
+- 비용: GPU 서면 200 m 4.15–4.34 (v2) → 4.48–4.64 ms, 센텀 300 m 4.26–4.36 → 4.55–4.73 ms (약 +8 %); 타일 2.43 GB, 꼭짓점 50.9 M.
+- 교체: 23:24 (r2a), 23:48 (최종). 사본 `tiles_prev_20261110_v3` (v2), `_r1` (1 차), `_r2a`. 남은 것: 벽 베이지 격자 반복, 민트색 고른 초록 지붕, 장난감 파랑 물탱크, 센텀 유리 평평.
+
 ## 6-4. 부산 다리·고가도로 3D (11-10, OpenStreetMap)
 
 사진 위 도로는 납작하게 그려져 있어 다리·고가가 땅에 붙어 보임 → OSM 선으로 상판·난간·교각·주탑·케이블을 만들어 3D Tiles 로 얹음.
@@ -748,6 +756,24 @@ trees_look.py                Play 때 v2 타일 + M_GyroTree2 (토글은 아래)
 - Cesium for Unreal 2.31 헤더 (설치본): `unreal/GyroSim/Plugins/CesiumForUnreal/Source/CesiumRuntime/Public/`
   `CesiumUrlTemplateRasterOverlay.h`(TemplateUrl, {reverseY}, RequestHeaders, MinimumLevel/MaximumLevel),
   `CesiumWebMapTileServiceRasterOverlay.h`(RequestHeaders), `CesiumRuntimeSettings.h`(MaxCacheItems 4096), `Cesium3DTileset.h`(quantized-mesh)
+
+### 사진의 흰 빈 칸 (V-World 이음매) → 표시할 때 상위 줌 타일 고르기 (2026-11-10, `GYROSIM_VW_GAPFIX=0` = 끔)
+
+- **증상**: 금정산 900 m 시점에서 "산을 가로지르는 흰 길" (검토자 1 순위). OSM 다리·지형 아님: V-World z16–z19 사진 타일 자체에
+  흰 띠 (두 사진 묶음의 경계, 위도 약 35.25 를 따라 동서로 부산 폭 전체). 예: `19/207217/450086` 위쪽 64 % 흰색.
+- **찾기**: 줄(또는 열) 전체가 98 % 이상 순백 (L ≥ 250) 인 비율 `gap_fraction` ≥ 0.03. 흰 지붕은 무늬가 있어 0 (확인: 공장·경기장 지붕 5 장).
+  캐시 1,439 개 후보 중 708 장 (z16 41, z17 92, z18 186, z19 389).
+- **고침** (`sim/vworld_proxy.py`): 그런 타일은 내보내지 않고, 기존 "낮은 줌 타일을 잘라 확대" 대체를 씀 — 잘라 낸 부분에 흰 줄이
+  하나라도 (L ≥ 235, 90 %) 있는 조상은 건너뜀 (z14–z16 은 z19 에서 로컬로 만든 'derived' 라 같은 띠가 흐리게 남아 있음).
+  저장된 타일은 그대로 (약관 13조 10항·19조 4항: 어떤 V-World 타일을 보일지 고르는 것만). 결과 `X-Tile-Source: gapfix`, no-store.
+  판정 결과는 `<cache>\gapfix.json` (타일 크기·시각 기준) 에 기억.
+- **확인** (별도 cache-only 인스턴스, 사용자 서버 안 건드림): 708 장 중 690 장 gapfix, 18 장은 깨끗한 조상이 없어 원래 타일
+  (눈으로 보니 전부 진짜 흰 지붕·경기장) → 흰 띠 남은 것 0. 흰 지붕 대조 5 장 = 원래 타일.
+- **Cesium 디스크 캐시** (`unreal/GyroSim/cesium-request-cache.sqlite`, 11-04 마지막 수정): V-World 항목 0 개 (프록시가 no-store,
+  file:// 는 캐시 안 됨) → 지울 것 없음. 혹시 생기면 지우지 말고 URL 에 `?v=` 판 번호를 붙여 새 키로 받게 하는 쪽을 제안.
+- **Play**: 서버 안의 프록시는 다음 서버 재시작 때 새 코드를 씀 (지금 떠 있는 것은 그대로).
+- **오프스크린 점검**: `Content/Python/photo_src.py` 가 cache-only 프록시 (`vworld_proxy.py --cache-only-port <p> --parent-pid <UE>`,
+  창 없음, API·키 안 씀, 에디터와 같이 끝남) 를 띄우고 그 URL 을 줌 → art/buildings/grade/landmarks/life/trees_shots 가 Play 와 같은 사진.
 
 ### AI upscaling of the photo: not done (terms) -> render-time sharpening only (2026-11-09)
 
