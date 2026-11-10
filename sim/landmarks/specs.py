@@ -30,6 +30,13 @@ MATS = {
     "tower_white": dict(u_m=10.0, v_m=10.0, tex=dict(panel=1, glass=(0.80, 0.80, 0.78), mull=0, band=0, hstripe=(128, 2), band_rgb=(0.66, 0.66, 0.66), frame_rough=0.45, frame_metal=0.05)),
     "led_under": dict(u_m=20.0, v_m=20.0, double=True, tex=dict(panel=1, glass=(0.30, 0.33, 0.42), mull=0, band=0, hstripe=(32, 3), band_rgb=(0.55, 0.58, 0.70), frame_rough=0.5, frame_metal=0.3)),
     "roof_dark": dict(u_m=20.0, v_m=20.0, tex=dict(panel=1, glass=(0.20, 0.22, 0.22), mull=0, band=0, hstripe=(24, 3), band_rgb=(0.13, 0.14, 0.14), frame_rough=0.6, frame_metal=0.2)),
+    # 2026-11-10 districts: painted steel (cranes, masts, cable car) and the Lotte Gwangbok silver drum, no windows
+    "steel_white": dict(u_m=8.0, v_m=8.0, tex=dict(panel=1, glass=(0.72, 0.73, 0.72), mull=0, band=0, frame_rough=0.45, frame_metal=0.3)),
+    "steel_orange": dict(u_m=8.0, v_m=8.0, tex=dict(panel=1, glass=(0.56, 0.17, 0.06), mull=0, band=0, frame_rough=0.45, frame_metal=0.3)),
+    "steel_red": dict(u_m=8.0, v_m=8.0, tex=dict(panel=1, glass=(0.50, 0.06, 0.05), mull=0, band=0, frame_rough=0.45, frame_metal=0.3)),
+    "steel_grey": dict(u_m=8.0, v_m=8.0, tex=dict(panel=1, glass=(0.40, 0.42, 0.43), mull=0, band=0, frame_rough=0.4, frame_metal=0.5)),
+    "cable": dict(u_m=8.0, v_m=8.0, tex=dict(panel=1, glass=(0.12, 0.12, 0.13), mull=0, band=0, frame_rough=0.4, frame_metal=0.6)),
+    "silver_panel": dict(u_m=6.0, v_m=6.0, tex=dict(panel=1, glass=(0.62, 0.64, 0.66), mull=0, band=0, hstripe=(64, 2), band_rgb=(0.48, 0.50, 0.52), frame_rough=0.3, frame_metal=0.6)),
 }
 
 
@@ -414,6 +421,260 @@ def b_terminal(h_wall, h_top, mat="glass_curtain", wave=0.0, rise=(0.0, 0.0), ro
     return f
 
 
+# ------------------------------------------------------------------------------------- helpers for spread-out structures
+_DEM = {}
+
+
+def ground_rel(cx, lat, lon):
+    """rendered-terrain height (MSL) at lat / lon minus the model's base (the rule landmarks_build.build uses: lowest
+    level-13 mesh point on the footprint ring / centroid - 0.3 m + base_dz), so pieces far from the footprint (crane rows,
+    cable car pylons, masts) stand on their own ground."""
+    import buildings_build as BB, terrain_dem as T
+    if "dem" not in _DEM:
+        _DEM["dem"] = T.Dem()
+    dem = _DEM["dem"]
+    if _DEM.get("key") != id(cx):
+        L = _P()
+        fl = cx.local(cx.foot5186)
+        ring = L.densify(L.ring_xy(fl.exterior), 8.0)
+        la, lo = cx.to_ll(ring[:, 0], ring[:, 1])
+        cla, clo = cx.origin
+        _DEM["base"] = float(BB.mesh_height(dem, np.append(la, cla), np.append(lo, clo)).min()) - 0.3 + cx.spec.get("base_dz", 0.0)
+        _DEM["key"] = id(cx)
+    return float(BB.mesh_height(dem, np.array([lat]), np.array([lon]))[0]) - _DEM["base"]
+
+
+def beam(cx, a, b, w, mat, d=None):
+    """straight member of w x w (or w x d) section between 3D points a, b (local metres), capped ends."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    ax = b - a
+    L = np.linalg.norm(ax)
+    if L < 1e-6:
+        return
+    ax /= L
+    up = np.array([0.0, 0.0, 1.0]) if abs(ax[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    u = np.cross(ax, up)
+    u /= np.linalg.norm(u)
+    v = np.cross(u, ax)
+    hu, hv = w / 2, (d if d else w) / 2
+    cs = [(-hu, -hv), (hu, -hv), (hu, hv), (-hu, hv)]
+    P, N, UV, I = [], [], [], []
+    k = 0
+    for i in range(4):
+        (p0, q0), (p1, q1) = cs[i], cs[(i + 1) % 4]
+        o0, o1 = u * p0 + v * q0, u * p1 + v * q1
+        n = o0 + o1
+        n = n / np.linalg.norm(n)
+        P += [a + o0, a + o1, b + o1, b + o0]
+        N += [n] * 4
+        UV += [(0, 0), (w, 0), (w, L), (0, L)]
+        I += [k, k + 1, k + 2, k, k + 2, k + 3]
+        k += 4
+    for e, s_ in ((a, -1.0), (b, 1.0)):                               # end caps
+        P += [e + u * p + v * q for p, q in cs]
+        N += [ax * s_] * 4
+        UV += [(0, 0), (w, 0), (w, w), (0, w)]
+        I += [k, k + 1, k + 2, k, k + 2, k + 3]
+        k += 4
+    P, N, I = np.asarray(P), np.asarray(N), np.asarray(I).reshape(-1, 3)
+    t = P[I]
+    fn = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])               # wind every triangle with its normal
+    flip = np.sum(fn * N[I[:, 0]], axis=1) < 0
+    I[flip] = I[flip][:, ::-1]
+    cx.M.tris(mat, P, N, UV, I)
+
+
+def lattice(cx, x, y, z0, legs, mat, bands=None, dz=6.0):
+    """square steel lattice tower: legs = [(z, half width), ...] bottom to top; X bracing on each face every ~dz m;
+    bands = (material, panels per band) for warning paint."""
+    prof = np.asarray(legs, float)
+    zs = np.arange(prof[0, 0], prof[-1, 0] + 1e-6, dz)
+    if zs[-1] < prof[-1, 0]:
+        zs = np.append(zs, prof[-1, 0])
+    hw = np.interp(zs, prof[:, 0], prof[:, 1])
+    C = [(1, 1), (-1, 1), (-1, -1), (1, -1)]
+    pt = lambda i, c: (x + C[c][0] * hw[i], y + C[c][1] * hw[i], z0 + zs[i])
+    for i in range(len(zs) - 1):
+        m = mat if not bands or (i // bands[1]) % 2 == 0 else bands[0]
+        lw = max(0.35, hw[i] * 0.09)
+        for c in range(4):
+            beam(cx, pt(i, c), pt(i + 1, c), lw, m)
+            beam(cx, pt(i, c), pt(i + 1, (c + 1) % 4), lw * 0.45, m)
+            beam(cx, pt(i + 1, c), pt(i, (c + 1) % 4), lw * 0.45, m)
+            beam(cx, pt(i + 1, c), pt(i + 1, (c + 1) % 4), lw * 0.5, m)
+
+
+# ------------------------------------------------------------------------------------- 2026-11-10 districts (builders)
+def b_cranes(cranes, sea):
+    """ship-to-shore container cranes on a quay. Positions = crane bodies digitised from the local V-World photo
+    (sinseondae / gamman crops 2026-11-10, +-10 m), boom up / down and colour as in that photo. Size 추정 for the older
+    North Port A-frame cranes (no published per-crane data; newstomato: cab 35-50 m above the quay): rail gauge 30 m,
+    legs 18 m apart along the quay, girder at 42-46 m, outreach 50 m, backreach 22 m, A-frame apex 72 m, boom up 80 deg."""
+    def f(cx):
+        sv = np.asarray(sea, float)
+        sv /= np.linalg.norm(sv)
+        al = np.array([-sv[1], sv[0]])                                 # along the quay
+        G, S, ZG, OUT, BACK, APEX = 30.0, 18.0, 42.0, 50.0, 22.0, 72.0
+        for la, lo, down, col in cranes:
+            mat = "steel_orange" if col == "o" else "steel_white"
+            x, y = cx.ll(la, lo)
+            z0 = ground_rel(cx, la, lo)
+            p = np.array([x, y])
+            for s_ in (-0.5, 0.5):
+                a, b = p + al * S * s_, p + al * S * s_ - sv * G
+                for q in (a, b):                                        # sea leg, land leg
+                    beam(cx, (q[0], q[1], z0 - 0.5), (q[0], q[1], z0 + ZG), 2.2, mat)
+                beam(cx, (a[0], a[1], z0 + 12), (b[0], b[1], z0 + 12), 1.8, mat)            # portal tie beams
+                beam(cx, (a[0], a[1], z0 + ZG), (b[0], b[1], z0 + ZG), 2.5, mat)
+                g0 = p + al * S * s_ * 0.55 - sv * (G + BACK)                               # girder: back end -> sea legs
+                ga = p + al * S * s_ * 0.55
+                beam(cx, (g0[0], g0[1], z0 + ZG + 2), (ga[0], ga[1], z0 + ZG + 2), 2.6, mat, d=3.5)
+                if down:
+                    tip = ga + sv * OUT
+                    beam(cx, (ga[0], ga[1], z0 + ZG + 2), (tip[0], tip[1], z0 + ZG + 2), 2.4, mat, d=3.0)
+                    tz = (tip[0], tip[1], z0 + ZG + 3.5)
+                else:
+                    ang = math.radians(80.0)
+                    tip = ga + sv * OUT * math.cos(ang)
+                    tz = (tip[0], tip[1], z0 + ZG + 2 + OUT * math.sin(ang))
+                    beam(cx, (ga[0], ga[1], z0 + ZG + 2), tz, 2.2, mat, d=2.6)
+                ap = p + al * S * s_ * 0.45 - sv * 6.0                                       # A-frame + stays
+                apz = (ap[0], ap[1], z0 + APEX)
+                beam(cx, (a[0], a[1], z0 + ZG + 2), apz, 1.4, mat)
+                beam(cx, (b[0], b[1], z0 + ZG + 2), apz, 1.4, mat)
+                beam(cx, apz, tz, 0.5, mat)
+                beam(cx, apz, (g0[0], g0[1], z0 + ZG + 3), 0.5, mat)
+            mh = p - sv * (G + BACK * 0.55)                                                  # machinery house
+            beam(cx, (mh[0] - al[0] * 5.5, mh[1] - al[1] * 5.5, z0 + ZG + 5), (mh[0] + al[0] * 5.5, mh[1] + al[1] * 5.5, z0 + ZG + 5), 12.0, mat, d=6.0)
+    return f
+
+
+def b_hwangnyeong(cx):
+    """Hwangnyeongsan (427 m) broadcast towers at the OSM mast nodes 4735801755 (KBS / MBC) and 4735801754 (KNN): square
+    steel lattice towers of ~100 m (namu.wiki/w/황령산 '약 100 m' -> 추정), KBS / MBC painted red / white, KNN grey (photo
+    hwangnyeong/Tr_st_hwangnyeongsan.jpg); leg spread and antenna section 추정 from that photo."""
+    for (la, lo), bands in (((35.15793, 129.08194), ("steel_red", 2)), ((35.15877, 129.08314), None)):
+        x, y = cx.ll(la, lo)
+        z0 = ground_rel(cx, la, lo) - 1.0
+        mat = "steel_white" if bands else "steel_grey"
+        lattice(cx, x, y, z0, [(0, 7.0), (40, 3.6), (72, 1.6), (80, 1.2)], mat, bands=bands)
+        beam(cx, (x, y, z0 + 80), (x, y, z0 + 100), 1.0, bands[0] if bands else mat)
+        for zz in (40.0, 72.0):                                        # platforms
+            beam(cx, (x - 4.5, y, z0 + zz), (x + 4.5, y, z0 + zz), 9.0, "steel_grey", d=0.6)
+
+
+def b_songdo_cable(cx):
+    """Songdo Marine Cable Car 'Busan Air Cruise' (2017, 1.62 km, namu.wiki/w/송도해상케이블카): OSM gondola way
+    667458143; pylons = OSM nodes 8892624276 / 8892624275 / 8892624277, stations = OSM 5209159366 (Songdo Bay) and
+    5209159295 (Sky Park). Sea pylon 86 m (segye.com/newsView/20170705002888 '바다에 세워진 높이 86 철탑'); land pylons
+    40 m, station boxes and rope heights 추정. Two ropes 7 m apart, sag 4 % of the span, a few cabins."""
+    import shapely
+    L = _P()
+    pts = [((35.07633, 129.02354), "station", 14.0), ((35.07369, 129.02301), "pylon", 40.0), ((35.06827, 129.02189), "pylon", 86.0),
+           ((35.06188, 129.02051), "pylon", 40.0), ((35.06153, 129.02044), "station", 12.0)]
+    P = []
+    for (la, lo), kind, h in pts:
+        x, y = cx.ll(la, lo)
+        P.append((x, y, ground_rel(cx, la, lo), kind, h))
+    d = np.array([P[-1][0] - P[0][0], P[-1][1] - P[0][1]])
+    d /= np.linalg.norm(d)
+    n = np.array([-d[1], d[0]])
+    tops = []
+    for x, y, z0, kind, h in P:
+        if kind == "pylon":
+            big = h > 60
+            L.lathe(cx.M, [(4.5 if big else 2.6, z0 - 2), (3.0 if big else 1.8, z0 + h * 0.6), (1.8 if big else 1.3, z0 + h)], "steel_white", cx=x, cy=y, segs=12)
+            beam(cx, (x - n[0] * 6, y - n[1] * 6, z0 + h), (x + n[0] * 6, y + n[1] * 6, z0 + h), 2.0, "steel_white", d=1.6)
+            tops.append(z0 + h - 1.0)
+        else:
+            box = shapely.Polygon([tuple(np.array([x, y]) + d * a + n * b) for a, b in ((-14, -10), (14, -10), (14, 10), (-14, 10))])
+            L.prism(cx.M, box, z0 - 1, z0 + h, "glass_curtain", "roof_grey", parapet=0.8)
+            tops.append(z0 + h - 3.0)
+    rng = np.random.default_rng(7)
+    cols = ["steel_red", "steel_white", "steel_orange"]
+    for side in (-3.5, 3.5):
+        for i in range(len(P) - 1):
+            a = np.array([P[i][0], P[i][1]]) + n * side
+            b = np.array([P[i + 1][0], P[i + 1][1]]) + n * side
+            span = float(np.linalg.norm(b - a))
+            zt = lambda t: tops[i] + (tops[i + 1] - tops[i]) * t - 0.04 * span * 4 * t * (1 - t)
+            k = max(2, int(span / 25))
+            prev = None
+            for t in np.linspace(0, 1, k + 1):
+                q = a + (b - a) * t
+                if prev is not None:
+                    beam(cx, prev, (q[0], q[1], zt(t)), 0.45, "cable")
+                prev = (q[0], q[1], zt(t))
+            for t in ((0.3, 0.7) if span > 200 else ()):              # cabins under the rope
+                t = t + rng.uniform(-0.08, 0.08)
+                q = a + (b - a) * t
+                z = zt(t)
+                beam(cx, (q[0], q[1], z - 0.3), (q[0], q[1], z - 3.6), 0.2, "cable")
+                beam(cx, (q[0] - d[0] * 1.3, q[1] - d[1] * 1.3, z - 5.0), (q[0] + d[0] * 1.3, q[1] + d[1] * 1.3, z - 5.0), 2.4,
+                     cols[int(rng.integers(3))], d=2.4)
+
+
+def b_jagalchi(cx):
+    """Jagalchi Market (2006; GIS A16 40.8 m / 7 F = the roof tip): glass hall under white 'seagull wing' roof shells
+    (photos jagalchi/Jagalchi_Market_20200523_014.jpg / _015): the footprint narrows to the west and the roof rises from
+    the east end to a pointed tip over the west end. Wall height 22 m and the roof curve 추정 from the photos."""
+    import shapely
+    L = _P()
+    p = cx.foot(cx.spec["foot"][0])
+    ax, c = principal(p)
+    nrm = np.array([-ax[1], ax[0]])
+    r = np.asarray(p.exterior.coords)[:, :2]
+    s = (r - c) @ ax
+    s0, s1 = s.min(), s.max()
+
+    def band(lo, hi):
+        return p.intersection(shapely.Polygon([tuple(c + ax * lo + nrm * 300), tuple(c + ax * hi + nrm * 300),
+                                               tuple(c + ax * hi - nrm * 300), tuple(c + ax * lo - nrm * 300)])).area
+    sg = 1.0 if band(s1 - 0.2 * (s1 - s0), s1) < band(s0, s0 + 0.2 * (s1 - s0)) else -1.0     # +1: tip at the +axis end
+
+    def tt(x, y):
+        q = (np.column_stack((x, y)) - c) @ ax
+        t = (q - s0) / (s1 - s0)
+        return np.clip(t if sg > 0 else 1 - t, 0, 1)
+    L.prism(cx.M, p.buffer(-1.5), 0.0, 22.0, "glass_curtain", "roof_grey", parapet=0.0)
+    roof = shapely.geometry.polygon.orient(p.buffer(2.5), 1.0)
+    zf = lambda x, y: 25.0 + 15.8 * tt(x, y) ** 2.2
+    L.cap(cx.M, roof, zf, "white_panel", up=True, cell=5.0)
+    L.cap(cx.M, roof, lambda x, y: zf(x, y) - 1.0, "white_panel", up=False, cell=5.0)
+    ring = L.densify(L.ring_xy(roof.exterior), 3.0)
+    z = zf(ring[:, 0], ring[:, 1])
+    L.wall(cx.M, ring, z - 1.0, z, "white_panel")
+    mid = p.buffer(-7.0)                                               # lower inner wing shell (the overlapping 'feathers')
+    if not mid.is_empty and mid.geom_type == "Polygon":
+        z2 = lambda x, y: 22.5 + 9.0 * np.sin(np.pi * tt(x, y)) ** 1.5
+        L.cap(cx.M, shapely.geometry.polygon.orient(mid, 1.0), z2, "white_panel", up=True, cell=5.0)
+
+
+def b_lotte_gwangbok(cx):
+    """Lotte Department Store Gwangbok + Lotte Mall (Aqua Mall), 2009 / 2010: one OSM outline (way 243769199, 12 levels).
+    The GIS file has only the department-store half, with A16 8.0 m against 11 floors (data error; the tiles drew it at
+    33 m from the floors) and no mall. Dept store 11 F, mall 13 F (ko.wikipedia 부산롯데타워) -> 50 / 58 m 추정 (4.4 m
+    retail floors). Silver drum = dept store (lotte_gwangbok/Busan_Lotte_Department_Store.jpg), white block = the mall
+    (Lotte_Mall_Busan_Gwangbok_Store.jpg). The Lotte Tower beside it is under construction (core ~13 F in 2026-03, news1):
+    not modelled."""
+    L = _P()
+    p = cx.foot("way:243769199")
+    north = None
+    try:
+        g = cx.foot("gis:2010203270951776816300000000")
+        north = p.intersection(g.buffer(4.0))
+        north = max(getattr(north, "geoms", [north]), key=lambda q: q.area)
+    except AssertionError:
+        pass
+    if north is not None and north.area > 1000:
+        south = p.difference(north.buffer(0.5))
+        south = max(getattr(south, "geoms", [south]), key=lambda q: q.area)
+        L.prism(cx.M, north, 0.0, 50.0, "silver_panel", "roof_grey", parapet=1.5)
+        L.prism(cx.M, south, 0.0, 58.0, "white_panel", "roof_grey", parapet=1.5)
+    else:
+        L.prism(cx.M, p, 0.0, 54.0, "white_panel", "roof_grey", parapet=1.5)
+
+
 # -------------------------------------------------------------------------------------------------------------- the list
 W = "https://en.wikipedia.org/wiki/"
 SPECS = [
@@ -466,6 +727,26 @@ SPECS = [
          build=b_terminal(16.0, 24.0), refs=[W + "Gimhae_International_Airport"], h_src="not in GIS (airfield); OSM outline; heights est."),
     dict(key="ferry_terminal", name="Busan Port International Passenger Terminal", site=(35.1180, 129.0480), site_r=500, foot=["way:368597686"],
          build=b_terminal(22.0, 30.0, mat="glass_curtain", rise=(6.0, 18.0), roof_mat="white_panel"), refs=["https://www.busanpa.com/bpt/Contents.do?mCode=MN0006"], h_src="not in GIS; OSM outline (levels -1..5); heights est."),
+    # ---- 2026-11-10: districts outside Haeundae (survey and sources on the compare page; GIS gaps -> osm_fill.py)
+    dict(key="cranes_gamman", name="Gamman / Shin-Gamman container cranes", site=(35.1045, 129.0800), site_r=50, foot=["ellipse:35.10450,129.08000,4,4,0"],
+         build=lambda cx: (b_cranes([(35.1039, 129.078597, 1, 'o'), (35.1039, 129.079698, 1, 'o'), (35.1039, 129.080211, 1, 'w'), (35.1039, 129.081924, 0, 'o'), (35.1039, 129.082229, 0, 'w'), (35.1039, 129.085128, 0, 'o'), (35.1039, 129.085409, 0, 'o'), (35.1039, 129.08651, 0, 'w'), (35.1039, 129.087366, 1, 'w'), (35.1039, 129.089238, 0, 'w'), (35.1039, 129.09002, 0, 'w')], (0.0, -1.0))(cx),
+                           b_cranes([(35.107674, 129.068686, 1, 'w'), (35.107246, 129.069395, 0, 'w'), (35.106176, 129.071301, 0, 'w'), (35.105125, 129.072907, 0, 'w'), (35.104495, 129.074028, 1, 'w'), (35.104342, 129.07429, 0, 'w')], (-0.59, -0.81))(cx)),
+         refs=["https://www.busan.go.kr/eng/north-port"], h_src="17 cranes digitised from the V-World photo (busan.go.kr: Gamman 9 + Shin-Gamman / 1B 13 STS); size 추정"),
+    dict(key="cranes_sinseondae", name="Sinseondae container cranes", site=(35.1005, 129.0950), site_r=50, foot=["ellipse:35.10050,129.09480,4,4,0"],
+         build=b_cranes([(35.106556, 129.09409, 1, 'w'), (35.10596, 129.094215, 1, 'w'), (35.105095, 129.094278, 1, 'w'), (35.104005, 129.094303, 1, 'w'), (35.103552, 129.094341, 1, 'w'), (35.102595, 129.094467, 1, 'o'), (35.102235, 129.094505, 1, 'w'), (35.101567, 129.094593, 1, 'w'), (35.100743, 129.094656, 1, 'w'), (35.100301, 129.094718, 1, 'w'), (35.099169, 129.094806, 1, 'w'), (35.0985, 129.094882, 1, 'w'), (35.096576, 129.095159, 1, 'w'), (35.096288, 129.095259, 1, 'w'), (35.095908, 129.095309, 1, 'w'), (35.095342, 129.095385, 1, 'w'), (35.094519, 129.095473, 1, 'w')], (-0.996, -0.094)),
+         refs=["https://www.busan.go.kr/eng/north-port"], h_src="17 cranes digitised from the V-World photo (= busan.go.kr: Sinseondae 17 STS); size 추정"),
+    dict(key="hwangnyeong_masts", name="Hwangnyeongsan broadcast towers (KBS/MBC, KNN)", site=(35.1584, 129.0826), site_r=150,
+         foot=["ellipse:35.15835,129.08255,4,4,0"], build=b_hwangnyeong, refs=["https://namu.wiki/w/%ED%99%A9%EB%A0%B9%EC%82%B0"],
+         h_src="namu.wiki: two towers ~100 m (추정); positions = OSM mast nodes"),
+    dict(key="songdo_cable", name="Songdo Marine Cable Car (Busan Air Cruise)", site=(35.0690, 129.0220), site_r=100,
+         foot=["ellipse:35.06900,129.02200,4,4,0"], build=b_songdo_cable,
+         refs=["https://www.segye.com/newsView/20170705002888", "https://namu.wiki/w/%EC%86%A1%EB%8F%84%ED%95%B4%EC%83%81%EC%BC%80%EC%9D%B4%EB%B8%94%EC%B9%B4"],
+         h_src="sea pylon 86 m (Segye 2017-07-05); land pylons 40 m, stations 추정; OSM gondola / pylon / station nodes"),
+    dict(key="jagalchi", name="Jagalchi Market", site=(35.0966, 129.0306), site_r=150, foot=["gis:2006202732561775066100000000"],
+         build=b_jagalchi, refs=["https://www.busannavi.net/en/?p=210"], h_src="GIS A16 40.8 m / 7 F (roof tip); wall 22 m and roof curve 추정"),
+    dict(key="lotte_gwangbok", name="Lotte Dept. Store Gwangbok + Lotte Mall", site=(35.0975, 129.0365), site_r=200, foot=["way:243769199"],
+         build=b_lotte_gwangbok, refs=["https://ko.wikipedia.org/wiki/%EB%B6%80%EC%82%B0%EB%A1%AF%EB%8D%B0%ED%83%80%EC%9B%8C"],
+         h_src="11 F / 13 F (ko.wikipedia); 50 / 58 m 추정; GIS A16 8.0 m is wrong and the mall half is missing in GIS"),
 ]
 for s in SPECS:
     s.setdefault("method", "parametric (footprint + published height + reference photos)")
