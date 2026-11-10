@@ -710,7 +710,7 @@ trees_look.py                Play 때 v2 타일 + M_GyroTree2 (토글은 아래)
     재질 추가분 (변화·투과광·잎 무늬) 비용 ≈ 0 (±0.07). 헤드셋 아님.
   - 독립 검토 (새 에이전트, A/B 무작위, 실사진 비교): **v2 14 · 같음 8 · v1 0**. 같음 = 900–1500 m 해안·구름에 가린 시점. 고르지 않은 h22 기장 v2 (높음), h20 김해 같음.
   - 검토자가 짚은 남은 문제: 100 m 가까이 균일한 저다각형 카펫·가끔 올리브빛, 능선의 나무 끝선·풀밭 띠 (수관고 3 m 미만), 먼 산 평평한 사진 (숲 무늬 재질 미반영).
-  - 쪽: http://127.0.0.1:8767/today/busan_trees2/ (그림 git 밖 C:\GyroSimTiles\shots	rees2b3).
+  - 쪽: http://127.0.0.1:8767/today/busan_trees2/ (그림 git 밖 C:\GyroSimTiles\shots\trees2\ab3).
 - **남은 것**: 100 m 아래 가까이는 아직 덩어리 나무 (진짜 잎 없음 — Nanite/HISM 로 가까운 나무만 바꾸는 다음 단계), 소나무는 실제 모델 없음
   (`docs/fab-trees.md` 의 Baltic Pine 받으면 `veg_proxy.py pine=...` 로 바로 바뀜), 금정산 능선 위 낮은 관목 (수관고 3 m 미만) 없음, 바람 비용, VR 헤드셋.
 
