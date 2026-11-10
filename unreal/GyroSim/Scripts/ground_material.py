@@ -69,7 +69,6 @@ def coast_assets():
                 tex.set_editor_property("max_texture_size", 8192)
             except Exception:
                 pass
-            tex.post_edit_change()
             EAL.save_asset(COAST_TEX, only_if_is_dirty=False)
             log("coast mask imported", COAST_TEX, tex.blueprint_get_size_x(), tex.blueprint_get_size_y())
     else:
@@ -90,10 +89,10 @@ def coast_assets():
 
 
 def build():
+    ctex, mpc = coast_assets()                    # first: a failure here leaves the old material in place
     for p in (atmos_look.GROUND_MI_SEA0, MI, MAT):
         if EAL.does_asset_exist(p):
             EAL.delete_asset(p)
-    ctex, mpc = coast_assets()
     m = EAL.duplicate_asset(SRC_MAT, MAT)
     layers = MEL.get_material_property_input_node(m, unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES)
     X = lambda cls, x, y: MEL.create_material_expression(m, cls, x, y)

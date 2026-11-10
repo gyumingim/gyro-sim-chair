@@ -45,6 +45,7 @@ MASK_N = 8192
 MASK_D, BRIDGE_D, FAR_D = 40.0, 40.0, 1000.0              # m, encoding ranges of R / G / B
 WALL_H = 2.8                                              # m MSL, sea wall / quay crown (추정: Busan quays ~ +3.0..4.0 m DL, MSL ~ +0.6..0.8 m DL)
 BEACH_SLOPE, BEACH_TOE, BEACH_MAX, BEACH_BAND = 0.045, 0.3, 3.5, 150.0   # beach face 4.5 % from 0.3 m at the waterline, up to 3.5 m (추정)
+ISLET_SD, ISLET_H = 20.0, 3.0                             # m: sea vertices kept as DEM (islets missing in OSM), see coast_msl
 SHORE_BAND = 60.0                                         # m inland where the shore rule acts (blend to the DEM over the last 30 m)
 
 
@@ -483,7 +484,10 @@ def coast_msl(msl, sd, k):
     nat = np.maximum(msl, 1.0)
     tgt = np.where(k > 0.75, wall, np.where(k > 0.25, beach, nat))
     land = msl + w * (tgt - msl)
-    return np.where(sd < 0.0, 0.0, land)
+    # OSM sea = 0 m (the DSM smear of the shore, ships, painted piers), except DEM land more than ISLET_SD m out at sea and
+    # higher than ISLET_H m: an islet / rock OSM has no coastline for (e.g. 생도 off 태종대, 40 m) - kept as the DEM
+    islet = (sd < -ISLET_SD) & (msl > ISLET_H)
+    return np.where(sd < 0.0, np.where(islet, msl, 0.0), land)
 
 
 def rendered_msl(dem, lat, lon):
@@ -575,7 +579,7 @@ def terrain():
         b = by.setdefault(L, dict(tiles=0, fine=0, bytes=0))
         b["tiles"] += 1; b["fine"] += nf == FINE_N; b["bytes"] += nb
     info = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0), levels=list(COAST_LEVELS), per_level=by,
-                rule=dict(wall_h=WALL_H, beach_slope=BEACH_SLOPE, beach_toe=BEACH_TOE, beach_max=BEACH_MAX, beach_band=BEACH_BAND, shore_band=SHORE_BAND, fine_n=FINE_N),
+                rule=dict(wall_h=WALL_H, beach_slope=BEACH_SLOPE, beach_toe=BEACH_TOE, beach_max=BEACH_MAX, beach_band=BEACH_BAND, shore_band=SHORE_BAND, fine_n=FINE_N, islet_sd=ISLET_SD, islet_h=ISLET_H),
                 input=dict(mask=json.load(open(os.path.join(ROOT, "coast_mask.json"), encoding="utf-8"))["made"], proc=__import__("terrain_dem").PROC),
                 tiles=[list(r[:4]) for r in done])
     with open(os.path.join(NEW_TILES, "coast_tiles.json"), "w", encoding="utf-8") as f:
