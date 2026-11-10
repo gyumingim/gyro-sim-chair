@@ -147,8 +147,11 @@ GROUND_MI_SEA0 = "/Game/Materials/Ground/MI_GyroGround_Sea0"
 # SEA_COAST_DEF = material defaults (CoastOn 0 = the sea rule before, also MI_GyroGround_Sea0); SEA_COAST = MI_GyroGround.
 # A/B at Play (dynamic instance): GYROSIM_COAST_V2=0 -> CoastOn 0, GYROSIM_SEA_MASK=0 -> BridgeMaskOn 0.
 SEA_COAST_DEF = dict(CoastOn=0.0, CoastD=40.0, BridgeD=40.0, FarD=1000.0, BridgeMaskOn=1.0, CoastGuardM=150.0, CoastInlandM=60.0,
-                     SeaPhotoNear=40.0, SeaPhotoFar=160.0, WetBandM=0.6, SeaWallColor=(0.30, 0.30, 0.28), SeaWallWet=(0.075, 0.08, 0.07))
-SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0)
+                     SeaPhotoNear=40.0, SeaPhotoFar=160.0, WetBandM=0.6, SeaWallColor=(0.30, 0.30, 0.28), SeaWallWet=(0.075, 0.08, 0.07),
+                     # far sea 11-11 (ground_look.hlsl): warped / blended swell octave, grazing Fresnel sky reflection
+                     SeaFarArt=0.0, SeaWarpM=700.0, SeaWarpAmp=0.35, SeaRoughGraze=0.06, SeaSpecGraze=1.5)
+SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0)    # SeaFarArt stays 0: blind A/B 11-11 04:25 preferred the sea without it in 5 of 6
+                                                # views (stronger diamond grid + mirror-like far sea); kept as an off switch
 
 
 def _set(obj, k, v, tag):

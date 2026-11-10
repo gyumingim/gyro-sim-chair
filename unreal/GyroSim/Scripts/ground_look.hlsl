@@ -170,6 +170,24 @@ float2 uv3 = float2(P.x * 0.94 + P.y * 0.34, -P.x * 0.34 + P.y * 0.94) / (WaveSc
 float2 n1 = Texture2DSample(WaveTex, WaveTexSampler, uv1).xy * 2.0 - 1.0;
 float2 n2 = Texture2DSample(WaveTex, WaveTexSampler, uv2).xy * 2.0 - 1.0;
 float2 n3 = Texture2DSample(WaveTex, WaveTexSampler, uv3).xy * 2.0 - 1.0;
+// far sea 11-11 (SeaFarArt 1; 0 = before): from altitude only the swell octave n3 (one texture, ~130 m period) is left and it
+// read as a regular diamond grid. Domain-warp its UV by a smooth ~SeaWarpM m noise field and blend in a second copy at another
+// scale / rotation by a third noise: no visible period. Two extra texture fetches + hash noise, only on the sea.
+if (SeaFarArt > 0.5)
+{
+    float2 wq = P.xy * 0.01 / SeaWarpM;
+    #define SF_H(a) frac(sin(dot((a), float2(127.1, 311.7))) * 43758.5453)
+    #define SF_N(q) lerp(lerp(SF_H(floor(q)), SF_H(floor(q) + float2(1, 0)), smoothstep(0.0, 1.0, frac(q).x)), lerp(SF_H(floor(q) + float2(0, 1)), SF_H(floor(q) + float2(1, 1)), smoothstep(0.0, 1.0, frac(q).x)), smoothstep(0.0, 1.0, frac(q).y))
+    float2 warp = float2(SF_N(wq), SF_N(wq + float2(17.3, 41.9))) * 2.0 - 1.0;
+    float sel = smoothstep(0.3, 0.7, SF_N(wq * 0.61 + float2(5.1, 9.7)));
+    #undef SF_N
+    #undef SF_H
+    float2 uv3w = uv3 + warp * SeaWarpAmp;
+    float2 uv3b = float2(P.x * 0.42 - P.y * 0.91, P.x * 0.91 + P.y * 0.42) / (WaveScale * 4.9) + warp.yx * SeaWarpAmp + T * float2(-0.003, 0.004);
+    float2 n3a = Texture2DSample(WaveTex, WaveTexSampler, uv3w).xy * 2.0 - 1.0;
+    float2 n3b = Texture2DSample(WaveTex, WaveTexSampler, uv3b).xy * 2.0 - 1.0;
+    n3 = lerp(n3a, n3b, sel) * 1.2;
+}
 float near = 1.0 - fade;
 float macroW = 1.0;
 // ---- art pass 11-10 (SeaArt 1; GYROSIM_SEA_ART=0 -> 0 = the sea before): from 100-1000 m the one wave texture repeated
@@ -205,6 +223,17 @@ float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);
 NormalWS = normalize(lerp(canN, nw, m));
 // unresolved waves far away widen the sun glint (roughness grows with distance), F0 water = 0.02 -> Specular 0.25
-Rough = lerp(Rg, lerp(WaterRough, WaterRoughFar, fade), m);
-Spec = lerp(Sp, WaterSpec, m);
+float wRough = lerp(WaterRough, WaterRoughFar, fade), wSpec = WaterSpec;
+// far sea 11-11: brighter sky reflection toward the horizon (photos: the far sea is pale sky-blue, not a dark block). At grazing
+// view angles the water is smoother in effect (wave backs hidden) and its Fresnel reflectance climbs: roughness -> SeaRoughGraze,
+// specular x (1 + SeaSpecGraze) by Schlick's (1 - N.V)^5 weight.
+if (SeaFarArt > 0.5)
+{
+    float nv = saturate(dot(up, -normalize(Q)));
+    float gz = pow(1.0 - nv, 5.0);
+    wRough = lerp(wRough, SeaRoughGraze, saturate(gz * 3.0));
+    wSpec = wSpec * (1.0 + SeaSpecGraze * saturate(gz * 3.0));
+}
+Rough = lerp(Rg, wRough, m);
+Spec = lerp(Sp, saturate(wSpec), m);
 return lerp(g, body, m);
