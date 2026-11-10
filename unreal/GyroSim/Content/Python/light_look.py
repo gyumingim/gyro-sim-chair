@@ -18,10 +18,10 @@ import os
 import unreal
 
 log = lambda *a: unreal.log("[light] " + " ".join(str(x) for x in a))
-STATE = dict(on=os.environ.get("GYROSIM_BACKLIGHT_FIX", "0") != "0", orig={})     # TEMP default off while tuning
+STATE = dict(on=os.environ.get("GYROSIM_BACKLIGHT_FIX", "1") != "0", orig={})
 
 VALUES = dict(
-    skylight=dict(lower_hemisphere_is_black=True, lower_hemisphere_color=(0.3, 0.3, 0.28)),
+    skylight=dict(lower_hemisphere_is_black=True, lower_hemisphere_color=(0.25, 0.25, 0.235)),
     sky=dict(),
     pp=dict(),
 )

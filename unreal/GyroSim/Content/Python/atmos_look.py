@@ -62,7 +62,7 @@ SUN_ROT = (-SUN_EL, SUN_AZ - 180.0)
 # every ~0.8 km (Korean mixed layer ~1-1.5 km), starting 3 km from the camera so near views keep their contrast, blue-grey
 # in-scatter (the engine default light-blue luminance; the sky-ambient-only version, in-scatter 0, gave a dark blue band).
 # The fog is applied to the volumetric clouds too (r.VolumetricCloud.ApplyFogLate 1): far clouds fade into the haze band.
-HAZE_V2 = os.environ.get("GYROSIM_HAZE_V2", "0") != "0"     # TEMP default off while tuning
+HAZE_V2 = os.environ.get("GYROSIM_HAZE_V2", "1") != "0"
 HAZE_FOG = dict(fog_density=0.0008, fog_height_falloff=0.012, start_distance=300000.0,
                 fog_inscattering_luminance=(0.35, 0.45, 0.6))
 if HAZE_V2:
