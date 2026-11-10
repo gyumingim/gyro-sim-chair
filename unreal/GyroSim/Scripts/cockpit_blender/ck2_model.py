@@ -484,7 +484,7 @@ def build_glareshield():
         for zz in (hb["z0"] + 0.9, hb["z1"] - 0.6):
             lathe(P, "CK2_Metal", ((hb["x0"] + 0.9, yy, zz), (0, 1, 0), (0, 0, 1), (-1, 0, 0)), [(0.32, 0.0), (0.3, 0.12), (0.2, 0.2), (0.0, 0.22)], seg=6, keep=True)
     # HUD control strip on the housing back face (small knobs)
-    for i in range(3):
+    for i in range(0):                    # review round 4: the 3 big knobs are not on the real HUD back -> removed
         c = (hb["x0"] + 0.4, -6.0 + 6.0 * i, hb["z0"] + 3.0)
         lathe(P, "CK2_Knob", (c, (0, 1, 0), (0, 0, 1), (-1, 0, 0)), [(0.6, 0.0), (0.55, 0.9), (0.0, 0.9)], seg=14, knurl=0.03)
     # combiner: glass octagon + thin metal rim + two posts
@@ -555,7 +555,8 @@ def build_consoles():
         for x in xs[1:-1]:
             gy, gz = L.glass_bottom(max(392.0, x))
             c = (x + 2.0, sd * (gy - 2.62), gz + 0.6)
-            lathe(P, "CK2_Metal", (c, (1, 0, 0), (0, 0, 1), (0, -sd, 0)), [(0.32, 0.0), (0.25, 0.12), (0.0, 0.16)], seg=6)
+            if int(x) % 8 == 0:              # sparser, small, dark flush fasteners (review: chrome domes)
+                lathe(P, "CK2_Frame", (c, (1, 0, 0), (0, 0, 1), (0, -sd, 0)), [(0.22, 0.0), (0.2, 0.05), (0.0, 0.07)], seg=6)
     # console plates
     for p in PLATES.values():
         if p["kind"] in ("console", "placard", "pod"):
