@@ -6,18 +6,43 @@ inside ~1 km (REPLACE refinement, veg_build.GE). Instanced meshes (glTF EXT_mesh
 does not know trees either). Called by sim_client._vworld_ground after the roads; credit line in
 sim/vworld_trees_attribution.png (sim_client._attribution uses it when this returned an actor).
 Art pass 11-10: material /Game/Trees/M_GyroTree (Scripts/trees_material.py + trees_foliage.hlsl: leaf clumps, dark gaps,
-per-clump lighting on the vertex-coloured blob crowns); GYROSIM_TREES_ART=0 = Cesium's stock material (the look before)."""
+per-clump lighting on the vertex-coloured blob crowns); GYROSIM_TREES_ART=0 = Cesium's stock material (the look before).
+v2 (default, see V2 below): tiles_v2 + M_GyroTree2; GYROSIM_TREES_V2=0 = v1."""
 import os
 import unreal
 
-TILES = os.environ.get("GYROSIM_TREES_TILES", r"C:/GyroSimTiles/veg/tiles").replace("\\", "/")
 TAG = "CesiumTrees"
 SSE = float(os.environ.get("GYROSIM_TREES_SSE", "16"))
-MAT = "/Game/Trees/M_GyroTree"
+# Trees v2 (11-10 second pass, sim/veg_v2.py): clump-built pine / oak / shrub prototypes (broadleaf crown shapes from the
+# Fab Megascans oak / alder models, sim/veg_proxy.py), species by terrain, rock outcrops left bare, leaf albedo colours,
+# material M_GyroTree2 (two-sided foliage). A/B toggles (each on its own):
+#   GYROSIM_TREES_V2=0     the v1 tiles + M_GyroTree (the look before; v2 tiles need the v2 material - packed vertex colour)
+#   GYROSIM_TREES_LOOK2=0  v2 tiles, but the material extras off (per-tree variation, leaf noise, translucency, baked AO
+#                          in the base colour) = plain decoded vertex colour
+#   GYROSIM_TREES_CANOPY=0 no crown pattern on the photo forest beyond the trees (atmos_look / ground_look.hlsl)
+#   GYROSIM_TREES_WIND=1   M_GyroTree2W (gentle sway, world position offset; off by default - cost not measured)
+_V2_TILES = r"C:/GyroSimTiles/veg/tiles_v2"
+_V1_TILES = r"C:/GyroSimTiles/veg/tiles"
+LOOK2_OFF = dict(VarAmt=0.0, GapDark=0.0, Bump=0.0, SssAmt=0.0, AoBase=0.0, AoAmb=0.0)
+STATE = dict(v2=None)
 
 
-def url():
-    p = TILES + "/tileset.json"
+def config(v2=None):
+    """-> (v2, tiles folder, material path) for this launch (env) or the forced version."""
+    if v2 is None:
+        v2 = os.environ.get("GYROSIM_TREES_V2", "1") != "0"
+    if v2 and not os.path.isfile(_V2_TILES + "/tileset.json") and not os.environ.get("GYROSIM_TREES_TILES"):
+        v2 = False                                     # no v2 tiles built yet -> v1
+    tiles = os.environ.get("GYROSIM_TREES_TILES", _V2_TILES if v2 else _V1_TILES).replace("\\", "/")
+    mat = ("/Game/Trees/M_GyroTree2" + ("W" if os.environ.get("GYROSIM_TREES_WIND", "0") == "1" else "")) if v2 else "/Game/Trees/M_GyroTree"
+    return v2, tiles, mat
+
+
+V2, TILES, MAT = config()
+
+
+def url(tiles=None):
+    p = (tiles or TILES) + "/tileset.json"
     return ("file:///" + p.lstrip("/")) if os.path.isfile(p) else None
 
 
@@ -41,12 +66,17 @@ def spawn_editor(log=unreal.log):
     return a
 
 
-def apply(world, log=unreal.log, georef=None):
-    """point the map's trees tileset in `world` at the local tiles. -> the actor, or None (off / no tiles / no actor)."""
+def apply(world, log=unreal.log, georef=None, v2=None, look2=None):
+    """point the map's trees tileset in `world` at the local tiles. -> the actor, or None (off / no tiles / no actor).
+    v2 / look2: force the version / the v2 material extras (shot scripts' one-run A/B), else the env toggles."""
     if os.environ.get("GYROSIM_TREES", "1") == "0":
         log("[trees] off (GYROSIM_TREES=0)")
         return None
-    u = url()
+    V2, TILES, MAT = config(v2)
+    if look2 is None:
+        look2 = os.environ.get("GYROSIM_TREES_LOOK2", "1") != "0"
+    STATE.update(v2=V2, look2=look2)
+    u = url(TILES)
     if u is None:
         log("[trees] no tiles at %s (python -I sim/veg_build.py --prep --tiles)" % TILES)
         return None
@@ -70,18 +100,25 @@ def apply(world, log=unreal.log, georef=None):
             except Exception as e:
                 log("[trees] %s %r" % (k, e))
         m = None
-        if os.environ.get("GYROSIM_TREES_ART", "1") != "0":
+        if V2 or os.environ.get("GYROSIM_TREES_ART", "1") != "0":
             try:
                 m = unreal.load_asset(MAT)
             except Exception:
                 m = None
+        if m is not None and V2 and not look2:          # A/B: v2 material extras off (dynamic instance, Cesium copies it)
+            try:
+                m = unreal.MaterialLibrary.create_dynamic_material_instance(world, m)
+                for k, v in LOOK2_OFF.items():
+                    m.set_scalar_parameter_value(k, v)
+            except Exception as e:
+                log("[trees] look2 off %r" % (e,))
         try:
             a.set_editor_property("material", m)
         except Exception as e:
             log("[trees] material %r" % (e,))
         a.set_actor_hidden_in_game(False)
         a.refresh_tileset()
-        log("[trees] on: %s (sse %.0f) material %s" % (u, SSE, MAT if m else "Cesium default"))
+        log("[trees] on: %s (sse %.0f) material %s look2 %s" % (u, SSE, MAT if m else "Cesium default", look2 if V2 else "-"))
         return a
     except Exception as e:
         log("[trees] failed %r" % (e,))

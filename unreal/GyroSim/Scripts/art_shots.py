@@ -12,6 +12,7 @@ Env:
   GYROSIM_ART_GPU     comma list of views with a GPU measurement (startfpschart 10 s, ~1080p pixels)
   GYROSIM_ART_LOG     the -ABSLOG file (GPU numbers are read from it)
   GYROSIM_ART_VARIANTS JSON file (sweeps only): [{"name": .., "ground": {MI param: value}, "bldg": {param: value}, "tree": {param: value},
+                      "trees": {"v2": 0|1, "look2": 0|1} (trees_look version / v2 material extras),
                       "cloud": {VolumetricCloudComponent prop: value}, "sky": {SkyAtmosphereComponent prop: value},
                       "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
                       "cvars": {console variable: value}, "pp": {grade_look extra}}, ..] - each view is shot once per variant (tilesets whose
@@ -147,6 +148,11 @@ def set_variant(v):
         _mid(ST["ts"], "ground", v.get("ground")); ST["ts"].refresh_tileset(); reload = True
     if v.get("bldg") != prev.get("bldg") or ST["cur"] is None:
         _mid(ST["b"], "bldg", v.get("bldg")); ST["b"].refresh_tileset(); reload = True
+    if "trees" in v and v.get("trees") != prev.get("trees"):          # trees v1 / v2 / v2 without look extras (one-run A/B)
+        tv = v["trees"]
+        trees_look.apply(w, log, ST["gr"], v2=bool(tv.get("v2", True)), look2=bool(tv.get("look2", True)))
+        ST.get("base_mat", {}).pop("tree", None)
+        reload = True
     tr = trees_look.find(w)
     if tr is not None and (v.get("tree") != prev.get("tree") or ST["cur"] is None):
         _mid(tr, "tree", v.get("tree")); tr.refresh_tileset(); reload = True
