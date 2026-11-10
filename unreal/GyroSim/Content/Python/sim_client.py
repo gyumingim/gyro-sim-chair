@@ -668,6 +668,11 @@ class SimClient:
         """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
         CesiumBuildings tileset (build_level: off, no URL) pointed at the local URL. Physics meshes on, so the camera
         floor trace stands on roofs too (crashes are judged by the server's roof raster)."""
+            try:                                  # moving cars / ships (life_look.py; GYROSIM_TRAFFIC=0 / GYROSIM_SHIPS=0)
+                import life_look
+                life_look.apply(self.world, lambda m: _log(m), self.georef)
+            except Exception as e:
+                _log("life", repr(e))
         try:
             b = self.buildings = self._find("CesiumBuildings")
             if b is None:
