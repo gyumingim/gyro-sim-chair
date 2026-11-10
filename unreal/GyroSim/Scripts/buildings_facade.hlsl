@@ -335,14 +335,14 @@ else if (style == 6)
 {
     // round 3: curtain glass as a dark dielectric (F0 0.08, Fresnel to the sky at grazing view) with a light metallic coat;
     // as a tinted metal (0.85) it reflected only ~30 % of the sky everywhere and read as flat cardboard at 300 m
-    bayM = 320.0; floorM = 360.0; glassMetal = 0.3; glassRough = 0.02; tint = gtint * 0.55; wallMetal = 0.5; wallRough = 0.2;
+    bayM = 320.0; floorM = 360.0; glassMetal = 0.85; glassRough = 0.02; tint = gtint * 0.8; wallMetal = 0.7; wallRough = 0.2;
     bool fins = fmod(seed, 2.0) < 1.0;                       // half of the office towers: deep vertical fins at each bay edge
     win = fins ? float4(0.035, 0.965, 0.16, 0.99) : float4(0.015, 0.985, 0.16, 0.985);
     mull = fins ? 1.0 : 2.0; dR = fins ? 60.0 : 10.0;
 }
 else if (style == 7)                                         // Marine City / Haeundae residential towers: light blue / silver glass
 {
-    win = float4(0.02, 0.98, 0.12, 0.93); mull = 2.0; bayM = 300.0; floorM = 300.0; glassMetal = 0.25; glassRough = 0.02; wallRough = 0.25; wallMetal = 0.4; dR = 15.0;
+    win = float4(0.02, 0.98, 0.12, 0.93); mull = 2.0; bayM = 300.0; floorM = 300.0; glassMetal = 0.6; glassRough = 0.02; wallRough = 0.25; wallMetal = 0.5; dR = 15.0;
     gtint = (fmod(seed, 3.0) < 1.0) ? float3(0.44, 0.54, 0.62) : ((fmod(seed, 3.0) < 2.0) ? float3(0.38, 0.52, 0.60) : float3(0.50, 0.56, 0.60));
     tint = gtint * 1.2;
 }
@@ -649,7 +649,7 @@ float m = lerp(open, area, far);
 float3 col = lerp(w, insC, m);
 Rough = lerp(wr, insR, m);
 Metal = lerp(wallMetal, insM, m);
-Spec = lerp(0.35, (style == 6 || style == 7) ? 1.0 : 0.5, m);   // round 3: glass F0 0.08
+Spec = lerp(0.35, 0.5, m);   // round 3 tried glass F0 0.08 (dielectric): blind review preferred the round-2 metallic glass (2 of 2 glass views)
 NormalWS = normalize(lerp(wN, insN, m));
 if (ST_SIGN > 0.0)
 {
