@@ -68,6 +68,9 @@ GROUND = dict(
     # repeat - rotated second copy of the small octaves, rough / calm patches (noise SeaMacroM m, +-SeaMacroAmp), small
     # octaves faded by screen footprint
     SeaArt=0.0, SeaMacroM=420.0, SeaMacroAmp=0.5,
+    # trees v2 (11-10, ground_look.hlsl): crown-sized pattern on dark-green photo forest (beyond the 3D trees);
+    # GYROSIM_TREES_CANOPY=0 (or GYROSIM_TREES_V2=0) sets CanopyAmp 0 at Play
+    CanopyAmp=1.0, CanopyM=5.5, CanopyDark=0.45, CanopyBump=0.9,
 )
 GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
 # Sea pass 11-10 (GYROSIM_SEA_LOOK=0 = the 11-09 values above, MI_GyroGround_Sea0). Measured on the landmark shots
@@ -215,6 +218,8 @@ def apply_ground(tileset, on=None):
         off.update({k: dict(GROUND, **SEA_NEW)[k] for k in SEA_ART})
     if m is not None and not GROUND_SHARP:
         off["DetailAmp"] = 0.0
+    if m is not None and os.environ.get("GYROSIM_TREES_CANOPY", os.environ.get("GYROSIM_TREES_V2", "1")) == "0":
+        off["CanopyAmp"] = 0.0                   # trees v2 ground canopy pattern off (A/B)
     if off:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's
         try:                                     # parameter values onto every tile's material)
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)

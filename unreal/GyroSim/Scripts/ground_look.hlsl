@@ -54,6 +54,41 @@ if (DetailAmp > 0.0)
     g *= 1.0 + DetailAmp * cls * fadeD * (1.0 - m) * dn;
 }
 
+// ---- forest canopy (trees v2, 11-10; CanopyAmp 0 = off, GYROSIM_TREES_V2=0): beyond the 3D trees (~2.6 km) the photo
+// forest reads as flat green paint. Where the photo is dark vegetation, a crown-sized cellular pattern (jittered crowns
+// CanopyM m apart): bright sunlit crown domes, dark gaps between them, and a dome normal so every crown has its own lit /
+// shaded side - mountains far away look like textured forest. Faded per pixel footprint (crown >= ~3 px), render-time only.
+float3 canN = up;
+if (CanopyAmp > 0.0)
+{
+    float mxc = max(C.r, max(C.g, C.b)), mnc = min(C.r, min(C.g, C.b));
+    float vegc = saturate((C.g - max(C.r, C.b)) * 30.0) * saturate((mxc - mnc) / max(mxc, 1e-4) * 4.0) * (1.0 - smoothstep(0.08, 0.16, lum));
+    float footc = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;
+    float wc = vegc * saturate(1.5 - footc / (CanopyM / 3.0)) * (1.0 - m) * CanopyAmp;
+    if (wc > 0.001)
+    {
+        float2 q = P.xy * 0.01 / CanopyM, ci = floor(q);
+        float d1 = 9.0, d2 = 9.0; float2 off1 = float2(0.0, 0.0); float s1 = 0.5;
+        [unroll] for (int yy = -1; yy <= 1; yy++)
+        [unroll] for (int xx = -1; xx <= 1; xx++)
+        {
+            float2 cc = ci + float2(xx, yy);
+            float2 hj = frac(sin(float2(dot(cc, float2(127.1, 311.7)), dot(cc, float2(269.5, 183.3)))) * 43758.5453);
+            float2 dv = cc + 0.15 + 0.7 * hj - q;
+            float dd = dot(dv, dv);
+            if (dd < d1) { d2 = d1; d1 = dd; off1 = dv; s1 = hj.x; }
+            else if (dd < d2) { d2 = dd; }
+        }
+        float edge = sqrt(d2) - sqrt(d1);                                   // 0 on the border between two crowns
+        float gapc = 1.0 - smoothstep(0.02, 0.22, edge);
+        float dome = saturate(1.0 - sqrt(d1) * 1.35);
+        g *= lerp(1.0, (1.0 - CanopyDark * gapc) * (0.86 + 0.28 * s1) * (0.9 + 0.2 * dome), wc);
+        float3 txc = normalize(cross(float3(0.0, 1.0, 0.0), up)), tyc = cross(up, txc);
+        float3 nd = normalize(up - CanopyBump * (off1.x * txc + off1.y * tyc) * (1.0 - gapc));
+        canN = normalize(lerp(up, nd, wc));
+    }
+}
+
 // ---- sea: dark water body + sky reflection (Fresnel, from the engine's specular), wind waves -------------------------
 // water leaving reflectance of coastal sea is only a few percent: the look is mostly the reflected sky (Specular)
 float detail = clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, 1.8);                  // keep the photo's own variation (wakes, swell)
@@ -101,7 +136,7 @@ float2 nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStr
 float3 tx = normalize(cross(float3(0.0, 1.0, 0.0), up));                          // ~ north on the sea plane
 float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);
-NormalWS = normalize(lerp(up, nw, m));
+NormalWS = normalize(lerp(canN, nw, m));
 // unresolved waves far away widen the sun glint (roughness grows with distance), F0 water = 0.02 -> Specular 0.25
 Rough = lerp(Rg, lerp(WaterRough, WaterRoughFar, fade), m);
 Spec = lerp(Sp, WaterSpec, m);

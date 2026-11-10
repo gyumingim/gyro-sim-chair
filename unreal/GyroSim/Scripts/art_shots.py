@@ -13,8 +13,10 @@ Env:
   GYROSIM_ART_LOG     the -ABSLOG file (GPU numbers are read from it)
   GYROSIM_ART_VARIANTS JSON file (sweeps only): [{"name": .., "ground": {MI param: value}, "bldg": {param: value}, "tree": {param: value},
                       "cloud": {VolumetricCloudComponent prop: value}, "sky": {SkyAtmosphereComponent prop: value},
-                      "fog": {..}, "pp": {grade_look extra}}, ..] - each view is shot once per variant (tilesets whose
+                      "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
+                      "cvars": {console variable: value}, "pp": {grade_look extra}}, ..] - each view is shot once per variant (tilesets whose
                       material changes are refreshed and reloaded); file <view>_<variant>.png. Default: one shot, TAG.
+  GYROSIM_ART_HOOK    optional .py file exec'd once after the Play look is applied (probes / dumps; gets ST, log, unreal)
   GYROSIM_SHOTS_DIR   output folder (default C:/GyroSimTiles/shots/art - V-World imagery stays outside git), shots_<tag>.json
 Quits the editor when done.
 """
@@ -23,6 +25,7 @@ import unreal
 import sim_client
 import roads_look
 import trees_look
+import piers_look
 import landmarks_look
 
 log = lambda *a: unreal.log("[artshots] " + " ".join(str(x) for x in a))
@@ -69,7 +72,7 @@ def setup_cesium(world):
     ts.set_actor_location_and_rotation(unreal.Vector(0, 0, 0), rot, False, True)
     ts.set_actor_hidden_in_game(False)
     ts.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
-    ts.set_editor_property("url", "file:///C:/GyroSimTiles/terrain/tiles/layer.json")
+    ts.set_editor_property("url", "file:///%s/layer.json" % os.environ.get("GYROSIM_ART_TERRAIN", "C:/GyroSimTiles/terrain/tiles").replace("\\", "/"))
     ovs = {c.get_class().get_name(): c for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)}
     for o in ovs.values():
         o.remove_from_tileset()
@@ -103,7 +106,7 @@ def setup_cesium(world):
     b.set_actor_hidden_in_game(False)
     b.refresh_tileset()
     ST["extra"] = [x for x in (roads_look.apply(world, log, gr), landmarks_look.apply(world, log, gr),
-                               trees_look.apply(world, log, gr)) if x is not None]
+                               trees_look.apply(world, log, gr), piers_look.apply(world, log, gr)) if x is not None]
     return gr, ts, b
 
 
@@ -150,7 +153,9 @@ def set_variant(v):
     import atmos_look
     for key, cls, ccls in (("cloud", unreal.VolumetricCloud, unreal.VolumetricCloudComponent),
                            ("sky", unreal.SkyAtmosphere, unreal.SkyAtmosphereComponent),
-                           ("fog", unreal.ExponentialHeightFog, unreal.ExponentialHeightFogComponent)):
+                           ("fog", unreal.ExponentialHeightFog, unreal.ExponentialHeightFogComponent),
+                           ("skylight", unreal.SkyLight, unreal.SkyLightComponent),
+                           ("light", unreal.DirectionalLight, unreal.DirectionalLightComponent)):
         orig = ST.setdefault("orig_" + key, {})
         want = v.get(key) or {}
         for a in unreal.GameplayStatics.get_all_actors_of_class(w, cls):
@@ -162,6 +167,14 @@ def set_variant(v):
                 val = want.get(k, orig[k])
                 if val is not None:
                     atmos_look._set(c, k, val, key)
+    corig = ST.setdefault("orig_cvars", {})
+    cw = v.get("cvars") or {}
+    for k in set(corig) | set(cw):
+        if k not in corig:
+            corig[k] = unreal.SystemLibrary.get_console_variable_float_value(k)
+            log("orig cvar", k, corig[k])
+        val = cw.get(k, corig[k])
+        cmd("%s %s" % (k, ("%g" % val) if isinstance(val, float) else val))
     if v.get("pp") is not None or prev.get("pp") is not None:
         import grade_look
         sim_client.apply_look("monitor", w)
@@ -197,7 +210,7 @@ def tick(dt):
         el = now - ST["t"]
         ph = ST["phase"]
         if ph == "wait_editor" and el > float(os.environ.get("GYROSIM_ART_WAIT", "40")):
-            for m in (roads_look, landmarks_look, trees_look):       # editor-world actors before Play (never saved)
+            for m in (roads_look, landmarks_look, trees_look, piers_look):   # editor-world actors before Play (never saved)
                 try:
                     m.spawn_editor(log)
                 except Exception as e:
@@ -225,6 +238,11 @@ def tick(dt):
                 except Exception as e:
                     log("preset", repr(e))
                 cmd("t.MaxFPS 0"); cmd("r.VSync 0"); cmd("t.FPSChart.OpenFolderOnDump 0")
+                if os.environ.get("GYROSIM_ART_HOOK"):
+                    try:
+                        exec(open(os.environ["GYROSIM_ART_HOOK"], encoding="utf-8").read(), dict(ST=ST, log=log, unreal=unreal, OUT=OUT))
+                    except Exception as e:
+                        log("hook", repr(e))
                 ST.update(phase="view", t=now, vi=0)
             elif el > 120:
                 log("no PIE world"); ST.update(phase="end", t=now)
@@ -287,7 +305,18 @@ def tick(dt):
         elif ph == "end" and el > 2.0:
             env = {k: v for k, v in os.environ.items() if k.startswith("GYROSIM_")
                    and not any(s in k.upper() for s in ("KEY", "TOKEN", "SECRET", "PASS", "AUTH"))}
-            res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(now - ST["t0"]), tag=TAG, views=VIEWS, variants=VARIANTS,
+            git = {}
+            try:                               # which code made these shots: HEAD + hash of the uncommitted diff
+                import subprocess, hashlib
+                repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                run = lambda *a: subprocess.run(["git", "-C", repo] + list(a), capture_output=True, timeout=20,
+                                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+                git = dict(head=run("rev-parse", "HEAD").decode().strip(),
+                           diff_sha1=hashlib.sha1(run("diff", "HEAD")).hexdigest(),
+                           dirty=[l for l in run("status", "--porcelain", "-uno").decode().splitlines()][:60])
+            except Exception as e:
+                git = dict(error=repr(e)[:120])
+            res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(now - ST["t0"]), tag=TAG, git=git, views=VIEWS, variants=VARIANTS,
                        env=env, shots=ST["res"], gpu=ST["gpu"],
                        note="editor PIE without the sim server; local tiles; monitor preset (realism v2, atmos_look, grade_look)")
             with open(os.path.join(OUT, "shots_%s.json" % TAG), "w", encoding="utf-8") as f:
