@@ -379,9 +379,13 @@ def build_item(p, fr, it, top):
     elif k == "lamp":
         a, b, w, h = it[1], it[2], it[3], it[4]
         slab(P, "CK2_Lens", fr, a - w / 2, b - h / 2, a + w / 2, b + h / 2, top - 0.1, top + 0.3, uvp, "CK2_Bezel", bevel=0.05)
+    elif k == "breaker":
+        a, b = it[1], it[2]
+        f = at(a, b)
+        lathe(P, "CK2_Knob", f, [(0.5, 0.0), (0.5, 0.12), (0.36, 0.16), (0.34, 0.62), (0.28, 0.7), (0.0, 0.72)], seg=8)
     elif k == "guard":
         a, b = it[1], it[2]
-        g = "CK2_Red"
+        g = "CK2_Red" if (len(it) < 4 or it[3] == "red") else "CK2_Knob"
         for s in (-1, 1):
             prism(P, g, fr, rect(a + s * 1.0 - 0.1, b - 1.3, a + s * 1.0 + 0.1, b + 1.3), top, top + 1.3)
         prism(P, g, fr, rect(a - 1.1, b - 1.3, a + 1.1, b + 1.3), top + 1.3, top + 1.45)
@@ -660,7 +664,11 @@ def build_stick():
     top = path[-1]
     fw = (math.cos(lean), 0.0, -math.sin(lean))
     up = (math.sin(lean), 0.0, math.cos(lean))
-    box(P, "CK2_Grip", tuple(top[i] + up[i] * 0.8 + fw[i] * 0.6 for i in range(3)), (4.6, 3.6, 2.6), fw, (0, 1, 0), up)
+    hs = math.radians(22.0)                    # head slopes forward-down over the fingers (F-16 grip silhouette)
+    hfw = tuple(fw[i] * math.cos(hs) - up[i] * math.sin(hs) for i in range(3))
+    hup = tuple(up[i] * math.cos(hs) + fw[i] * math.sin(hs) for i in range(3))
+    blob(P, "CK2_Grip", tuple(top[i] + up[i] * 0.7 + fw[i] * 1.0 for i in range(3)), (2.9, 1.9, 1.45), hfw, (0, 1, 0), hup, e=0.55, reg=L.KNURL_SW)
+    blob(P, "CK2_Grip", tuple(top[i] - up[i] * 0.9 + fw[i] * 2.3 for i in range(3)), (0.9, 1.5, 1.2), hfw, (0, 1, 0), hup, e=0.6)      # nose over trigger
     lathe(P, "CK2_Knob", (tuple(top[i] + up[i] * 2.1 + fw[i] * 0.2 for i in range(3)), fw, (0, 1, 0), up), [(0.55, 0.0), (0.5, 0.5), (0.0, 0.6)], seg=10)
     lathe(P, "CK2_Red", (tuple(top[i] + up[i] * 2.1 + fw[i] * 1.6 for i in range(3)), fw, (0, 1, 0), up), [(0.45, 0.0), (0.42, 0.35), (0.0, 0.4)], seg=10)
     lathe(P, "CK2_Chrome", (tuple(top[i] + up[i] * 1.6 - fw[i] * 1.5 + (0, -1.6, 0)[i] for i in range(3)), (0, -1, 0), fw, up), [(0.5, 0.0), (0.45, 0.4), (0.0, 0.5)], seg=10)

@@ -187,6 +187,47 @@ TOGGLE_LABELS = {  # generic legends (no real part numbers / logos)
 }
 
 
+FILL_WORDS = ["PWR", "TEST", "NORM", "ARM", "AUTO", "MAN", "BIT", "RESET", "XFER", "STBY", "EMER", "DIM", "MODE", "SEL", "ON", "AUX",
+              "IFF", "MSL", "TACAN", "DATA", "CMDS", "FLARE", "CHAFF", "JMR", "PRGM", "HOLD", "NAV", "ILS", "LAND", "TAXI", "ANTI ICE", "PROBE"]
+
+
+def densify(p, sx=3.6, sy=4.4, keep_out=2.7, top_margin=2.4, seed=1):
+    """fill the empty area of a plate with rows of switches / knobs / guards / breakers (review round 4: too sparse).
+    Deterministic. Items keep `keep_out` cm from existing ones; legends come from FILL_WORDS (generic text)."""
+    import random
+    rnd = random.Random(sum(map(ord, p["name"])) * 31 + seed)   # stable across processes (no str hash)
+    pts = [(it[1], it[2]) for it in p["items"] if len(it) > 2 and isinstance(it[1], (int, float))]
+    big = [it for it in p["items"] if it[0] in ("grille", "stripes")]
+    w, h = p["w"], p["h"] - (top_margin if p.get("title") else 0.8)
+    out = []
+    y = 2.2
+    row = 0
+    while y < h - 1.4:
+        x = 2.2 + (sx / 2 if row % 2 else 0.0)
+        kind = rnd.choice(("toggle", "toggle", "knob", "breaker", "toggle", "button"))
+        while x < w - 1.6:
+            free = all((x - a) ** 2 + (y - b) ** 2 > keep_out ** 2 for a, b in pts)
+            free = free and not any(it[1] - 1.0 < x < it[3] + 1.0 and it[2] - 1.0 < y < it[4] + 1.0 for it in big)
+            if free:
+                k = kind if rnd.random() > 0.15 else rnd.choice(("guard", "knob", "toggle"))
+                if k == "toggle":
+                    out.append(("toggle", x, y, rnd.choice(FILL_WORDS)))
+                elif k == "knob":
+                    out.append(("knob", x, y, rnd.choice((2.0, 2.2, 2.6)), rnd.choice(FILL_WORDS)))
+                elif k == "breaker":
+                    out.append(("breaker", x, y))
+                elif k == "button":
+                    out.append(("button", x, y, 2.4, 1.6, rnd.choice(FILL_WORDS)))
+                else:
+                    out.append(("guard", x, y, rnd.choice(("red", "red", "black"))))
+                pts.append((x, y))
+            x += sx if kind != "breaker" else 1.6
+        y += sy if kind != "breaker" else 2.6
+        row += 1
+    p["items"] = p["items"] + out
+    return p
+
+
 def console_plates():
     """console top plates in the generic plate format"""
     out = []
@@ -194,8 +235,11 @@ def console_plates():
         for name, x0, x1, title, items in _console_plates(side):
             w = CONSOLE_OUT - CONSOLE_IN
             u0 = -CONSOLE_OUT if side < 0 else CONSOLE_IN
-            out.append(dict(name=name, origin=(x0, u0, CONSOLE_Z), ex=(0.0, 1.0, 0.0), ey=(1.0, 0.0, 0.0), w=w, h=x1 - x0, ppc=30,
-                            raise_=0.35, title=title, items=items, kind="console"))
+            pl = dict(name=name, origin=(x0, u0, CONSOLE_Z), ex=(0.0, 1.0, 0.0), ey=(1.0, 0.0, 0.0), w=w, h=x1 - x0, ppc=30,
+                      raise_=0.35, title=title, items=list(items), kind="console")
+            if name not in ("L_THR", "R_STICK", "AUX_L"):
+                densify(pl)
+            out.append(pl)
     return out
 
 
@@ -248,7 +292,9 @@ def panel_plates():
     # MFD surrounds (plates behind the bezels, sides of the column up to the eyebrows)
     for s in (-1, 1):
         u0, u1 = (-WING_U, -COL_HALF - 0.2) if s < 0 else (COL_HALF + 0.2, WING_U)
-        pp("MFDS_%s" % ("L" if s < 0 else "R"), u0, WELL_V1, u1, 61.7, [], ppc=14)
+        mfd_low = MFD_V - MFD_BEZEL / 2 - WELL_V1
+        strip = [("knob", 2.6 + 3.4 * i, mfd_low / 2 + 0.1, 1.6, "") for i in range(int((u1 - u0 - 3.0) / 3.4))]
+        pp("MFDS_%s" % ("L" if s < 0 else "R"), u0, WELL_V1, u1, 61.7, strip, ppc=20)
     pp("EB_L", EYEBROW_L["u0"], EYEBROW_L["v0"], EYEBROW_L["u1"], EYEBROW_L["v1"],
        [("lamp", 1.3 + 2.6 * i, 1.8, 2.3, 2.6, c, t) for i, (c, t) in enumerate((("amber", ""), ("amber", "TF\nFAIL"), ("amber", "ENG\nFIRE"), ("amber", "HYD"), ("red", "OXY\nLOW"), ("amber", "ENGINE")))],
        ppc=40)
@@ -258,8 +304,12 @@ def panel_plates():
     # leg wells either side of the column (set WELL_DEPTH forward), auxiliary panels outboard of them
     for s, nm in ((-1, "LW_L"), (1, "LW_R")):
         u0 = -AUX_U0 + 0.3 if s < 0 else COL_HALF + 0.6
-        P.append(dict(name=nm, origin=add(panel_pt(u0, 18.0), (WELL_DEPTH, 0, 0)), ex=(0.0, 1.0, 0.0), ey=PANEL_UP, w=AUX_U0 - COL_HALF - 0.9,
-                      h=WELL_V1 - 18.0 - 0.4, ppc=12, raise_=0.3, title="", kind="well", items=[]))
+        wl = AUX_U0 - COL_HALF - 0.9
+        brk = [("breaker", 2.0 + 1.6 * i, 18.6 - 2.6 * r) for r in range(3) for i in range(int((wl - 3.0) / 1.6))]
+        P.append(dict(name=nm, origin=add(panel_pt(u0, 18.0), (WELL_DEPTH, 0, 0)), ex=(0.0, 1.0, 0.0), ey=PANEL_UP, w=wl,
+                      h=WELL_V1 - 18.0 - 0.4, ppc=24, raise_=0.3, title="", kind="well",
+                      items=brk + [("label", wl / 2, 20.9, "CIRCUIT BREAKERS", 0.5), ("label", wl / 2, 9.0, "DO NOT STEP|ON PANEL", 0.55),
+                                   ("toggle", 3.0, 4.0, "LIGHTS"), ("toggle", 7.0, 4.0, "FAN"), ("knob", 11.5, 4.2, 2.2, "TEMP")]))
     # wings
     for s in (-1, 1):
         ex, ey, n = wing_frame(s)

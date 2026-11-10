@@ -209,8 +209,8 @@ def tape(c, a, b, w, h, label):
 
 
 def lamp(c, a, b, w, h, colr, txt):
-    base = {"amber": (70, 46, 8), "red": (70, 12, 10), "green": (14, 50, 22)}[colr]
-    leg = {"amber": (150, 105, 30), "red": (150, 45, 40), "green": (60, 130, 70)}[colr]
+    base = {"amber": (34, 22, 5), "red": (34, 7, 6), "green": (6, 24, 10)}[colr]          # dark lens (review: lenses went white)
+    leg = {"amber": (200, 130, 30), "red": (200, 50, 40), "green": (70, 180, 90)}[colr]   # legend glows (CK2_Lens Emissive)
     c.rect(a - w / 2 - 0.15, b - h / 2 - 0.15, a + w / 2 + 0.15, b + h / 2 + 0.15, fill=(8, 8, 8), h=118)
     c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=base)
     if txt:
@@ -263,9 +263,10 @@ def draw_plate(p):
             if p["kind"] not in ("icp", "wing", "panel"):
                 c.text(a - 1.2, b + 1.05, "ON", 0.34)
                 c.text(a - 1.2, b - 1.05, "OFF", 0.34)
-                if li < len(labels) and labels[li]:
-                    c.text(a, b + 1.9, labels[li], 0.5)
-            li += 1
+                lab = it[3] if len(it) > 3 else (labels[li] if li < len(labels) else "")
+                if lab:
+                    c.text(a, b + 1.9, lab, 0.5)
+            li += 1 if len(it) <= 3 else 0
         elif k == "knob":
             a, b, d = it[1], it[2], it[3]
             ticks(c, a, b, d * 0.62, d * 0.78, -135, 135, 7, max(1, int(c.r(0.06))))
@@ -284,6 +285,11 @@ def draw_plate(p):
             elif p["kind"] != "mfd" and li < len(labels):
                 c.text(a, b + h / 2 + 0.55, labels[li], 0.42)
             li += 1 if p["kind"] == "console" else 0
+        elif k == "breaker":                       # circuit breaker: black button with a white collar ring + number
+            a, b = it[1], it[2]
+            c.circle(a, b, 0.55, fill=(10, 10, 10), h=118)
+            c.circle(a, b, 0.48, outline=(220, 220, 215), width=max(1, int(c.r(0.07))))
+            c.text(a, b - 0.95, str(5 + (int(a * 7 + b * 3) % 3) * 5), 0.26, engrave=False)
         elif k == "rocker":
             a, b, w, h, t = it[1], it[2], it[3], it[4], it[5]
             c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(14, 14, 14), h=112)
@@ -303,8 +309,8 @@ def draw_plate(p):
             a0, b0, a1, b1 = it[1:5]
             yy = b0
             while yy < b1:
-                c.rect(a0, yy, a1, yy + 0.45, fill=(6, 6, 6), h=70)
-                yy += 0.9
+                c.rect(a0, yy, a1, yy + 0.3, fill=(16, 16, 17), h=112)      # shallow fine louvres (review: too deep)
+                yy += 0.6
         elif k == "display":
             a, b, w, h, lines = it[1:6]
             c.rect(a - w / 2 - 0.3, b - h / 2 - 0.3, a + w / 2 + 0.3, b + h / 2 + 0.3, fill=(6, 7, 6), h=110)

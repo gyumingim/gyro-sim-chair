@@ -212,24 +212,24 @@ def lamp_mat():
 # slot -> instance parameters (linear colours, matched to the reference photos)
 DARK = (0.055, 0.058, 0.06)
 SLOTS = {
-    "CK2_Plate": dict(Rough=0.74, EdgeWear=0.7, Dust=0.5, NormalAmt=1.0, Spec=0.35, EdgeLift=0.03),
+    "CK2_Plate": dict(Rough=0.74, EdgeWear=0.9, Dust=0.7, NormalAmt=1.0, Spec=0.35, EdgeLift=0.03),
     "CK2_Plate0": dict(Tint=DARK, Rough=0.82, NormalAmt=0.0, Spec=0.35),
     "CK2_PlateSide": dict(Tint=(0.02, 0.021, 0.022), Rough=0.82, NormalAmt=0.0, Spec=0.35),
-    "CK2_Paint": dict(Tint=(0.07, 0.074, 0.076), Rough=0.84, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0, Spec=0.35, EdgeLift=0.05),
-    "CK2_Well": dict(Tint=(0.09, 0.094, 0.096), Rough=0.86, EdgeWear=0.20, Dust=0.9, NormalAmt=0.0, Spec=0.35),
-    "CK2_Wall": dict(Tint=(0.05, 0.053, 0.055), Rough=0.82, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0, Spec=0.35),
+    "CK2_Paint": dict(Tint=(0.07, 0.074, 0.076), Rough=0.84, EdgeWear=0.5, Dust=0.8, NormalAmt=0.0, Spec=0.35, EdgeLift=0.05),
+    "CK2_Well": dict(Tint=(0.09, 0.094, 0.096), Rough=0.86, EdgeWear=0.4, Dust=1.1, NormalAmt=0.0, Spec=0.35),
+    "CK2_Wall": dict(Tint=(0.05, 0.053, 0.055), Rough=0.82, EdgeWear=0.5, Dust=0.8, NormalAmt=0.0, Spec=0.35),
     "CK2_Glare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.92, RoughVar=0.22, EdgeWear=0.10, Dust=1, NormalAmt=0.0, Spec=0.3, GrungeTile=14),
     "CK2_Rubber": dict(Tint=(0.012, 0.012, 0.012), Rough=0.8, EdgeWear=0.00, NormalAmt=0.0),
     "CK2_HUDBody": dict(Tint=(0.012, 0.012, 0.013), Rough=0.86, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
-    "CK2_Frame": dict(Tint=(0.015, 0.015, 0.016), Rough=0.65, EdgeWear=0.35, WearMetal=0.8, WearColor=(0.4, 0.4, 0.41), NormalAmt=0.0, Spec=0.35),
+    "CK2_Frame": dict(Tint=(0.015, 0.015, 0.016), Rough=0.65, EdgeWear=0.75, WearMetal=0.8, WearColor=(0.4, 0.4, 0.41), NormalAmt=0.0, Spec=0.35, Dust=0.6),
     "CK2_Metal": dict(Tint=(0.45, 0.45, 0.46), Rough=0.35, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
     "CK2_Chrome": dict(Tint=(0.8, 0.8, 0.8), Rough=0.15, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
     "CK2_Knob": dict(Tint=(0.015, 0.015, 0.016), Rough=0.4, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0),
     "CK2_White": dict(Tint=(0.8, 0.8, 0.78), Rough=0.5, NormalAmt=0.0, EdgeWear=0.00, Backlight=0.0),
     "CK2_Bezel": dict(Tint=(0.018, 0.018, 0.019), Rough=0.62, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_Red": dict(Tint=(0.42, 0.02, 0.015), Rough=0.4, EdgeWear=0.25, NormalAmt=0.0),
-    "CK2_Lens": dict(Rough=0.32, Spec=0.45, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0),
+    "CK2_Lens": dict(Rough=0.45, Spec=0.3, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0, Emissive=0.9),
     "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
     "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
     "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
@@ -237,7 +237,7 @@ SLOTS = {
     "CK2_Fleece": dict(Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.00, Dust=0.2, NormalAmt=0.0, Spec=0.2),
     "CK2_Headrest": dict(Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
     "CK2_Boot": dict(Tint=(0.17, 0.18, 0.18), Rough=0.7, EdgeWear=0.00, NormalAmt=1),
-    "CK2_Grip": dict(Tint=(0.016, 0.016, 0.017), Rough=0.55, EdgeWear=0.20, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
+    "CK2_Grip": dict(Tint=(0.016, 0.016, 0.017), Rough=0.55, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
     "CK2_GearKnob": dict(Tint=(0.7, 0.7, 0.68), Rough=0.35, EdgeWear=0.00, NormalAmt=0.0),
     "CK2_Kneeboard": dict(Tint=(0.03, 0.03, 0.032), Rough=0.5, NormalAmt=0.0),
     "CK2_HUDEdge": dict(Tint=(0.32, 0.36, 0.16), Rough=0.25, Metal=0.7, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
@@ -289,7 +289,7 @@ def main():
     ms, mg, ml = master(tx), glass_mat(), lamp_mat()
     mats = {k: instance("MI_Ck2" + k[3:], ms, v) for k, v in SLOTS.items()}
     mats.update({k: instance("MI_Ck2" + k[3:], mg, v) for k, v in GLASS.items()})
-    mats.update({"CK2_LampOn_" + c: instance("MI_Ck2_LampOn_" + c, ml, dict(Color=rgb, Intensity=2.6)) for c, rgb in LAMPS.items()})
+    mats.update({"CK2_LampOn_" + c: instance("MI_Ck2_LampOn_" + c, ml, dict(Color=rgb, Intensity=1.4)) for c, rgb in LAMPS.items()})
     res = {}
     for name, info in man["parts"].items():
         sm = import_mesh(os.path.join(EXP, info["fbx"]))
