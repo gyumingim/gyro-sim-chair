@@ -150,3 +150,10 @@ if "-gyrosimspot" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "spot_check.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_spot"})
+
+# Cockpit / airframe check shots + GPU (developer use, Scripts/aircraft/cockpit_shots.py): a SECOND editor launched with
+# -GyroSimCockpitShots -RenderOffscreen -nosound, sim server running (Busan start, GYROSIM_MUTE=1). Quits when done.
+if "-gyrosimcockpitshots" in _cmd and "-run=" not in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "aircraft", "cockpit_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_cockpit_shots"})

@@ -28,6 +28,8 @@ import ctypes, importlib, json, math, os, socket, time
 import unreal
 import geo, hud, cockpit_gauges as gauges
 importlib.reload(geo); importlib.reload(hud); importlib.reload(gauges)
+import view_fx, airframe_live         # cockpit view feel + sound (view_fx), moving surfaces / lights (airframe_live)
+importlib.reload(view_fx); importlib.reload(airframe_live)
 import pie_fullscreen                 # not reloaded: it defines a UObject class (PIE full screen, F11 / Alt+Enter)
 # Play started by GyroSim_Busan.bat (-GyroSimPlay): PIE window in true full screen (borderless, whole main monitor) on a
 # monitor (not VR). GYROSIM_FULLSCREEN=0 keeps the old maximized window, =1 forces it for a Play pressed by hand too.
@@ -42,7 +44,8 @@ CHASE_BACK, CHASE_UP = 2600.0, 650.0
 # runway) -> cockpit. Outside the cockpit: Q/E turn around, PageUp/PageDown up/down, + / - / mouse wheel zoom, mouse drag
 # (monitor) turns, Home resets. VR: no camera pitch / roll from us (only yaw), turns / zoom in snap steps, flyby / tower
 # are static points (re-placed with a snap, never moved while you look).
-VIEWS = ("cockpit", "chase", "orbit", "flyby", "tower")
+# "eye" = the same eye point without the cockpit / airframe drawn and without head motion (view_fx). GYROSIM_COCKPIT=0 starts there.
+VIEWS = ("cockpit", "eye", "chase", "orbit", "flyby", "tower")
 ORBIT_DEFAULT = dict(chase=(0.0, math.degrees(math.atan2(CHASE_UP, CHASE_BACK)), math.hypot(CHASE_BACK, CHASE_UP)),
                      orbit=(90.0, 12.0, 3500.0))           # (yaw offset deg, elevation deg, distance cm)
 ORBIT_EL = (-25.0, 85.0)
@@ -345,7 +348,8 @@ class SimClient:
         self.out = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.kb = Keyboard()
         self.ctrl = dict(ail=0.0, elev=0.0, rud=0.0, thr=0.0, brk_l=0.0, brk_r=0.0, gear=0.0)
-        self.view = "cockpit"
+        self.view = "cockpit" if view_fx.COCKPIT_ON else "eye"
+        self.fx, self.af = view_fx.ViewFx(), airframe_live.Airframe()
         self.hud = True
         self.s = None
         self.rx_n = 0
@@ -513,6 +517,8 @@ class SimClient:
     @staticmethod
     def read_ground_cfg():
         """(token, mode) from Config/cesium_token.txt (not in git). Lines: '#' comment, a mode keyword
+        self.af.bind(world, self.aircraft)
+        self.fx.hidden_eye = None
         grid | photo | terrain | photoreal, anything else = Cesium ion access token.
         No file / no token -> 'grid' (local grid ground, nothing streamed). Token -> 'terrain' unless a keyword says
         otherwise. 'photo' = Sentinel-2 satellite photo on flat ground (no token needed, streamed)."""
@@ -1046,7 +1052,7 @@ class SimClient:
     def _orbit_keys(self, kb):
         """Q/E, PageUp/PageDown, + / -, Home and the mouse (monitor) for the outside views."""
         self.orbit_vel = [0.0, 0.0, 0.0]
-        if self.view == "cockpit":
+        if self.view in ("cockpit", "eye"):
             self.mouse_prev = None
             return
         o = self.orbit.get(self.view)
@@ -1359,16 +1365,18 @@ class SimClient:
         fwd, right, up = rot.get_forward_vector(), rot.get_right_vector(), rot.get_up_vector()
         if self.view not in VIEWS:
             self.view = "cockpit"
-        if self.view == "cockpit":
-            eye = loc + fwd * EYE[0] + right * EYE[1] + up * EYE[2]
+        (hx, hy, hz), (fp, fy, fr) = self.fx.update(self.s, dt, self.hmd, self.view, now)   # head motion (0 in VR / chair / eye view)
+        if self.view in ("cockpit", "eye"):
+            eye = loc + fwd * (EYE[0] + hx) + right * (EYE[1] + hy) + up * (EYE[2] + hz)
             self.camera.set_actor_location_and_rotation(eye, rot, False, False)
             self._fov(VIEW_FOV)
         else:
             self._place_outside(dt, loc, rot)
         if not self.hmd:                                            # monitor head look (C = look down, Q/E = left/right)
             k = min(1.0, 6.0 * dt)
-            changed = False
-            tgt = self.look_tgt if self.view == "cockpit" else (0.0, 0.0)   # chase: camera aims at the aircraft (centred)
+            changed = abs(fp) + abs(fy) + abs(fr) > 1e-4 or getattr(self, "_fx_rot", False)
+            self._fx_rot = abs(fp) + abs(fy) + abs(fr) > 1e-4
+            tgt = self.look_tgt if self.view in ("cockpit", "eye") else (0.0, 0.0)   # chase: camera aims at the aircraft (centred)
             if self.view != getattr(self, "_look_view", None):
                 self._look_view = self.view
                 self.look = [float(tgt[0]), float(tgt[1])]               # snap on a view change (no swing across)
@@ -1378,7 +1386,7 @@ class SimClient:
                 changed |= abs(nv - self.look[i]) > 1e-3
                 self.look[i] = nv
             if changed or self.frames < 3:
-                self.view_cam.set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=self.look[0], yaw=self.look[1]), False, True)
+                self.view_cam.set_actor_relative_rotation(unreal.Rotator(roll=fr, pitch=self.look[0] + fp, yaw=self.look[1] + fy), False, True)
 
     def _controls(self, dt):
         s = self.s
@@ -1613,7 +1621,7 @@ class SimClient:
         s = self.s
         fresh = s is not None and now - self.rx_t < 1.0
         P = self.painter
-        hv = self.view == "cockpit"
+        hv = self.view in ("cockpit", "eye")
         if "HUD" in self.screens and getattr(self, "hud_vis", None) != hv:      # no HUD in the chase view
             self.hud_vis = hv
             self.screens["HUD"][0].set_actor_hidden_in_game(not hv)
@@ -2035,6 +2043,10 @@ class SimClient:
             self._vworld_poll(now)
             self._minimap(now)
             self._spot_screen(now)
+                self.af.update(self.s, dt)                          # control surfaces / lights (airframe_live)
+                self.fx.eye_view(self.world, self.aircraft, self.view == "eye")
+            self.fx.sound(self.world, self.s, dt)
+            self.fx.canopy(self.world, now)
             self._overlay(now)
             self._set_view_target()
             self.frames += 1
