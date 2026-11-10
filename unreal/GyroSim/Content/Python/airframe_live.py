@@ -131,6 +131,14 @@ class Airframe:
             a.static_mesh_component.set_static_mesh(v2["surf"][n] if v2 else self.v1_mesh[n])
         for a, _ in list(self.surf.values()) + list(self.lights.values()):
             a.set_actor_hidden_in_game(not on)
+        # round 3: per-object (inset) shadows for the airframe in v2 -> wing / fin shadows on the fuselage at chase range
+        for c in [self.ext.static_mesh_component] + [a.static_mesh_component for a, _ in self.surf.values()] + [c for c, _ in self.gear]:
+            try:
+                c.set_cast_inset_shadow(bool(v2))
+            except Exception as e:
+                if not getattr(self, "_inset_err", None):
+                    self._inset_err = repr(e)
+                    _log("inset shadow", repr(e))
         self.mode = mode
         self.view = None                                     # re-evaluate the exterior glass on the next update
         self.ok = on

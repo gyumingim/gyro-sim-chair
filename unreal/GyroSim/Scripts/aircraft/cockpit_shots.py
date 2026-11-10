@@ -97,6 +97,18 @@ def lighting_report(w, c):
             r.setdefault("sun", []).append({k: lc.get_editor_property(k) for k in ("cast_shadows", "cast_dynamic_shadows", "dynamic_shadow_distance_movable_light",
                                                                                  "dynamic_shadow_cascades", "contact_shadow_length", "intensity", "atmosphere_sun_light")
                                             if _has(lc, k)})
+        pp = []
+        for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.PostProcessVolume):
+            s = a.get_editor_property("settings")
+            d = {}
+            for k in ("white_temp", "white_tint", "color_gain", "color_saturation", "color_gamma", "color_offset", "film_slope", "film_toe"):
+                try:
+                    if s.get_editor_property("override_" + k):
+                        d[k] = str(s.get_editor_property(k))
+                except Exception:
+                    pass
+            pp.append(dict(name=a.get_name(), unbound=a.get_editor_property("unbound"), **d))
+        r["post_process"] = pp
         r["height_fog"] = len(unreal.GameplayStatics.get_all_actors_of_class(w, unreal.ExponentialHeightFog))
         r["sky_atmosphere"] = len(unreal.GameplayStatics.get_all_actors_of_class(w, unreal.SkyAtmosphere))
         ext = getattr(c.af, "ext", None)

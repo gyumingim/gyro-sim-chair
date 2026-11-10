@@ -44,6 +44,87 @@ SURF = {
     "F16_Rudder": dict(objs=r"^Rudder(\.\d+)?$", c=(4.915, 0.0, 2.095), a=(0.547371, 0.0, 0.836890), sense="right"),
 }
 DROP = r"Logo|USAF|VstabBand"
+FIN_RECT = (0.52, 0.865, 0.74, 0.995)        # unused atlas area (white background of the FG skin) for the fin sides
+FIN_X, FIN_Z = (-575.0, -255.0), (110.0, 340.0)
+
+
+MISSILE_RECT = (0.45, 0.968, 0.50, 0.992)    # unused atlas area painted plain missile white-grey by airframe_bake.py
+
+
+def add_aim9(a2, body):
+    """generic AIM-9-like training rounds (our own simple shapes: tube, ogive nose, 4 canards, 4 tail fins) on both
+    wingtip rails, appended to the v2 body. Rail = body vertices beyond |y| 465 cm."""
+    V = body["V"][np.unique(body["T"])]
+    mk = np.bincount(body["MK"]).argmax()
+    parts = []
+    for side in (-1, 1):
+        R = V[V[:, 1] * side > 465.0]
+        if len(R) < 4:
+            continue
+        yc, zc = float(np.median(R[:, 1])), float(R[:, 2].min()) - 7.0
+        xn = float(R[:, 0].max()) + 55.0                  # nose ahead of the rail
+        L, r, n = 287.0, 6.35, 16
+        xs = np.array([xn - L, xn - 40.0, xn - 22.0, xn - 10.0, xn - 2.0])
+        rs = np.array([r, r, r * 0.8, r * 0.45, r * 0.08])
+        ang = np.linspace(0, 2 * np.pi, n + 1)[:-1]
+        ring = lambda x, rr: np.stack([np.full(n, x), yc + rr * np.cos(ang), zc + rr * np.sin(ang)], 1)   # noqa: E731
+        verts = np.concatenate([ring(x, rr) for x, rr in zip(xs, rs)] + [np.array([[xn, yc, zc], [xn - L, yc, zc]])])
+        tri, nrm = [], []
+        for i in range(len(xs) - 1):
+            for j in range(n):
+                a, b = i * n + j, i * n + (j + 1) % n
+                c, d = a + n, b + n
+                tri += [(a, c, b), (b, c, d)]
+        tip, tail = len(verts) - 2, len(verts) - 1
+        last = (len(xs) - 1) * n
+        for j in range(n):
+            tri.append((last + j, tip, last + (j + 1) % n))
+            tri.append((j, (j + 1) % n, tail))
+        def fin(x0, x1, x2, span, rot):                   # root x0..x1 at the tube, tip edge x2..x1 at 'span'
+            dy, dz = np.cos(rot), np.sin(rot)
+            p = [[x0, yc + r * dy, zc + r * dz], [x1, yc + r * dy, zc + r * dz], [x1, yc + span * dy, zc + span * dz], [x2, yc + span * dy, zc + span * dz]]
+            return np.array(p)
+        fins = []
+        for rot in np.radians([45, 135, 225, 315]):
+            fins.append(fin(xn - L, xn - L + 32.0, xn - L + 20.0, 32.0, rot))
+            fins.append(fin(xn - 62.0, xn - 48.0, xn - 50.0, 17.0, rot))
+        base = len(verts)
+        for f in fins:
+            verts = np.concatenate([verts, f])
+            k = len(verts) - 4
+            tri += [(k, k + 1, k + 2), (k, k + 2, k + 3)]
+        parts.append((verts, np.array(tri)))
+    if not parts:
+        return a2, 0
+    Vs, Ts, axes, off = [], [], [], 0
+    for v, tt in parts:
+        Vs.append(v); Ts.append(tt + off); off += len(v)
+        axes.append(np.repeat(v[len(v) - 33][None], len(tt), 0))   # tail-centre vertex (rings, tip, tail, then 8 fins x 4) = axis point
+    Vn, Tn = np.concatenate(Vs), np.concatenate(Ts)
+    AX = np.concatenate(axes)
+    P = Vn[Tn]
+    fn = np.cross(P[:, 1] - P[:, 0], P[:, 2] - P[:, 0])
+    fu = fn / np.maximum(np.linalg.norm(fn, axis=1, keepdims=True), 1e-9)
+    # shading normals: tube = radial from the missile axis, fins = face normal (two-sided material);
+    # geometric winding opposite to N (this pipeline's rule)
+    rad = P - AX[:, None, :]
+    rad[..., 0] = 0
+    rn = rad / np.maximum(np.linalg.norm(rad, axis=2, keepdims=True), 1e-9)
+    nfin = 16                                             # 8 fins x 2 tris per side, last in each side's list
+    is_fin = np.concatenate([np.r_[np.zeros(len(tt) - nfin, bool), np.ones(nfin, bool)] for _, tt in parts])
+    N = np.where(is_fin[:, None, None], np.repeat(fu[:, None], 3, 1), rn)
+    flip = np.einsum("ij,ij->i", fu, N.mean(1)) > 0
+    Tn[flip] = Tn[flip][:, [0, 2, 1]]
+    P = Vn[Tn]
+    N[flip] = N[flip][:, [0, 2, 1]]
+    u0, v0, u1, v1 = MISSILE_RECT
+    UV = np.zeros((len(Tn), 3, 2))
+    UV[:, :, 0] = u0 + (P[:, :, 0] - P[:, :, 0].min()) / max(1e-6, np.ptp(P[:, :, 0])) * (u1 - u0)
+    UV[:, :, 1] = v0 + ((np.arange(3)[None, :] + np.arange(len(Tn))[:, None]) % 3) / 2.0 * (v1 - v0)
+    out = dict(V=np.concatenate([a2["V"], Vn]), T=np.concatenate([a2["T"], Tn + len(a2["V"])]), UV=np.concatenate([a2["UV"], UV]),
+               N=np.concatenate([a2["N"], N]), MK=np.concatenate([a2["MK"], np.full(len(Tn), mk)]),
+               DS=np.concatenate([a2["DS"], np.ones(len(Tn), bool) if a2["DS"].dtype == bool else np.ones(len(Tn), a2["DS"].dtype)]))
+    return out, int(len(Tn))
 
 
 def fix_uv(arr):
@@ -74,6 +155,14 @@ def fix_uv(arr):
             q = Q - Q.mean(1, keepdims=True)
             sc = 0.0008 / max(1e-6, float(np.abs(q).max()))      # ~1.5 texel tangent-frame triangle around it
             UV[idx] = c0 + np.stack([q[:, :, a], q[:, :, b]], -1) * sc
+            if k == 1 and on_fin.any():                        # v2 round 3: fin sides get a real planar map into an unused
+                u0, v0, u1, v1 = FIN_RECT                      # atlas rect (airframe_bake paints the fin + generic tail code)
+                F_ = Q[on_fin]
+                u = u0 + (F_[:, :, 0] - FIN_X[0]) / (FIN_X[1] - FIN_X[0]) * (u1 - u0)
+                left = F_[:, :, 1].mean(1) < 0.3                # left side seen from outside: +x runs to the viewer's left
+                u[left] = u0 + u1 - u[left]
+                v = v0 + (F_[:, :, 2] - FIN_Z[0]) / (FIN_Z[1] - FIN_Z[0]) * (v1 - v0)
+                UV[idx[on_fin]] = np.stack([u, v], -1)
     c = V[T].mean(1)
     fin = (np.abs(c[:, 1]) < 8.0) & (c[:, 2] > 110.0) & (c[:, 0] < -350.0) & (np.abs(N.mean(1)[:, 1]) > 0.5)
     flips = 0
@@ -137,6 +226,9 @@ def main():
         F.write_obj(nm, arr, mats, gid)
         # v2: welded, angle-weighted crease normals, PN-triangle subdivision (2 levels on the body, 1 on surfaces)
         a2, st = V2.smooth_v2(arr, levels=2 if nm == "F16_Body" else 1)
+        if nm == "F16_Body":
+            a2, nm9 = add_aim9(a2, arr)
+            F.log(f"AIM-9 shapes: {nm9} tris")
         m2, g2 = F.material_table(a2, texout, nm)
         F.write_obj(nm + "_v2", a2, m2, g2)
         rec["v2"] = st
@@ -161,7 +253,8 @@ def main():
             shutil.copyfile(p, OUT / lf)
     (OUT / "airframe.json").write_text(json.dumps(info, indent=1), encoding="utf-8")
     np.savez_compressed(OUT / "bake_input.npz", **{f"{b['part']}__{k}": v for b in bake for k, v in b.items() if k != "part"},
-                        texkeys=np.array([F.MATKEYS[k][0] or "" for k in range(len(F.MATKEYS))]))
+                        texkeys=np.array([F.MATKEYS[k][0] or "" for k in range(len(F.MATKEYS))]),
+                        mnames=np.array([str(F.MATKEYS[k][4]) for k in range(len(F.MATKEYS))]))
     F.log(f"done in {time.time() - t0:.0f} s -> {OUT}")
 
 

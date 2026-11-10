@@ -23,9 +23,14 @@ from scipy.ndimage import binary_dilation, distance_transform_edt, gaussian_filt
 DIR = Path(__file__).resolve().parents[2] / "ThirdParty" / "f16_airframe"
 R = 1024                      # raster / AO resolution
 OUT = 4096
-LIGHT = (np.array([146, 152, 160]) / 255.0) ** 2.2     # sides (FS 36270-like medium-light grey)
-UNDER = (np.array([162, 167, 174]) / 255.0) ** 2.2     # underside (lighter)
-DARK = (np.array([100, 107, 117]) / 255.0) ** 2.2     # upper surfaces (FS 36118-like)
+# round 3 (customer / critic): neutral, darker - FS 36270 on the sides / underside / nose ~ sRGB 132/137/140
+# (linear ~0.23), FS 36118 on the upper surfaces ~ sRGB 78/83/89 (linear ~0.08)
+LIGHT = (np.array([132, 137, 140]) / 255.0) ** 2.2
+UNDER = LIGHT
+DARK = (np.array([78, 83, 89]) / 255.0) ** 2.2
+FIN_RECT = (0.52, 0.865, 0.74, 0.995)            # = airframe_split.FIN_RECT (fin sides planar-mapped here)
+MISSILE_RECT = (0.45, 0.968, 0.50, 0.992)        # = airframe_split.MISSILE_RECT
+STENCIL = (np.array([40, 42, 44]) / 255.0) ** 2.2
 GUN = np.array([215.0, -78.0, 48.0])           # gun port, approx. (left LERX root; not from the FG model)
 rng = np.random.default_rng(16)
 
@@ -146,6 +151,77 @@ def up(img, n=OUT, order=1):
     return zoom(img, f, order=order)
 
 
+def uvpx(u, v):
+    return u * OUT, (1 - v) * OUT
+
+
+def decals(base, rough, ln, z, names, posf, nrmf):
+    """round 3 'toy-clean' fixes, all generic (no real unit): gear bays painted as closed doors, fin sides in the fin grey
+    with a generic code 'GS 01', missiles light grey, walkway outlines and NO STEP text on the wing tops (placed from
+    the 3D position of each texel), small rescue / warning style stencils without real wording."""
+    from PIL import ImageDraw, ImageFont
+    mn, texkeys = z["mnames"], z["texkeys"]
+    # gear bays: every triangle of the FG 'gearwell' materials -> closed-door paint with a door outline
+    well = Image.new("L", (OUT, OUT), 0)
+    dw = ImageDraw.Draw(well)
+    for nm in names:
+        UV, MK = z[f"{nm}__UV"], z[f"{nm}__MK"]
+        sel = np.array(["gearwell" in mn[m].lower() and "f16.png" in texkeys[m] for m in MK])
+        for tri in UV[sel]:
+            tri = tri - np.floor(tri.min(0))
+            dw.polygon([uvpx(*p) for p in tri], fill=255)
+    wm = np.asarray(well, np.float32) / 255.0
+    base[:] = base * (1 - wm[..., None]) + LIGHT * wm[..., None]
+    edge = gaussian_filter(wm, 1.2); edge = np.clip((edge - 0.25) * 4, 0, 1) * np.clip((0.75 - edge) * 4, 0, 1)
+    base[:] = base * (1 - 0.5 * edge[..., None])
+    log("gear-bay texels", int((wm > 0.5).sum()))
+    try:
+        font = ImageFont.truetype("C:/Windows/Fonts/bahnschrift.ttf", 150)
+        small = ImageFont.truetype("C:/Windows/Fonts/bahnschrift.ttf", 26)
+    except OSError:
+        font = small = ImageFont.load_default()
+    # fin rect: fin grey + generic tail code
+    u0, v0, u1, v1 = FIN_RECT
+    x0, y1 = uvpx(u0, v0); x1, y0 = uvpx(u1, v1)
+    x0, x1, y0, y1 = int(x0), int(x1), int(y0), int(y1)
+    finc = LIGHT * 1.0
+    base[y0:y1, x0:x1] = finc
+    txt = Image.new("L", (x1 - x0, y1 - y0), 0)
+    dt = ImageDraw.Draw(txt)
+    dt.text(((x1 - x0) * 0.40, (y1 - y0) * 0.30), "GS", font=font, fill=255)
+    dt.text(((x1 - x0) * 0.40, (y1 - y0) * 0.58), "01", font=ImageFont.truetype("C:/Windows/Fonts/bahnschrift.ttf", 70) if font is not small else font, fill=255)
+    tm = gaussian_filter(np.asarray(txt, np.float32) / 255.0, 0.6)
+    base[y0:y1, x0:x1] = base[y0:y1, x0:x1] * (1 - tm[..., None]) + STENCIL * tm[..., None]
+    # missiles
+    u0, v0, u1, v1 = MISSILE_RECT
+    mx0, my1 = uvpx(u0, v0); mx1, my0 = uvpx(u1, v1)
+    base[int(my0):int(my1), int(mx0):int(mx1)] = (np.array([206, 208, 210]) / 255.0) ** 2.2
+    rough[int(my0):int(my1), int(mx0):int(mx1)] = 0.38
+    # walkway outlines / NO STEP on the wing tops: texel 3D position at 4K (bilinear from the 1K maps)
+    P4 = np.stack([zoom(posf[..., c].astype(np.float32), OUT / posf.shape[0], order=1) for c in range(3)], -1)
+    nz4 = zoom(nrmf[..., 2].astype(np.float32), OUT / nrmf.shape[0], order=1)
+    top = nz4 > 0.75
+    ay, x = np.abs(P4[..., 1]), P4[..., 0]
+    inwing = (x > -260) & (x < -40)
+    walk = top & inwing & ((np.abs(ay - 120) < 1.6) | (np.abs(ay - 205) < 1.6))
+    walk |= top & (ay > 120) & (ay < 205) & ((np.abs(x + 45) < 1.6) | (np.abs(x + 255) < 1.6))
+    wk = gaussian_filter(walk.astype(np.float32), 0.6)
+    base[:] = base * (1 - 0.8 * wk[..., None]) + STENCIL * 0.8 * wk[..., None]
+    # NO STEP: find the texel nearest to a wing-top point, write the text there (UV-aligned, small)
+    for yy in (-265.0, 265.0):
+        d = np.where(top, np.hypot(P4[..., 0] + 150.0, P4[..., 1] - yy), 1e9)
+        iy, ix = np.unravel_index(np.argmin(d), d.shape)
+        if d[iy, ix] > 20:
+            continue
+        stamp = Image.new("L", (190, 40), 0)
+        ImageDraw.Draw(stamp).text((4, 4), "NO STEP", font=small, fill=255)
+        sm = np.asarray(stamp, np.float32) / 255.0
+        ys, xs = slice(max(iy - 20, 0), iy + 20), slice(max(ix - 95, 0), ix + 95)
+        h, w = base[ys, xs].shape[:2]
+        base[ys, xs] = base[ys, xs] * (1 - 0.85 * sm[:h, :w, None]) + STENCIL * 0.85 * sm[:h, :w, None]
+    log("walkway texels", int(walk.sum()))
+
+
 def main():
     t0 = time.time()
     z = np.load(DIR / "bake_input.npz")
@@ -165,7 +241,7 @@ def main():
     ao = ao_bake(pos, nrm, cov, occ, lo, vs)
     log("ao mean", ao[cov].mean().round(3))
     posf, nrmf = fill(pos, cov), fill(nrm, cov)
-    aof = np.clip(gaussian_filter(fill(ao, cov), 2.0), 0.35, 1.0)     # (blind review: AO holes read as dirty smears)
+    aof = np.clip(gaussian_filter(fill(ao, cov), 2.0), 0.5, 1.0)      # (blind review: AO holes read as dirty smears)
     # ---- tone at 1K: the FG skin's own two-tone areas (dark islands) give the dark upper regions; underside lighter
     src = np.asarray(Image.open(DIR / "tex_f16.png").convert("RGB"), np.float32) / 255.0
     lum = src @ np.array([0.299, 0.587, 0.114], np.float32)
@@ -188,7 +264,7 @@ def main():
     gun = np.exp(-((np.clip(-g[..., 0], 0, None) / 90.0) ** 2 + (g[..., 1] / 14.0) ** 2 + (g[..., 2] / 14.0) ** 2)) * (g[..., 0] < 8)
     soot = np.clip(soot + gun * 0.9, 0, 1)
     sootc = np.array([0.012, 0.011, 0.010])
-    col = col * (1 + streak[..., None] * 0.06)
+    col = col * (1 + streak[..., None] * 0.10)
     col = col * (1 - soot[..., None] * 0.65) + sootc * soot[..., None] * 0.65
     rough1k = 0.48 + streak * 0.05 + soot * 0.18
     # ---- 4K: upsample tone / AO, crisp panel lines + rivets from the FG line art
@@ -216,8 +292,10 @@ def main():
     orig = np.asarray(Image.open(DIR / "tex_f16_paint.png").convert("RGB"), np.float32) / 255.0
     orig4 = np.clip(up(orig ** 2.2, order=1), 0, 1)
     paint = col4 * (1 - 0.28 * ln[..., None]) * (1 - 0.08 * rivet[..., None])
-    base = (paint * pm4 + orig4 * (1 - pm4)) * (0.75 + 0.25 * ao4[..., None])
+    base = (paint * pm4 + orig4 * (1 - pm4)) * (0.85 + 0.15 * ao4[..., None])
     ln = ln * pm4[..., 0]; rivet = rivet * pm4[..., 0]
+    rough4 = rough4.copy()
+    decals(base, rough4, ln, z, names, posf, nrmf)
     Image.fromarray(np.clip(base ** (1 / 2.2) * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_af2_base.png")
     # normal: lines recessed, rivets domed
     h = gaussian_filter(-ln * 1.0 + rivet * 0.6, 1.0)

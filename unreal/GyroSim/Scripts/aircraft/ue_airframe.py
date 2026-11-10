@@ -351,8 +351,9 @@ def airframe2_master(tx2):
     nrm = _tp(m, "Nrm", tx2["tex_af2_n"], ST.SAMPLERTYPE_NORMAL, -1600, 400)
     col = _op(m, unreal.MaterialExpressionMultiply, base, _vp(m, "Tint", (1, 1, 1), -1450, -300), -1250, -400, "RGB", "")
     MEL.connect_material_property(col, "", MP.MP_BASE_COLOR)
-    MEL.connect_material_property(orm, "R", MP.MP_AMBIENT_OCCLUSION)
-    MEL.connect_material_property(_op(m, unreal.MaterialExpressionMultiply, orm, _sp(m, "RoughScale", 1.0, -1300, 120), -1100, 60, "G", ""), "", MP.MP_ROUGHNESS)
+    aoh = _lerp(m, _const(m, 1.0, -1300, -60), orm, _sp(m, "AOAmt", 0.5, -1300, -20), -1100, -40, "", "R", "")   # round 3: half-strength AO
+    MEL.connect_material_property(aoh, "", MP.MP_AMBIENT_OCCLUSION)
+    MEL.connect_material_property(_op(m, unreal.MaterialExpressionMultiply, orm, _sp(m, "RoughScale", 1.15, -1300, 120), -1100, 60, "G", ""), "", MP.MP_ROUGHNESS)
     MEL.connect_material_property(_op(m, unreal.MaterialExpressionMultiply, orm, _sp(m, "MetalScale", 1.0, -1300, 220), -1100, 200, "B", ""), "", MP.MP_METALLIC)
     MEL.connect_material_property(_sp(m, "Spec", 0.5, -1100, 300), "", MP.MP_SPECULAR)
     n = _lerp(m, _const3(m, (0, 0, 1), -1150, 480), nrm, _sp(m, "NormalStr", 1.0, -1300, 560), -550, 420, "", "RGB", "")
@@ -362,9 +363,9 @@ def airframe2_master(tx2):
     MEL.connect_material_expressions(wn, "", nz, "")
     down = _expr(m, unreal.MaterialExpressionSaturate, -900, 900)
     MEL.connect_material_expressions(_op(m, unreal.MaterialExpressionMultiply, nz, _const(m, -1.0, -1150, 980), -1000, 900), "", down, "")
-    amt = _op(m, unreal.MaterialExpressionAdd, _op(m, unreal.MaterialExpressionMultiply, down, _sp(m, "Bounce", 0.6, -900, 1080), -750, 1050),
+    amt = _op(m, unreal.MaterialExpressionAdd, _op(m, unreal.MaterialExpressionMultiply, down, _sp(m, "Bounce", 1.0, -900, 1080), -750, 1050),
               _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -1000, 1160), down, -900, 1160),
-                  _sp(m, "SkyFill", 0.4, -900, 1240), -750, 1180), -650, 1100)
+                  _sp(m, "SkyFill", 0.5, -900, 1240), -750, 1180), -650, 1100)
     em = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, col, amt, -500, 1000),
              _op(m, unreal.MaterialExpressionMultiply, orm, _vp(m, "BounceColor", (0.78, 0.82, 0.88), -900, 1300), -700, 1300, "R", ""), -400, 1100)
     MEL.connect_material_property(em, "", MP.MP_EMISSIVE_COLOR)
@@ -384,12 +385,13 @@ def glass_ext_master():
         m.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
     except Exception as e:
         log("glass lighting mode", repr(e))
-    MEL.connect_material_property(_vp(m, "Tint", (0.42, 0.30, 0.11), -600, -200), "", MP.MP_BASE_COLOR)
-    MEL.connect_material_property(_sp(m, "Metal", 0.55, -600, -100), "", MP.MP_METALLIC)
-    MEL.connect_material_property(_sp(m, "Rough", 0.06, -600, 0), "", MP.MP_ROUGHNESS)
-    MEL.connect_material_property(_const(m, 1.0, -600, 80), "", MP.MP_SPECULAR)
-    fr = _expr(m, unreal.MaterialExpressionFresnel, -800, 200, exponent=3.0)
-    op = _lerp(m, _sp(m, "OpacityFace", 0.35, -800, 300), _sp(m, "OpacityEdge", 0.9, -800, 380), fr, -500, 250)
+    # round 3: mostly clear (the pilot shows), faint gold tint, sharp reflections
+    MEL.connect_material_property(_vp(m, "Tint", (0.9, 0.85, 0.6), -600, -200), "", MP.MP_BASE_COLOR)
+    MEL.connect_material_property(_sp(m, "Metal", 0.0, -600, -100), "", MP.MP_METALLIC)
+    MEL.connect_material_property(_sp(m, "Rough", 0.05, -600, 0), "", MP.MP_ROUGHNESS)
+    MEL.connect_material_property(_sp(m, "Spec", 0.9, -600, 80), "", MP.MP_SPECULAR)
+    fr = _expr(m, unreal.MaterialExpressionFresnel, -800, 200, exponent=4.0)
+    op = _lerp(m, _sp(m, "OpacityFace", 0.2, -800, 300), _sp(m, "OpacityEdge", 0.6, -800, 380), fr, -500, 250)
     MEL.connect_material_property(op, "", MP.MP_OPACITY)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m)
@@ -415,8 +417,9 @@ def v2(tx, m1):
     folder = TP + "/Materials"
     mis = dict(paint=instance("MI_AF2_Paint", m2, folder, textures=dict(Base=tx2["tex_af2_base"], ORM=tx2["tex_af2_orm"], Nrm=tx2["tex_af2_n"])),
                # nozzle: heat-darkened metal (blued / bronze toward the exit), petals from the FG nozzle model
-               nozzle_ge=instance("MI_AF2_NozzleGE", m1, folder, scalars=dict(Detail=0.0, Metal=0.9, Rough=0.42, ClearCoat=0.0, SkyFill=0.25),
-                                  colors=dict(Tint=(0.62, 0.56, 0.5)), textures=dict(Paint=tx["tex_nozzle_GE"])),
+               # round 3: burnished titanium petals - metal 1, rough 0.35, warm grey-gold
+               nozzle_ge=instance("MI_AF2_NozzleGE", m1, folder, scalars=dict(Detail=0.0, Metal=1.0, Rough=0.35, ClearCoat=0.0, SkyFill=0.25),
+                                  colors=dict(Tint=(0.78, 0.68, 0.52)), textures=dict(Paint=tx["tex_nozzle_GE"])),
                nozzle_ring=instance("MI_AF2_NozzleRing", m1, folder, scalars=dict(Detail=0.0, Metal=0.85, Rough=0.5, ClearCoat=0.0),
                                     colors=dict(Tint=(0.16, 0.15, 0.15)), textures=dict(Paint=tx["tex_nozzle_ring"])))
     _, sm2 = meshes("_v2")
