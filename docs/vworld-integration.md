@@ -576,6 +576,49 @@ sim_client._vworld_ground      vworld + 로컬 지형이면 roads_look.apply →
 - **남은 것 / 확인 안 한 것**: 큰 다리 높이·주탑 높이는 추정값, 일반 고가 높이는 규칙값 (실제 높이 자료 없음). 교차로에서 두 길이 겹치는 곳은 상판이 겹침 (깜빡일 수 있음).
   비행기 충돌 없음 (서버 지붕 격자에 안 들어감 — 다리를 뚫고 지나감), 카메라 바닥 추적도 안 걸림. 터널 입구·보도육교·철도 고가 없음. VR 화면 시험 안 함.
 
+## 6-5. 부산 산·공원 3D 나무 (11-10, 수관고 지도 + 토지피복 + 사진)
+
+사진만 깔린 산은 "칠한 것처럼" 납작하게 보임 → 가까운 곳(약 3 km 안)에만 실제 나무를 세우고, 먼 곳은 사진 그대로.
+
+```
+veg_build.py --fetch   ─▶ C:\GyroSimTiles\veg\raw  (Meta CHM 1 장 349 MB, ESA WorldCover 2 장 72 MB, Overpass 1 회 35 MB, manifest.json)
+veg_build.py --prep    ─▶ C:\GyroSimTiles\veg\work\b_<i>_<j>.npz (1.8 km 칸마다 나무 위치·높이·폭·종·사진 색·밑동 높이), prep.json  (~45 초, 12 프로세스)
+veg_build.py --tiles   ─▶ C:\GyroSimTiles\veg\tiles\tileset.json + b\*.glb (먼 나무) + c\*.glb (가까운 나무), build.json  (~30 초)
+veg_build.py --attrib  ─▶ sim/vworld_trees_attribution.png (다리 판 + 나무 자료 두 줄)
+Content/Python/trees_look.py  Play 때 맵의 CesiumTrees 타일셋에 file:/// URL (물리 메시 끔). 액터 = Scripts/add_trees_actor.py 한 번 (에디터 닫고)
+sim_client._vworld_ground      vworld + 로컬 지형이면 다리 다음에 trees_look.apply → 출처 판을 나무 줄 있는 그림으로
+```
+
+- **자료와 라이선스** (모두 계정 없이 받음, git 밖):
+
+  | 자료 | 쓰는 곳 | 라이선스 / 출처 |
+  |---|---|---|
+  | Meta·WRI High Resolution Canopy Height Maps v1 (1 m, 타일 `132112131`) | 숲이 있는 곳 (수관고 ≥ 3 m), 나무 높이 | CC BY 4.0, https://registry.opendata.aws/dataforgood-fb-forests/ (`s3://dataforgood-fb-data/forests/v1/alsgedi_global_v6_float/chm/`) |
+  | ESA WorldCover 2021 v200 (10 m, N33E126·N33E129) | 땅 종류: 나무·관목·풀·습지에만, 시가지·나지·물 제외 | CC BY 4.0, https://esa-worldcover.org/en/data-access ("© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium") |
+  | OpenStreetMap 도로·철도·물·운동장 | 나무 안 세울 곳 | ODbL |
+  | 국토교통부 GIS건물통합정보 윤곽 (+2 m) | 나무 안 세울 곳 | 6-1 과 같음 |
+  | V-World z17 사진 캐시 | 나무 하나하나의 자리 (수관 꼭대기), 색, 소나무/활엽수 구분 | 6-2 와 같음 (캐시에서만 읽음, API 0, 결과도 git 밖) |
+
+  안 쓴 것: 환경부 토지피복도·산림청 임상도 (내려받기에 회원 가입 필요 → 건너뜀), ETH 10 m 수관고 (Meta 1 m 가 있어 불필요).
+- **나무 자리**: Meta 수관고는 여기서 너무 매끈해 나무 하나하나가 안 보임 (실측: 국소 최대점 ha 당 4–6 개) →
+  **사진의 수관 꼭대기** (z17 1.19 m 화소, 밝기를 σ 1 px 흐리게 한 뒤 5 × 5 px (6 m) 안 최대점: 해가 비친 수관 꼭대기는 밝고 틈은 어두움) 중
+  수관고 ≥ 3 m · 땅 종류 맞음 · 길/물/건물 아님 · DEM > 0.5 m 인 곳. 산에서 ha 당 약 100–180 그루. 사진 없는 곳은 7 m 격자 + 흔들림.
+  Meta 수관고 격자 = Web Mercator 1.1943 m = V-World z17 화소 (같은 격자라 맞춤 없이 겹침).
+- **높이** = 수관고 (3 × 3 최대) × 0.88–1.12. **폭** = 반경 12 m 안 나무 수로 낸 평균 간격 × 0.6 (닫힌 숲은 닫힌 채로; 처음 쓴 "가장 가까운 나무 거리" 방식은
+  틈이 30 % 쯤 남아 바꿈). **밑동** = 화면 지형 메시 높이 (`buildings_build.mesh_height`) − 1 m + 지오이드.
+- **종 (가정)**: 1.8 km 칸 안에서 사진이 더 어둡고 더 푸른 수관 = 소나무·곰솔 모양, 밝고 노란빛 = 활엽수 (참나무) 모양 (정규화 점수 + 잡음, 약 50 : 50).
+  부산 실제 임상 비율과 맞는지는 **확인 못 함** (임상도 없음).
+- **모양 (우리가 만든 것, 외부 에셋 없음)**: 소나무 2 종 (휜 줄기 + 납작한 덩어리 우산 모양 / 층층 덩어리), 활엽수 2 종 (둥근 덩어리 지붕), 각 70–110 삼각형.
+  먼 나무 = 덩어리 하나 (20 삼각형). 색 = 그 자리 사진 평균 × 1.9 (`GYROSIM_VEG_GAIN`, 그림자 진 수관이 어두워지는 몫), 종마다 6 색으로 묶음.
+- **타일 (REPLACE)**: 뿌리 → A (1.8 km, 비어 있음: 약 2.6 km 밖은 아무것도 안 그림) → B (같은 칸, 먼 나무) → C (450 m, 가까운 나무, 약 1 km 안).
+  glTF `EXT_mesh_gpu_instancing` (Cesium for Unreal 2.31 이 인스턴스 스태틱 메시로 만듦), 원형 × 색 묶음 하나가 노드 하나. `GYROSIM_TREES_SSE` 로 거리 조절.
+- **켜기**: 맵에 `CesiumTrees` 액터가 있어야 함 → 에디터를 닫고
+  `UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<repo>/unreal/GyroSim/Scripts/add_trees_actor.py -unattended -nosplash -nullrhi`
+  한 번 (맵 저장, 다시 돌려도 됨). 그 뒤 vworld + 로컬 지형 Play 에서 자동. 끄기 `GYROSIM_TREES=0`.
+- **점검** (`Scripts/trees_shots.py`, 두 번째 에디터 `-GyroSimTreeShots -RenderOffscreen -unattended`, 서버·프록시 없이 지형·사진을 로컬 폴더에서 file:// 로;
+  Play 전에 편집 세계에 다리·나무 액터를 임시로 만듦 (저장 안 함); 나무 끔/켬): 장산·황령산·금정산·승학산 정상 위 약 300 m / 800 m 비스듬히 + 황령산 낮게.
+  그림 `C:\GyroSimTiles\shots\trees` (git 밖). 오프스크린 에디터는 한 번에 하나 (`C:\GyroSimTiles\ue_offscreen.lock`).
+
 ## 7. 위험 정리
 
 1. 기지 가림: RKTU·군 비행장 주변은 V-World 가 숲으로 덮음 → 활주로 메시와 어긋나 보임. 피할 수 없음.

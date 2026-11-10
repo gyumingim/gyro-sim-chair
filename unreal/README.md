@@ -59,6 +59,9 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 - **부산 다리·고가 3D (11-10)**: OpenStreetMap 다리·고가도로 (상판·난간·교각, 광안대교·부산항대교 등 주탑·케이블) = `python -I sim/roads_build.py --fetch --tiles` →
   `C:\GyroSimTiles\roads\tiles` (git 밖). 맵에 `CesiumRoads` 액터가 필요: 에디터 닫고 `Scripts/add_roads_actor.py` 한 번 (`-run=pythonscript`, add_minimap 과 같은 방식).
   vworld Play 에서 자동, `GYROSIM_ROADS=0` 끔. 출처 판에 "© OpenStreetMap contributors". 자세히: `docs/vworld-integration.md` 6-4.
+- **부산 3D 나무 (11-10)**: 산·공원에 실제 나무 (가까운 약 3 km 안만, 먼 곳은 사진 그대로). 자리 = 사진의 수관 꼭대기, 높이 = Meta 수관고 지도, 땅 종류 = ESA WorldCover,
+  길·물·건물 위엔 안 세움, 색 = 그 자리 사진. `python -I sim/veg_build.py --fetch --prep --tiles --attrib` → `C:\GyroSimTiles\veg\tiles` (git 밖, 약 1.6 GB).
+  맵에 `CesiumTrees` 액터가 필요: 에디터 닫고 `Scripts/add_trees_actor.py` 한 번. vworld Play 에서 자동, `GYROSIM_TREES=0` 끔. 자세히: `docs/vworld-integration.md` 6-5.
 - 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 
 ### 실제 지형 켜기 — Cesium ion 토큰 (나중에 원하면, 사용자가 할 일)

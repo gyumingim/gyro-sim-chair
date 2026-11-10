@@ -90,6 +90,7 @@ VW_TERRAIN_ATTRIB_W = 0.40
 # /buildings/tileset.json: in the vworld mode on the local terrain (before Cesium OSM Buildings); credit on the plate
 VW_BLDG_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_buildings_attribution.png")
 VW_ROADS_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_roads_attribution.png")   # buildings plate + OSM line
+VW_TREES_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_trees_attribution.png")   # roads plate + tree data line
 VW_BLDG_SSE = 16.0                  # buildings tileset screen-space error (tiles: geometricError 500 / 130 / 50 / 0)
 # Busan minimap (11-09): picture made from the local V-World tile cache by sim/minimap_build.py (outside git, terms 19조),
 # drawn 1:1 into a render target with the aircraft marker + heading arrow, on the 'Minimap' plate (build_level /
@@ -641,6 +642,11 @@ class SimClient:
                 landmarks_look.apply(self.world, lambda m: _log(m), self.georef)
             except Exception as e:
                 _log("landmarks", repr(e))
+            try:                                  # 3D trees near the aircraft (trees_look.py, sim/veg_build.py)
+                import trees_look
+                self.vw_trees = trees_look.apply(self.world, lambda m: _log(m), self.georef) is not None
+            except Exception as e:
+                _log("trees", repr(e))
 
     def _local_buildings(self):
         """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
@@ -1704,6 +1710,8 @@ class SimClient:
                 png = (VW_BLDG_ATTRIB_PNG if getattr(self, "vw_bldg", False) else VW_TERRAIN_ATTRIB_PNG) if getattr(self, "vw_local", False) else VW_ATTRIB_PNG
                 if getattr(self, "vw_roads", False) and getattr(self, "vw_bldg", False) and os.path.exists(VW_ROADS_ATTRIB_PNG):
                     png = VW_ROADS_ATTRIB_PNG                  # + © OpenStreetMap contributors (roads_look.py)
+                if getattr(self, "vw_trees", False) and getattr(self, "vw_bldg", False) and os.path.exists(VW_TREES_ATTRIB_PNG):
+                    png = VW_TREES_ATTRIB_PNG                  # + tree data credits (trees_look.py, includes the OSM line)
                 # + Copernicus credit (+ building data credit)
                 tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, png) if os.path.exists(png) else None
                 if tex and mid:
