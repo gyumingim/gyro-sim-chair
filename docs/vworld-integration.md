@@ -587,9 +587,10 @@ Play 화면에서 광안대교가 "갈색 바둑판 상자 두 장" 으로 보�
 | 남항대교 | 강상형·강합성 거더, 최대 경간 160 m, 1,941 m — [ko.wikipedia](https://ko.wikipedia.org/wiki/남항대교) | 따로 모델 없음: 아래 공통 개선 (밝은 회색, 둥근 기둥) | 160 m 주경간 자리에도 교각이 60 m 간격으로 섬 (못 고침) |
 
 - **공통 (모든 OSM 다리)**: 콘크리트 질감을 8 × 8 칸 잡음 (멀리서 갈색 바둑판) → 부드러운 밝은 회색 (4 m 반복, 1 m 거푸집 줄), 꼭짓점 색 0.40 → 0.60 (난간 0.70), 교각 0.36 → 0.56, 케이블 0.30 → 0.80. 교각 = 사각 → 8 각 둥근 기둥.
+- **live 교체**: 새 타일은 `C:\GyroSimTilesoads	iles_new2` (일반 모양 `tiles_generic_new`) 에 만들어 둠. 에디터가 하나도 안 떠 있을 때 `bash C:/GyroSimTiles/shots/busan_bridges/swap.sh` 로 `tiles` 와 바꿈 (옛 것 = `tiles_prev_20261110_bridges`).
 - **A/B**: `python -I sim/roads_build.py --tiles` (새 모양) / `GYROSIM_BRIDGES_LM=0 GYROSIM_ROADS_TILES=C:\GyroSimTiles\roads\tiles_generic python -I sim/roads_build.py --tiles` (6-4 모양). Play 때 `GYROSIM_BRIDGES_LM=0` 이면 roads_look 이 `tiles_generic` 을 씀. `--tiles` 는 이제 옛 폴더를 `<tiles>_prev` 로 남기고 바꿈.
 - **결과**: 꼭짓점 113 만 → 124 만, 타일 82 → 91 MB, 교각 5,390 → 5,337 (2층 겹침 제거 + 트러스 교각), 케이블 54 → 65 km.
-- **GPU** (startfpschart, 1080p 화소로 맞춤, 에디터 PIE, 각 1 회, 같은 날 같은 맵): 광안리 해변 3.80 → 3.82, 광안대교 300 m 4.10 → 4.13, 북항 부산항대교 4.01 → 4.06 ms → **+0.02–0.05 ms** (잡음 수준).
+- **GPU** (startfpschart, 1080p 화소로 맞춤, 에디터 PIE, 각 1 회): 1 회차 광안리 해변 3.80 → 3.82, 광안대교 300 m 4.10 → 4.13, 부산항대교 4.01 → 4.06 ms; 2 회차 (주탑 수정 후) 해변 4.07 → 4.09, 부산항대교 (북항 시점) 3.96 → 4.09 ms → **+0.02–0.13 ms**. 같은 타일 '전' 끼리도 회차마다 0.27 ms 달라서 잡음 수준.
 - **점검 그림**: `C:\GyroSimTiles\shots\busan_bridges` (git 밖), 실제 사진 `C:\GyroSimTiles\landmarks\refs\bridges` (Commons, 저작권 각자, git 밖).
 - **남은 것**: 그늘 쪽 흰 면이 어둡고 자글자글함 (도시 건물도 같은 현상, 엔진 그림자/GI 잡음으로 보임, 확인 안 함). 광안대교 주탑 다리 단면·아치 모양·앵커 크기는 사진 눈대중. LED 조명 없음. 거가대교·대동화명대교·낙동강대교 주탑은 6-4 그대로 (H 형, 추정). 영도대교 도개교·부산대교 따로 안 함.
 
