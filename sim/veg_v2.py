@@ -191,8 +191,8 @@ def proto_pine(var, far=False):
         else:
             for k, p in enumerate(pads):
                 big = k % 2 == 0 or k == len(pads) - 1
-                s = np.array([rg.uniform(0.34, 0.46), rg.uniform(0.08, 0.11), rg.uniform(0.30, 0.42)]) * (1.0 if big else 0.72)
-                m.clump(p, s, 200 + 10 * var + k, KIND["pine"], ONE, jit=0.25)
+                s = np.array([rg.uniform(0.32, 0.44), rg.uniform(0.11, 0.15), rg.uniform(0.28, 0.40)]) * (1.0 if big else 0.72)
+                m.clump(p, s, 200 + 10 * var + k, KIND["pine"], ONE, jit=0.32)     # chunky, ragged needle masses (not pancakes)
     else:                                                       # 곰솔 / young: irregular stacked pads, straighter trunk
         lean = rg.uniform(-0.08, 0.08, 2)
         tr = _bend(-0.08, 0.86, 5, lean, 17, 0.02)
@@ -633,8 +633,27 @@ def preview(outdir):
     print("preview", fn)
 
 
+def swap():
+    """move a finished tiles_v2_tmp (left by --tiles while an editor ran) into place, keeping tiles_v2_prev."""
+    import shutil, subprocess
+    tmp = TILES2 + "_tmp"
+    if not os.path.isfile(os.path.join(tmp, "build.json")):
+        print("nothing to swap"); return
+    if "unrealeditor" in subprocess.run(["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True).stdout.lower():
+        print("an UnrealEditor is running - not swapping"); return
+    if os.path.isdir(TILES2):
+        prev = TILES2 + "_prev"
+        if os.path.isdir(prev):
+            shutil.rmtree(prev)
+        os.replace(TILES2, prev)
+    os.replace(tmp, TILES2)
+    print("swapped", TILES2)
+
+
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if "--swap" in a:
+        swap()
     if "--preview" in a:
         preview(a[a.index("--preview") + 1])
     if "--tiles" in a:
