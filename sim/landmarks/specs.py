@@ -507,7 +507,8 @@ def lattice(cx, x, y, z0, legs, mat, bands=None, dz=6.0):
 # ------------------------------------------------------------------------------------- 2026-11-10 districts (builders)
 def b_cranes(cranes, sea):
     """ship-to-shore container cranes on a quay. Positions = crane bodies digitised from the local V-World photo
-    (sinseondae / gamman crops 2026-11-10, +-10 m), boom up / down and colour as in that photo. Size 추정 for the older
+    (sinseondae / gamman crops 2026-11-10, +-10 m), boom up / down as in that photo; colour from the photos
+    (Sinseondae: red with white machinery houses, cranes/Sinseondae_Day.png; Gamman: orange / white, V-World photo). Size 추정 for the older
     North Port A-frame cranes (no published per-crane data; newstomato: cab 35-50 m above the quay): rail gauge 30 m,
     legs 18 m apart along the quay, girder at 42-46 m, outreach 50 m, backreach 22 m, A-frame apex 72 m, boom up 80 deg."""
     def f(cx):
@@ -516,7 +517,7 @@ def b_cranes(cranes, sea):
         al = np.array([-sv[1], sv[0]])                                 # along the quay
         G, S, ZG, OUT, BACK, APEX = 30.0, 18.0, 42.0, 50.0, 22.0, 72.0
         for la, lo, down, col in cranes:
-            mat = "steel_orange" if col == "o" else "steel_white"
+            mat = dict(o="steel_orange", r="steel_red").get(col, "steel_white")
             x, y = cx.ll(la, lo)
             z0 = ground_rel(cx, la, lo)
             p = np.array([x, y])
@@ -545,7 +546,8 @@ def b_cranes(cranes, sea):
                 beam(cx, apz, tz, 0.5, mat)
                 beam(cx, apz, (g0[0], g0[1], z0 + ZG + 3), 0.5, mat)
             mh = p - sv * (G + BACK * 0.55)                                                  # machinery house
-            beam(cx, (mh[0] - al[0] * 5.5, mh[1] - al[1] * 5.5, z0 + ZG + 5), (mh[0] + al[0] * 5.5, mh[1] + al[1] * 5.5, z0 + ZG + 5), 12.0, mat, d=6.0)
+            beam(cx, (mh[0] - al[0] * 5.5, mh[1] - al[1] * 5.5, z0 + ZG + 5), (mh[0] + al[0] * 5.5, mh[1] + al[1] * 5.5, z0 + ZG + 5), 12.0,
+                 "steel_white" if col == "r" else mat, d=6.0)
     return f
 
 
@@ -733,7 +735,7 @@ SPECS = [
                            b_cranes([(35.107674, 129.068686, 1, 'w'), (35.107246, 129.069395, 0, 'w'), (35.106176, 129.071301, 0, 'w'), (35.105125, 129.072907, 0, 'w'), (35.104495, 129.074028, 1, 'w'), (35.104342, 129.07429, 0, 'w')], (-0.59, -0.81))(cx)),
          refs=["https://www.busan.go.kr/eng/north-port"], h_src="17 cranes digitised from the V-World photo (busan.go.kr: Gamman 9 + Shin-Gamman / 1B 13 STS); size 추정"),
     dict(key="cranes_sinseondae", name="Sinseondae container cranes", site=(35.1005, 129.0950), site_r=50, foot=["ellipse:35.10050,129.09480,4,4,0"],
-         build=b_cranes([(35.106556, 129.09409, 1, 'w'), (35.10596, 129.094215, 1, 'w'), (35.105095, 129.094278, 1, 'w'), (35.104005, 129.094303, 1, 'w'), (35.103552, 129.094341, 1, 'w'), (35.102595, 129.094467, 1, 'o'), (35.102235, 129.094505, 1, 'w'), (35.101567, 129.094593, 1, 'w'), (35.100743, 129.094656, 1, 'w'), (35.100301, 129.094718, 1, 'w'), (35.099169, 129.094806, 1, 'w'), (35.0985, 129.094882, 1, 'w'), (35.096576, 129.095159, 1, 'w'), (35.096288, 129.095259, 1, 'w'), (35.095908, 129.095309, 1, 'w'), (35.095342, 129.095385, 1, 'w'), (35.094519, 129.095473, 1, 'w')], (-0.996, -0.094)),
+         build=b_cranes([(35.106556, 129.09409, 1, 'r'), (35.10596, 129.094215, 1, 'r'), (35.105095, 129.094278, 1, 'r'), (35.104005, 129.094303, 1, 'r'), (35.103552, 129.094341, 1, 'r'), (35.102595, 129.094467, 1, 'r'), (35.102235, 129.094505, 1, 'r'), (35.101567, 129.094593, 1, 'r'), (35.100743, 129.094656, 1, 'r'), (35.100301, 129.094718, 1, 'r'), (35.099169, 129.094806, 1, 'r'), (35.0985, 129.094882, 1, 'r'), (35.096576, 129.095159, 1, 'r'), (35.096288, 129.095259, 1, 'r'), (35.095908, 129.095309, 1, 'r'), (35.095342, 129.095385, 1, 'r'), (35.094519, 129.095473, 1, 'r')], (-0.996, -0.094)),
          refs=["https://www.busan.go.kr/eng/north-port"], h_src="17 cranes digitised from the V-World photo (= busan.go.kr: Sinseondae 17 STS); size 추정"),
     dict(key="hwangnyeong_masts", name="Hwangnyeongsan broadcast towers (KBS/MBC, KNN)", site=(35.1584, 129.0826), site_r=150,
          foot=["ellipse:35.15835,129.08255,4,4,0"], build=b_hwangnyeong, refs=["https://namu.wiki/w/%ED%99%A9%EB%A0%B9%EC%82%B0"],

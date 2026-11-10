@@ -1,7 +1,7 @@
 r"""Tall Busan buildings that the 국토교통부 GIS건물통합정보 file (AL_D010_26_20261009) does not have, taken from OpenStreetMap
 and fed to sim/buildings_build.py as one more work file, so they get the same tiles / facade look as the GIS blocks.
 
-    python -I sim/landmarks/osm_fill.py --fetch     Overpass: Busan boundary + buildings >= 20 floors or >= 60 m (no account)
+    python -I sim/landmarks/osm_fill.py --fetch     Overpass: Busan boundary + buildings >= 20 levels or >= 60 m tag (no account)
                                                     -> C:\GyroSimTiles\landmarks\work\osmfill\osm_tall.json
     python -I sim/landmarks/osm_fill.py --select    keep the ones with no rendered GIS block of >= 60 % of their height under
                                                     them (work/buildings_busan.npz), inside Busan, not on a landmark model's footprint
@@ -30,7 +30,7 @@ BBOX = (34.88, 128.75, 35.40, 129.32)
 UA = "GyroSimLandmarks/0.1 (personal flight sim)"
 W_ = "en.wikipedia.org/wiki/List_of_tallest_buildings_in_Busan"
 NAMED = {  # OSM way id -> (height m, floors, source); published numbers beat the OSM tags
-    783628293: (246.0, 69, "The W 101-104, 246 m / 69 F (" + W_ + ")"), 783628294: (246.0, 69, "The W, 246 m / 69 F (" + W_ + ")"),
+    783628293: (246.0, 69, "The W, 246 m / 69 F (" + W_ + ")"), 783628294: (246.0, 69, "The W, 246 m / 69 F (" + W_ + ")"),
     783628295: (246.0, 69, "The W, 246 m / 69 F (" + W_ + ")"), 783628296: (246.0, 69, "The W, 246 m / 69 F (" + W_ + ")"),
     1387271453: (247.0, 69, "Hillstate Ijin Bay City A, 247 m / 69 F (" + W_ + ")"),
     1387271451: (189.0, 59, "Hillstate Ijin Bay City B/C, 189 m / 59 F (" + W_ + ")"), 1387271452: (189.0, 59, "Hillstate Ijin Bay City B/C, 189 m / 59 F (" + W_ + ")"),
@@ -104,7 +104,7 @@ def select():
     print("gis: %d rendered footprints" % len(g), flush=True)
     from specs import SPECS                                       # OSM ways a landmark model is built on
     lm_ways = {int(f[4:]) for sp in SPECS for f in sp["foot"] if f.startswith("way:")}
-    keep, rows, conflicts = [], [], []
+    keep, rows, conflicts, dups = [], [], [], []
     for e in d["elements"]:
         if e["type"] != "way" or "geometry" not in e or e["id"] in lm_ways:
             continue
@@ -134,6 +134,13 @@ def select():
         if sum(a for a, hh in ov if hh >= 0.35 * Ho) >= 0.3 * P.area:          # lower ones = pre-redevelopment records
             conflicts.append(dict(id=e["id"], lat=round(cla, 6), lon=round(clo, 6), osm_h=Ho, gis_h=max(hh for a, hh in ov), name=t.get("name")))
             continue
+        # offset duplicate (independent audit 11-10: ~75 OSM outlines sit 8-20 m off the GIS block of the same tower): a GIS
+        # block with a real height within +-25 % of the OSM height, <= 15 m from the OSM outline, centroids <= 35 m apart
+        near = [i for i in tree.query(P.buffer(15.0)) if gsrc[i] in (1, 2) and abs(gh[i] - Ho) <= 0.25 * Ho
+                and g[i].centroid.distance(P.centroid) <= 35.0]
+        if near:
+            dups.append(dict(id=e["id"], lat=round(cla, 6), lon=round(clo, 6), osm_h=Ho, gis_h=float(gh[near[0]]), name=t.get("name")))
+            continue
         keep.append(P)
         rows.append(dict(A0=-int(e["id"]), A1="osm_w%d" % e["id"], A8=A8.get(t.get("building"), "02000" if (lv or 0) >= 15 else ""),
                          A9=t.get("building", ""), A12=round(P.area, 1), A16=float(h or 0.0), A26=float(lv or 0.0), A27=0.0,
@@ -143,12 +150,12 @@ def select():
     gdf.to_file(SHP, encoding="cp949", engine="pyogrio")
     hs = np.array([r["A16"] or 1.5 + 2.9 * r["A26"] for r in rows])
     json.dump(dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), inputs=dict(osm=RAW, osm_fetched=d.get("fetched"), gis_npz=NPZ),
-                   rule="OSM building >= 60 m (height, else 1.5 + 2.9 m x levels) inside Busan with < 30 %% of its area under rendered GIS blocks that have a height (A16 / floors); GIS blocks with data at 35-60 %% of the OSM height = conflicts, not added (lower = stale pre-redevelopment records)",
+                   rule="OSM building >= 60 m (height tag, else 1.5 + 2.9 m x levels, i.e. >= 21 levels) inside Busan with < 30 %% of its area under rendered GIS blocks that have a height (A16 / floors); GIS blocks with data at 35-60 %% of the OSM height = conflicts, not added (lower = stale pre-redevelopment records)",
                    count=len(rows), height_m=dict(max=float(hs.max()), median=float(np.median(hs)), over_150=int((hs >= 150).sum())),
-                   named=[r for r in rows if not r["h_src"].startswith("osm")], conflicts=conflicts, buildings=rows),
+                   named=[r for r in rows if not r["h_src"].startswith("osm")], conflicts=conflicts, offset_duplicates=dups, buildings=rows),
               open(os.path.join(OUT, "select.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=0)
-    print("select: %d OSM buildings missing from the GIS tiles (max %.0f m, %d >= 150 m) -> %s; %d height conflicts (not added)" % (
-        len(rows), hs.max(), (hs >= 150).sum(), SHP, len(conflicts)))
+    print("select: %d OSM buildings missing from the GIS tiles (max %.0f m, %d >= 150 m) -> %s; %d height conflicts, %d offset duplicates (not added)" % (
+        len(rows), hs.max(), (hs >= 150).sum(), SHP, len(conflicts), len(dups)))
 
 
 if __name__ == "__main__":

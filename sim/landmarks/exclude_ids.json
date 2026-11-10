@@ -1,6 +1,6 @@
 {
  "note": "GIS건물통합정보 uids (field A1) replaced by landmark models; sim/buildings_build.py --tiles skips them",
- "built": "2026-11-10 14:46:06",
+ "built": "2026-11-10 14:53:02",
  "count": 27,
  "by_landmark": {
   "asiad_stadium": [
