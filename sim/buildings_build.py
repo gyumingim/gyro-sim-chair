@@ -289,6 +289,16 @@ def prep(args):
     ring_start = np.concatenate(([0], np.cumsum(nring)[:-1]))
     first_ring = np.concatenate(([0], np.flatnonzero(np.diff(ring_of_poly)) + 1))
     pr = ring_start[first_ring]                           # first vertex of each polygon
+    if os.environ.get("GYROSIM_BLDG_COAST", "1") != "0":
+        # 11-10: the rendered terrain inside the Busan box follows sim/coast_build.py's coast rule (sea walls 2.8 m, beaches,
+        # sea = 0 m) - mesh_height does not know it, so a block stands on the lower of the two (never floats over a beach)
+        try:
+            import coast_build as CB
+            v_mesh = np.minimum(v_mesh, CB.rendered_msl(dem, lat, lon))
+            c_mesh = np.minimum(c_mesh, CB.rendered_msl(dem, clat, clon))
+            print("coast rule applied to the base (sim/coast_build.rendered_msl)", flush=True)
+        except Exception as e:
+            print("coast rule not applied: %r" % (e,), flush=True)
     base = np.minimum(np.minimum.reduceat(v_mesh, pr), c_mesh) - MESH_DROP
     dsm_max = np.maximum.reduceat(v_mesh, pr)             # highest visible ground on the footprint (slope)
     dsm_c = dem.msl(clat, clon)
