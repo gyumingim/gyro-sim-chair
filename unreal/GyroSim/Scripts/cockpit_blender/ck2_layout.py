@@ -69,7 +69,7 @@ def wing_pt(side, w, v, off=0.0):
 
 # glare shield: lip over the panel top, flat-topped hood running forward under the windscreen
 LIP_HALF, LIP_Z0, LIP_ZC = 33.0, 61.0, 70.0          # lip height LIP_ZC on the centre line, LIP_Z0 at |u| = LIP_HALF
-LIP_OVER = 5.5                                        # hood overhang toward the pilot past the panel face
+LIP_OVER = 8.0                                        # hood overhang toward the pilot past the panel face
 GLARE_X1 = 541.0
 
 

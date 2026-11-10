@@ -133,10 +133,9 @@ def master(tx):
     nm = TS(m, "Normal", tx["T_Ck2Normal"], uv0, -2700, 1400, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
     mk = TS(m, "Masks", tx["T_Ck2Masks"], uv1, -2700, 600, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
     gr = TS(m, "Grunge", tx["T_Ck2Grunge"], MUL(m, uv1, SP(m, "GrungeTile", 6.0, -3000, 800), -2850, 700), -2700, 900,
-            unreal.MaterialSamplerType.SAMPLERTYPE_GRAYSCALE)
+            unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
     one = C(m, 1.0, -2300, 1300)
     aoR, edG, cavB, g = MASK(m, mk, "r", -2400, 560), MASK(m, mk, "g", -2400, 620), MASK(m, mk, "b", -2400, 680), MASK(m, gr, "r", -2400, 900)
-    rgb = MASK(m, at, "r", -2400, -260)
     rgb = X(m, unreal.MaterialExpressionComponentMask, -2400, -260, r=True, g=True, b=True, a=False)
     MEL.connect_material_expressions(at, "", rgb, "")
     base = MUL(m, rgb, VP(m, "Tint", (1, 1, 1), -2600, -100), -2200, -200)
@@ -166,9 +165,9 @@ def master(tx):
     MEL.connect_material_property(LERP(m, SP(m, "Metal", 0.0, -1300, 1100), SP(m, "WearMetal", 0.0, -1300, 1160), wear, -1100, 1100), "",
                                   unreal.MaterialProperty.MP_METALLIC)
     # emissive: Emissive x atlas colour (DED / RWR) + backlit legends (atlas alpha) x Backlight
-    a = MASK(m, at, "a", -2400, -500)
     em = ADD(m, MUL(m, rgb, SP(m, "Emissive", 0.0, -2200, -600), -2000, -620),
-             MUL(m, a, MUL(m, SP(m, "Backlight", 0.0, -2300, -720), VP(m, "BacklightColor", (0.75, 1.0, 0.7), -2500, -800), -2150, -760), -2000, -720), -1800, -650)
+             MUL(m, at, MUL(m, SP(m, "Backlight", 0.0, -2300, -720), VP(m, "BacklightColor", (0.75, 1.0, 0.7), -2500, -800), -2150, -760), -2000, -720,
+                 pa="A"), -1800, -650)
     MEL.connect_material_property(em, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     flat = X(m, unreal.MaterialExpressionConstant3Vector, -2400, 1600, constant=unreal.LinearColor(0, 0, 1, 1))
     nrgb = X(m, unreal.MaterialExpressionComponentMask, -2400, 1450, r=True, g=True, b=True, a=False)
@@ -214,12 +213,12 @@ SLOTS = {
     "CK2_Plate": dict(Rough=0.55, EdgeWear=0.40, Dust=0.4, NormalAmt=1.0),
     "CK2_Plate0": dict(Tint=DARK, Rough=0.6, NormalAmt=0.0),
     "CK2_PlateSide": dict(Tint=(0.02, 0.021, 0.022), Rough=0.6, NormalAmt=0.0),
-    "CK2_Paint": dict(Tint=(0.055, 0.06, 0.063), Rough=0.55, EdgeWear=0.25, Dust=0.5, NormalAmt=0.0),
-    "CK2_Well": dict(Tint=(0.075, 0.08, 0.083), Rough=0.65, EdgeWear=0.20, Dust=0.8, NormalAmt=0.0),
+    "CK2_Paint": dict(Tint=(0.035, 0.038, 0.04), Rough=0.55, EdgeWear=0.25, Dust=0.5, NormalAmt=0.0),
+    "CK2_Well": dict(Tint=(0.05, 0.053, 0.055), Rough=0.65, EdgeWear=0.20, Dust=0.8, NormalAmt=0.0),
     "CK2_Wall": dict(Tint=(0.035, 0.037, 0.038), Rough=0.6, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0),
     "CK2_Glare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.92, RoughVar=0.1, EdgeWear=0.10, Dust=0.9, NormalAmt=0.0, Spec=0.3),
     "CK2_Rubber": dict(Tint=(0.012, 0.012, 0.012), Rough=0.8, EdgeWear=0.00, NormalAmt=0.0),
-    "CK2_HUDBody": dict(Tint=(0.02, 0.021, 0.022), Rough=0.65, EdgeWear=0.30, NormalAmt=0.0),
+    "CK2_HUDBody": dict(Tint=(0.012, 0.012, 0.013), Rough=0.65, EdgeWear=0.30, NormalAmt=0.0),
     "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
     "CK2_Frame": dict(Tint=(0.015, 0.015, 0.016), Rough=0.5, EdgeWear=0.35, WearMetal=0.8, WearColor=(0.4, 0.4, 0.41), NormalAmt=0.0),
     "CK2_Metal": dict(Tint=(0.45, 0.45, 0.46), Rough=0.35, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),

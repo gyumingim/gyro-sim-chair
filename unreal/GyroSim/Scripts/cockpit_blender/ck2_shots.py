@@ -75,6 +75,12 @@ def gpu_from_log():
 def plan():
     sts = ("v2",) if ONLY == "v2" else ("v1", "v2")
     q = []
+    if os.environ.get("GYROSIM_CK2SHOT_DEBUG"):        # buffer views of the v2 panel (material debugging)
+        q.append(("place",) + SPOTS[0])
+        for b in ("BaseColor", "Roughness", "Metallic", "WorldNormal", "AmbientOcclusion"):
+            q.append(("state", "v2", -24.0, 0.0, 52.0)); q.append(("buf", b)); q.append(("shot", "dbg_%s" % b))
+        q.append(("buf", None))
+        return q
     for name, spec in SPOTS:
         q.append(("place", name, spec))
         for st in sts:
@@ -151,6 +157,12 @@ def tick(dt):
                                           alt_m=s.get("alt_m"), psi=s.get("psi"), load=ST.get("load"))
                 log("shot", fn)
                 ST.update(phase="wait_file", t=now, file=fn)
+            elif k == "buf":
+                if step[1]:
+                    cmd("r.BufferVisualizationTarget %s" % step[1]); cmd("ShowFlag.VisualizeBuffer 1")
+                else:
+                    cmd("ShowFlag.VisualizeBuffer 0")
+                ST.update(phase="settle", t=now)
             elif k == "gpu":
                 vp = unreal.WidgetLayoutLibrary.get_viewport_size(ues.get_game_world())
                 sp = max(25.0, min(400.0, 100.0 * math.sqrt(1920 * 1080 / max(1.0, vp.x * vp.y))))
