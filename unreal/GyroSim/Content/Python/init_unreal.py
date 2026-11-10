@@ -114,3 +114,10 @@ if "-gyrosimbldgshots" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "buildings_shots.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_bldg_shots"})
+
+# Busan OSM bridges / elevated roads before-after shots (developer use, Scripts/roads_shots.py): a SECOND editor launched with
+# -GyroSimRoadShots -RenderOffscreen stops its own sim client (never talks to the server) and quits when done.
+if "-gyrosimroadshots" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "roads_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_road_shots"})

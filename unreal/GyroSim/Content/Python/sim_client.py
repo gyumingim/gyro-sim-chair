@@ -89,6 +89,7 @@ VW_TERRAIN_ATTRIB_W = 0.40
 # local 3D buildings (국토교통부 GIS건물통합정보 -> 3D Tiles, sim/buildings_build.py) from the same proxy at
 # /buildings/tileset.json: in the vworld mode on the local terrain (before Cesium OSM Buildings); credit on the plate
 VW_BLDG_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_buildings_attribution.png")
+VW_ROADS_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_roads_attribution.png")   # buildings plate + OSM line
 VW_BLDG_SSE = 16.0                  # buildings tileset screen-space error (tiles: geometricError 500 / 130 / 50 / 0)
 # Busan minimap (11-09): picture made from the local V-World tile cache by sim/minimap_build.py (outside git, terms 19조),
 # drawn 1:1 into a render target with the aircraft marker + heading arrow, on the 'Minimap' plate (build_level /
@@ -619,6 +620,12 @@ class SimClient:
             self._local_buildings()
         elif token:
             self._osm_buildings(token)
+        if local:                                 # OSM bridges / elevated roads over Busan (roads_look.py, sim/roads_build.py)
+            try:
+                import roads_look
+                self.vw_roads = roads_look.apply(self.world, lambda m: _log(m), self.georef) is not None
+            except Exception as e:
+                _log("roads", repr(e))
 
     def _local_buildings(self):
         """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
@@ -670,7 +677,7 @@ class SimClient:
         gr, ts = self._find("CesiumGeoreference"), self._find("CesiumGround")
         self.georef, self.tileset, self.grid = gr, ts, self._find("GridGround")
         self.buildings, self.vw_terrain, self.vw_note, self.vw_stat, self.attrib = None, False, None, None, None
-        self.vw_local = self.vw_bldg = False
+        self.vw_local = self.vw_bldg = self.vw_roads = False
         token, mode = self.read_ground_cfg()
         if not ts or not hasattr(unreal, "Cesium3DTileset"):
             mode = (mode if mode == "fields" else "grid") if self.grid else "none"
@@ -1680,6 +1687,8 @@ class SimClient:
                     return
                 mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
                 png = (VW_BLDG_ATTRIB_PNG if getattr(self, "vw_bldg", False) else VW_TERRAIN_ATTRIB_PNG) if getattr(self, "vw_local", False) else VW_ATTRIB_PNG
+                if getattr(self, "vw_roads", False) and getattr(self, "vw_bldg", False) and os.path.exists(VW_ROADS_ATTRIB_PNG):
+                    png = VW_ROADS_ATTRIB_PNG                  # + © OpenStreetMap contributors (roads_look.py)
                 # + Copernicus credit (+ building data credit)
                 tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, png) if os.path.exists(png) else None
                 if tex and mid:

@@ -56,6 +56,9 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   비행기가 부산 그림 근처일 때만. 그림은 `python sim/minimap_build.py` 가 로컬 V-World 캐시(z14)로 만듦 → `C:\GyroSimTiles\minimap\` (git 밖, 약관 19조).
   판은 맵의 `Minimap` 액터 (`build_level.py`, 기존 맵엔 `Scripts/add_minimap.py` 로 추가), 그리기 `sim_client._minimap`.
   점검 `-GyroSimPlay -GyroSimMinimap -RenderOffscreen` (`Scripts/minimap_check.py`, 창 없음, 그림 `C:\GyroSimTiles\shots\minimap`).
+- **부산 다리·고가 3D (11-10)**: OpenStreetMap 다리·고가도로 (상판·난간·교각, 광안대교·부산항대교 등 주탑·케이블) = `python -I sim/roads_build.py --fetch --tiles` →
+  `C:\GyroSimTiles\roads\tiles` (git 밖). 맵에 `CesiumRoads` 액터가 필요: 에디터 닫고 `Scripts/add_roads_actor.py` 한 번 (`-run=pythonscript`, add_minimap 과 같은 방식).
+  vworld Play 에서 자동, `GYROSIM_ROADS=0` 끔. 출처 판에 "© OpenStreetMap contributors". 자세히: `docs/vworld-integration.md` 6-4.
 - 점검: `-GyroSimVWorld` (`Scripts/vworld_check.py`) → 모드·URL(로컬)·출처 표시·프록시 + 스크린숏 `Saved/verify/vworld/`. 프록시 규칙: `python sim/vworld_proxy.py --selftest` (가짜 서버, 실제 호출 0).
 
 ### 실제 지형 켜기 — Cesium ion 토큰 (나중에 원하면, 사용자가 할 일)

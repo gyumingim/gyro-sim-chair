@@ -730,6 +730,19 @@ if HAS_CESIUM:
     bt.set_editor_property("url", "")
     bt.set_actor_location_and_rotation(V(0, 0, 0), unreal.Rotator(yaw=90.0), False, True)
     bt.set_actor_hidden_in_game(True)
+    # OSM bridges / elevated roads over Busan (sim/roads_build.py), set at Play by roads_look.apply (vworld + local terrain). Off = no URL.
+    rt = eas.spawn_actor_from_class(unreal.Cesium3DTileset, V(0, 0, 0))
+    rt.set_actor_label("CesiumRoads")
+    rt.tags = [unreal.Name("CesiumRoads")]
+    try:
+        rt.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+    except Exception as e:
+        log("roads mobility", e)
+    rt.set_georeference(gr)
+    rt.set_editor_property("tileset_source", unreal.TilesetSource.FROM_URL)
+    rt.set_editor_property("url", "")
+    rt.set_actor_location_and_rotation(V(0, 0, 0), unreal.Rotator(yaw=90.0), False, True)
+    rt.set_actor_hidden_in_game(True)
     log("Cesium georeference + ground tileset placed, overlays",
         [c.get_class().get_name() for c in ts.get_components_by_class(unreal.CesiumRasterOverlay)])
 else:

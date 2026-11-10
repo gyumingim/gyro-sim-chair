@@ -526,6 +526,56 @@ python -I sim/buildings_build.py --tiles --ground                       # work �
 - **다시 만들기**: `GYROSIM_BUILDINGS_TILES=C:/GyroSimTiles/buildings/tiles_new python -I sim/buildings_build.py --tiles` (프록시가 쓰는 tiles 를 건드리지 않음) → 폴더 이름 바꾸기
   (tiles → tiles_prev_<날짜>, tiles_new → tiles). 재질만 바꿨으면 `UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<repo>/unreal/GyroSim/Scripts/buildings_material.py -nullrhi`.
 
+**깊이 (11-10)**: 윤곽·높이는 GIS 값 그대로 (없는 층 물림·모서리 깎기 안 함). 겉면만:
+- 재질: 모든 창이 벽면 뒤로 들어간 상자 (깊이: 아파트 발코니 45 cm, 사무실 핀 60 cm (사무실 커튼월의 절반), 일반 창 18–25 cm, 커튼월 10 cm).
+  시선 광선이 유리에 닿는지, 옆벽·창턱·윗틀에 닿는지 화소마다 계산 (반복 없는 해석식) → 옆벽 화소는 자기 법선을 내보내 엔진 빛을 제대로 받음,
+  해 방향(SkyAtmosphereLightDirection)으로 다시 쏴서 윗틀·옆벽 그림자를 유리·창틀에 그림. 아파트: 유리 아래 난간 판(불투명/반투명, 건물별), 난간 위 막대,
+  위층 슬래브 밑 그늘, 슬래브 띠 모서리 법선 (위 = 하늘빛, 아래 = 그늘). 얼룩: 창 밑 빗물 자국, 몇 칸 너비 오염, 층마다 보수 색 차이. 마린시티 유리 = 밝은 청색 계열 (금속성 0.3).
+- 타일: 3 층 이상 주택·아파트·상가·업무 (100 m² 이상) 에 난간벽 (1.1 m, 주택 0.9 m: 벽을 위로 늘리고 안쪽 면 하나, v < 0 = 창 없음) 87,916 동,
+  5 층 이상 150 m² 이상 아파트·업무·상가 옥상에 계단·승강기 코어 상자 (3.5 / 4.5 m) 21,051 동. 타일 1.24 → 1.40 GB (+12 %), 꼭짓점 +14 %.
+  옥상 상자·난간벽은 서버 충돌 격자(ground)에 안 들어감 (몇 m, 추락 판정 영향 작음 — **가정**).
+- 랜드마크 빼기: `C:\GyroSimTiles\landmarks\exclude.json` (환경 변수 `GYROSIM_LANDMARK_EXCLUDE`) = uid 목록 (`[...]` 또는 `{"ids": [...]}`),
+  uid = SHP 필드 **A1** (28 자리 문자열, 건물 기록마다 거의 유일, work npz 의 `uid`; A0 = rid 는 중복이라 못 씀). 파일이 있으면 `--tiles` 가 그 건물을 빼고 만듦, 없으면 아무것도 안 함. 충돌 격자는 그대로.
+
+## 6-4. 부산 다리·고가도로 3D (11-10, OpenStreetMap)
+
+사진 위 도로는 납작하게 그려져 있어 다리·고가가 땅에 붙어 보임 → OSM 선으로 상판·난간·교각·주탑·케이블을 만들어 3D Tiles 로 얹음.
+
+```
+roads_build.py --fetch  ─▶ C:\GyroSimTiles\osm\busan_roads.json (+ _manifest.json: 시각·질의·URL)   Overpass 1 회 (~40 초, 11 MB)
+roads_build.py --tiles  ─▶ C:\GyroSimTiles\roads\tiles\tileset.json + a\*.glb (8 km: 큰 길·케이블 다리) + b\*.glb (2 km: 나머지)
+                            build.json (개수·km·규칙), groups.json (이름별 길이·높이)
+roads_build.py --attrib ─▶ sim/vworld_roads_attribution.png (건물 판 + "도로·다리: © OpenStreetMap contributors (ODbL)")
+Content/Python/roads_look.py  Play 때 맵의 CesiumRoads 타일셋에 file:/// URL (물리 메시 끔). 액터 = build_level.py, 기존 맵은 Scripts/add_roads_actor.py 한 번
+sim_client._vworld_ground      vworld + 로컬 지형이면 roads_look.apply → 출처 판을 OSM 줄 있는 그림으로
+```
+
+- **자료**: OSM (ODbL), 부산 상자 (34.96–35.40 N, 128.75–129.33 E) 의 highway 길 중 bridge=* / layer≥1 / tunnel=* + 그 끝점을 같이 쓰는 길.
+  만드는 대상 = 차도 (motorway … service, *_link) 의 다리·고가 (bridge=yes/viaduct 등, 또는 layer≥1 인 큰 길). 보도·자전거 다리, 공사 중·"예정" 이름은 뺌. 터널 입구는 안 함.
+- **높이** (OSM 에 다리 높이 없음, Copernicus DEM 은 바다 0 m 로 평평·다리 지워짐 — 실측):
+  땅과 만나는 점(다리가 아닌 길과 공유하는 점, 막힌 끝) = 화면 지형 메시 + 0.15 m. 원하는 높이 = 주변(±12 m) 가장 낮은 메시 + layer × 6.5 m
+  (물 위 100 m 넘으면 11 m 이상). 땅 점에서 경사 5 % 넘게 못 오름, 큰 다리 상판에서 4.5 % 넘게 못 내려감 → 그래프에서 매끄럽게 (땅 점 고정).
+- **큰 다리 (값은 공개 자료 기억값, 모두 추정)**: 광안대교 현수교 상판 위층 46 m / 아래층 39 m, 주탑 116 m, 주탑 위치 = 케이블 구간의 0.22 / 0.78
+  (캐시 사진의 주탑·앵커 기초 위치로 확인: 측경간 약 200 m, 주경간 약 500 m). 부산항대교 사장교 상판 65 m, 주탑 190 m.
+  거가대교·대동화명대교·낙동강대교 사장교: 상판 45 / 25 / 25 m, 주탑 높이 = 상판 + 주경간 × 0.25, 주탑 위치 0.18–0.25 (**추정**, 사진으로 안 맞춤).
+  남항대교·을숙도대교 등 나머지는 일반 규칙 (물 위 11 m 이상).
+- **폭**: width 태그, 없으면 lanes × 3.5 m + 갓길 (고속·간선 3 m, 나머지 1 m), lanes 없으면 도로 등급 기본값 (**가정**). 난간 1.0 m × 0.35 m.
+- **교각**: 30 m 간격 (큰 길 40 m, 500 m 넘는 물 위 60 m), 상판 밑이 땅에서 1.5 m 넘게 떠 있을 때만. 땅 − 2 m 까지, 물이면 −15 m. 폭 13 m 넘으면 기둥 2 개. 케이블 구간 안은 교각 없음.
+- **재질**: Cesium 기본 재질 (glTF 질감 × 꼭짓점 색). 아스팔트 질감 (한 차선 3.5 m × 12 m, 6 m 점선 차선) + 콘크리트 잡음 질감. 실선·중앙선 없음.
+- **결과**: 차도 다리·고가 **2,667 개 길, 389 km** (이름 있는 구조 846 개: 동서고가로 27 km, 광안대교 9.3 km, 부산항대교 접속 7.7 km, 을숙도대교·강서낙동강교 각 6.8 km …),
+  교각 5,390 개, 주탑 10 개 (케이블 다리 5 개), 케이블 54 km. 타일 319 개 **82 MB** (가장 큰 것 6.1 MB), 꼭짓점 113 만, 만드는 시간 20 초. OSM 자료 시각 2026-11-09 11:40 UTC.
+- **사진과 맞춤**: OSM 선을 캐시 사진(z17–18) 위에 그려 봄 → 광안대교·동서고가로·부산항대교·구포낙동강교 모두 차로 안에 들어옴 (눈으로 본 판단, 몇 m 이내).
+- **켜기**: Python 은 Play 세계에 액터를 새로 못 만듦 (BeginDeferredActorSpawnFromClass·AddComponentByClass 노출 안 됨, 11-10 확인) → **맵에 CesiumRoads 액터가 있어야 보임**.
+  에디터를 닫고 `UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<repo>/unreal/GyroSim/Scripts/add_roads_actor.py -unattended -nosplash -nullrhi` 한 번
+  (맵 저장, 다시 돌려도 됨). 그 뒤 vworld + 로컬 지형 Play 에서 자동으로 켜짐. 끄기 `GYROSIM_ROADS=0`.
+- **점검** (`Scripts/roads_shots.py`, 두 번째 에디터 `-GyroSimRoadShots -RenderOffscreen -unattended`, 서버 없이 Play; Play 전에 편집 세계에 액터를 임시로 만듦 (저장 안 함); 길 끔/켬):
+  그림 `C:\GyroSimTiles\shots\roads` (git 밖). 서버가 꺼져 있으면 캐시 전용 프록시를 다른 포트에 띄우고 `GYROSIM_RSHOT_PORT` 로 지정 (API 호출 0).
+  오프스크린 에디터는 한 번에 하나: `C:\GyroSimTiles\ue_offscreen.lock` 를 먼저 잡고 끝나면 지움.
+- **GPU**: 길 끔 → 켬 (같은 화면, 776 × 550 창을 1080p 화소로 키움, 에디터 PIE, 1 회씩): 광안대교 300 m 3.86 → 3.97 ms, 동서고가로 300 m 4.05 → 4.07 ms
+  → **+0.0–0.1 ms** (잡음 수준일 수 있음). VR 화소는 측정 안 함.
+- **남은 것 / 확인 안 한 것**: 큰 다리 높이·주탑 높이는 추정값, 일반 고가 높이는 규칙값 (실제 높이 자료 없음). 교차로에서 두 길이 겹치는 곳은 상판이 겹침 (깜빡일 수 있음).
+  비행기 충돌 없음 (서버 지붕 격자에 안 들어감 — 다리를 뚫고 지나감), 카메라 바닥 추적도 안 걸림. 터널 입구·보도육교·철도 고가 없음. VR 화면 시험 안 함.
+
 ## 7. 위험 정리
 
 1. 기지 가림: RKTU·군 비행장 주변은 V-World 가 숲으로 덮음 → 활주로 메시와 어긋나 보임. 피할 수 없음.
