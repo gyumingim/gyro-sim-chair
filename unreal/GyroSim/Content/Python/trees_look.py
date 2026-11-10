@@ -66,13 +66,15 @@ def spawn_editor(log=unreal.log):
     return a
 
 
-def apply(world, log=unreal.log, georef=None, v2=None, look2=None):
+def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
     """point the map's trees tileset in `world` at the local tiles. -> the actor, or None (off / no tiles / no actor).
     v2 / look2: force the version / the v2 material extras (shot scripts' one-run A/B), else the env toggles."""
     if os.environ.get("GYROSIM_TREES", "1") == "0":
         log("[trees] off (GYROSIM_TREES=0)")
         return None
     V2, TILES, MAT = config(v2)
+    if tiles:                                      # shot scripts: another tile build (e.g. the previous round) in the same run
+        TILES = tiles.replace("\\", "/")
     if look2 is None:
         look2 = os.environ.get("GYROSIM_TREES_LOOK2", "1") != "0"
     STATE.update(v2=V2, look2=look2)
