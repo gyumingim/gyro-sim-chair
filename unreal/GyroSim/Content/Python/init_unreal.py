@@ -142,3 +142,11 @@ if "-gyrosimlandmarkshots" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "landmarks_shots.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_landmark_shots"})
+
+# Busan start picker check (developer use, Scripts/spot_check.py): server  --start rkpk --free-flight  in the vworld mode,
+# launch with  -GyroSimPlay -GyroSimSpot -RenderOffscreen : picker shown, every preset started + shot, map click, cancel.
+# Shots outside git in C:/GyroSimTiles/shots/spot. Quits the editor when done.
+if "-gyrosimspot" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "spot_check.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_spot"})

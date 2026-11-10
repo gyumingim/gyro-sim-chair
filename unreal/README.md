@@ -52,6 +52,12 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   강의는 청주 전용 (부산은 자유 비행). 점검 `-GyroSimBusan` (`Scripts/busan_check.py`, 그림은 git 밖 `C:\GyroSimTiles\shots\busan`). 자세히: `docs/vworld-integration.md` 6-2.
 - **한 번에 부산 비행 (11-09)**: 저장소 맨 위 `GyroSim_Busan.bat` (바탕화면 바로가기 "GyroSim 부산 비행") = 서버 `--start rkpk --free-flight` (시작 메뉴 없이 바로 자유 비행, F1 = 메뉴; 최소화 창, 이미 켜져 있으면 그대로) +
   언리얼 `-GyroSimPlay` (에디터가 뜨고 3 초 매끄러우면 Play 자동 시작, `init_unreal.py`; Play 1 초 뒤 진짜 전체화면, `pie_fullscreen.py`).
+- **부산 출발 위치 고르기 (11-10)**: bat 으로 켜면 Play 마다 먼저 고르기 화면 (비행기는 멈춰 있음, 고른 곳을 미리 보여 줌). 왼쪽 부산 지도 + 오른쪽 목록 13 곳
+  (해운대·광안리·센텀·서면·남포·부산역·영도·송도·다대포·기장·김해공항 활주로·금정산·황령산) + "지도에서 고른 곳" + "무작위". ↑↓ 고르기, 1~9 바로 고르기, ←→ 방향 15°
+  (Shift 5°), PgUp/PgDn 또는 W/S 고도 50 m, 지도·목록·버튼 마우스 클릭, R 무작위, Tab 그림 숨기고 미리보기, **Enter/Space = 출발**. 비행 중 F1 메뉴 →
+  "출발 위치 고르기 (부산)" (Backspace = 메뉴로, 원래 자리로 돌아감). 조이스틱: 앞뒤 = 고르기, 좌우 = 방향, 트리거 = 출발, 두 번째 = 메뉴로, 세 번째 = 무작위.
+  마지막 선택은 `sim/out/start_spot.json` (git 밖). 속도 250 kt, 고도는 해발 (땅 위 높이 함께 표시, 땅 위 60 m 아래로는 못 내림). 서버 `--no-picker` = 예전처럼 바로 비행.
+  코드 `sim/start_spots.py` (상태·그림), `server.py` (`spot_open` / `spot_close`), `sim_client._spot_screen` (그림은 `Minimap` 판을 가운데로 옮겨 씀). 점검 `-GyroSimSpot` (`Scripts/spot_check.py`).
 - **부산 미니맵 (11-09)**: 화면 오른쪽 위 (VR: 시야 오른쪽 아래, 머리에 고정 — 헤드셋 시험 안 함), 노란 화살표 = 위치, 빨간 선 = 기수 방향, **J** 켜기/끄기. vworld 모드에서
   비행기가 부산 그림 근처일 때만. 그림은 `python sim/minimap_build.py` 가 로컬 V-World 캐시(z14)로 만듦 → `C:\GyroSimTiles\minimap\` (git 밖, 약관 19조).
   판은 맵의 `Minimap` 액터 (`build_level.py`, 기존 맵엔 `Scripts/add_minimap.py` 로 추가), 그리기 `sim_client._minimap`.
@@ -94,6 +100,7 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
 | **K** | 키 안내판 (메뉴에서는 항상, 비행 중엔 K 로 켬. 그림 = `sim/key_panel.png`, 고치면 `python sim/key_panel.py`) |
 | **U** | HUD 켜기/끄기 |
 | F1 / F2 | 메뉴 (↑↓ Enter Backspace, 닫으면 강의로 돌아감) / 강의 끝 |
+| (출발 위치 고르기) | ↑↓ / 1~9 고르기, ←→ 방향, PgUp/PgDn·W/S 고도, 마우스 클릭, R 무작위, Tab 미리보기, Enter 출발, Backspace 메뉴로 |
 | 0~9, N, M | 강의 시작, 다음 (단독 점검 건너뛰기는 두 번), 다시 |
 | Z / Y / L / I | 교관 말 다시 듣기 / 음성 켜기·끄기 / 초보자 한국어 이름표 켜기·끄기 (기본 켬) / 안내 말투 자동→키보드→조종 장치 |
 | F3 / F9 / F11 | VR 정면 다시 맞추기 / VR 스테레오 켜기·끄기 / 전체 화면 |

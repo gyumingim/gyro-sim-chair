@@ -100,6 +100,11 @@ MINIMAP_DIR = os.path.join(os.environ.get("GYROSIM_TILES", "C:\\GyroSimTiles"), 
 MINIMAP_W = 0.27                    # monitor: plate width as a fraction of the view width
 MINIMAP_VR_CM, MINIMAP_VR_DIR = 34.0, (24.0, -20.0)    # VR: width at VW_ATTRIB_D, direction (right deg, up deg)
 MINIMAP_HZ, MINIMAP_NEAR = 10.0, 0.25                   # redraw rate; shown up to this fraction of the picture outside it
+# Busan start picker (11-10, sim/start_spots.py): the server draws one picture (map + list + buttons, 1600 x 1000) while the
+# picker is open (packet 'spot'); it is shown on the same 'Minimap' plate moved to the middle of the view. Keys / mouse here
+# -> {"cmd": "spot", ...}. Tab hides the picture to look at the preview (the aircraft is already put at the selection).
+SPOT_ASPECT = 1.6
+SPOT_H, SPOT_W_MAX, SPOT_VR_CM = 0.80, 0.80, 110.0      # monitor: height / max width as fractions of the view (the width cap also keeps it inside a 16:9 view if the viewport size reads wrong); VR width cm
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
@@ -109,7 +114,7 @@ KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_fu
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
           R=0x52, T=0x54, V=0x56, P=0x50, H=0x48, U=0x55, C=0x43, Q=0x51, E=0x45, N=0x4E, M=0x4D,
           LBUTTON=0x01, RBUTTON=0x02, SHIFT=0x10, PRIOR=0x21, NEXT=0x22, HOME=0x24, PLUS=0xBB, MINUS=0xBD, ADD=0x6B, SUBTRACT=0x6D,
-          K=0x4B, J=0x4A, MENU=0x12, F1=0x70, F2=0x71, F3=0x72, F9=0x78, F11=0x7A, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
+          K=0x4B, J=0x4A, TAB=0x09, MENU=0x12, F1=0x70, F2=0x71, F3=0x72, F9=0x78, F11=0x7A, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
           **{"K%d" % i: 0x30 + i for i in range(0, 10)})
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
@@ -826,7 +831,7 @@ class SimClient:
         if st["phase"] == "reset":
             if el - st["sent"] > 1.0:                                  # (re)send until the server confirms
                 st["sent"] = el
-                self._send({"cmd": "reset", "mode": STARTUP_MODE})
+                self._send({"cmd": "reset", "mode": STARTUP_MODE, "play": True})
             if s and s.get("rid") != st["rid0"]:
                 st["phase"] = "pause"
         if st["phase"] == "pause":
@@ -924,6 +929,11 @@ class SimClient:
         tut = (self.s or {}).get("tut") or {}
         if kb.pressed("F11") or (kb.down("MENU") and kb.pressed("RETURN")):     # full screen on / off (any phase)
             self.toggle_fullscreen()
+        if ((self.s or {}).get("spot") or {}).get("open"):  # Busan start picker (sim/start_spots.py): sim paused, picker keys only
+            self._spot_keys(kb)
+            self._send({"ctrl": c, "rid": self.rid, "hmd": self.hmd})
+            return
+        self.spot_hide = False
         if tut.get("phase") == "menu":                      # start menu: arrows / Enter / Space / Backspace drive it
             for k, op in (("UP", "up"), ("DOWN", "down"), ("RETURN", "select"), ("SPACE", "select"), ("BACK", "back"), ("RIGHT", "select"),
                           ("LEFT", "back")):
@@ -1251,6 +1261,11 @@ class SimClient:
         """viewport pixel (default: the mouse) -> (u, v) on the crash picture, or None."""
         if not self.crash_panel or self.world is None:
             return None
+        return self.plate_uv(self.crash_panel, CRASH_W, CRASH_H, sx, sy)
+
+    def plate_uv(self, a, w_cm, h_cm, sx=None, sy=None):
+        """viewport pixel (default: the mouse) -> (u, v) on a picture plate (actor a, w_cm x h_cm, local X = picture right,
+        local Y = picture down), or None."""
         pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
         if pc is None:
             return None
@@ -1265,7 +1280,6 @@ class SimClient:
         if len(r) < 2:
             return None
         o, d = r[0], r[1]
-        a = self.crash_panel
         P, n = a.get_actor_location(), a.get_actor_up_vector()
         den = d.x * n.x + d.y * n.y + d.z * n.z
         if abs(den) < 1e-6:
@@ -1273,8 +1287,8 @@ class SimClient:
         t = ((P.x - o.x) * n.x + (P.y - o.y) * n.y + (P.z - o.z) * n.z) / den
         h = unreal.Vector(o.x + d.x * t - P.x, o.y + d.y * t - P.y, o.z + d.z * t - P.z)
         fx, ry = a.get_actor_forward_vector(), a.get_actor_right_vector()     # plane local X = picture right, local Y = picture down
-        u = 0.5 + (h.x * fx.x + h.y * fx.y + h.z * fx.z) / CRASH_W
-        v = 0.5 + (h.x * ry.x + h.y * ry.y + h.z * ry.z) / CRASH_H
+        u = 0.5 + (h.x * fx.x + h.y * fx.y + h.z * fx.z) / w_cm
+        v = 0.5 + (h.x * ry.x + h.y * ry.y + h.z * ry.z) / h_cm
         return u, v
 
     def crash_click(self, sx=None, sy=None):
@@ -1299,7 +1313,7 @@ class SimClient:
         try:                                                  # mouse cursor for the buttons (monitor)
             pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
             if pc and not self.hmd:
-                pc.set_editor_property("show_mouse_cursor", on)
+                pc.set_editor_property("show_mouse_cursor", on or bool(getattr(self, "spot_shown", False)))
         except Exception as e:
             _log("crash cursor", repr(e))
 
@@ -1765,12 +1779,13 @@ class SimClient:
         anything is missing (logged once) - the sim runs as before."""
         mm = self.mm = dict(world=self.world, ok=False, shown=None, key=None, t=0.0, pos=None)
         try:
-            meta = json.load(open(os.path.join(MINIMAP_DIR, "busan_minimap.json"), encoding="utf-8"))
-            png = os.path.join(MINIMAP_DIR, "busan_minimap.png")
             a = self._find("Minimap")
             if a is None:
                 _log("minimap: no Minimap actor in the map (run Scripts/add_minimap.py)")
                 return
+            mm.update(actor=a, mid=a.static_mesh_component.create_and_set_material_instance_dynamic(0))   # also the start picker's plate
+            meta = json.load(open(os.path.join(MINIMAP_DIR, "busan_minimap.json"), encoding="utf-8"))
+            png = os.path.join(MINIMAP_DIR, "busan_minimap.png")
             tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, png)
             if tex is None:
                 _log("minimap: cannot load", png)
@@ -1778,9 +1793,8 @@ class SimClient:
             n = int(meta.get("size") or tex.blueprint_get_size_x())
             rt = unreal.RenderingLibrary.create_render_target2d(self.world, n, n, unreal.TextureRenderTargetFormat.RTF_RGBA8,
                                                                   unreal.LinearColor(0, 0, 0, 1))
-            mid = a.static_mesh_component.create_and_set_material_instance_dynamic(0)
-            mid.set_texture_parameter_value("Tex", rt)
-            mm.update(ok=True, actor=a, tex=tex, rt=rt, n=n, merc=meta["merc"],
+            mm["mid"].set_texture_parameter_value("Tex", rt)
+            mm.update(ok=True, tex=tex, rt=rt, n=n, merc=meta["merc"],
                       white=unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture"))
             a.set_actor_hidden_in_game(True)
             _log("minimap ready", png, n, "px")
@@ -1836,7 +1850,7 @@ class SimClient:
                 return
             self._minimap_init()
             mm = self.mm
-        if not mm["ok"]:
+        if not mm["ok"] or getattr(self, "spot_shown", False):     # the start picker has the plate
             return
         if self.kb.focused() and self.kb.pressed("J"):
             self.minimap_on = not getattr(self, "minimap_on", True)
@@ -1891,6 +1905,96 @@ class SimClient:
                 self.last_log = now
                 _log("minimap draw", repr(e))
 
+    # ---- Busan start picker (sim/start_spots.py) -------------------------------------------------------------------
+    def _spot_keys(self, kb):
+        """keys / mouse while the server's start picker is open (the sim is paused)."""
+        send = lambda op, **k: self._send(dict(cmd="spot", op=op, **k))
+        for k, op in (("UP", "up"), ("DOWN", "down"), ("RETURN", "go"), ("SPACE", "go"), ("R", "random"), ("BACK", "cancel")):
+            if kb.pressed(k):
+                send(op)
+        for k, d in (("LEFT", -1), ("RIGHT", 1)):
+            if kb.pressed(k):
+                send("hdg", d=d, step=5.0 if kb.down("SHIFT") else 15.0)
+        for k, d in (("PRIOR", 1), ("W", 1), ("NEXT", -1), ("S", -1)):
+            if kb.pressed(k):
+                send("alt", d=d)
+        for i in range(1, 10):                               # 1 - 9: presets 1 - 9
+            if kb.pressed("K%d" % i):
+                send("sel", i=i - 1)
+        if kb.pressed("TAB"):
+            self.spot_hide = not getattr(self, "spot_hide", False)
+        if kb.pressed("LBUTTON") and getattr(self, "spot_shown", False) and not self.hmd:
+            uv = self.spot_uv()
+            if uv and 0.0 <= uv[0] <= 1.0 and 0.0 <= uv[1] <= 1.0:
+                send("click", u=round(uv[0], 5), v=round(uv[1], 5))
+        for k in ("F1", "F2", "G", "T", "P", "V", "H", "K", "U", "C", "N", "M", "Z", "I", "Y", "L", "J", "B"):
+            kb.pressed(k)                                    # no stale key edges after the picker closes
+
+    def spot_uv(self, sx=None, sy=None):
+        mm = getattr(self, "mm", None) or {}
+        cm = getattr(self, "spot_cm", None)
+        if not mm.get("actor") or not cm:
+            return None
+        return self.plate_uv(mm["actor"], cm[0], cm[1], sx, sy)
+
+    def _spot_place(self, a):
+        try:
+            vp = unreal.WidgetLayoutLibrary.get_viewport_size(self.world)
+            aspect = vp.x / vp.y if vp.y > 0 else 16 / 9
+        except Exception:
+            aspect = 16 / 9
+        D = VW_ATTRIB_D
+        if self.hmd:
+            w = SPOT_VR_CM
+        else:
+            hw = D * math.tan(math.radians((self.fov_set or VIEW_FOV) / 2))
+            hh = hw / aspect
+            w = min(2 * hh * SPOT_H * SPOT_ASPECT, 2 * hw * SPOT_W_MAX)
+        h = w / SPOT_ASPECT
+        a.set_actor_relative_location(unreal.Vector(D, 0.0, 0.0), False, True)
+        a.set_actor_relative_rotation(unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0)), False, True)
+        a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, h / 100.0, 1.0))
+        self.spot_cm = (w, h)
+
+    def _spot_screen(self, now):
+        """show / hide the start picker picture on the Minimap plate (middle of the view) and follow its version."""
+        sp = (self.s or {}).get("spot") or {}
+        mm = getattr(self, "mm", None)
+        if mm is None or mm.get("world") != self.world or not mm.get("actor") or not mm.get("mid"):
+            return
+        want = bool(sp.get("open")) and not getattr(self, "spot_hide", False)
+        if want and sp.get("ver") != getattr(self, "spot_ver", None) and sp.get("img") and os.path.exists(sp["img"]):
+            try:
+                tex = unreal.RenderingLibrary.import_file_as_texture2d(self.world, sp["img"])
+                if tex:
+                    self.spot_tex, self.spot_ver = tex, sp.get("ver")
+                    if getattr(self, "spot_shown", False):
+                        mm["mid"].set_texture_parameter_value("Tex", tex)
+            except Exception as e:
+                _log("spot picture", repr(e))
+        on = want and getattr(self, "spot_tex", None) is not None
+        a = mm["actor"]
+        if on:
+            self._spot_place(a)                               # every frame: cheap, follows a lens / window change
+        if on == getattr(self, "spot_shown", False):
+            return
+        self.spot_shown = on
+        try:
+            if on:
+                mm["mid"].set_texture_parameter_value("Tex", self.spot_tex)
+                a.set_actor_hidden_in_game(False)
+            else:                                             # give the plate back to the minimap
+                if mm.get("ok"):
+                    mm["mid"].set_texture_parameter_value("Tex", mm["rt"])
+                mm["key"], mm["shown"] = None, None
+                a.set_actor_hidden_in_game(True)
+            pc = unreal.GameplayStatics.get_player_controller(self.world, 0)
+            if pc and not self.hmd:
+                pc.set_editor_property("show_mouse_cursor", on or bool(self.crash_shown))
+        except Exception as e:
+            _log("spot screen", repr(e))
+        _log("start picker", "shown" if on else "closed")
+
     def _vworld_poll(self, now):
         """proxy status every 5 s (budget / stopped) -> HUD note; the proxy never sends the key."""
         if self.cesium_mode != "vworld" or now - getattr(self, "vw_poll_t", 0.0) < 5.0:
@@ -1930,6 +2034,7 @@ class SimClient:
             self._fog_follow(now)
             self._vworld_poll(now)
             self._minimap(now)
+            self._spot_screen(now)
             self._overlay(now)
             self._set_view_target()
             self.frames += 1
@@ -1954,7 +2059,8 @@ class SimClient:
                     interp_n=len(self.interp.buf), cesium=self.cesium_mode, hud_frames=self.hud_n, hud_ms=round(self.hud_ms, 2),
                     radar_m=self.radar_m, crashed=self.crashed, panel_on=self.panel_on,
                     startup={k: v for k, v in self.start.items() if k != "dts"},
-                    minimap={k: (getattr(self, "mm", None) or {}).get(k) for k in ("ok", "shown", "pos")})
+                    minimap={k: (getattr(self, "mm", None) or {}).get(k) for k in ("ok", "shown", "pos")},
+                    spot=dict(shown=getattr(self, "spot_shown", False), ver=getattr(self, "spot_ver", None), size_cm=getattr(self, "spot_cm", None)))
 
 
 def recenter():

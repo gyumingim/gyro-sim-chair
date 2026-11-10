@@ -12,8 +12,11 @@ without a keyboard or mouse (VR).
 Control priority: joystick axes > Unreal UDP (if a ctrl packet arrived in the last 0.5 s) > browser WebSocket.
 The demo autopilot (training) overrides the controls while a demo runs.
 
---free-flight (GyroSim_Busan.bat): no start menu, straight into free flight (no instructor, no lesson, no demo autopilot);
-F1 still opens the menu. Without it the trainer starts in the menu as before.
+--free-flight (GyroSim_Busan.bat): no start menu, free flight (no instructor, no lesson, no demo autopilot); F1 still opens the
+menu. Without it the trainer starts in the menu as before.
+Busan start picker (start_spots.py, only with --start rkpk): with --free-flight every Play first shows the picker (the sim
+stays paused until a spot is chosen; --no-picker = straight into flight at the default air start as before); the F1 menu
+item '출발 위치 고르기' opens it mid-flight. Commands {"cmd": "spot", "op": ...} (start_spots.Picker.command).
 
 Run:  python server.py [--start rkpk] [--free-flight]      then open http://127.0.0.1:8780/   (--start: airfield, default rktu = Cheongju)
 """
@@ -95,6 +98,8 @@ _lock = threading.RLock()                 # sim / trainer are touched from the a
 
 def reset(mode, at=None):
     with _lock:
+        if mode == "air" and at is None and state.get("spot_at") and getattr(globals().get("trainer"), "L", None) is None:   # free flight (R, crash retry): chosen spot
+            at = state["spot_at"]
         sim.reset(mode, at)
         state["rid"] += 1
         state["paused"] = False
@@ -106,10 +111,62 @@ def reset(mode, at=None):
 
 voice = Voice()                           # instructor voice (offline Korean SAPI), text only if unavailable
 trainer = Trainer(reset, voice)
+picker = None                             # Busan start picker (start_spots.py): Busan start airfield only
+if FIELD["id"] == "rkpk":
+    try:
+        from start_spots import Picker
+        picker = Picker(ground=sim.terrain)
+    except Exception as e:
+        print("sim: start picker not available:", repr(e), flush=True)
+SPOT_FIRST = picker is not None and "--free-flight" in sys.argv and "--no-picker" not in sys.argv
 if "--free-flight" in sys.argv:           # skip the start menu: free flight from the first Play (user flies at once)
     trainer.L, trainer.phase, trainer.free_t0 = None, "free", 0.0
-    trainer._say("자유 비행이에요. 바로 조종하세요. F1 을 누르면 메뉴로 가요.", force=True)
-    print("sim: free flight (no start menu)", flush=True)
+    if SPOT_FIRST:
+        trainer._say("어디서 출발할지 고르세요. 엔터를 누르면 출발해요.", force=True)
+    else:
+        trainer._say("자유 비행이에요. 바로 조종하세요. F1 을 누르면 메뉴로 가요.", force=True)
+    print("sim: free flight (no start menu)%s" % (", start picker first" if SPOT_FIRST else ""), flush=True)
+
+
+def spot_open(can_cancel=False):
+    """show the start picker; the sim stays paused while it is open. can_cancel (opened from the F1 menu): Backspace goes
+    back to the menu and puts the aircraft back where it was."""
+    if picker is None:
+        return
+    with _lock:
+        s = state["snap"] or {}
+        state["spot_ret"] = None
+        if can_cancel and "lat" in s:
+            state["spot_ret"] = ("runway", None) if s.get("wow") else ("air", dict(lat=s["lat"], lon=s["lon"], alt_m=s["alt_m"], hdg=s["psi"],
+                                                                                    kts=max(200.0, s.get("kts", 250.0))))
+        picker.open, picker.can_cancel, picker.previewed = True, can_cancel, None
+        picker.changed_t = time.monotonic()          # preview the selection (aircraft put there, still paused)
+
+
+def spot_close(go):
+    with _lock:
+        sp = picker.spot() if go else None
+        if go and sp is None:
+            return
+        picker.open = False
+        if go:
+            picker.save_last()
+            state["spot_at"] = None if sp["mode"] == "runway" else {k: sp[k] for k in ("lat", "lon", "alt_m", "hdg", "kts")}
+            trainer.L, trainer.crash, trainer.debrief, trainer.phase = None, None, None, "free"
+            reset(sp["mode"], None if sp["mode"] == "runway" else {k: sp[k] for k in ("lat", "lon", "alt_m", "hdg", "kts")})
+            trainer._say("%s에서 출발해요." % sp["name"].split(" (")[0], force=True)
+            print("sim: start spot %s %s %.5f %.5f alt %.0f m hdg %.0f" % (sp["key"], sp["mode"], sp["lat"], sp["lon"], sp["alt_m"], sp["hdg"]), flush=True)
+        elif picker.previewed is not None and state.get("spot_ret"):     # back where it was before the preview
+            mode, at = state["spot_ret"]
+            reset(mode, at)
+            trainer.free_t0 = trainer.clock
+        picker.previewed = None
+
+
+if picker is not None:
+    trainer.on_spot = lambda: spot_open(can_cancel=True)     # F1 menu item '출발 위치 고르기 (부산)'
+    if SPOT_FIRST:
+        spot_open()
 
 
 def terrain_check(s, dt_sim):
@@ -135,11 +192,14 @@ def snapshot(dt_sim):
     if DEM:
         terrain_check(s, dt_sim)
     s.update(APT_INFO)
-    s.update(lat0=START["lat"], lon0=START["lon"], paused=state["paused"] or trainer.want_pause, user_paused=state["paused"], rid=state["rid"],
+    spot_on = picker is not None and picker.open
+    s.update(lat0=START["lat"], lon0=START["lon"], paused=state["paused"] or trainer.want_pause or spot_on, user_paused=state["paused"], rid=state["rid"],
              field_m=FIELD_FT * 0.3048, geoid_n=GEOID_N, rwy_hdg=RWY["hdg"], joystick=state["joy_name"],
              src="joystick" if state["joy"] else ("unreal" if udp_fresh() else "browser"),
              hmd=state["hmd"] and time.monotonic() - state["hmd_t"] < 2.0, crashed=state["crashed"], crash_obj=state.get("crash_obj") if state["crashed"] else None, demo=trainer.ctrl_override is not None,
              assist=trainer.assist, slow=trainer.slow, chair_lim=CHAIR_LIM, chair_rate=CHAIR_RATE, uptime=round(time.time() - state["t_start"]))
+    if picker is not None:
+        s["spot"] = picker.public()
     try:
         s["tut"] = trainer.update(s, dt_sim)
     except Exception as e:                                   # the lesson logic must never stop the simulator
@@ -164,7 +224,23 @@ def handle_msg(m, src):
     """Same JSON for WebSocket (src='ws'), UDP 4221 (src='udp') and the joystick buttons (src='joy')."""
     with _lock:
         cmd = m.get("cmd")
+        if cmd == "spot" and picker is not None:
+            if m.get("op") == "open":
+                spot_open(can_cancel=bool(m.get("cancel", True)))
+                return
+            if not picker.open:
+                return
+            r = picker.command(m)
+            if r == "go":
+                spot_close(True)
+            elif r == "cancel":
+                spot_close(False)
+            return
         if cmd == "reset":
+            if m.get("play") and SPOT_FIRST:            # Unreal Play started: fresh run -> the start picker first
+                reset(m.get("mode", "air"))
+                spot_open()
+                return
             if m.get("user") and trainer.phase == "crash":      # crash screen: R = retry (same step / same start)
                 trainer.command({"cmd": "tut", "op": "retry"})
                 return
@@ -172,6 +248,8 @@ def handle_msg(m, src):
                 return
             reset(m.get("mode", "air"))
         elif cmd == "place":                     # checks: air start at lat / lon / alt_m (MSL) / hdg / kts, e.g. near a mountain
+            if picker is not None:
+                picker.open = False                  # scripted placement (checks) closes the start picker
             try:
                 at = {k: float(m[k]) for k in ("lat", "lon", "alt_m", "hdg", "kts") if k in m}
                 if "lat" in at and "lon" in at and "alt_m" in at:
@@ -244,10 +322,31 @@ def joystick_thread():
                     if abs(v) < dz:
                         v = 0.0
                     vals[k] = (1 - v) / 2 if k == "thr" else v
-                in_menu = trainer.phase == "menu"
+                in_spot = picker is not None and picker.open
+                in_menu = trainer.phase == "menu" and not in_spot
                 with _lock:
-                    if not in_menu:
+                    if not in_menu and not in_spot:
                         sim.ctrl.update(vals)
+                if in_spot:                              # start picker: stick fwd / back = list, left / right = heading, buttons
+                    e, a = vals.get("elev", 0.0), vals.get("ail", 0.0)
+                    z = 1 if e > 0.6 else -1 if e < -0.6 else 0
+                    x = 1 if a > 0.6 else -1 if a < -0.6 else 0
+                    if z and z != nav:
+                        handle_msg({"cmd": "spot", "op": "up" if z > 0 else "down"}, "joy")
+                    if x and x != state.get("joy_x"):
+                        handle_msg({"cmd": "spot", "op": "hdg", "d": x}, "joy")
+                    nav, state["joy_x"] = z, x
+                    for name, b in btn.items():
+                        if b is None or b >= js.get_numbuttons():
+                            continue
+                        down = bool(js.get_button(b))
+                        if down and not prev_b.get(name):
+                            op = dict(select="go", back="cancel", repeat="random").get(name)
+                            if op:
+                                handle_msg({"cmd": "spot", "op": op}, "joy")
+                        prev_b[name] = down
+                    time.sleep(0.01)
+                    continue
                 # menu: stick forward / back = up / down (edge, with a dead band), buttons = select / back / repeat / menu
                 e = vals.get("elev", 0.0)
                 z = 1 if e > 0.6 else -1 if e < -0.6 else 0
@@ -298,7 +397,11 @@ async def physics():
     while True:
         nxt += 1 / 60
         with _lock:
-            paused = state["paused"] or trainer.want_pause
+            if picker is not None and picker.open:
+                sp = picker.preview_due()              # start picker: put the aircraft at the selection, still paused
+                if sp is not None:
+                    reset(sp["mode"], None if sp["mode"] == "runway" else {k: sp[k] for k in ("lat", "lon", "alt_m", "hdg", "kts")})
+            paused = state["paused"] or trainer.want_pause or (picker is not None and picker.open)
             dt_sim = 0.0
             if not paused:
                 if trainer.ctrl_override:               # demo autopilot flies (the cockpit stick / throttle show it)

@@ -118,6 +118,7 @@ class Trainer:
         self.crash = None
         self.crash_lock_s = CRASH_LOCK_S     # wall time (the sim clock stops on the crash screen); offline bots set 0
         self.debrief = None
+        self.on_spot = None                  # server.py: opens the Busan start picker (menu item '출발 위치 고르기')
         self._say("안녕하세요, %s 님. 메뉴에서 이어서 하기를 고르면 바로 시작해요." % self.prof.cur["name"], force=True)
 
     # =================================================================================================================
@@ -191,7 +192,8 @@ class Trainer:
         st = self.prof.cur["settings"]
         if pg == "main":
             nl = self.prof.next_lesson()
-            return [("continue", "이어서 하기: %s" % LS.lesson(nl)["title"]), ("lessons", "강의 고르기"), ("free", "자유 비행 (교관 없음)"),
+            return [("continue", "이어서 하기: %s" % LS.lesson(nl)["title"]), ("lessons", "강의 고르기"), ("free", "자유 비행 (교관 없음)")] + \
+                ([("spot", "출발 위치 고르기 (부산)")] if self.on_spot else []) + [
                     ("trainee", "훈련생: %s" % self.prof.cur["name"]), ("settings", "설정"), ("close", "닫기")]
         if pg == "lessons":
             out = []
@@ -227,7 +229,7 @@ class Trainer:
         if op == "close":
             ret = self.menu.get("ret")
             self.phase = ret if ret not in (None, "menu") else ("free" if not self.L else "practice")
-            if self.phase == "free" and not self.L:
+            if self.phase == "free" and not self.L and ret != "free":     # closed in free flight: fly on from where it was
                 self.free_flight()
             return
         if op == "up":
@@ -256,6 +258,8 @@ class Trainer:
             self._say({"lessons": "강의를 고르세요.", "trainee": "훈련생을 고르세요.", "settings": "설정이에요."}[key], force=True)
         elif key == "free":
             self.free_flight()
+        elif key == "spot" and self.on_spot:
+            self.on_spot()
         elif key == "close":
             self._menu_cmd("close")
         elif key == "back":

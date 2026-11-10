@@ -1,6 +1,8 @@
 @echo off
 rem GyroSim - one step: Busan (Gimhae RKPK 36L) over the V-World photo, with the Busan minimap (top right).
-rem Free flight at once (server --free-flight): no start menu / lessons / instructor; F1 still opens the menu.
+rem Free flight (server --free-flight): no start menu / lessons / instructor. Every Play first shows the Busan start picker
+rem (sim/start_spots.py: 13 spots, a point clicked on the map, altitude / heading, random, last choice remembered); the plane
+rem waits until you press Enter / click 출발. F1 menu -> '출발 위치 고르기' picks a new spot mid-flight.
 rem 1) starts the sim server (JSBSim + V-World tile proxy) in a minimized window, unless one is already running
 rem 2) opens the Unreal project; Play starts by itself (-GyroSimPlay) in full screen (Content/Python/pie_fullscreen.py).
 rem    F11 (or Alt+Enter) = full screen on / off, Esc = stop.
@@ -15,7 +17,7 @@ netstat -ano | findstr /R /C:"127.0.0.1:8781 .*LISTENING" >nul
 if %errorlevel%==0 (
     echo [GyroSim] 시뮬 서버가 이미 켜져 있습니다. 청주에서 시작하거나 메뉴가 먼저 나오면 그 서버 창을 닫고 이 파일을 다시 실행하세요.
 ) else (
-    echo [GyroSim] 시뮬 서버 시작 - 부산 김해, 바로 자유 비행
+    echo [GyroSim] 시뮬 서버 시작 - 부산, 출발 위치를 고른 뒤 자유 비행
     start "GyroSim server (Busan)" /min /D "%ROOT%" cmd /k python sim\server.py --start rkpk --free-flight
     timeout /t 3 /nobreak >nul
 )
