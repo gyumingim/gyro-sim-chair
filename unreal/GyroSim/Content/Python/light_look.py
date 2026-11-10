@@ -28,13 +28,13 @@ VALUES = dict(
     cloudmat=dict(),
 )
 # Round 2 (atmos_look.HAZE_V3, GYROSIM_HAZE_V3=0 = round 1): the denser near fog now lifts shadowed / back-lit terrain, so the
-# lower hemisphere goes back down (0.25 lifted the city's darkest 5 % to L* 21.6 vs photos 12.6). Clouds: salmon / beige
+# lower hemisphere goes back down to 0.18 (0.15 with the 0.3 km fog; 0.25 lifted the city's darkest 5 % to L* 21.6 vs photos 12.6). Clouds: salmon / beige
 # at noon with flat bright bases -> darker sky-lit bases (bottom occlusion 0.6 -> 0.85) and a slightly cool albedo
 # (0.98 grey -> (0.94, 0.95, 1.0); (0.85, 0.9, 1.0) turned back-lit clouds lavender in the sweep).
 try:
     import atmos_look as _al
     if _al.HAZE_V3:
-        VALUES["skylight"]["lower_hemisphere_color"] = (0.15, 0.15, 0.14)
+        VALUES["skylight"]["lower_hemisphere_color"] = (0.18, 0.18, 0.17)
         VALUES["cloud"] = dict(sky_light_cloud_bottom_occlusion=0.85)
         VALUES["cloudmat"] = dict(Cloud_AlbedoColor=(0.94, 0.95, 1.0, 0.5))
 except Exception:
