@@ -93,8 +93,8 @@ class Dem:
         self.proc = proc
         self.cells = {}
         for fn in os.listdir(proc) if os.path.isdir(proc) else ():
-            if fn.startswith("dem_N") and fn.endswith(".npy"):
-                k = fn[4:-4]
+            if fn.startswith("dem_N") and fn.endswith(".npy") and len(fn) == len("dem_N35E129.npy"):
+                k = fn[4:-4]                    # exact name only: backups like dem_N35E129.pre_coastfix.npy must not win
                 self.cells[(int(k[1:3]), int(k[4:7]))] = os.path.join(proc, fn)
         self._mm = {}
         g = os.path.join(RAW, "egm2008_25_korea.npy")
