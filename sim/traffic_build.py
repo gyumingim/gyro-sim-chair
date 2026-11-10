@@ -96,6 +96,22 @@ def bridge_heights():
     return out, dem
 
 
+def ground_msl(dem, la, lo):
+    """rendered terrain height m MSL: the terrain mesh (buildings_build.mesh_height), and inside the coast band the coast-aware
+    tiles swapped in 11-10 (sim/coast_build.rendered_msl: sea walls / beaches near the OSM coastline)."""
+    import buildings_build as B
+    h = B.mesh_height(dem, la, lo)
+    try:
+        import coast_build as CB
+        sd, _ = CB.field_at(la, lo)
+        near = sd < 200.0
+        if np.any(near):
+            h = np.where(near, CB.rendered_msl(dem, la, lo), h)
+    except Exception as e:                                   # no coast field built: plain mesh
+        print("coast field not used:", e)
+    return h
+
+
 def offset_line(E, N, d):
     """polyline (east, north) offset d m to the RIGHT of its direction (miter, clamped)."""
     P = np.stack((E, N), 1)
@@ -281,7 +297,7 @@ def build():
         la, lo = LC.latlon(Ed, Nd)
         g_ = np.isnan(Hd)
         if g_.any():
-            Hd[g_] = B.mesh_height(dem, la[g_], lo[g_])
+            Hd[g_] = ground_msl(dem, la[g_], lo[g_])
         he = Hd + dem.geoid_n(la, lo) + LIFT
         P = simplify(LC.local(la, lo, he), SIMPLIFY)
         lk = float(np.linalg.norm(np.diff(P, axis=0), axis=1).sum())

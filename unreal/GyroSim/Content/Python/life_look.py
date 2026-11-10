@@ -71,10 +71,21 @@ def _read(name):
 
 def _fill(c, group, recs, n, rec, scales, log):
     tag, mat, kind, far = GROUPS[group]
-    sm = unreal.load_asset(MESH + "SM_Life" + group.capitalize() if group != "vehicle" else MESH + "SM_LifeVehicle")
-    m = unreal.load_asset(mat)
+    nm = "SM_Life" + group.capitalize()
+    sm = None
+    for p in (MESH + nm + "/StaticMeshes/" + nm, MESH + nm):       # Interchange puts each glb in its own folder
+        try:                                                     # load_asset: the registry may still be scanning at Play
+            sm = unreal.load_asset(p)
+        except Exception:
+            sm = None
+        if sm is not None:
+            break
+    try:
+        m = unreal.load_asset(mat)
+    except Exception:
+        m = None
     if sm is None or m is None:
-        log("[life] %s: mesh / material missing (Scripts/life_assets.py)" % group)
+        log("[life] %s: mesh %s / material %s missing (Scripts/life_assets.py)" % (group, sm is not None, m is not None))
         return 0
     c.clear_instances()
     c.set_static_mesh(sm)

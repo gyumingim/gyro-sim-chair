@@ -7,8 +7,8 @@ M_GyroLifeWake move them and draw the wakes on the GPU).
 
 Lanes are waypoints (lat, lon) drawn from the chart picture of Busan (북항 / 감만 / 신선대 approaches, 남항, 감천,
 광안리 / 해운대 coast, 영도 묘박지 (anchorage), the 부산-일본 ferry line out to the south-east). They are 추정, not AIS
-tracks. Every waypoint is pushed to water with enough clearance for the ship (the rendered terrain mesh: height <= 0.3 m
-MSL = sea; clearance = distance to land), legs that still cross land get an extra point, corners are rounded (Chaikin).
+tracks. Every waypoint is pushed to water with enough clearance for the ship (the rendered (coast-aware, sim/coast_build.rendered_msl) terrain:
+height <= 0.3 m MSL = sea; clearance = distance to land), legs that still cross land get an extra point, corners are rounded (Chaikin).
 Sea level = 0 m MSL + EGM2008 N (= the flattened sea of the terrain tiles). Deterministic (life_common.rng).
 """
 import json, math, os, sys, time, site
@@ -37,21 +37,21 @@ TYPES = dict(
 LOOPS = [
     # 북항: container ships in from the south-east past 오륙도 to 감만 / 신선대 and out again (inbound west of outbound)
     ("northport_container", "container", 5, [(34.96, 129.24), (35.045, 129.150), (35.078, 129.112), (35.092, 129.098),
-                                             (35.100, 129.085), (35.096, 129.074), (35.088, 129.090), (35.072, 129.122),
+                                             (35.100, 129.085), (35.100, 129.076), (35.088, 129.090), (35.072, 129.122),
                                              (35.040, 129.168), (34.97, 129.27)]),
     ("northport_feeder", "feeder", 5, [(34.99, 129.20), (35.060, 129.128), (35.085, 129.100), (35.098, 129.070),
-                                       (35.104, 129.058), (35.098, 129.060), (35.090, 129.080), (35.070, 129.118), (35.000, 129.215)]),
+                                       (35.106, 129.060), (35.101, 129.070), (35.090, 129.080), (35.070, 129.118), (35.000, 129.215)]),
     # 부산-일본 ferry: 국제여객터미널 (북항) -> breakwater -> 오륙도 -> south-east toward 대마도 / 후쿠오카 and back
-    ("japan_ferry", "ferry", 3, [(35.112, 129.050), (35.104, 129.062), (35.093, 129.090), (35.080, 129.118),
+    ("japan_ferry", "ferry", 3, [(35.112, 129.058), (35.105, 129.064), (35.101, 129.072), (35.093, 129.090), (35.080, 129.118),
                                  (35.040, 129.170), (34.95, 129.30), (34.935, 129.285), (35.030, 129.165),
-                                 (35.074, 129.115), (35.090, 129.084), (35.103, 129.058)]),
+                                 (35.074, 129.115), (35.090, 129.084), (35.099, 129.074), (35.106, 129.060)]),
     # 남항 / 영도 west: small cargo and tugs between 남항 and the outer anchorage
     ("namhang_tug", "tug", 3, [(35.085, 129.030), (35.070, 129.035), (35.050, 129.045), (35.040, 129.060),
                                (35.050, 129.055), (35.068, 129.040)]),
-    ("northport_tug", "tug", 3, [(35.104, 129.060), (35.100, 129.080), (35.092, 129.094), (35.097, 129.072)]),
+    ("northport_tug", "tug", 3, [(35.106, 129.062), (35.100, 129.080), (35.092, 129.094), (35.098, 129.074)]),
     # 감천항 fishing boats out to the south
     ("gamcheon_fishing", "fishing", 4, [(35.074, 129.000), (35.060, 129.005), (35.048, 129.009), (35.030, 129.015),
-                                        (35.010, 129.000), (35.025, 128.990), (35.040, 129.003), (35.056, 129.006)]),
+                                        (35.010, 129.000), (35.025, 128.990), (35.040, 129.008), (35.054, 129.005)]),
     # 남항 (자갈치 / 공동어시장) fishing fleet
     ("namhang_fishing", "fishing", 5, [(35.084, 129.031), (35.078, 129.032), (35.065, 129.028), (35.040, 129.020), (35.010, 129.060),
                                        (35.030, 129.080), (35.055, 129.050), (35.072, 129.036)]),
@@ -89,7 +89,8 @@ def grid():
     ny = int((N - S) * 110574 / RES)
     nx = int((E - W) * 111320 * math.cos(math.radians(35.1)) / RES)
     LA, LO = np.meshgrid(np.linspace(N, S, ny), np.linspace(W, E, nx), indexing="ij")
-    h = B.mesh_height(T.Dem(), LA.ravel(), LO.ravel()).reshape(ny, nx)
+    import coast_build as CB                                 # coast-aware rendered terrain (OSM sea = 0 m)
+    h = CB.rendered_msl(T.Dem(), LA.ravel(), LO.ravel()).reshape(ny, nx)
     clr = ndimage.distance_transform_edt(h <= 0.3) * RES
     os.makedirs(LC.OUT, exist_ok=True)
     np.savez_compressed(GRID, h=h.astype(np.float32), clr=clr.astype(np.float32), box=np.array(BOX), res=RES)
