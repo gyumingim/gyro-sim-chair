@@ -84,7 +84,7 @@ def lip_z(u):
 # 24 cm wide = +-9.8 deg at ~70 cm (speed / altitude boxes fit), top 28 cm = about +5 deg (F-16 HUD TFOV ~25 deg).
 HUD = dict(base=(500.5, 0.0, 78.2), fwd=(0.9510565, 0.0, 0.309017), up=(-0.309017, 0.0, 0.9510565), w=24.0, h0=0.9, h1=28.0, r=1.6,
            poly=[(-10.5, 4.42), (10.5, 4.42), (12.0, 11.42), (12.0, 21.0), (6.4, 28.0), (-6.4, 28.0), (-12.0, 21.0), (-12.0, 11.42)])
-HUD_BODY = dict(x0=499.0, x1=530.0, w=21.0, z0=69.5, z1=79.0)   # HUD housing on the glare shield
+HUD_BODY = dict(x0=500.0, x1=528.0, w=17.0, z0=69.5, z1=76.8)   # HUD housing on the glare shield
 
 # ---------------------------------------------------------------------------------------------------------------------
 # front panel elements (centre panel u, v)
@@ -92,7 +92,7 @@ COL_HALF = 11.5            # centre instrument column half width
 COL_V0 = 14.0              # column bottom
 WELL_DEPTH = 13.0          # leg wells: lower panel either side of the column is set this far forward
 WELL_V1 = 41.0             # leg well top (under the MFDs)
-MFD_U, MFD_V, MFD_BEZEL, MFD_SCREEN = 23.5, 50.5, 16.6, 11.6
+MFD_U, MFD_V, MFD_BEZEL, MFD_SCREEN = 23.5, 53.0, 16.6, 11.6     # photo 001: MFD centres level with the ICP foot
 MFD_DEPTH = 2.2     # 4 in class display, bezel with 5 OSBs a side
 ICP = dict(u=0.0, v=61.4, w=15.0, h=8.8, depth=3.2)               # integrated control panel (keypad), under the HUD
 DED = dict(u=0.0, v=54.8, w=11.0, h=3.6, bw=13.6, bh=5.2)         # data entry display (green text window)
@@ -112,8 +112,8 @@ LEFT_LOW = {"FUEL": (-21.5, 34.5, 6.6, "fuel"), "CLOCK": (-27.5, 26.0, 5.2, "clo
 RIGHT_LOW = {"CMPS": (19.0, 35.5, 5.0, "compass"), "OXY": (27.0, 35.5, 5.0, "oxy"), "EPU": (27.0, 27.0, 4.4, "epu")}
 WING_GAUGES = {"NOZ": (4.0, 52.2, 3.9, "noz"), "RPM": (4.0, 48.1, 4.1, "rpm"), "FTIT": (4.0, 44.0, 3.9, "ftit")}
 RWR = dict(w=4.1, v=50.0, size=6.4)                  # left wing: threat warning azimuth indicator (square scope)
-EYEBROW_L = dict(u0=-31.5, u1=-15.6, v0=59.0, v1=62.6)
-EYEBROW_R = dict(u0=15.6, u1=31.5, v0=59.0, v1=62.6)
+EYEBROW_L = dict(u0=-29.0, u1=-13.0, v0=61.9, v1=65.0)
+EYEBROW_R = dict(u0=13.0, u1=29.0, v0=61.9, v1=65.0)
 # sim lights: name -> (where, u/w, v, w, h, colour, legend)
 # sim lights: name -> (plate, a, b, w, h, colour, legend) in plate cm. MC / WARN take the first / last eyebrow lamp cells,
 # the others sit on the left auxiliary console (front of the left console) next to the gear handle
@@ -248,7 +248,7 @@ def panel_plates():
     # MFD surrounds (plates behind the bezels, sides of the column up to the eyebrows)
     for s in (-1, 1):
         u0, u1 = (-WING_U, -COL_HALF - 0.2) if s < 0 else (COL_HALF + 0.2, WING_U)
-        pp("MFDS_%s" % ("L" if s < 0 else "R"), u0, WELL_V1, u1, 58.8, [], ppc=14)
+        pp("MFDS_%s" % ("L" if s < 0 else "R"), u0, WELL_V1, u1, 61.7, [], ppc=14)
     pp("EB_L", EYEBROW_L["u0"], EYEBROW_L["v0"], EYEBROW_L["u1"], EYEBROW_L["v1"],
        [("lamp", 1.3 + 2.6 * i, 1.8, 2.3, 2.6, c, t) for i, (c, t) in enumerate((("amber", ""), ("amber", "TF\nFAIL"), ("amber", "ENG\nFIRE"), ("amber", "HYD"), ("red", "OXY\nLOW"), ("amber", "ENGINE")))],
        ppc=40)

@@ -145,7 +145,7 @@ def master(tx):
     # edge wear: saturate((edge * EdgeWear + (grunge - 0.5) * 0.7 - 0.55) * 6)
     wear = SAT(m, MUL(m, SUB(m, ADD(m, MUL(m, edG, SP(m, "EdgeWear", 0.6, -2300, 1000), -2150, 950),
                                      MUL(m, SUB(m, g, C(m, 0.5, -2300, 1100), -2150, 1050), C(m, 0.7, -2150, 1120), -2000, 1050), -1900, 1000),
-                                C(m, 0.55, -1900, 1100), -1750, 1000), C(m, 6.0, -1750, 1100), -1600, 1000), -1450, 1000)
+                                C(m, 0.85, -1900, 1100), -1750, 1000), C(m, 6.0, -1750, 1100), -1600, 1000), -1450, 1000)
     # dust: up-facing x wide cavity x grunge x Dust
     nws = X(m, unreal.MaterialExpressionVertexNormalWS, -2400, 1200)
     up = SAT(m, MASK(m, nws, "b", -2250, 1200), -2100, 1200)
@@ -154,12 +154,12 @@ def master(tx):
                        ADD(m, SUB(m, one, cavB, -1800, 1500), C(m, 0.35, -1800, 1560), -1650, 1520), -1550, 1350), -1400, 1350)
     gvar = LERP(m, C(m, 0.88, -2100, -60), C(m, 1.08, -2100, -20), g, -1950, -60)
     b1 = MUL(m, base, gvar, -1800, -200)
-    b2 = LERP(m, b1, VP(m, "WearColor", (0.30, 0.31, 0.31), -1800, -380), wear, -1600, -260)
-    b3 = LERP(m, b2, VP(m, "DustColor", (0.19, 0.17, 0.14), -1600, -420), MUL(m, dust, C(m, 0.45, -1600, -60), -1450, -80), -1400, -260)
+    b2 = LERP(m, b1, VP(m, "WearColor", (0.16, 0.165, 0.17), -1800, -380), wear, -1600, -260)
+    b3 = LERP(m, b2, VP(m, "DustColor", (0.19, 0.17, 0.14), -1600, -420), MUL(m, dust, C(m, 0.12, -1600, -60), -1450, -80), -1400, -260)
     MEL.connect_material_property(MUL(m, b3, ao, -1200, -200), "", unreal.MaterialProperty.MP_BASE_COLOR)
     MEL.connect_material_property(MUL(m, SP(m, "Spec", 0.5, -1300, 400), ao, -1150, 400), "", unreal.MaterialProperty.MP_SPECULAR)
     r = ADD(m, SP(m, "Rough", 0.6, -1600, 600), MUL(m, SUB(m, g, C(m, 0.5, -1750, 760), -1650, 740), SP(m, "RoughVar", 0.25, -1750, 820), -1500, 740), -1350, 650)
-    r = SUB(m, ADD(m, r, MUL(m, dust, C(m, 0.25, -1400, 860), -1300, 840), -1200, 700), MUL(m, wear, C(m, 0.2, -1400, 940), -1300, 920), -1100, 720)
+    r = SUB(m, ADD(m, r, MUL(m, dust, C(m, 0.12, -1400, 860), -1300, 840), -1200, 700), MUL(m, wear, C(m, 0.2, -1400, 940), -1300, 920), -1100, 720)
     rc = X(m, unreal.MaterialExpressionClamp, -950, 700, min_default=0.04, max_default=1.0)
     MEL.connect_material_expressions(r, "", rc, "")
     MEL.connect_material_property(rc, "", unreal.MaterialProperty.MP_ROUGHNESS)
@@ -211,35 +211,35 @@ def lamp_mat():
 # slot -> instance parameters (linear colours, matched to the reference photos)
 DARK = (0.028, 0.030, 0.032)
 SLOTS = {
-    "CK2_Plate": dict(Rough=0.55, EdgeWear=0.8, Dust=0.4, NormalAmt=1.0),
+    "CK2_Plate": dict(Rough=0.55, EdgeWear=0.40, Dust=0.4, NormalAmt=1.0),
     "CK2_Plate0": dict(Tint=DARK, Rough=0.6, NormalAmt=0.0),
     "CK2_PlateSide": dict(Tint=(0.02, 0.021, 0.022), Rough=0.6, NormalAmt=0.0),
-    "CK2_Paint": dict(Tint=(0.055, 0.06, 0.063), Rough=0.55, EdgeWear=0.5, Dust=0.5, NormalAmt=0.0),
-    "CK2_Well": dict(Tint=(0.075, 0.08, 0.083), Rough=0.65, EdgeWear=0.4, Dust=0.8, NormalAmt=0.0),
-    "CK2_Wall": dict(Tint=(0.09, 0.095, 0.093), Rough=0.6, EdgeWear=0.5, Dust=0.6, NormalAmt=0.0),
-    "CK2_Glare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.92, RoughVar=0.1, EdgeWear=0.2, Dust=0.9, NormalAmt=0.0, Spec=0.3),
-    "CK2_Rubber": dict(Tint=(0.012, 0.012, 0.012), Rough=0.8, EdgeWear=0.0, NormalAmt=0.0),
-    "CK2_HUDBody": dict(Tint=(0.02, 0.021, 0.022), Rough=0.65, EdgeWear=0.6, NormalAmt=0.0),
-    "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.4, NormalAmt=0.0),
-    "CK2_Frame": dict(Tint=(0.015, 0.015, 0.016), Rough=0.5, EdgeWear=0.7, WearMetal=0.8, WearColor=(0.4, 0.4, 0.41), NormalAmt=0.0),
-    "CK2_Metal": dict(Tint=(0.45, 0.45, 0.46), Rough=0.35, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.0),
-    "CK2_Chrome": dict(Tint=(0.8, 0.8, 0.8), Rough=0.15, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
-    "CK2_Knob": dict(Tint=(0.015, 0.015, 0.016), Rough=0.4, EdgeWear=0.3, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0),
-    "CK2_White": dict(Tint=(0.8, 0.8, 0.78), Rough=0.5, NormalAmt=0.0, EdgeWear=0.0, Backlight=0.0),
-    "CK2_Bezel": dict(Tint=(0.018, 0.018, 0.019), Rough=0.45, EdgeWear=0.6, NormalAmt=0.0),
-    "CK2_Red": dict(Tint=(0.42, 0.02, 0.015), Rough=0.4, EdgeWear=0.5, NormalAmt=0.0),
-    "CK2_Lens": dict(Rough=0.12, Spec=0.7, EdgeWear=0.0, Dust=0.1, NormalAmt=0.0),
-    "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.0, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
-    "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.0, Dust=0.0, NormalAmt=0.0),
-    "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.0, Dust=0.0, NormalAmt=0.0),
-    "CK2_SeatPaint": dict(Tint=(0.075, 0.085, 0.065), Rough=0.6, EdgeWear=0.8, NormalAmt=0.0),
-    "CK2_Fleece": dict(Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.0, Dust=0.2, NormalAmt=0.0, Spec=0.2),
-    "CK2_Headrest": dict(Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.0, NormalAmt=0.0, Spec=0.3),
-    "CK2_Boot": dict(Tint=(0.17, 0.18, 0.18), Rough=0.7, EdgeWear=0.0, NormalAmt=0.0),
-    "CK2_Grip": dict(Tint=(0.016, 0.016, 0.017), Rough=0.6, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=0.0),
-    "CK2_GearKnob": dict(Tint=(0.7, 0.7, 0.68), Rough=0.35, EdgeWear=0.0, NormalAmt=0.0),
+    "CK2_Paint": dict(Tint=(0.055, 0.06, 0.063), Rough=0.55, EdgeWear=0.25, Dust=0.5, NormalAmt=0.0),
+    "CK2_Well": dict(Tint=(0.075, 0.08, 0.083), Rough=0.65, EdgeWear=0.20, Dust=0.8, NormalAmt=0.0),
+    "CK2_Wall": dict(Tint=(0.035, 0.037, 0.038), Rough=0.6, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0),
+    "CK2_Glare": dict(Tint=(0.012, 0.012, 0.013), Rough=0.92, RoughVar=0.1, EdgeWear=0.10, Dust=0.9, NormalAmt=0.0, Spec=0.3),
+    "CK2_Rubber": dict(Tint=(0.012, 0.012, 0.012), Rough=0.8, EdgeWear=0.00, NormalAmt=0.0),
+    "CK2_HUDBody": dict(Tint=(0.02, 0.021, 0.022), Rough=0.65, EdgeWear=0.30, NormalAmt=0.0),
+    "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
+    "CK2_Frame": dict(Tint=(0.015, 0.015, 0.016), Rough=0.5, EdgeWear=0.35, WearMetal=0.8, WearColor=(0.4, 0.4, 0.41), NormalAmt=0.0),
+    "CK2_Metal": dict(Tint=(0.45, 0.45, 0.46), Rough=0.35, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
+    "CK2_Chrome": dict(Tint=(0.8, 0.8, 0.8), Rough=0.15, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
+    "CK2_Knob": dict(Tint=(0.015, 0.015, 0.016), Rough=0.4, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0),
+    "CK2_White": dict(Tint=(0.8, 0.8, 0.78), Rough=0.5, NormalAmt=0.0, EdgeWear=0.00, Backlight=0.0),
+    "CK2_Bezel": dict(Tint=(0.018, 0.018, 0.019), Rough=0.45, EdgeWear=0.30, NormalAmt=0.0),
+    "CK2_Red": dict(Tint=(0.42, 0.02, 0.015), Rough=0.4, EdgeWear=0.25, NormalAmt=0.0),
+    "CK2_Lens": dict(Rough=0.12, Spec=0.7, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0),
+    "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
+    "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
+    "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
+    "CK2_SeatPaint": dict(Tint=(0.075, 0.085, 0.065), Rough=0.6, EdgeWear=0.40, NormalAmt=0.0),
+    "CK2_Fleece": dict(Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.00, Dust=0.2, NormalAmt=0.0, Spec=0.2),
+    "CK2_Headrest": dict(Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
+    "CK2_Boot": dict(Tint=(0.17, 0.18, 0.18), Rough=0.7, EdgeWear=0.00, NormalAmt=0.0),
+    "CK2_Grip": dict(Tint=(0.016, 0.016, 0.017), Rough=0.6, EdgeWear=0.20, WearColor=(0.05, 0.05, 0.05), NormalAmt=0.0),
+    "CK2_GearKnob": dict(Tint=(0.7, 0.7, 0.68), Rough=0.35, EdgeWear=0.00, NormalAmt=0.0),
     "CK2_Kneeboard": dict(Tint=(0.03, 0.03, 0.032), Rough=0.5, NormalAmt=0.0),
-    "CK2_Strap": dict(Tint=(0.07, 0.08, 0.05), Rough=0.9, NormalAmt=0.0, EdgeWear=0.0),
+    "CK2_Strap": dict(Tint=(0.07, 0.08, 0.05), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
 }
 GLASS = {"CK2_Glass": dict(Tint=(0.02, 0.025, 0.03), Opacity=0.05), "CK2_HUDGlass": dict(Tint=(0.03, 0.06, 0.045), Opacity=0.07, Rough=0.03)}
 LAMPS = {"amber": (1.0, 0.45, 0.04), "red": (1.0, 0.06, 0.03), "green": (0.15, 1.0, 0.25)}

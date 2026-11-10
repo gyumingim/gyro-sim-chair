@@ -224,6 +224,21 @@ def grid(P, mat, fn, nu, nv, uvf=None, flip=False):
     P.add(vs, faces, mat, uvf)
 
 
+def blob(P, mat, c, r, ex=(1, 0, 0), ey=(0, 1, 0), n=(0, 0, 1), e=0.35, nu=20, nv=12):
+    """rounded box (superellipsoid, exponent e: 1 = ellipsoid, small = boxy) radii r = (rx, ry, rz) in the frame"""
+    def sg(x, p):
+        return math.copysign(abs(x) ** p, x)
+
+    def fn(s, t):
+        th = -math.pi / 2 + math.pi * t
+        ph = -math.pi + 2 * math.pi * s
+        x = r[0] * sg(math.cos(th), e) * sg(math.cos(ph), e)
+        y = r[1] * sg(math.cos(th), e) * sg(math.sin(ph), e)
+        z = r[2] * sg(math.sin(th), e)
+        return tuple(c[i] + ex[i] * x + ey[i] * y + n[i] * z for i in range(3))
+    grid(P, mat, fn, nu, nv)
+
+
 def box(P, mat, c, size, ex=(1, 0, 0), ey=(0, 1, 0), n=(0, 0, 1)):
     sx, sy, sz = size
     o = frame_pt(c, ex, ey, n, -sx / 2, -sy / 2, 0.0)
@@ -428,13 +443,17 @@ def build_glareshield():
     poly = H["poly"]
     G = part("ck2_glass")
     G.add([cpt(a, b) for a, b in poly], [list(range(len(poly)))[::-1]], "CK2_HUDGlass")
-    # thin metal edge strip only on the sides and the foot (the real combiner is frameless at the top)
+    # F-16 style combiner frame (photo 001): thin rim all round, two side posts the full glass height standing on the
+    # housing, a foot bar
     rim = [cpt(a, b, 0.05) for a, b in poly]
-    tube(P, "CK2_HUDFrame", [rim[6], rim[7], rim[0], rim[1], rim[2], rim[3]], 0.12, seg=6)
-    for s in (-1, 1):                    # side posts from the housing to the glass foot corners
-        a = s * (H["poly"][2][0] + 0.2)
-        tube(P, "CK2_HUDFrame", [cpt(a * 0.9, -0.5, 1.2), cpt(a, 11.4, 0.15)], 0.28, seg=8)
-    box(P, "CK2_HUDFrame", cpt(0.0, 3.6, 0.5), (2 * H["poly"][1][0] + 1.0, 1.2, 1.0), right, up, fw)
+    tube(P, "CK2_HUDFrame", rim + [rim[0]], 0.14, seg=6)
+    hw = H["poly"][2][0]
+    for s in (-1, 1):
+        a = s * (hw + 0.45)
+        tube(P, "CK2_HUDFrame", [cpt(a * 0.92, -1.2, 1.0), cpt(a, 4.4, 0.3), cpt(a, H["poly"][3][1], 0.2), cpt(s * (H["poly"][4][0] + 1.0), H["poly"][4][1] + 0.4, 0.2)],
+             0.26, seg=8)
+    box(P, "CK2_HUDFrame", cpt(0.0, 3.4, 0.5), (2 * hw + 1.6, 1.4, 1.2), right, up, fw)
+    box(P, "CK2_HUDFrame", cpt(0.0, H["poly"][4][1] + 0.5, 0.2), (2 * H["poly"][4][0] + 1.0, 0.4, 0.35), right, up, fw)
 
 
 def build_consoles():
@@ -547,6 +566,12 @@ def build_seat():
     tube(P, "CK2_Plate", path, 0.65, seg=10, uv_len=5.0)
     for sd in (-1, 1):
         box(P, "CK2_Metal", (456.0, sd * ej["w"] / 2, ej["z"] - 0.5), (3.0, 1.6, 2.0))
+    # lap belt webbing over the cushion (grey), right-side emergency manual chute handle (yellow / black)
+    for sd in (-1, 1):
+        path = [(back(30.0, 2.0) + 2.0, sd * 21.5, 30.5), (430.0, sd * 15.0, 32.4), (446.0, sd * 7.0, 33.2), (452.0, sd * 2.0, 33.0)]
+        tube(P, "CK2_Strap", path, 0.9, seg=6, rscale=[1.0, 1.0, 1.0, 1.0])
+    box(P, "CK2_Metal", (452.5, 0.0, 33.2), (3.6, 4.4, 0.8))
+    tube(P, "CK2_Plate", [(446.0, 25.2, 36.0), (452.0, 25.2, 37.0), (452.0, 25.2, 31.0)], 0.7, seg=8, uv_len=4.0)
 
 
 # ---- moving / live parts -------------------------------------------------------------------------------------------
@@ -590,17 +615,17 @@ def build_throttle():
     pv = L.THR["pivot"]
     # arm from the pivot up through the slot
     tube(P, "CK2_Metal", [pv, (pv[0] + 0.5, pv[1] - 1.4, pv[2] + 6.0)], 0.9, seg=10)
-    # grip body: chunky box shaped to the left hand + thumb shelf
-    c = (pv[0] + 1.0, pv[1] - 2.0, pv[2] + 10.0)
-    fw, rt, up = (1, 0, 0), (0, 1, 0), (0, 0, 1)
-    box(P, "CK2_Grip", c, (10.5, 5.6, 6.5), fw, rt, up)
-    box(P, "CK2_Grip", (c[0] + 0.5, c[1] + 1.2, c[2] + 3.6), (9.0, 4.6, 1.4), fw, rt, up)
-    box(P, "CK2_Grip", (c[0] - 4.2, c[1] - 0.2, c[2] - 2.6), (3.0, 6.0, 3.6), fw, rt, up)
-    # switches on the inboard face and top: speed brake slider, antenna knob, cursor
-    lathe(P, "CK2_Knob", ((c[0] + 3.0, c[1] + 2.85, c[2] + 1.5), (1, 0, 0), (0, 0, 1), (0, 1, 0)), [(0.55, 0.0), (0.55, 0.5), (0.0, 0.6)], seg=10)
-    box(P, "CK2_Knob", (c[0] - 1.0, c[1] + 2.9, c[2] + 2.4), (2.2, 0.5, 0.9))
-    lathe(P, "CK2_Chrome", ((c[0] + 0.5, c[1] + 2.85, c[2] - 0.6), (1, 0, 0), (0, 0, 1), (0, 1, 0)), [(0.4, 0.0), (0.35, 0.45), (0.0, 0.5)], seg=8)
-    box(P, "CK2_Red", (c[0] + 4.5, c[1] - 1.0, c[2] + 3.4), (0.9, 1.2, 0.5))
+    # grip: rounded body shaped to the left hand, top bending inboard, thumb shelf on the inboard face (photos / diagram)
+    c = (pv[0] + 0.8, pv[1] - 1.6, pv[2] + 10.5)
+    blob(P, "CK2_Grip", c, (5.2, 2.9, 4.2), e=0.45)
+    blob(P, "CK2_Grip", (c[0] + 0.6, c[1] + 1.4, c[2] + 3.6), (4.4, 2.4, 1.4), e=0.5)
+    blob(P, "CK2_Grip", (c[0] - 3.4, c[1] - 0.2, c[2] - 3.4), (2.0, 2.9, 2.4), e=0.5)
+    # switches: speed brake slider, antenna elevation knob, cursor, dogfight switch, red IFF button
+    lathe(P, "CK2_Knob", ((c[0] + 3.0, c[1] + 2.9, c[2] + 1.5), (1, 0, 0), (0, 0, 1), (0, 1, 0)), [(0.55, 0.0), (0.55, 0.5), (0.0, 0.6)], seg=10)
+    box(P, "CK2_Knob", (c[0] - 1.0, c[1] + 3.0, c[2] + 2.4), (2.2, 0.5, 0.9))
+    lathe(P, "CK2_Chrome", ((c[0] + 0.5, c[1] + 2.9, c[2] - 0.6), (1, 0, 0), (0, 0, 1), (0, 1, 0)), [(0.4, 0.0), (0.35, 0.45), (0.0, 0.5)], seg=8)
+    box(P, "CK2_Knob", (c[0] + 1.5, c[1] + 0.6, c[2] + 5.1), (1.6, 0.8, 0.6))
+    box(P, "CK2_Red", (c[0] + 4.2, c[1] - 0.8, c[2] + 3.6), (0.9, 1.2, 0.5))
     return pv
 
 
@@ -700,7 +725,7 @@ def tri_count(ob):
 
 
 PREVIEW = dict(CK2_Plate=None, CK2_Plate0=(0.03, 0.032, 0.034, 0.6), CK2_PlateSide=(0.02, 0.021, 0.022, 0.6), CK2_Paint=(0.055, 0.06, 0.063, 0.55),
-               CK2_Well=(0.06, 0.066, 0.07, 0.65), CK2_Wall=(0.085, 0.09, 0.088, 0.6), CK2_Glare=(0.01, 0.01, 0.011, 0.9), CK2_Rubber=(0.012, 0.012, 0.012, 0.8),
+               CK2_Well=(0.06, 0.066, 0.07, 0.65), CK2_Wall=(0.035, 0.037, 0.038, 0.6), CK2_Glare=(0.01, 0.01, 0.011, 0.9), CK2_Rubber=(0.012, 0.012, 0.012, 0.8),
                CK2_HUDBody=(0.02, 0.021, 0.022, 0.6), CK2_HUDFrame=(0.03, 0.03, 0.032, 0.4), CK2_Frame=(0.012, 0.012, 0.013, 0.45),
                CK2_Metal=(0.3, 0.3, 0.31, 0.4), CK2_Chrome=(0.7, 0.7, 0.7, 0.18), CK2_Knob=(0.015, 0.015, 0.016, 0.45), CK2_White=(0.8, 0.8, 0.8, 0.5),
                CK2_Bezel=(0.018, 0.018, 0.019, 0.5), CK2_Red=(0.45, 0.03, 0.02, 0.4), CK2_Lens=None, CK2_Lit=None,
@@ -712,6 +737,7 @@ PREVIEW = dict(CK2_Plate=None, CK2_Plate0=(0.03, 0.032, 0.034, 0.6), CK2_PlateSi
 
 def preview_materials():
     atlas = bpy.data.images.load(os.path.join(TEX, "T_Ck2Atlas.png"), check_existing=True)
+    atlas.alpha_mode = "CHANNEL_PACKED"          # A = backlight mask, not coverage
     nimg = bpy.data.images.load(os.path.join(TEX, "T_Ck2Normal.png"), check_existing=True)
     nimg.colorspace_settings.name = "Non-Color"
     for m in bpy.data.materials:
