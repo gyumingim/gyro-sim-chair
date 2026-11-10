@@ -503,16 +503,14 @@ def build_glareshield():
     # F-16 style combiner frame (photo 001): thin rim all round, two side posts the full glass height standing on the
     # housing, a foot bar
     rim = [cpt(a, b, 0.05) for a, b in poly]
-    tube(P, "CK2_HUDFrame", rim + [rim[0]], 0.3, seg=6)
-    rim2 = [cpt(a * 0.94, 2.0 + (b - 2.0) * 0.92, 1.45) for a, b in poly]
-    tube(P, "CK2_HUDFrame", rim2 + [rim2[0]], 0.22, seg=6)
+    tube(P, "CK2_HUDFrame", rim + [rim[0]], 0.13, seg=6)
     hw = H["poly"][2][0]
-    for s in (-1, 1):
-        a = s * (hw + 0.45)
-        tube(P, "CK2_HUDFrame", [cpt(a * 0.92, -1.2, 1.0), cpt(a, 4.4, 0.3), cpt(a, H["poly"][3][1], 0.2), cpt(s * (H["poly"][4][0] + 1.0), H["poly"][4][1] + 0.4, 0.2)],
-             0.5, seg=8)
+    for s in (-1, 1):                    # short hinge brackets at the glass foot (no full-height posts)
+        a = s * (hw + 0.3)
+        tube(P, "CK2_HUDFrame", [cpt(a * 0.92, -1.2, 1.0), cpt(a, 4.4, 0.3), cpt(a, 9.0, 0.25)], 0.32, seg=8)
     box(P, "CK2_HUDFrame", cpt(0.0, 3.4, 0.5), (2 * hw + 1.6, 1.4, 1.2), right, up, fw)
-    box(P, "CK2_HUDFrame", cpt(0.0, H["poly"][4][1] + 0.5, 0.2), (2 * H["poly"][4][0] + 1.0, 0.4, 0.35), right, up, fw)
+    # solid HUD body block between the glass foot and the housing (camera / optics box)
+    box(P, "CK2_HUDBody", (hb["x0"] + 6.0, 0.0, hb["z1"] + 1.2), (8.0, 2 * hw - 2.0, 2.4))
 
 
 def build_consoles():

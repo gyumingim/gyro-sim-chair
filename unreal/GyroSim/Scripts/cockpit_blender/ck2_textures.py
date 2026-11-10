@@ -278,7 +278,7 @@ def draw_plate(p):
             a, b, w, h = it[1], it[2], it[3], it[4]
             txt = it[5] if len(it) > 5 else ""
             c.rect(a - w / 2 - 0.12, b - h / 2 - 0.12, a + w / 2 + 0.12, b + h / 2 + 0.12, fill=(10, 10, 10), h=112)
-            c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(28, 28, 29))     # key top (the raised key maps here)
+            c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(58, 59, 60) if p["kind"] == "mfd" else (28, 28, 29))   # key top
             if txt:
                 c.text(a, b, txt, min(0.34, h * 0.24), kind="bold", engrave=False)
             elif p["kind"] != "mfd" and li < len(labels):

@@ -212,7 +212,7 @@ def lamp_mat():
 # slot -> instance parameters (linear colours, matched to the reference photos)
 DARK = (0.055, 0.058, 0.06)
 SLOTS = {
-    "CK2_Plate": dict(Rough=0.74, EdgeWear=0.55, Dust=0.5, NormalAmt=1.0, Spec=0.35, EdgeLift=0.03),
+    "CK2_Plate": dict(Rough=0.74, EdgeWear=0.7, Dust=0.5, NormalAmt=1.0, Spec=0.35, EdgeLift=0.03),
     "CK2_Plate0": dict(Tint=DARK, Rough=0.82, NormalAmt=0.0, Spec=0.35),
     "CK2_PlateSide": dict(Tint=(0.02, 0.021, 0.022), Rough=0.82, NormalAmt=0.0, Spec=0.35),
     "CK2_Paint": dict(Tint=(0.07, 0.074, 0.076), Rough=0.84, EdgeWear=0.25, Dust=0.6, NormalAmt=0.0, Spec=0.35, EdgeLift=0.05),
@@ -229,7 +229,7 @@ SLOTS = {
     "CK2_White": dict(Tint=(0.8, 0.8, 0.78), Rough=0.5, NormalAmt=0.0, EdgeWear=0.00, Backlight=0.0),
     "CK2_Bezel": dict(Tint=(0.018, 0.018, 0.019), Rough=0.62, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_Red": dict(Tint=(0.42, 0.02, 0.015), Rough=0.4, EdgeWear=0.25, NormalAmt=0.0),
-    "CK2_Lens": dict(Rough=0.12, Spec=0.7, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0),
+    "CK2_Lens": dict(Rough=0.32, Spec=0.45, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0),
     "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
     "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
     "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
@@ -289,7 +289,7 @@ def main():
     ms, mg, ml = master(tx), glass_mat(), lamp_mat()
     mats = {k: instance("MI_Ck2" + k[3:], ms, v) for k, v in SLOTS.items()}
     mats.update({k: instance("MI_Ck2" + k[3:], mg, v) for k, v in GLASS.items()})
-    mats.update({"CK2_LampOn_" + c: instance("MI_Ck2_LampOn_" + c, ml, dict(Color=rgb)) for c, rgb in LAMPS.items()})
+    mats.update({"CK2_LampOn_" + c: instance("MI_Ck2_LampOn_" + c, ml, dict(Color=rgb, Intensity=2.6)) for c, rgb in LAMPS.items()})
     res = {}
     for name, info in man["parts"].items():
         sm = import_mesh(os.path.join(EXP, info["fbx"]))
