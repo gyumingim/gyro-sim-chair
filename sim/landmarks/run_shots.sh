@@ -12,7 +12,7 @@ mkdir -p /c/GyroSimTiles/shots/landmarks
 while true; do
   if ( set -o noclobber; echo "landmarks_shots $(date +%Y-%m-%dT%H:%M:%S)" > "$LOCK" ) 2>/dev/null; then break; fi
   age=$(( $(date +%s) - $(stat -c %Y "$LOCK") ))
-  alive=$(tasklist //FI "IMAGENAME eq UnrealEditor.exe" 2>/dev/null | grep -c UnrealEditor)
+  alive=$(tasklist 2>/dev/null | grep -c -i "^UnrealEditor")      # UnrealEditor.exe and UnrealEditor-Cmd.exe (commandlets hold the lock too)
   if [ "$age" -gt 1800 ] || [ "$alive" -eq 0 ]; then
     echo "stale lock ($(cat "$LOCK"), ${age}s, UE alive $alive) - taking over"; rm -f "$LOCK"; continue
   fi
