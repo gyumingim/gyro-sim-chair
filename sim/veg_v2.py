@@ -646,8 +646,13 @@ def block_attrs(f):
     try:
         import coast_build as CB
         sd, _k = CB.field_at(lat, lon)
-        basez = basez + (CB.rendered_msl(dem, lat, lon) - h0)
+        rend = CB.rendered_msl(dem, lat, lon)
+        basez = basez + (rend - h0)
         seaside = np.asarray(sd) < 0
+        # within 80 m of the coast the rendered shore tiles are ~2 m meshes = rendered_msl itself (the prep's old 33 x 33 mesh
+        # height left 5,341 trees > 2 m under the 2.8 m sea walls and 44 floating; coast agent check 11-11)
+        nearc = np.abs(np.asarray(sd)) < 80.0
+        basez = np.where(nearc, rend + dem.geoid_n(lat, lon) - V.SINK, basez)
     except Exception as e:                                                  # no coast field -> prep heights as they are
         print("coast delta skipped", repr(e)[:100])
     keep = ~seaside
