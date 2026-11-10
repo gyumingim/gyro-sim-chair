@@ -22,7 +22,7 @@ else {
     float x0 = min(bX - bA.x * 0.5, cX - cA.x * 0.5), x1 = max(bX + bA.x * 0.5, cX + cA.x * 0.5);
     sz = float3(x1 - x0 + 50, max(bA.y, cA.y) + 40, 1); ce = float3((x0 + x1) * 0.5, 0, 4);
 }
-float3 nl = LP * sz + ce;
+float3 nl = (LP * 0.01) * sz + ce;                  // SM_LifeVehicle boxes are 1 m (+-50 cm): LP / 100 = unit box
 // paint: Korean car colours (white / grey / black dominate), trucks white boxes, city buses blue / green / red
 float3 pc;
 float u = r2;

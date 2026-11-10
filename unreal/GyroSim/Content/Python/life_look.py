@@ -107,9 +107,32 @@ def _fill(c, group, recs, n, rec, scales, log):
         T.append(unreal.Transform(unreal.Vector(recs[b], recs[b + 1], recs[b + 2]),
                                   unreal.Rotator(roll=0.0, pitch=recs[b + 4], yaw=recs[b + 3]), unreal.Vector(s, s, s)))
     c.add_instances(T, False, False)
+    flat = []
     for i in range(n):
         b = i * rec + 5
-        c.set_custom_data(i, list(recs[b:b + 8]), i == n - 1)
+        flat.extend(recs[b:b + 8])
+    how = None
+    if hasattr(c, "set_custom_data"):                              # newer engines: one call per instance
+        for i in range(n):
+            c.set_custom_data(i, flat[i * 8:i * 8 + 8], i == n - 1)
+        how = "set_custom_data"
+    if how is None:                                                # the whole array at once (UPROPERTY PerInstanceSMCustomData)
+        try:
+            c.set_editor_property("per_instance_sm_custom_data", flat)
+            got = c.get_editor_property("per_instance_sm_custom_data")
+            if len(got) == len(flat):
+                c.mark_render_state_dirty() if hasattr(c, "mark_render_state_dirty") else None
+                c.set_custom_data_value(n - 1, 7, flat[-1], True)  # marks the instance data dirty the normal way
+                how = "property"
+        except Exception as e:
+            log("[life] %s: custom data property %r" % (group, e))
+    if how is None:                                                # one float at a time (slow, ~1 us per call)
+        for i in range(n):
+            for k in range(8):
+                c.set_custom_data_value(i, k, flat[i * 8 + k], False)
+        c.set_custom_data_value(n - 1, 7, flat[-1], True)
+        how = "per value"
+    ST.setdefault("how", {})[group] = how
     return n
 
 
@@ -164,7 +187,7 @@ def apply(world, log=unreal.log, georef=None):
     a.set_actor_hidden_in_game(False)
     if ST["h"] is None:
         ST["h"] = unreal.register_slate_post_tick_callback(_tick)
-    log("[life] on: %s in %.1f s (cars %s, ships %s)" % (", ".join("%s %d" % kv for kv in ST["counts"].items()), time.monotonic() - t0, cars, ships))
+    log("[life] on: %s in %.1f s (cars %s, ships %s, custom data %s)" % (", ".join("%s %d" % kv for kv in ST["counts"].items()), time.monotonic() - t0, cars, ships, ST.get("how")))
     return a
 
 
