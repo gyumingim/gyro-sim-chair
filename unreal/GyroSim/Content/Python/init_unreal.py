@@ -128,3 +128,10 @@ if "-gyrosimroadshots" in _cmd:
     import os
     _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "roads_shots.py")
     exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_road_shots"})
+
+# Busan landmark models before-after shots + GPU (developer use, Scripts/landmarks_shots.py): a SECOND editor launched with
+# -GyroSimLandmarkShots -RenderOffscreen works on a temporary copy of the map, stops its own sim client and quits when done.
+if "-gyrosimlandmarkshots" in _cmd:
+    import os
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "landmarks_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_landmark_shots"})

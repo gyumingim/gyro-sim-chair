@@ -1,0 +1,20 @@
+{
+ "note": "camera views for Scripts/landmarks_shots.py (and the comparison page): target lat, lon, target height m MSL, camera bearing from the target deg, horizontal distance m, camera height m MSL; ref = reference photo in C:/GyroSimTiles/landmarks/refs (local only)",
+ "views": [
+  ["lct_beach", 35.1606, 129.1690, 200.0, 262.0, 1300.0, 12.0, "lct/Haeundae_Beach_and_Haeundae_LCT_The_Sharp.jpg"],
+  ["lct_air", 35.1606, 129.1690, 180.0, 185.0, 1300.0, 350.0, "lct/LCT_From_Dongbaek_Island_2020.01.04.jpg"],
+  ["marine_sea", 35.1563, 129.1438, 140.0, 196.0, 1150.0, 25.0, "zenith/Marine_City__Busan.jpg"],
+  ["marine_air", 35.1563, 129.1438, 120.0, 140.0, 1000.0, 300.0, "zenith/Haeundae_and_Marine_City_on_a_Cloudy_Day.jpg"],
+  ["bifc", 35.1461, 129.0664, 140.0, 205.0, 1100.0, 120.0, "bifc/View_of_Busan_International_Finance_Center_from_Jeonpo_Samgeori_bus_stop.jpg"],
+  ["lotte_seomyeon", 35.1568, 129.0555, 80.0, 150.0, 650.0, 180.0, ""],
+  ["busan_tower", 35.1007, 129.0324, 110.0, 160.0, 420.0, 140.0, "busantower/Busan_Tower_and_Yongdusan_Park_20200522_001.jpg"],
+  ["cinema", 35.1710, 129.1272, 25.0, 215.0, 420.0, 140.0, "cinema/Busan_Cinema_Center.jpg"],
+  ["bexco", 35.1690, 129.1359, 25.0, 245.0, 650.0, 200.0, ""],
+  ["station", 35.1162, 129.0426, 15.0, 275.0, 450.0, 110.0, ""],
+  ["sajik_asiad", 35.1922, 129.0600, 20.0, 170.0, 1100.0, 400.0, ""],
+  ["nurimaru", 35.1523, 129.1514, 25.0, 205.0, 330.0, 70.0, "nurimaru/Nurimaru_APEC_House_20200522_001.jpg"],
+  ["gimhae", 35.1722, 128.9478, 10.0, 95.0, 750.0, 150.0, ""],
+  ["ferry", 35.1180, 129.0480, 15.0, 120.0, 850.0, 150.0, ""],
+  ["haeundae_overview", 35.1590, 129.1550, 100.0, 200.0, 3200.0, 800.0, "zenith/Skyline_of_Busan_Including_Gwangan_Bridge__Marine_City_and_LCT_Skyscrapers.jpg"]
+ ]
+}

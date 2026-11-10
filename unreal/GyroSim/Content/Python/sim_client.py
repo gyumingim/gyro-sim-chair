@@ -636,6 +636,11 @@ class SimClient:
                 self.vw_roads = roads_look.apply(self.world, lambda m: _log(m), self.georef) is not None
             except Exception as e:
                 _log("roads", repr(e))
+            try:                                  # Busan landmark models (landmarks_look.py, sim/landmarks/landmarks_build.py)
+                import landmarks_look
+                landmarks_look.apply(self.world, lambda m: _log(m), self.georef)
+            except Exception as e:
+                _log("landmarks", repr(e))
 
     def _local_buildings(self):
         """3D buildings from the proxy (/buildings/tileset.json, built offline from 국토교통부 GIS건물통합정보): the
