@@ -228,8 +228,8 @@ def set_mode(on):
     if not on:
         for a, mesh, loc, rot, sc, mats in _st["saved"]:
             try:
-                if mesh is not None and _smc(a):
-                    _smc(a).set_static_mesh(mesh)
+                if mesh is not None and _smc(a) and _smc(a).static_mesh != mesh:      # only parts whose mesh we swapped
+                    _smc(a).set_static_mesh(mesh)                                     # (screens keep sim_client's live MIDs)
                     for i, m in enumerate(mats):
                         _smc(a).set_material(i, m)
                 a.set_actor_relative_location(loc, False, True)
