@@ -366,7 +366,7 @@ def airframe2_master(tx2):
               _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionSubtract, _const(m, 1.0, -1000, 1160), down, -900, 1160),
                   _sp(m, "SkyFill", 0.4, -900, 1240), -750, 1180), -650, 1100)
     em = _op(m, unreal.MaterialExpressionMultiply, _op(m, unreal.MaterialExpressionMultiply, col, amt, -500, 1000),
-             _op(m, unreal.MaterialExpressionMultiply, orm, _vp(m, "BounceColor", (0.85, 0.85, 0.8), -900, 1300), -700, 1300, "R", ""), -400, 1100)
+             _op(m, unreal.MaterialExpressionMultiply, orm, _vp(m, "BounceColor", (0.78, 0.82, 0.88), -900, 1300), -700, 1300, "R", ""), -400, 1100)
     MEL.connect_material_property(em, "", MP.MP_EMISSIVE_COLOR)
     clear_coat(m, 0.2, 0.3)
     MEL.recompile_material(m)
@@ -416,7 +416,7 @@ def v2(tx, m1):
     mis = dict(paint=instance("MI_AF2_Paint", m2, folder, textures=dict(Base=tx2["tex_af2_base"], ORM=tx2["tex_af2_orm"], Nrm=tx2["tex_af2_n"])),
                # nozzle: heat-darkened metal (blued / bronze toward the exit), petals from the FG nozzle model
                nozzle_ge=instance("MI_AF2_NozzleGE", m1, folder, scalars=dict(Detail=0.0, Metal=0.9, Rough=0.42, ClearCoat=0.0, SkyFill=0.25),
-                                  colors=dict(Tint=(0.42, 0.37, 0.33)), textures=dict(Paint=tx["tex_nozzle_GE"])),
+                                  colors=dict(Tint=(0.62, 0.56, 0.5)), textures=dict(Paint=tx["tex_nozzle_GE"])),
                nozzle_ring=instance("MI_AF2_NozzleRing", m1, folder, scalars=dict(Detail=0.0, Metal=0.85, Rough=0.5, ClearCoat=0.0),
                                     colors=dict(Tint=(0.16, 0.15, 0.15)), textures=dict(Paint=tx["tex_nozzle_ring"])))
     _, sm2 = meshes("_v2")

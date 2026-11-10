@@ -118,7 +118,7 @@ def _has(o, k):
 
 def plan_ext():
     """GYROSIM_CKSHOT_SET=ext: outside views only (airframe rounds), before = GYROSIM_CKSHOT_BEFORE mode (v1), after = v2."""
-    q = [("place", "gwangan", SPOTS[1][1])]
+    q = [("place", "gwangan", SPOTS[1][1]), ("state", "after", "orbit", EXT[0][1], DEFLECT), ("wait", 20.0)]   # tiles behind the first view
     for vn, orb in EXT + [("extrear", [150.0, 14.0, 1500.0])]:
         for st in ("before", "after"):
             q.append(("state", st, "orbit", orb, DEFLECT)); q.append(("shot", "gwangan_%s_%s" % (vn, st)))
@@ -215,6 +215,8 @@ def tick(dt):
                     c.orbit[view] = list(orb)
                     c.orbit_world_yaw = None
                 ST.update(phase="settle", t=now)
+            elif k == "wait":
+                ST.update(phase="waitstep", t=now, wait=step[1])
             elif k in ("diag", "undiag"):
                 on, dg = k == "diag", step[1]
                 ext = c.af.ext
@@ -256,6 +258,8 @@ def tick(dt):
             if (p1 is not None and p1 >= 99.9 and (p2 is None or p2 >= 99.9) and el > 10.0) or el > 90.0:
                 ST["load"] = dict(load_s=round(el, 1), terrain=p1, buildings=p2)
                 ST.update(phase="next", t=now)
+        elif ph == "waitstep" and el > ST["wait"]:
+            ST.update(phase="next", t=now)
         elif ph == "wait_file":                       # a hitch (shader compile) must not let the next view into this shot
             if os.path.exists(ST["file"]) or el > 30.0:
                 if el > 30.0:

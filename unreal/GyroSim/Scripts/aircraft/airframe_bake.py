@@ -23,9 +23,9 @@ from scipy.ndimage import binary_dilation, distance_transform_edt, gaussian_filt
 DIR = Path(__file__).resolve().parents[2] / "ThirdParty" / "f16_airframe"
 R = 1024                      # raster / AO resolution
 OUT = 4096
-LIGHT = (np.array([166, 169, 174]) / 255.0) ** 2.2     # sides (FS 36270-like medium-light grey)
-UNDER = (np.array([178, 181, 185]) / 255.0) ** 2.2     # underside (lighter)
-DARK = (np.array([112, 117, 124]) / 255.0) ** 2.2     # upper surfaces (FS 36118-like)
+LIGHT = (np.array([146, 152, 160]) / 255.0) ** 2.2     # sides (FS 36270-like medium-light grey)
+UNDER = (np.array([162, 167, 174]) / 255.0) ** 2.2     # underside (lighter)
+DARK = (np.array([100, 107, 117]) / 255.0) ** 2.2     # upper surfaces (FS 36118-like)
 GUN = np.array([215.0, -78.0, 48.0])           # gun port, approx. (left LERX root; not from the FG model)
 rng = np.random.default_rng(16)
 
@@ -165,7 +165,7 @@ def main():
     ao = ao_bake(pos, nrm, cov, occ, lo, vs)
     log("ao mean", ao[cov].mean().round(3))
     posf, nrmf = fill(pos, cov), fill(nrm, cov)
-    aof = gaussian_filter(fill(ao, cov), 0.8)
+    aof = np.clip(gaussian_filter(fill(ao, cov), 2.0), 0.35, 1.0)     # (blind review: AO holes read as dirty smears)
     # ---- tone at 1K: the FG skin's own two-tone areas (dark islands) give the dark upper regions; underside lighter
     src = np.asarray(Image.open(DIR / "tex_f16.png").convert("RGB"), np.float32) / 255.0
     lum = src @ np.array([0.299, 0.587, 0.114], np.float32)
@@ -176,6 +176,7 @@ def main():
     dark = np.clip(gaussian_filter(dark, 6.0) + warp * 0.6, 0, 1)
     dark = dark * dark * (3 - 2 * dark)                                 # soft boundary
     under = np.clip((-Nn[:, 2] - 0.2) / 0.5, 0, 1).reshape(R, R)
+    dark = dark * np.clip((Nn[:, 2].reshape(R, R) + 0.15) / 0.3, 0, 1)     # two-tone dark only on upper surfaces (mirrored UVs)
     col = LIGHT[None, None] * (1 - under[..., None]) + UNDER[None, None] * under[..., None]
     col = col * (1 - dark[..., None]) + DARK[None, None] * dark[..., None]
     # streaks along the airflow (long in x, narrow in y / z), soot behind the nozzle area and the gun port
@@ -214,8 +215,8 @@ def main():
     pm4 = np.clip(up(gaussian_filter(pm.astype(np.float32), 1.0), order=1), 0, 1)[..., None]
     orig = np.asarray(Image.open(DIR / "tex_f16_paint.png").convert("RGB"), np.float32) / 255.0
     orig4 = np.clip(up(orig ** 2.2, order=1), 0, 1)
-    paint = col4 * (1 - 0.45 * ln[..., None]) * (1 - 0.12 * rivet[..., None])
-    base = (paint * pm4 + orig4 * (1 - pm4)) * (0.55 + 0.45 * ao4[..., None])
+    paint = col4 * (1 - 0.28 * ln[..., None]) * (1 - 0.08 * rivet[..., None])
+    base = (paint * pm4 + orig4 * (1 - pm4)) * (0.75 + 0.25 * ao4[..., None])
     ln = ln * pm4[..., 0]; rivet = rivet * pm4[..., 0]
     Image.fromarray(np.clip(base ** (1 / 2.2) * 255 + 0.5, 0, 255).astype(np.uint8)).save(DIR / "tex_af2_base.png")
     # normal: lines recessed, rivets domed
