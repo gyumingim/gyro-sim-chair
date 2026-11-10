@@ -109,11 +109,12 @@ GROUND = dict(
     SeaArt=0.0, SeaMacroM=420.0, SeaMacroAmp=0.5,
     # trees v2 (11-10, ground_look.hlsl): crown-sized pattern on dark-green photo forest (beyond the 3D trees);
     # GYROSIM_TREES_CANOPY=0 (or GYROSIM_TREES_V2=0) sets CanopyAmp 0 at Play
-    CanopyAmp=1.0, CanopyM=5.5, CanopyDark=0.45, CanopyBump=0.9,
-    CanopyUnder=0.25, CanopyDesat=0.3, CanopyFarM=24.0, CanopyFarAmp=0.18,     # round 2: ground under the forest, far stand patches
+    CanopyAmp=1.0, CanopyM=5.5, CanopyDark=0.55, CanopyBump=0.9,
+    CanopyUnder=0.4, CanopyDesat=0.4, CanopyFarM=24.0, CanopyFarAmp=0.3,       # round 2/3: ground under the forest, far stand patches
     RockGrey=0.62,                     # round 2: bright colourless photo rock -> weathered warm grey (x lum)
 )
 GROUND_SHARP = os.environ.get("GYROSIM_GROUND_SHARP", "1") != "0"
+CANOPY_TUNE = dict(CanopyUnder=0.4, CanopyDesat=0.4, CanopyFarAmp=0.3, CanopyDark=0.55)
 # Sea pass 11-10 (GYROSIM_SEA_LOOK=0 = the 11-09 values above, MI_GyroGround_Sea0). Measured on the landmark shots
 # (same view, Play look): Marine City from the sea, near sea sRGB ~(102, 127, 144) vs the photo ~(40, 89, 141) - the
 # blue matches, red / green are too high = too much grey horizon sky in the reflection, too little blue body.
@@ -289,6 +290,8 @@ def apply_ground(tileset, on=None):
             log("coast look", repr(e))
     if m is not None and os.environ.get("GYROSIM_TREES_CANOPY", os.environ.get("GYROSIM_TREES_V2", "1")) == "0":
         off["CanopyAmp"] = 0.0                   # trees v2 ground canopy pattern off (A/B)
+    elif m is not None:                          # round 3 tuning (11-11 can1 sweep: hides the 3D tree-line edge best) - applied at
+        off.update(CANOPY_TUNE)                  # Play so it works on the 23:32 bake too (same values as GROUND for the next bake)
     if off:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's
         try:                                     # parameter values onto every tile's material)
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
