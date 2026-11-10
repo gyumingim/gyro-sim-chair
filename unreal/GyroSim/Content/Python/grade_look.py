@@ -24,13 +24,16 @@ LEGACY = dict(color_saturation=(1.0, 1.0, 1.0, 1.06), color_contrast=(1.0, 1.0, 
 # whites dull (p95 75 vs 85), low contrast (city sigma L* 16 vs 21), blue cast on the ground (city b* -3 .. -5 vs 0,
 # grey-world R/G 0.76 vs 0.84), grey sky (C* 6 vs 12). Building chroma was already right (C* 10 vs 9.5).
 GRADE = dict(
-    white_temp=7500.0,                     # warmer white balance (engine 6500): removes the blue cast on land
-    auto_exposure_bias=0.45,               # map 0.3: mid-tones / sky up a little (+0.15 EV)
-    film_slope=1.0, film_toe=0.65,         # filmic curve (engine 0.88 / 0.55): steeper S, deeper blacks
-    color_contrast=(1.0, 1.0, 1.0, 1.3),   # was 1.08
-    color_saturation=(1.0, 1.0, 1.0, 0.88),  # the steeper curve adds chroma; this keeps buildings / trees at the photos' C*
-    # warm white balance turns the sky grey: bluer sky luminance (realism v2 0.80 / 0.86 / 1.0), sky pixels only
-    **{"sky.sky_luminance_factor": (0.55, 0.80, 1.20)},
+    # warmer land, sky kept blue: a little global warming (engine 6500 K) + warm gain on shadows / mid-tones only
+    # (land), highlights (sky, clouds) untouched. 7500 K globally fixed the land but greyed the sky (sweep 11-10).
+    white_temp=6900.0,
+    color_gain_shadows=(1.05, 1.0, 0.92, 1.0), color_gain_midtones=(1.05, 1.0, 0.92, 1.0),
+    auto_exposure_bias=0.35,               # map 0.3 (+0.05 EV; the bluer sky factor below also brightens the sky light)
+    film_slope=1.0, film_toe=0.6,          # filmic curve (engine 0.88 / 0.55): steeper S, deeper blacks (0.65 crushed low views)
+    color_contrast=(1.0, 1.0, 1.0, 1.2),   # was 1.08 (1.3 crushed shadows between buildings to L* 1-4 in low views)
+    color_saturation=(1.0, 1.0, 1.0, 0.88),  # the steeper curve adds chroma; this keeps buildings / trees near the photos' C*
+    # bluer sky luminance (realism v2 0.80 / 0.86 / 1.0), sky pixels (and the sky light it captures)
+    **{"sky.sky_luminance_factor": (0.42, 0.72, 1.35)},
 )
 # per preset additions (VR: same colour; nothing preset-specific yet)
 PRESET = {"monitor": {}, "vr": {}}
