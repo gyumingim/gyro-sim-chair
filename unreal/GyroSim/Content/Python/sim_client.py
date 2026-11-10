@@ -512,13 +512,13 @@ class SimClient:
         self.preset = None
         _log("game world", world.get_name(), "aircraft", bool(self.aircraft), "camera", bool(self.camera),
              "pivots", sorted(self.pivots), "screens", sorted(self.screens), "panel", bool(self.panel_mid), "keys", self.keys_tex, "cesium", self.cesium_mode)
+        self.af.bind(world, self.aircraft)
+        self.fx.hidden_eye = None
         self._set_view_target()
 
     @staticmethod
     def read_ground_cfg():
         """(token, mode) from Config/cesium_token.txt (not in git). Lines: '#' comment, a mode keyword
-        self.af.bind(world, self.aircraft)
-        self.fx.hidden_eye = None
         grid | photo | terrain | photoreal, anything else = Cesium ion access token.
         No file / no token -> 'grid' (local grid ground, nothing streamed). Token -> 'terrain' unless a keyword says
         otherwise. 'photo' = Sentinel-2 satellite photo on flat ground (no token needed, streamed)."""
@@ -2038,15 +2038,15 @@ class SimClient:
                 self._apt_sync()
                 self._place(dt, now)
                 self._controls(dt)
+                self.af.update(self.s, dt)                          # control surfaces / lights (airframe_live)
+                self.fx.eye_view(self.world, self.aircraft, self.view == "eye")
+            self.fx.sound(self.world, self.s, dt)
+            self.fx.canopy(self.world, now)
             self._trace(now)
             self._fog_follow(now)
             self._vworld_poll(now)
             self._minimap(now)
             self._spot_screen(now)
-                self.af.update(self.s, dt)                          # control surfaces / lights (airframe_live)
-                self.fx.eye_view(self.world, self.aircraft, self.view == "eye")
-            self.fx.sound(self.world, self.s, dt)
-            self.fx.canopy(self.world, now)
             self._overlay(now)
             self._set_view_target()
             self.frames += 1
