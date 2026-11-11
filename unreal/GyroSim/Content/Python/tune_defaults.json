@@ -2,5 +2,6 @@
  "_note": "live look defaults (tune_look.py); the slider page's 저장 rewrites this file. Gd* = grounded-day material values (docs/grounded-day-busan.md)",
  "sun_az": 215.0, "sun_el": 42.0, "sun_mult": 1.0, "sky_mult": 1.0, "le_shadow": 0.85, "le_highlight": 0.85,
  "GdBase": 0.5, "GdBaseH": 8.0, "GdGrad": 0.6, "GdGradH": 50.0, "GdFloor": 0.7, "GdAO": 1.0, "GdTint": 1.0, "GdSat": 1.0,
- "GdGroundAO": 1.0, "GdCanyonAlb": 0.0, "GdLeanDark": 0.0
+ "GdGroundAO": 1.0, "GdCanyonAlb": 0.0, "GdLeanDark": 0.0,
+ "PhGain": 0.9, "PhGamma": 1.0, "PhSat": 1.0, "PhKnee": 1.0
 }

@@ -207,6 +207,19 @@ SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0, CoastFaceOn=1.0, SeaWallColor=(0.17
 # GD_GROUND = MI_GyroGround. GYROSIM_GROUNDED_DAY=0 at Play -> GdOn 0 (the look before).
 GD_GROUND_DEF = dict(GdOn=0.0, GdAO=1.0, GdCanyonAlb=0.0, GdLeanDark=0.0)
 GD_GROUND = dict(GD_GROUND_DEF, GdOn=1.0)
+# Ground photo v2 (11-11, docs/ground-photo-busan.md, ground_look.hlsl 'ground photo v2'): the V-World ortho photo is graded
+# like a bright-midday survey print (bright concrete / roofs near white, strong colour) and read too bright against the
+# scene light. Render-time only (the photo is not modified or stored): luminance gain, gamma (pivot 1: mids darker, white
+# stays), saturation, and a soft highlight shoulder above PhKnee (linear albedo; 1 = off). Land photo term only - sea,
+# sea walls, rock faces untouched. PHOTO_DEF = identity (material defaults, MI_GyroGround_Sea0); PHOTO_V2 = MI_GyroGround.
+# GYROSIM_GROUND_PHOTO_V2=0 at Play -> PHOTO_DEF (the look before, also over the slider values).
+PHOTO_DEF = dict(PhGain=1.0, PhGamma=1.0, PhSat=1.0, PhKnee=1.0)
+# Default (11-11 sweep, 3 views x 7 variants, one render each, docs/ground-photo-busan.md): gain 0.9 moves the photo ground
+# L*50 / L*90 toward the median of 60 real day photos while ground - building L* stays inside their IQR in 2 of 3 views;
+# 0.85 / 0.75 push ground - building below it. Gamma / saturation / knee: no measured need (photo C* in range, no clipped
+# ground), left at 1 - sliders only.
+PHOTO_V2 = dict(PHOTO_DEF, PhGain=0.9)
+PHOTO_V2_ON = os.environ.get("GYROSIM_GROUND_PHOTO_V2", "1") != "0"
 
 
 def _set(obj, k, v, tag):
@@ -352,6 +365,8 @@ def apply_ground(tileset, on=None):
             log("coast look", repr(e))
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
         off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
+    if m is not None and not PHOTO_V2_ON:
+        off.update(PHOTO_DEF)                    # ground photo v2 (11-11): photo brightness / gamma / saturation grade off (A/B)
     if m is not None and os.environ.get("GYROSIM_TREES_CANOPY", os.environ.get("GYROSIM_TREES_V2", "1")) == "0":
         off["CanopyAmp"] = 0.0                   # trees v2 ground canopy pattern off (A/B)
     if off:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's

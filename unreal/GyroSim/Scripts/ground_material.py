@@ -38,7 +38,8 @@ AO_TEX = PATH + "/T_GyroBldgAO"
 
 
 def _defaults():
-    return {**atmos_look.GROUND, **getattr(atmos_look, "SEA_COAST_DEF", {}), **getattr(atmos_look, "GD_GROUND_DEF", {})}
+    return {**atmos_look.GROUND, **getattr(atmos_look, "SEA_COAST_DEF", {}), **getattr(atmos_look, "GD_GROUND_DEF", {}),
+            **getattr(atmos_look, "PHOTO_DEF", {})}
 
 
 def _scalar_names():
@@ -171,7 +172,7 @@ def build():
     srcs.append(("AOin", brk, "AmbientOcclusion"))
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # live tuning (tune_look.py): MPC_GyroTune TuneA / TuneC
     import tune_mpc
-    srcs += [(n, e, "") for e, n in tune_mpc.inputs(m, X, 150, 1500) if n in ("TuneA", "TuneC")]
+    srcs += [(n, e, "") for e, n in tune_mpc.inputs(m, X, 150, 1500, names=("TuneA", "TuneC", "TuneD"))]
     for i, n in enumerate(("CoastU", "CoastV", "CoastU2", "CoastV2")):
         cp = X(unreal.MaterialExpressionCollectionParameter, 150, 800 + 120 * i)
         cp.set_editor_property("collection", mpc)
@@ -232,7 +233,8 @@ def build():
     MEL.set_material_instance_parent(mi, m)
     atmos_look.write_ground_params(mi, {**atmos_look.GROUND, **atmos_look.SEA_NEW, **atmos_look.SEA_ART,
                                         **(getattr(atmos_look, "SEA_COAST", {}) if ctex else {}),
-                                        **(getattr(atmos_look, "GD_GROUND", {}) if (ctex and aotex) else {})})
+                                        **(getattr(atmos_look, "GD_GROUND", {}) if (ctex and aotex) else {}),
+                                        **getattr(atmos_look, "PHOTO_V2", {})})
     EAL.save_asset(MI, only_if_is_dirty=False)
     # the sea before the 11-10 pass (GYROSIM_SEA_LOOK=0): the 11-09 values, waves without the grazing fix
     if EAL.does_asset_exist(atmos_look.GROUND_MI_SEA0):

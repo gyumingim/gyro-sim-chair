@@ -67,6 +67,24 @@ float3 g = lerp(lum.xxx, C, LandSat);
 g = LandMid * pow(max(g, 1e-5) / LandMid, LandContrast);
 g *= LandGain * LandTint;
 
+// ---- ground photo v2 (11-11, docs/ground-photo-busan.md; GYROSIM_GROUND_PHOTO_V2=0 -> identity 1/1/1/1): the V-World ortho
+// photo is graded like a bright-midday survey print. Luminance gain x gamma (pivot 1: mids darker, white stays), saturation
+// (luminance kept), and a soft shoulder above PhKnee (linear albedo; 1 = off) for blown concrete / roofs. Land photo term
+// only (the sea body, sea walls and rock faces below use their own colours). Live values: MPC_GyroTune TuneD when TuneOn
+// (tune_look.py) and TuneD was written (x > 0). Render-time only: the photo is not modified or stored.
+float phR = 1.0;
+{
+    float tOnP = step(0.5, TuneA.x) * step(0.01, TuneD.x);
+    float pGain = lerp(PhGain, TuneD.x, tOnP), pGam = lerp(PhGamma, TuneD.y, tOnP);
+    float pSat = lerp(PhSat, TuneD.z, tOnP), pKnee = lerp(PhKnee, TuneD.w, tOnP);
+    float l0 = max(dot(g, float3(0.2126, 0.7152, 0.0722)), 1e-5);
+    float l1 = pGain * pow(l0, pGam);
+    float k = min(pKnee, 0.999), ex = max(l1 - k, 0.0);
+    l1 = min(l1, k) + ex / (1.0 + ex / max(1.0 - k, 1e-3));                   // shoulder: l = 1 above the knee -> k + (1 - k) / 2
+    phR = l1 / l0;
+    g = max(lerp(l0.xxx, g, pSat), 0.0) * phR;
+}
+
 // ---- land micro-texture (11-10, from Scripts/ground_detail.hlsl part B): the 0.24 m photo texel turns to blur below
 // ~300 m AGL. Faint luminance-only value noise (mean 1.0) at DetailL1 / DetailL2 m, finer than the photo texel, weighted by
 // a land class read from the photo colour (vegetation full, grey ground / roads DetailGrey, bright roofs DetailBright),
@@ -116,7 +134,7 @@ if (CanopyAmp > 0.0)
     // weathered warm grey. Grey roads / roofs are darker or under the 3D buildings; sand is yellower (sat) and stays.
     float satc = (mxc - mnc) / max(mxc, 1e-4);
     float rk = smoothstep(0.28, 0.45, lum) * (1.0 - smoothstep(0.08, 0.18, satc)) * (1.0 - m) * CanopyAmp;
-    g = lerp(g, lum * RockGrey * float3(1.0, 0.96, 0.9), rk);
+    g = lerp(g, lum * phR * RockGrey * float3(1.0, 0.96, 0.9), rk);
     g = lerp(g, lerp(dot(g, float3(0.2126, 0.7152, 0.0722)).xxx, g, 1.0 - CanopyDesat) * (1.0 - CanopyUnder), vu);
     {
         float2 fq = P.xy * 0.01 / CanopyFarM, fi = floor(fq), ff = fq - fi, fu = ff * ff * (3.0 - 2.0 * ff);

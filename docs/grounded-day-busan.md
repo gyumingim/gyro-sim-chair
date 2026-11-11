@@ -97,6 +97,7 @@ e2 (7 시점, 높이 기울기 식 바꾼 뒤): f1 / f2 / f3 위−아래 +1.0 /
 | GdAO | 0–1 | 1 | 건물 하늘빛 가림 |
 | GdTint / GdSat | 0.6–1.2 / 0.5–1.3 | 1 / 1 | 건물 벽 밝기·채도 |
 | GdGroundAO / GdCanyonAlb / GdLeanDark | 0–1 / 0–1 / 0–0.8 | 1 / 0 / 0 | 땅 AO, 골목 땅, 고층 발밑 땅 |
+| PhGain / PhGamma / PhSat / PhKnee | 0.5–1.2 / 0.7–1.5 / 0.5–1.3 / 0.2–1 | 0.9 / 1 / 1 / 1 | 땅 사진 밝기·감마·채도·밝은 곳 누르기 (`docs/ground-photo-busan.md`, TuneD) |
 
 ## GPU · 전원
 - 상주 렌더 UE: 대기 (1 fps) 28–34 W, 렌더 중 최대 69 W (nvidia-smi, 1회). 렌더 한 장 4 s, 시점 바뀐 첫 장 10–13 s.

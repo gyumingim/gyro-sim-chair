@@ -32,6 +32,9 @@ RANGES = {
     "GdTint": (0.6, 1.2, 0.02, "건물 벽 밝기 x"), "GdSat": (0.5, 1.3, 0.05, "건물 벽 채도 x"),
     "GdGroundAO": (0.0, 1.0, 0.05, "땅 하늘빛 가림 (AO)"), "GdCanyonAlb": (0.0, 1.0, 0.05, "골목 땅 어둡게"),
     "GdLeanDark": (0.0, 0.8, 0.05, "고층 발밑 땅 어둡게"),
+    # ground photo v2 (11-11, docs/ground-photo-busan.md): V-World photo grade at render time (land only)
+    "PhGain": (0.5, 1.2, 0.01, "땅 사진 밝기 x"), "PhGamma": (0.7, 1.5, 0.02, "땅 사진 감마 (클수록 중간톤 어둡게)"),
+    "PhSat": (0.5, 1.3, 0.02, "땅 사진 채도 x"), "PhKnee": (0.2, 1.0, 0.02, "땅 사진 밝은 곳 누르기 시작 (1 = 끔)"),
 }
 
 

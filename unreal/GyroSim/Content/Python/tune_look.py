@@ -6,6 +6,7 @@ mtime changes (light Slate tick, 0.5 s) and applies the values at once, no resta
   exposure_bias                  PostProcessVolume auto exposure bias (EV, absolute)
   le_shadow / le_highlight       local exposure shadow / highlight contrast scale (1 = no lift / compression)
   GdBase .. GdLeanDark           grounded-day material values through MPC_GyroTune (TuneA..C; TuneOn = 1)
+  PhGain / PhGamma / PhSat / PhKnee   ground photo v2 (TuneD; docs/ground-photo-busan.md). GYROSIM_GROUND_PHOTO_V2=0 forces 1/1/1/1
 Defaults: tune_defaults.json next to this file (the slider page's '저장' writes it; in git, numbers only).
 Values missing from both files leave the look as the other modules set it. GYROSIM_TUNE=0 = off (nothing is read).
 """
@@ -16,7 +17,8 @@ PARAMS = os.environ.get("GYROSIM_TUNE_FILE", r"C:/GyroSimTiles/tune/params.json"
 DEFAULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tune_defaults.json")
 MPC = "/Game/Materials/Ground/MPC_GyroTune"
 GD_KEYS = (("TuneA", ("TuneOn", "GdBase", "GdBaseH", "GdGrad")), ("TuneB", ("GdGradH", "GdFloor", "GdAO", "GdTint")),
-           ("TuneC", ("GdSat", "GdGroundAO", "GdCanyonAlb", "GdLeanDark")))
+           ("TuneC", ("GdSat", "GdGroundAO", "GdCanyonAlb", "GdLeanDark")), ("TuneD", ("PhGain", "PhGamma", "PhSat", "PhKnee")))
+PH_KEYS = ("PhGain", "PhGamma", "PhSat", "PhKnee")
 ST = dict(h=None, world=None, mtime=None, t=0.0, orig={}, applied={})
 log = lambda *a: unreal.log("[tune] " + " ".join(str(x) for x in a))
 
@@ -84,6 +86,8 @@ def apply(world=None, v=None):
                 d = _gd_defaults()
                 d.update({k: float(x) for k, x in v.items() if isinstance(x, (int, float))})
                 d["TuneOn"] = 1.0
+                if os.environ.get("GYROSIM_GROUND_PHOTO_V2", "1") == "0":     # the photo look before 11-11, over the sliders
+                    d.update(PhGain=1.0, PhGamma=1.0, PhSat=1.0, PhKnee=1.0)
                 for vec, ks in GD_KEYS:
                     unreal.MaterialLibrary.set_vector_parameter_value(w, mpc, vec, unreal.LinearColor(*[float(d.get(k, 0.0)) for k in ks]))
         except Exception as e:
@@ -94,11 +98,14 @@ def apply(world=None, v=None):
 
 def _gd_defaults():
     """material defaults (buildings_material.GD, atmos_look.GD_GROUND) so keys the files leave out keep the built look"""
-    d = dict(GdBase=0.5, GdBaseH=8.0, GdGrad=0.6, GdGradH=50.0, GdFloor=0.7, GdAO=1.0, GdTint=1.0, GdSat=1.0)
+    d = dict(GdBase=0.5, GdBaseH=8.0, GdGrad=0.6, GdGradH=50.0, GdFloor=0.7, GdAO=1.0, GdTint=1.0, GdSat=1.0,
+             PhGain=1.0, PhGamma=1.0, PhSat=1.0, PhKnee=1.0)
     try:
         import atmos_look
         g = getattr(atmos_look, "GD_GROUND", {})
         d.update(GdGroundAO=g.get("GdAO", 1.0), GdCanyonAlb=g.get("GdCanyonAlb", 0.0), GdLeanDark=g.get("GdLeanDark", 0.0))
+        d.update({k: float(atmos_look.PHOTO_V2.get(k, 1.0)) for k in PH_KEYS} if getattr(atmos_look, "PHOTO_V2_ON", True)
+                 else {k: 1.0 for k in PH_KEYS})
     except Exception:
         pass
     return d

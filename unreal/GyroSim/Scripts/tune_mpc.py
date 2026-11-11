@@ -3,11 +3,13 @@ Imported by ground_material.py / buildings_material.py (editor only). Three floa
   TuneA = (TuneOn, GdBase, GdBaseH, GdGrad)        TuneOn 0 (default) = the materials use their own scalar parameters
   TuneB = (GdGradH, GdFloor, GdAO, GdTint)
   TuneC = (GdSat, GdGroundAO, GdCanyonAlb, GdLeanDark)
+  TuneD = (PhGain, PhGamma, PhSat, PhKnee)       ground photo v2 (11-11, M_GyroGround only); default 1,1,1,1 = identity
 """
 import unreal
 
 PATH = "/Game/Materials/Ground/MPC_GyroTune"
-VECS = ("TuneA", "TuneB", "TuneC")
+VECS = ("TuneA", "TuneB", "TuneC", "TuneD")
+DEFAULT = {"TuneD": (1.0, 1.0, 1.0, 1.0)}          # identity even before tune_look writes it
 
 
 def ensure():
@@ -24,18 +26,18 @@ def ensure():
             if n not in have:
                 v = unreal.CollectionVectorParameter()
                 v.set_editor_property("parameter_name", n)
-                v.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, 0.0, 0.0))
+                v.set_editor_property("default_value", unreal.LinearColor(*DEFAULT.get(n, (0.0, 0.0, 0.0, 0.0))))
                 vps.append(v)
         mpc.set_editor_property("vector_parameters", vps)
         EAL.save_asset(PATH, only_if_is_dirty=False)
     return mpc
 
 
-def inputs(m, X, x=-1300, y=2900):
-    """CollectionParameter expressions for TuneA..C -> [(expr, input name)]"""
+def inputs(m, X, x=-1300, y=2900, names=("TuneA", "TuneB", "TuneC")):
+    """CollectionParameter expressions for the named vectors (default TuneA..C, as M_GyroBuilding) -> [(expr, input name)]"""
     mpc = ensure()
     out = []
-    for i, n in enumerate(VECS):
+    for i, n in enumerate(names):
         cp = X(unreal.MaterialExpressionCollectionParameter, x, y + 100 * i)
         cp.set_editor_property("collection", mpc)
         cp.set_editor_property("parameter_name", n)
