@@ -19,7 +19,7 @@ TPATH = "/Game/ThirdParty/Trees/Impostor"
 CPATH = "/Game/Trees/Imp"
 MAT_PATH, MAT_NAME = "/Game/Trees", "M_GyroTreeImp"
 HERE = os.path.dirname(os.path.abspath(__file__))
-PARAMS = dict(G=8.0, Far=0.0, Gain=1.0, VarAmt=1.0, AoAmt=0.7, Dither=0.0)
+PARAMS = dict(G=8.0, Far=0.0, Gain=1.0, VarAmt=1.0, AoAmt=0.7, Dither=0.0, AlphaMul=1.0, CrownZ=0.25, CrownR=0.5, SphAmt=0.6)
 EAL = unreal.EditorAssetLibrary
 MEL = unreal.MaterialEditingLibrary
 log = lambda *a: unreal.log_warning("[trees_imp_assets] " + " ".join(str(x) for x in a))
@@ -36,7 +36,8 @@ AOut = lerp(1.0, AOin, AoAmt);
 // stochastic coverage (the temporal upscaler averages it): far mips keep the crown's real coverage instead of thinning
 float2 sp = Parameters.SvPosition.xy + float(View.StateFrameIndexMod8) * float2(5.588238, 5.588238);
 float n = frac(52.9829189 * frac(dot(sp, float2(0.06711056, 0.00583715))));
-Mask = Dither > 0.5 ? saturate(A - n + 0.5) : A;
+float Ab = saturate(A * AlphaMul);                 // coverage boost (sparse needle crowns), trees_imp ST alpha_mul
+Mask = Dither > 0.5 ? saturate(Ab - n + 0.5) : Ab;
 return c;
 """
 
@@ -66,6 +67,9 @@ def tex_import():
             tx.set_editor_property("srgb", s == "A")
             tx.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_BC7)
             tx.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+            # 11-11: no streaming - the streamer cannot see the custom-node sampling (card UVs 0..1 over the whole card) and kept
+            # only the low mips: every tree was a flat one-colour blob in the game. 14 x 2048^2 BC7 ~ 75 MB resident.
+            tx.set_editor_property("never_stream", True)
             try:
                 tx.set_editor_property("max_texture_size", 2048)
             except Exception:
@@ -251,14 +255,17 @@ def build_material():
     MEL.connect_material_expressions(card, "", wpo, "")
     # pixel: impostor
     pix = _custom(m, -1400, 0, open(os.path.join(HERE, "trees_imp.hlsl"), encoding="utf-8").read(), "ImpPix",
-                  ["CamL", "PixL", "TexA", "TexB", "G", "Far"], [("Alpha", F1), ("NrmL", F3), ("AO", F1), ("PdoL", F3)])
-    for n, src in (("CamL", tcam), ("PixL", tpix), ("TexA", texa), ("TexB", texb), ("G", P["G"]), ("Far", P["Far"])):
+                  ["CamL", "PixL", "TexA", "TexB", "G", "Far", "CrownZ", "CrownR", "SphAmt"],
+                  [("Alpha", F1), ("NrmL", F3), ("AO", F1), ("PdoL", F3)])
+    for n, src in (("CamL", tcam), ("PixL", tpix), ("TexA", texa), ("TexB", texb), ("G", P["G"]), ("Far", P["Far"]),
+                   ("CrownZ", P["CrownZ"]), ("CrownR", P["CrownR"]), ("SphAmt", P["SphAmt"])):
         if not MEL.connect_material_expressions(src, "", pix, n):
             log("connect failed", n)
-    col = _custom(m, -900, 200, COLOR_HLSL, "ImpColor", ["C", "Mul", "Gain", "PIR", "VarAmt", "A", "AOin", "AoAmt", "Dither"],
+    col = _custom(m, -900, 200, COLOR_HLSL, "ImpColor", ["C", "Mul", "Gain", "PIR", "VarAmt", "A", "AOin", "AoAmt", "Dither", "AlphaMul"],
                   [("AOut", F1), ("Mask", F1)])
     for n, src, pin in (("C", pix, ""), ("Mul", mul, ""), ("Gain", P["Gain"], ""), ("PIR", pir, ""), ("VarAmt", P["VarAmt"], ""),
-                        ("A", pix, "Alpha"), ("AOin", pix, "AO"), ("AoAmt", P["AoAmt"], ""), ("Dither", P["Dither"], "")):
+                        ("A", pix, "Alpha"), ("AOin", pix, "AO"), ("AoAmt", P["AoAmt"], ""), ("Dither", P["Dither"], ""),
+                        ("AlphaMul", P["AlphaMul"], "")):
         if not MEL.connect_material_expressions(src, pin, col, n):
             log("connect failed", n)
     nw = X(unreal.MaterialExpressionTransform, -900, 500)
@@ -281,7 +288,9 @@ def build_material():
           MEL.connect_material_property(wpo, "", MP.MP_WORLD_POSITION_OFFSET)]
     pdo = [k for k in dir(MP) if "DEPTH" in k.upper()]
     log("depth properties", pdo)
-    if pdo and os.environ.get("GYROSIM_TREES_IMP_PDO", "1") == "1":
+    # 11-11: pixel depth offset OFF by default - the B atlas depth is 1.0 (= a full sphere radius behind) on the empty texels and
+    # on many leaf texels, mips blend it in, so trees on slopes facing the camera were pushed into the hill and vanished
+    if pdo and os.environ.get("GYROSIM_TREES_IMP_PDO", "0") == "1":
         ok.append(MEL.connect_material_property(pl, "", getattr(MP, pdo[0])))
     rough = X(unreal.MaterialExpressionConstant, -700, 800); rough.set_editor_property("r", 0.85)
     spec = X(unreal.MaterialExpressionConstant, -700, 880); spec.set_editor_property("r", 0.2)

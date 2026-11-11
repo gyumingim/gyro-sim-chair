@@ -131,6 +131,21 @@ def set_state(st):
             os.environ["GYROSIM_TREES_IMP_R"] = m.group(1)
         else:
             os.environ.pop("GYROSIM_TREES_IMP_R", None)
+        m = re.search(r"_f(\d+)", st)                      # imp_f0 = one view per tree from 0 m (far material everywhere)
+        if m:
+            os.environ["GYROSIM_TREES_IMP_FAR"] = m.group(1)
+        else:
+            os.environ.pop("GYROSIM_TREES_IMP_FAR", None)
+        m = re.search(r"_s(\d+)", st)                      # imp_s6 = crown-volume normal blend 0.6
+        if m:
+            os.environ["GYROSIM_TREES_IMP_SPH"] = str(int(m.group(1)) / 10.0)
+        else:
+            os.environ.pop("GYROSIM_TREES_IMP_SPH", None)
+        m = re.search(r"_a(\d+)", st)                      # imp_a16 = alpha (coverage) x 1.6
+        if m:
+            os.environ["GYROSIM_TREES_IMP_ALPHA"] = str(int(m.group(1)) / 10.0)
+        else:
+            os.environ.pop("GYROSIM_TREES_IMP_ALPHA", None)
         ST["imp"] = trees_imp.apply(w, log, ST["gr"])
         log("state", st, "imp", ST["imp"] is not None)
         return
@@ -147,6 +162,26 @@ def set_state(st):
     else:
         trees_near.hide(w)
     log("state", st, "blob", blob is not None, "near", near and ST.get("near") is not None)
+
+
+# in-flight frame time (11-11 impostor check): the camera flies a straight line at FLY_SPEED, FLY_S seconds, over 황령산 toward
+# 장산, 650 m MSL (above every hill on the way), after the start view has loaded. States in GYROSIM_TNS_FLY (comma list).
+FLY = [x for x in os.environ.get("GYROSIM_TNS_FLY", "").split(",") if x]
+FLY_SPEED = float(os.environ.get("GYROSIM_TNS_FLY_SPEED", "90"))
+FLY_S = float(os.environ.get("GYROSIM_TNS_FLY_S", "50"))
+FLY_ROUTE = (35.1590, 129.0870, 58.0, 650.0)                 # start lat, lon, bearing deg, m MSL
+
+
+def fly_place(d):
+    lat, lon, brg, alt = FLY_ROUTE
+    if d == 0.0:
+        ST["gr"].set_origin_longitude_latitude_height(unreal.Vector(lon, lat, GEOID))
+    br = math.radians(brg)
+    cam = unreal.Vector(d * math.cos(br) * 100.0, d * math.sin(br) * 100.0, alt * 100.0)
+    ST["cam"].set_actor_location_and_rotation(cam, unreal.Rotator(roll=0, pitch=-12.0, yaw=brg), False, True)
+    if d == 0.0:
+        trees_near.follow_now()
+        trees_imp.follow_now()
 
 
 def place_view(v):
@@ -257,8 +292,10 @@ def tick(dt):
             while ST["vi"] < len(VIEWS) and not want_view(STATES[ST["si"]], VIEWS[ST["vi"]]):
                 ST["vi"] += 1
             if ST["vi"] >= len(VIEWS):
+                if STATES[ST["si"]] in FLY and not ST.get("flown"):
+                    ST.update(phase="fly_setup", t=now, flown=True); return
                 ST["si"] += 1
-                ST.update(phase="state", t=now); return
+                ST.update(phase="state", t=now, flown=False); return
             pc = unreal.GameplayStatics.get_player_controller(ST["w"], 0)
             pc.set_view_target_with_blend(ST["cam"], 0.0)
             place_view(VIEWS[ST["vi"]])
@@ -318,8 +355,39 @@ def tick(dt):
             cmd("r.ScreenPercentage 100")
             ST["vi"] += 1
             ST.update(phase="view", t=now)
+        elif ph == "fly_setup":
+            fly_place(0.0)
+            ST.update(phase="fly_load", t=now, quiet=None)
+        elif ph == "fly_load":
+            st = STATES[ST["si"]]
+            pend = trees_imp.pending() if st.startswith("imp") else 0
+            p = min(progress(ST["ts"]), progress(ST["b"]), progress(ST["blob"]) if (st == "blob" and ST.get("blob")) else 100.0)
+            if (p >= 99.9 and pend == 0 and el > 8.0) or el > 90.0:
+                ST.update(phase="fly", t=now, dts=[], gt=[], fly_d=0.0)
+                trees_imp.ST["stats"]["max_tick_ms"] = 0.0
+        elif ph == "fly":
+            ST["fly_d"] += FLY_SPEED * dt
+            fly_place(ST["fly_d"])
+            ST["dts"].append(dt)
+            ST["gt"].append(trees_imp.ST["stats"].get("fill_ms") or 0.0 if STATES[ST["si"]].startswith("imp") else 0.0)
+            if el > FLY_S:
+                ST.update(phase="fly_done", t=now)
+        elif ph == "fly_done":
+            st = STATES[ST["si"]]
+            d = sorted(x * 1000.0 for x in ST["dts"][10:])
+            g = sorted(ST["gt"][10:])
+            q = lambda a, f: round(a[min(len(a) - 1, int(f * len(a)))], 2) if a else None
+            r = dict(state=st, route=FLY_ROUTE, speed_mps=FLY_SPEED, seconds=FLY_S, frames=len(d), mean_ms=round(sum(d) / len(d), 2) if d else None,
+                     p50=q(d, 0.5), p95=q(d, 0.95), p99=q(d, 0.99), max=round(d[-1], 1) if d else None,
+                     over33=sum(1 for x in d if x > 33.4), over50=sum(1 for x in d if x > 50.0),
+                     imp_py_p99=q(g, 0.99), imp_py_max=round(g[-1], 2) if g else None,
+                     imp_trees=trees_imp.loaded_trees() if st.startswith("imp") else 0, imp_pending=trees_imp.pending() if st.startswith("imp") else 0)
+            ST.setdefault("fly", []).append(r)
+            log("fly", json.dumps(r))
+            ST.update(phase="view", t=now, vi=len(VIEWS))
         elif ph == "end" and el > 2.0:
             res = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(now - ST["t0"]), states=STATES, views=VIEWS, shots=ST["res"], gpu=ST["gpu"],
+                       fly=ST.get("fly", []),
                        near_data=trees_near.DIR, near_meshes=trees_near.MESH_INFO,
                        note="editor PIE without the sim server; lighting = map + monitor preset; GPU = Average GPU frametime of an 8 s fpschart, once per state")
             with open(os.path.join(OUT, "shots.json"), "w", encoding="utf-8") as f:

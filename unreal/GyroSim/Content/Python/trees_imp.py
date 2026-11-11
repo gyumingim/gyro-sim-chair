@@ -1,4 +1,4 @@
-"""Impostor trees (11-11, docs/trees-impostor-busan.md) - DEFAULT since 11-11; GYROSIM_TREES_IMPOSTOR=0 = the old blob tiles.
+"""Impostor trees (11-11, docs/trees-impostor-busan.md) - opt-in (GYROSIM_TREES_IMPOSTOR=1); default = the old blob tiles.
 
 Every Busan tree (the same ~19.6 M trees as the blob tiles: sim/trees_near_build.py --db -> C:/GyroSimTiles/veg/near/trees_near.bin,
 position / height / crown radius / species) within RADIUS of the camera is one camera-facing card (2 triangles) drawn with
@@ -10,7 +10,7 @@ Blocks beyond FAR_M use the one-view material variant (Far=1, cheaper); blocks b
 Filling is spread over frames (BUDGET_MS of Python per frame).
 
 Toggles (env):
-  GYROSIM_TREES_IMPOSTOR=0    off -> the blob tiles (trees_look, the look before)
+  GYROSIM_TREES_IMPOSTOR=1    on (default 0 = the blob tiles; 11-11 game check: not yet as natural as the blobs)
   GYROSIM_TREES_IMP_R         radius m (default 3900 = the blob tiles' reach)
   GYROSIM_TREES_IMP_FAR       distance m from which a block uses one view per tree (default 2000)
   GYROSIM_TREES_IMP_SHADOW_M  shadow-casting distance m (default 1500; 0 = no shadows)
@@ -33,12 +33,19 @@ BLOCK = 5                                                    # data cells per bl
 BUDGET_MS = float(os.environ.get("GYROSIM_TREES_IMP_BUDGET_MS", "4"))
 ST = dict(actor=None, georef=None, origin=None, h=None, t=0.0, loaded={}, free=[], queue=[], work=[], meta=None, f=None,
           blocks={}, kinds=[], mids={}, log=unreal.log, radius=3900.0, far=2000.0, shadow_m=1500.0, slot_comps={}, world=None,
-          card=None, stats={})
+          card=None, stats={}, gen=None, style={}, alpha_mul=1.0, wide=2.4)
 
 
 def enabled():
-    return (os.environ.get("GYROSIM_TREES", "1") != "0" and os.environ.get("GYROSIM_TREES_IMPOSTOR", "0") == "1"   # 11-11: OFF until finished (work stopped mid-integration)
+    return (os.environ.get("GYROSIM_TREES", "1") != "0" and os.environ.get("GYROSIM_TREES_IMPOSTOR", "0") == "1"   # 11-11: OFF until verified
             and os.environ.get("GYROSIM_TREES_NEAR", "0") != "1")
+
+
+def _valid(o):
+    try:
+        return o is not None and unreal.SystemLibrary.is_valid(o)
+    except Exception:                                        # wrapper of an object from an ended Play world
+        return False
 
 
 def _hash(i):
@@ -59,6 +66,13 @@ def _mid(world, mat, k, far):
     mid.set_scalar_parameter_value("Far", 1.0 if far else 0.0)
     # 11-11: plain alpha clip (dither + TSR smeared the cards into streaks in the close check shot)
     mid.set_scalar_parameter_value("Dither", float(os.environ.get("GYROSIM_TREES_IMP_DITHER", "0")))
+    mid.set_scalar_parameter_value("AlphaMul", ST["alpha_mul"])
+    # crown sphere for the volume normal (sphere radii, from the sphere centre = the model's box centre): crown centre at
+    # ~0.65 h above the base, radius = the wider of the model crown and 0.3 h
+    R = kd["R"]
+    mid.set_scalar_parameter_value("CrownZ", 0.15 * kd["h"] / R)
+    mid.set_scalar_parameter_value("CrownR", min(0.8, max(kd["crown_r"], 0.3 * kd["h"]) / R))
+    mid.set_scalar_parameter_value("SphAmt", float(os.environ.get("GYROSIM_TREES_IMP_SPH", "0.6")))
     for kv in os.environ.get("GYROSIM_TREES_IMP_PARAMS", "").split(","):     # test overrides, e.g. AoAmt=0.5,Dither=0
         if "=" in kv:
             n, v = kv.split("=")
@@ -99,6 +113,8 @@ def apply(world, log=unreal.log, georef=None):
     info = json.load(open(INFO, encoding="utf-8"))
     ST["kinds"] = info["kinds"][:KINDS]
     ST["gain"] = float(info.get("gain", 1.0)) * float(os.environ.get("GYROSIM_TREES_IMP_GAIN", "1"))
+    ST["alpha_mul"] = float(os.environ.get("GYROSIM_TREES_IMP_ALPHA", info.get("alpha_mul", 1.0)))
+    ST["wide"] = float(os.environ.get("GYROSIM_TREES_IMP_WIDE", info.get("wide", 2.4)))
     ST["radius"] = float(os.environ.get("GYROSIM_TREES_IMP_R", "3900"))
     ST["far"] = float(os.environ.get("GYROSIM_TREES_IMP_FAR", "2000"))
     ST["shadow_m"] = float(os.environ.get("GYROSIM_TREES_IMP_SHADOW_M", "1500"))
@@ -130,7 +146,7 @@ def apply(world, log=unreal.log, georef=None):
             c.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
             c.set_visibility(True, False)
             n += 1
-    ST.update(world=world, work=[], queue=[], loaded={}, free=list(range(SLOTS)), card=card,
+    ST.update(world=world, work=[], queue=[], loaded={}, free=list(range(SLOTS)), card=card, gen=None, style={},
               stats=dict(blocks=0, trees=0, fill_ms=0.0, max_tick_ms=0.0))
     try:
         a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
@@ -177,35 +193,39 @@ def _pick(sp, h, idx):
     return 6                                                 # shrub: the alder, low and wide (crown data)
 
 
+CHUNK = 500                                                  # trees per planning / add_instances step (keeps each step < ~2 ms)
+
+
 def _plan(b, slot):
-    """read one block -> work items (slot, kind, transforms) for the fill queue. -> number of trees."""
-    meta = ST["meta"]; rec = meta["rec"]; kinds = ST["kinds"]
-    groups = {}
-    tot = 0
+    """generator: read one block cell by cell, CHUNK trees per step -> work items (block, slot, kind, transforms) for the
+    fill queue. One step per call, so a block never costs one long frame (11-11: the whole block in one call = a hitch)."""
+    meta = ST["meta"]; rec = meta["rec"]; kinds = ST["kinds"]; wide = ST["wide"]
     for key in ST["blocks"][b]:
         first, n = meta["cells"][key]
         ST["f"].seek(first * rec * 4)
         R = array.array("f")
         R.frombytes(ST["f"].read(n * rec * 4))
-        for i in range(n):
-            o = i * rec
-            sp = int(R[o + 6]); h = max(R[o + 4], 1.5); r = max(R[o + 5], 0.8)
-            k = _pick(sp, h, first + i)
-            kd = kinds[k]
-            sz = h / kd["h"]
-            sxy = sz * min(1.4, max(0.75, r / (kd["crown_r"] * sz)))
-            yaw = R[o + 3]
-            cy, sy = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
-            ox, oy, oz = kd["center_off"][0] * sxy * 100.0, -kd["center_off"][1] * sxy * 100.0, kd["center_off"][2] * sz * 100.0
-            loc = unreal.Vector(R[o] + ox * cy - oy * sy, R[o + 1] + ox * sy + oy * cy, R[o + 2] + oz)
-            s = kd["R"]
-            groups.setdefault(k, []).append(unreal.Transform(loc, unreal.Rotator(roll=0.0, pitch=0.0, yaw=yaw),
-                                                             unreal.Vector(s * sxy, s * sxy, s * sz)))
-            tot += 1
-    for k, T in groups.items():
-        for a in range(0, len(T), 1000):
-            ST["work"].append((b, slot, k, T[a:a + 1000]))
-    return tot
+        for a in range(0, n, CHUNK):
+            groups = {}
+            for i in range(a, min(n, a + CHUNK)):
+                o = i * rec
+                sp = int(R[o + 6]); h = max(R[o + 4], 1.5); r = max(R[o + 5], 0.8)
+                k = _pick(sp, h, first + i)
+                kd = kinds[k]
+                sz = h / kd["h"]
+                # crown width from the data (r ~ 0.44 h) - the models are slimmer (crown_r ~ 0.2 h); 11-11: the old 1.4 cap
+                # left the canopy at ~40 % of the blob trees' cover (pines all but vanished on the slopes)
+                sxy = sz * min(wide, max(0.75, r / (kd["crown_r"] * sz)))
+                yaw = R[o + 3]
+                cy, sy = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+                ox, oy, oz = kd["center_off"][0] * sxy * 100.0, -kd["center_off"][1] * sxy * 100.0, kd["center_off"][2] * sz * 100.0
+                loc = unreal.Vector(R[o] + ox * cy - oy * sy, R[o + 1] + ox * sy + oy * cy, R[o + 2] + oz)
+                s = kd["R"]
+                groups.setdefault(k, []).append(unreal.Transform(loc, unreal.Rotator(roll=0.0, pitch=0.0, yaw=yaw),
+                                                                 unreal.Vector(s * sxy, s * sxy, s * sz)))
+            for k, T in groups.items():
+                ST["work"].append((b, slot, k, T))
+            yield len(groups)
 
 
 def _clear_slot(slot):
@@ -217,6 +237,9 @@ def _clear_slot(slot):
 def _style_slot(slot, d2):
     far = d2 > (ST["far"] * 100.0) ** 2
     shadow = d2 < (ST["shadow_m"] * 100.0) ** 2
+    if ST["style"].get(slot) == (far, shadow):               # unchanged: no render-state rebuild (was every second)
+        return
+    ST["style"][slot] = (far, shadow)
     for k, c in enumerate(ST["slot_comps"].get(slot, [])):
         if c is None or k >= len(ST["kinds"]):
             continue
@@ -228,7 +251,7 @@ def _tick(dt):
     ST["t"] += dt
     a, g = ST["actor"], ST["georef"]
     try:
-        if a is None or g is None or not unreal.SystemLibrary.is_valid(a) or not unreal.SystemLibrary.is_valid(g):
+        if not _valid(a) or not _valid(g):
             raise RuntimeError("gone")
         t0 = time.perf_counter()
         if ST["t"] >= 1.0:
@@ -243,7 +266,10 @@ def _tick(dt):
                 for b in [x for x in ST["loaded"] if x not in ws]:          # blocks left behind -> slot free
                     slot = ST["loaded"].pop(b)
                     ST["work"] = [w for w in ST["work"] if w[1] != slot]
+                    if ST["gen"] is not None and ST["gen"][1] == slot:
+                        ST["gen"] = None
                     _clear_slot(slot)
+                    ST["style"].pop(slot, None)
                     ST["free"].append(slot)
                 for b, slot in ST["loaded"].items():                       # near / far / shadow per block distance
                     _style_slot(slot, ws[b])
@@ -255,13 +281,17 @@ def _tick(dt):
                 if c is not None:
                     c.add_instances(T, False, False)
                 ST["stats"]["trees"] += len(T)
+            elif ST["gen"] is not None:                                     # next CHUNK of the block being read
+                if next(ST["gen"][0], None) is None:
+                    ST["gen"] = None
             elif ST["queue"] and ST["free"]:
                 d2, b = ST["queue"].pop(0)
                 slot = ST["free"].pop(0)
                 _clear_slot(slot)
+                ST["style"].pop(slot, None)
                 _style_slot(slot, d2)
                 ST["loaded"][b] = slot
-                _plan(b, slot)
+                ST["gen"] = (_plan(b, slot), slot)
                 ST["stats"]["blocks"] += 1
             else:
                 break
@@ -276,7 +306,7 @@ def _tick(dt):
 
 
 def pending():
-    return (len(ST["queue"]) + len(ST["work"])) if ST["h"] is not None else 0
+    return (len(ST["queue"]) + len(ST["work"]) + (ST["gen"] is not None)) if ST["h"] is not None else 0
 
 
 def loaded_trees():

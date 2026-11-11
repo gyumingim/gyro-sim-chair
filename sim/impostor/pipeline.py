@@ -476,6 +476,9 @@ UE_KINDS = [("pine_a", "pine"), ("pine_b", "pine"), ("pine_c", "pine"), ("psap_a
             ("oak_b", "broad"), ("oak_c", "broad"), ("alder_b", "broad"), ("pine_c", "bpine")]
 GAIN, BALANCE = 4.2, [1.04, 0.97, 0.62]                 # 11-11 calibration (hwang_low, gain-1 ratio blob / imp R 4.5 G 4.2 B 2.6)
 TARGET = dict(pine=(0.034, 0.060, 0.043), bpine=(0.028, 0.052, 0.043), broad=(0.070, 0.112, 0.038), shrub=(0.058, 0.094, 0.044))
+# 11-11 in-game check (after the streaming / coverage / crown-normal fixes): pines came out teal (R/G 0.61, B/G 0.46) and the
+# broadleaf lime (B/G 0.21); Busan forest photos (C:/GyroSimTiles/refs/trees_shape, green pixels, linear) R/G ~0.73, B/G ~0.36
+IMP_TINT = dict(pine=(1.2, 1.0, 0.78), bpine=(1.2, 1.0, 0.78), broad=(1.0, 1.0, 1.6), shrub=(1.0, 1.0, 1.6))
 
 
 def write_card(path):
@@ -518,7 +521,7 @@ def ue_info():
         A = cv2.imread(os.path.join(OUT, m["textures"][0]), cv2.IMREAD_UNCHANGED)[..., [2, 1, 0, 3]].astype(np.float32) / 255
         a = A[..., 3] > 0.5
         mean = srgb_dec(A[..., :3])[a].mean(0)
-        mul = np.clip(np.array(TARGET[tgt]) / np.maximum(mean, 1e-4), 0.25, 3.0) * np.array(BALANCE)
+        mul = np.clip(np.array(TARGET[tgt]) / np.maximum(mean, 1e-4), 0.25, 3.0) * np.array(BALANCE) * np.array(IMP_TINT[tgt])
         lo, hi, c, b = (np.array(m[k]) for k in ("lo", "hi", "center", "base"))
         kinds.append(dict(atlas=name, target=tgt, R=m["radius"], h=float(hi[2] - lo[2]),
                           crown_r=float(max(hi[0] - lo[0], hi[1] - lo[1]) / 2),
@@ -526,7 +529,7 @@ def ue_info():
                           atlas_mean=[round(float(v), 4) for v in mean], color_mul=[round(float(v), 3) for v in mul],
                           tex=["T_Imp_%s_A" % name, "T_Imp_%s_B" % name]))
     info = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), grid=G, px=PX, card="SM_GyroImpCard.glb", kinds=kinds,
-                gain=GAIN, balance=BALANCE, note="color_mul = veg_v2 species albedo / atlas mean (opaque texels) x balance; gain + balance "
+                gain=GAIN, balance=BALANCE, imp_tint=IMP_TINT, note="color_mul = veg_v2 species albedo / atlas mean (opaque texels) x balance; gain + balance "
                 "calibrated 11-11 on hwang_low (sim/impostor/calib.py: tree pixels vs the old photo-tuned blob trees)")
     json.dump(info, open(os.path.join(OUT, "imp_info.json"), "w"), indent=1)
     for k in kinds:

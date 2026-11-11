@@ -3,6 +3,7 @@
 // The same maths as the software renderer there: the 4 nearest views (bilinear in the view grid), each re-projected through
 // its own frame plane (ray from the camera through this pixel), blended by weight x alpha.
 // Inputs: CamL, PixL = camera / this pixel in instance-local space (cm; sphere radius 100), TexA / TexB (+ samplers), G,
+//         CrownZ, CrownR, SphAmt (crown-volume normal blend, see the end),
 //         Far (1 = only the nearest view: far trees). Local space = Blender's axes with y mirrored (UE is left-handed).
 // Outputs: return = albedo (linear); Alpha, NrmL (local normal, UE axes), AO, PdoL (local vector camera->surface correction).
 float3 O = CamL / 100.0; O.y = -O.y;
@@ -20,6 +21,7 @@ float fi = gi - i0, fj = gj - j0;
 if (Far > 0.5) { i0 = round(gi); j0 = round(gj); fi = 0.0; fj = 0.0; }
 float tpix = length(Pp - O);
 float aA = 0.0; float3 aC = 0; float3 aN = 0; float aO = 0.0; float aT = 0.0;
+float wDom = -1.0; float aDom = 0.0; float3 cDom = 0;   // the nearest view alone (its silhouette, see Alpha below)
 [unroll] for (int q = 0; q < 4; q++) {
     float di = (q == 1 || q == 3) ? 1.0 : 0.0;
     float dj = (q >= 2) ? 1.0 : 0.0;
@@ -42,6 +44,7 @@ float aA = 0.0; float3 aC = 0; float3 aN = 0; float aO = 0.0; float aT = 0.0;
     float2 uv = float2((ii + (a + 1.0) * 0.5) / G, (jj + (1.0 - b) * 0.5) / G);
     float4 sa = Texture2DSample(TexA, TexASampler, uv);
     float4 sb = Texture2DSample(TexB, TexBSampler, uv);
+    if (wt > wDom) { wDom = wt; aDom = sa.a; cDom = sa.rgb; }
     float w = wt * sa.a;
     aA += w;
     aC += w * sa.rgb;
@@ -56,8 +59,21 @@ float aA = 0.0; float3 aC = 0; float3 aN = 0; float aO = 0.0; float aT = 0.0;
     aT += w * dot(Q - O, D);
 }
 float inv = 1.0 / max(aA, 1e-4);
-Alpha = aA;
+// 11-11: coverage = the nearest view's own silhouette (or the blend, whichever is more). The plain weighted blend of 4 views
+// that do not line up (thin pine branches, 22 deg apart) cut the crowns to holes and most pines vanished in the game.
+Alpha = max(aA, aDom);
+if (aA < 1e-3) { aC = cDom; inv = 1.0; }
 float3 nl = normalize(aN * inv + float3(0, 0, 1e-4));
+// 11-11: crown-volume normal. The baked leaf normals alone average out (leaf cards point every way): the trees were lit like
+// a flat mat. Blend toward the normal of a crown sphere (centre CrownZ, radius CrownR in sphere radii; this pixel's ray hit,
+// or its closest approach) so each crown gets a lit side and a dark side like the old blob trees.
+float3 Cc = float3(0.0, 0.0, CrownZ);
+float3 oc = O - Cc;
+float bq = dot(oc, D);
+float disc = bq * bq - (dot(oc, oc) - CrownR * CrownR);
+float th = disc > 0.0 ? -bq - sqrt(disc) : -bq;
+float3 nS = normalize(O + D * th - Cc + float3(0, 0, 1e-4));
+nl = normalize(lerp(nl, nS, SphAmt));
 NrmL = float3(nl.x, -nl.y, nl.z);
 AO = aO * inv;
 float dt = max(aT * inv - tpix, 0.0);

@@ -83,7 +83,7 @@ def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
                 return near
     except Exception as e:
         log("[trees] near trees %r" % (e,))
-    try:                                           # 11-11: impostor trees = the default (GYROSIM_TREES_IMPOSTOR=0 = blob tiles)
+    try:                                           # 11-11: impostor trees, opt-in (GYROSIM_TREES_IMPOSTOR=1; default = blob tiles)
         import trees_imp
         if trees_imp.enabled():
             imp = trees_imp.apply(world, log, georef)
