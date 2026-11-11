@@ -271,6 +271,10 @@ def tick(dt):
         ST.update(phase="end" if ST["phase"] not in ("end", "quit") else "quit", t=time.monotonic())
 
 
-sim_client.stop()                      # this editor must not talk to a running server (the user's session)
-ST["h"] = unreal.register_slate_post_tick_callback(tick)
-log("scheduled", len(STATES), "states x", len(VIEWS), "views ->", OUT)
+if os.environ.get("GYROSIM_TREES_NEAR_SHOTS", "0") == "1":     # near real-leaf trees (Scripts/trees_near_shots.py) instead
+    _p = os.path.join(unreal.Paths.project_dir(), "Scripts", "trees_near_shots.py")
+    exec(compile(open(_p, encoding="utf-8").read(), _p, "exec"), {"__name__": "gyrosim_trees_near_shots"})
+else:
+    sim_client.stop()                      # this editor must not talk to a running server (the user's session)
+    ST["h"] = unreal.register_slate_post_tick_callback(tick)
+    log("scheduled", len(STATES), "states x", len(VIEWS), "views ->", OUT)

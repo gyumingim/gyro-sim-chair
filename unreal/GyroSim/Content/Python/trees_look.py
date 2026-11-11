@@ -72,6 +72,17 @@ def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
     if os.environ.get("GYROSIM_TREES", "1") == "0":
         log("[trees] off (GYROSIM_TREES=0)")
         return None
+    near = None
+    try:                                           # 11-11: opt-in real-leaf near trees (GYROSIM_TREES_NEAR=1, default off)
+        import trees_near
+        if trees_near.enabled():
+            near = trees_near.apply(world, log, georef)
+            if not trees_near.proxy_on():          # GYROSIM_TREES_PROXY=0 = no blob tiles (default 1 = blobs too)
+                hide(world)
+                log("[trees] blob tiles off (near trees %s; GYROSIM_TREES_NEAR=0 = the old look)" % ("on" if near else "unavailable"))
+                return near
+    except Exception as e:
+        log("[trees] near trees %r" % (e,))
     V2, TILES, MAT = config(v2)
     if tiles:                                      # shot scripts: another tile build (e.g. the previous round) in the same run
         TILES = tiles.replace("\\", "/")
