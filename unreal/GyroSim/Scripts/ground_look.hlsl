@@ -168,6 +168,50 @@ if (CanopyAmp > 0.0)
     }
 }
 
+// ---- photo relief (11-11, docs/photo-relief-busan.md; GYROSIM_PHOTO_DEPTH=0 -> RelF.w 0 = off): a height field made from
+// the photo at Play (sim/photo_relief.py: Depth Anything V2 Small + compact-object bumps for cars / umbrellas, 0 on the 3D
+// building footprints) in ReliefTex = RT_GyroRelief, 8 x 8 z18 tiles around the camera (Content/Python/relief_look.py,
+// toroidal slots). R = height / 32 m (forest luminance detail folded in, 0 on 3D building footprints and unloaded slots).
+// World -> window px (MPC_GyroTune Rel*): quadratic rows RelU / RelV (P in km); RelWin = (window corner mod RT, RT size). Normals from 4 taps,
+// a 20-step height-field march toward the sun (RelSun) darkens the shadowed photo. Render-time only, nothing stored.
+if (RelF.w > 0.5 && RelK.x > 0.0)
+{
+    float2 rk = P.xy * 1e-5;
+    float3 rq = float3(rk.x * rk.x, rk.x * rk.y, rk.y * rk.y);
+    float2 rp = float2(dot(RelU.xy, rk) + RelU.z + dot(RelU2.xyz, rq), dot(RelV.xy, rk) + RelV.z + dot(RelV2.xyz, rq));
+    float footR = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;              // m per screen pixel
+    float edgeR = min(min(rp.x, rp.y), min(RelWin.z - rp.x, RelWin.z - rp.y));      // px inside the window
+    float wR = (1.0 - m) * saturate(1.5 - footR / 0.8) * (1.0 - smoothstep(RelF.x, RelF.y, dist)) * saturate(edgeR / 96.0);
+    if (wR > 0.001)
+    {
+        float2 ruv = (rp + RelWin.xy) / RelWin.z;                                   // wraps (RT address wrap)
+        float re = 1.0 / RelWin.z;
+        float hs = 32.0 * RelK.x;
+        #define RL_H(o) (Texture2DSampleLevel(ReliefTex, ReliefTexSampler, ruv + (o) * re, 0).r * hs)
+        float h0 = RL_H(float2(0, 0));
+        float dhx = 0.5 * (RL_H(float2(1, 0)) - RL_H(float2(-1, 0)));                // m per px
+        float dhy = 0.5 * (RL_H(float2(0, 1)) - RL_H(float2(0, -1)));
+        float gX = (dhx * RelU.x + dhy * RelV.x) * 1e-3, gY = (dhx * RelU.y + dhy * RelV.y) * 1e-3;     // m per m (world X, Y)
+        canN = normalize(canN - RelK.y * wR * float3(gX, gY, 0.0));
+        float3 sd = normalize(RelSun.xyz);
+        if (RelK.z > 0.0 && sd.z > 0.02 && wR > 0.01)
+        {
+            float2 dp = float2(sd.x * RelU.x + sd.y * RelU.y, sd.x * RelV.x + sd.y * RelV.y);
+            dp /= max(length(dp), 1e-6);
+            float rise = RelF.z * sd.z / max(length(sd.xy), 1e-3);                  // m of height per px toward the sun
+            float occ = 0.0;
+            [loop] for (int si = 1; si <= 20; si++)
+            {
+                float st = si * 2.0;                                                // px (up to ~10 m)
+                float hsn = RL_H(dp * st);
+                occ = max(occ, saturate((hsn - (h0 + st * rise)) / 0.3));
+            }
+            g *= 1.0 - saturate(RelK.z) * occ * wR;
+        }
+        #undef RL_H
+    }
+}
+
 // coast v2: steep man-made shore faces (the sea wall step of the coast-aware terrain, ~2 m vertex spacing) get a concrete
 // face instead of the photo stretched down the step: weathered concrete, a dark wet band below WetBandM
 if (CoastOn > 0.5)

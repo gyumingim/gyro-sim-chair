@@ -467,3 +467,71 @@ if __name__ == "__main__":
         do_real()
     if "--imp" in a:
         do_imp(a[a.index("--imp") + 1] if len(a) > a.index("--imp") + 1 and not a[a.index("--imp") + 1].startswith("-") else None)
+
+
+# ---- Unreal hand-off (step 2): card mesh + per-kind info ---------------------------------------------------------------
+# runtime kinds (Content/Python/trees_imp.py; the GyroTreesNear actor has 8 components per slot):
+#   kind -> (atlas species, colour target = sim/veg_v2.TINT of the Busan species it stands for - tuned on the photos there)
+UE_KINDS = [("pine_a", "pine"), ("pine_b", "pine"), ("pine_c", "pine"), ("psap_a", "pine"),
+            ("oak_b", "broad"), ("oak_c", "broad"), ("alder_b", "broad"), ("pine_c", "bpine")]
+GAIN, BALANCE = 4.2, [1.04, 0.97, 0.62]                 # 11-11 calibration (hwang_low, gain-1 ratio blob / imp R 4.5 G 4.2 B 2.6)
+TARGET = dict(pine=(0.034, 0.060, 0.043), bpine=(0.028, 0.052, 0.043), broad=(0.070, 0.112, 0.038), shrub=(0.058, 0.094, 0.044))
+
+
+def write_card(path):
+    """one quad (2 triangles), its 4 corners on the diagonal plane of the +-1 m cube (bounds = the bounding sphere box);
+    the material moves the corners to face the camera (world position offset). UV0 = corner id."""
+    import struct
+    P = np.array([[-1, -1, -1], [1, 1, -1], [1, 1, 1], [-1, -1, 1]], np.float32)
+    N = np.tile(np.array([[0.7071, -0.7071, 0]], np.float32), (4, 1))
+    UV = np.array([[0, 1], [1, 1], [1, 0], [0, 0]], np.float32)
+    F = np.array([0, 1, 2, 0, 2, 3], np.uint32)
+
+    def pad(b, c=b"\0"):
+        return b + c * ((4 - len(b) % 4) % 4)
+    blobs = [P.tobytes(), N.tobytes(), UV.tobytes(), F.tobytes()]
+    offs, buf = [], b""
+    for b in blobs:
+        offs.append(len(buf)); buf += pad(b)
+    g = dict(asset=dict(version="2.0", generator="gyro-sim-chair sim/impostor/pipeline.py"), scene=0, scenes=[dict(nodes=[0])],
+             nodes=[dict(mesh=0, name="SM_GyroImpCard")], materials=[dict(name="ImpCard", doubleSided=True)],
+             meshes=[dict(primitives=[dict(attributes=dict(POSITION=0, NORMAL=1, TEXCOORD_0=2), indices=3, material=0)])],
+             buffers=[dict(byteLength=len(buf))],
+             bufferViews=[dict(buffer=0, byteOffset=offs[i], byteLength=len(blobs[i]), target=34963 if i == 3 else 34962) for i in range(4)],
+             accessors=[dict(bufferView=0, componentType=5126, count=4, type="VEC3", min=[-1, -1, -1], max=[1, 1, 1]),
+                        dict(bufferView=1, componentType=5126, count=4, type="VEC3"),
+                        dict(bufferView=2, componentType=5126, count=4, type="VEC2"),
+                        dict(bufferView=3, componentType=5125, count=6, type="SCALAR")])
+    js = pad(json.dumps(g).encode(), b" ")
+    with open(path, "wb") as f:
+        f.write(struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(buf)))
+        f.write(struct.pack("<II", len(js), 0x4E4F534A)); f.write(js)
+        f.write(struct.pack("<II", len(buf), 0x004E4942)); f.write(buf)
+
+
+def ue_info():
+    """C:/GyroSimTiles/assets/trees_impostor/imp_info.json for Scripts/trees_imp_assets.py and Content/Python/trees_imp.py."""
+    write_card(os.path.join(OUT, "SM_GyroImpCard.glb"))
+    kinds = []
+    for name, tgt in UE_KINDS:
+        m = load_meta(name)
+        A = cv2.imread(os.path.join(OUT, m["textures"][0]), cv2.IMREAD_UNCHANGED)[..., [2, 1, 0, 3]].astype(np.float32) / 255
+        a = A[..., 3] > 0.5
+        mean = srgb_dec(A[..., :3])[a].mean(0)
+        mul = np.clip(np.array(TARGET[tgt]) / np.maximum(mean, 1e-4), 0.25, 3.0) * np.array(BALANCE)
+        lo, hi, c, b = (np.array(m[k]) for k in ("lo", "hi", "center", "base"))
+        kinds.append(dict(atlas=name, target=tgt, R=m["radius"], h=float(hi[2] - lo[2]),
+                          crown_r=float(max(hi[0] - lo[0], hi[1] - lo[1]) / 2),
+                          center_off=[float(v) for v in (c - b)],                # Blender axes (x, y, z) m; UE local = (x, -y, z)
+                          atlas_mean=[round(float(v), 4) for v in mean], color_mul=[round(float(v), 3) for v in mul],
+                          tex=["T_Imp_%s_A" % name, "T_Imp_%s_B" % name]))
+    info = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), grid=G, px=PX, card="SM_GyroImpCard.glb", kinds=kinds,
+                gain=GAIN, balance=BALANCE, note="color_mul = veg_v2 species albedo / atlas mean (opaque texels) x balance; gain + balance "
+                "calibrated 11-11 on hwang_low (sim/impostor/calib.py: tree pixels vs the old photo-tuned blob trees)")
+    json.dump(info, open(os.path.join(OUT, "imp_info.json"), "w"), indent=1)
+    for k in kinds:
+        print(k["atlas"], k["target"], "R", round(k["R"], 2), "mul", k["color_mul"])
+
+
+if __name__ == "__main__" and "--ue" in sys.argv:
+    ue_info()

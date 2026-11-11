@@ -128,8 +128,47 @@ def bldg_ao_asset():
     return _import_tex(AO_PNG, "T_GyroBldgAO")
 
 
+RELIEF_MPC = PATH + "/MPC_GyroTune"             # a material may reference only 2 collections (Coast + Tune)
+RELIEF_RT = PATH + "/RT_GyroRelief"
+RELIEF_VECS = ("RelU", "RelU2", "RelV", "RelV2", "RelWin", "RelSun", "RelK", "RelF")
+
+
+def relief_assets():
+    """photo relief (11-11, docs/photo-relief-busan.md): RT_GyroRelief (RGBA16F, resized to 4096^2 at Play, filled at Play only by
+    Content/Python/relief_look.py - render targets keep no pixels in the asset) and the Rel* vectors in MPC_GyroTune
+    (added when missing; RelF.w = 0 until relief_look runs)."""
+    rt = unreal.load_asset(RELIEF_RT) if EAL.does_asset_exist(RELIEF_RT) else None
+    if rt is None:
+        rt = unreal.AssetToolsHelpers.get_asset_tools().create_asset("RT_GyroRelief", PATH, unreal.TextureRenderTarget2D,
+                                                                     unreal.TextureRenderTargetFactoryNew())
+    for k, v in (("size_x", 4096), ("size_y", 4096), ("render_target_format", unreal.TextureRenderTargetFormat.RTF_RGBA16F),
+                 ("clear_color", unreal.LinearColor(0.0, 0.0, 0.0, 0.0)), ("auto_generate_mips", False),
+                 ("address_x", unreal.TextureAddress.TA_WRAP), ("address_y", unreal.TextureAddress.TA_WRAP)):
+        try:
+            rt.set_editor_property(k, v)
+        except Exception as e:
+            log("relief rt", k, repr(e))
+    EAL.save_asset(RELIEF_RT, only_if_is_dirty=False)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import tune_mpc
+    mpc = tune_mpc.ensure()
+    vps = list(mpc.get_editor_property("vector_parameters"))
+    have = {str(v.get_editor_property("parameter_name")) for v in vps}
+    if any(n not in have for n in RELIEF_VECS):                    # only the missing ones (new ids break built materials)
+        for n in RELIEF_VECS:
+            if n not in have:
+                v = unreal.CollectionVectorParameter()
+                v.set_editor_property("parameter_name", n)
+                v.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, 0.0, 0.0))
+                vps.append(v)
+        mpc.set_editor_property("vector_parameters", vps)
+        EAL.save_asset(RELIEF_MPC, only_if_is_dirty=False)
+    return rt, mpc
+
+
 def build():
     ctex, mpc = coast_assets()
+    rrt, rmpc = relief_assets()
     aotex = bldg_ao_asset()                    # first: a failure here leaves the old material in place
     for p in (atmos_look.GROUND_MI_SEA0, MI, MAT):
         if EAL.does_asset_exist(p):
@@ -173,6 +212,16 @@ def build():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # live tuning (tune_look.py): MPC_GyroTune TuneA / TuneC
     import tune_mpc
     srcs += [(n, e, "") for e, n in tune_mpc.inputs(m, X, 150, 1500, names=("TuneA", "TuneC", "TuneD"))]
+    rt_ = X(unreal.MaterialExpressionTextureObjectParameter, 150, 2000)          # photo relief (relief_look.py fills it)
+    rt_.set_editor_property("parameter_name", "ReliefTex")
+    rt_.set_editor_property("texture", rrt)
+    rt_.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+    srcs.append(("ReliefTex", rt_, ""))
+    for i, n in enumerate(RELIEF_VECS):
+        cp = X(unreal.MaterialExpressionCollectionParameter, 150, 2100 + 100 * i)
+        cp.set_editor_property("collection", rmpc)
+        cp.set_editor_property("parameter_name", n)
+        srcs.append((n, cp, ""))
     for i, n in enumerate(("CoastU", "CoastV", "CoastU2", "CoastV2")):
         cp = X(unreal.MaterialExpressionCollectionParameter, 150, 800 + 120 * i)
         cp.set_editor_property("collection", mpc)

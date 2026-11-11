@@ -83,6 +83,17 @@ def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
                 return near
     except Exception as e:
         log("[trees] near trees %r" % (e,))
+    try:                                           # 11-11: impostor trees = the default (GYROSIM_TREES_IMPOSTOR=0 = blob tiles)
+        import trees_imp
+        if trees_imp.enabled():
+            imp = trees_imp.apply(world, log, georef)
+            if imp is not None:
+                hide(world)
+                log("[trees] impostor trees on, blob tiles off (GYROSIM_TREES_IMPOSTOR=0 = the old look)")
+                return imp
+            log("[trees] impostor trees unavailable -> blob tiles")
+    except Exception as e:
+        log("[trees] impostor trees %r" % (e,))
     V2, TILES, MAT = config(v2)
     if tiles:                                      # shot scripts: another tile build (e.g. the previous round) in the same run
         TILES = tiles.replace("\\", "/")

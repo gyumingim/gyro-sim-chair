@@ -363,6 +363,12 @@ def apply_ground(tileset, on=None):
             coast_look.start(tileset)
         except Exception as e:
             log("coast look", repr(e))
+    if m is not None:                            # photo relief (11-11, relief_look.py; GYROSIM_PHOTO_DEPTH=0 = off)
+        try:
+            import relief_look
+            relief_look.start(tileset)
+        except Exception as e:
+            log("relief look", repr(e))
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
         off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
     if m is not None and not PHOTO_V2_ON:

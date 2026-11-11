@@ -35,6 +35,9 @@ RANGES = {
     # ground photo v2 (11-11, docs/ground-photo-busan.md): V-World photo grade at render time (land only)
     "PhGain": (0.5, 1.2, 0.01, "땅 사진 밝기 x"), "PhGamma": (0.7, 1.5, 0.02, "땅 사진 감마 (클수록 중간톤 어둡게)"),
     "PhSat": (0.5, 1.3, 0.02, "땅 사진 채도 x"), "PhKnee": (0.2, 1.0, 0.02, "땅 사진 밝은 곳 누르기 시작 (1 = 끔)"),
+    # photo relief (11-11, docs/photo-relief-busan.md): AI height from the photo -> ground normals + shadows (relief_look.py)
+    "RelGain": (0.0, 40.0, 0.5, "사진 입체: 높이 배율 (m/단위, 20 = 기본)"), "RelNormal": (0.0, 3.0, 0.05, "사진 입체: 면 기울기(노멀) 세기"),
+    "RelShadow": (0.0, 1.0, 0.05, "사진 입체: 그림자 세기"),
 }
 
 
