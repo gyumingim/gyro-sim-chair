@@ -22,6 +22,12 @@ if %errorlevel%==0 (
     timeout /t 3 /nobreak >nul
 )
 
+rem 3) live look sliders (sim/tune_server.py, 127.0.0.1:8768, page http://127.0.0.1:8767/today/busan_tune/): hidden, once
+netstat -ano | findstr /R /C:"127.0.0.1:8768 .*LISTENING" >nul
+if not %errorlevel%==0 (
+    powershell -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath python -ArgumentList '-I','%ROOT%\sim\tune_server.py' -WindowStyle Hidden"
+)
+
 if not exist "%UE%" (
     echo [GyroSim] 언리얼 5.8 이 없습니다: %UE%
     pause

@@ -309,6 +309,11 @@ def apply_look(name, world):
         grade_look.apply(world, name)
     except Exception as e:
         _log("grade", repr(e))
+    try:                                         # live tuning (tune_look.py, slider page): after everything else
+        import tune_look
+        tune_look.start(world)
+    except Exception as e:
+        _log("tune", repr(e))
 
 
 def _realism_v2(name, world):

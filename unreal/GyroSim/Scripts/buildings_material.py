@@ -19,10 +19,53 @@ HLSL = os.environ.get("GYROSIM_BLDG_HLSL") or os.path.join(HERE, "buildings_faca
 # buildings_look when GYROSIM_BLDG_V3=0). GYROSIM_BLDG_MAT_V2=0 skips it.
 V2 = (NAME + "_v2", os.path.join(HERE, "buildings_facade_v2.hlsl"))
 MEL = unreal.MaterialEditingLibrary
+# grounded day (11-11, docs/grounded-day-busan.md): building occlusion field T_GyroBldgAO (imported by ground_material.py from
+# sim/bldg_ao_build.py) + the coast mask's world -> UV rows (MPC_GyroCoast). Material defaults = the new look; buildings_look
+# sets GdOn 0 for GYROSIM_GROUNDED_DAY=0. GdAO: canyon / foot occlusion into AmbientOcclusion (sky + indirect light only);
+# GdBase / GdGrad: the same as albedo darkening (art fix); GdTint / GdSat: wall albedo / saturation (hypothesis c sweeps).
+GD = (("GdOn", 1.0), ("GdAO", 1.0), ("GdBase", 0.5), ("GdBaseH", 8.0), ("GdGrad", 0.6), ("GdGradH", 50.0), ("GdFloor", 0.7), ("GdTint", 1.0), ("GdSat", 1.0))   # f3 (e2 sweep)
+AO_TEX = "/Game/Materials/Ground/T_GyroBldgAO"
+MPC = "/Game/Materials/Ground/MPC_GyroCoast"
 log = lambda *a: unreal.log("[bldg_mat] " + " ".join(str(x) for x in a))
 
 
-def build(NAME=NAME, HLSL=HLSL):
+def gd_inputs(m, X):
+    """grounded day inputs of the Custom node: absolute position, AO field texture, coast UV rows, Gd* scalars."""
+    pa = X(unreal.MaterialExpressionWorldPosition, -1100, 1500)                     # absolute world position (cm) for the AO field
+    gds = [(pa, "PA")]
+    at = X(unreal.MaterialExpressionTextureObjectParameter, -1100, 1600)
+    at.set_editor_property("parameter_name", "BldgAOTex")
+    aotex = unreal.load_asset(AO_TEX) if unreal.EditorAssetLibrary.does_asset_exist(AO_TEX) else None
+    if aotex:
+        at.set_editor_property("texture", aotex)
+    else:
+        log("no", AO_TEX, "- run ground_material.py first (GdOn has no effect without it)")
+        at.set_editor_property("texture", unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture"))
+    at.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+    gds.append((at, "BldgAOTex"))
+    mpc = unreal.load_asset(MPC)
+    for i, n in enumerate(("CoastU", "CoastV", "CoastU2", "CoastV2")):
+        cp = X(unreal.MaterialExpressionCollectionParameter, -1300, 1700 + 100 * i)
+        cp.set_editor_property("collection", mpc)
+        cp.set_editor_property("parameter_name", n)
+        mk3 = X(unreal.MaterialExpressionComponentMask, -1100, 1700 + 100 * i)
+        for c in ("r", "g", "b"):
+            mk3.set_editor_property(c, True)
+        MEL.connect_material_expressions(cp, "", mk3, "")
+        gds.append((mk3, n))
+    for i, (pn, dv) in enumerate(GD):
+        e = X(unreal.MaterialExpressionScalarParameter, -1100, 2100 + 80 * i)
+        e.set_editor_property("parameter_name", pn)
+        e.set_editor_property("default_value", dv)
+        gds.append((e, pn))
+    import sys                                                  # live tuning (tune_look.py): MPC_GyroTune TuneA..C
+    sys.path.insert(0, HERE)
+    import tune_mpc
+    gds += tune_mpc.inputs(m, X)
+    return gds
+
+
+def build(NAME=NAME, HLSL=HLSL, gd=True):
     full = PATH + "/" + NAME
     at = unreal.AssetToolsHelpers.get_asset_tools()
     if unreal.EditorAssetLibrary.does_asset_exist(full):
@@ -84,19 +127,23 @@ def build(NAME=NAME, HLSL=HLSL):
         e.set_editor_property("parameter_name", pn)
         e.set_editor_property("default_value", dv)
         bks.append((e, inp))
+    gds = []
+    if gd:
+        gds = gd_inputs(m, X)
     cu = X(unreal.MaterialExpressionCustom, -500, 0)
     cu.set_editor_property("code", open(HLSL, encoding="utf-8").read())
     cu.set_editor_property("description", "GyroFacade")
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ins = []
-    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A", "TexObj", "RP") + tuple(i for _, i in bks):
+    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A", "TexObj", "RP") + tuple(i for _, i in bks) + tuple(i for _, i in gds):
         ci = unreal.CustomInput()
         ci.set_editor_property("input_name", n)
         ins.append(ci)
     cu.set_editor_property("inputs", ins)
     outs = []
     for n, t in (("Rough", unreal.CustomMaterialOutputType.CMOT_FLOAT1), ("Metal", unreal.CustomMaterialOutputType.CMOT_FLOAT1),
-                 ("Spec", unreal.CustomMaterialOutputType.CMOT_FLOAT1), ("NormalWS", unreal.CustomMaterialOutputType.CMOT_FLOAT3)):
+                 ("Spec", unreal.CustomMaterialOutputType.CMOT_FLOAT1), ("NormalWS", unreal.CustomMaterialOutputType.CMOT_FLOAT3),
+                 ("GdAOut", unreal.CustomMaterialOutputType.CMOT_FLOAT1))[:5 if gd else 4]:
         co = unreal.CustomOutput()
         co.set_editor_property("output_name", n)
         co.set_editor_property("output_type", t)
@@ -107,7 +154,7 @@ def build(NAME=NAME, HLSL=HLSL):
         cu.post_edit_change()
     except Exception:
         pass
-    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A"), (tobj, "TexObj"), (rph, "RP")) + tuple(bks):
+    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A"), (tobj, "TexObj"), (rph, "RP")) + tuple(bks) + tuple(gds):
         if src is vc:                                                    # VertexColor "" is RGB: append A -> RGBA
             app = X(unreal.MaterialExpressionAppendVector, -800, 250)
             MEL.connect_material_expressions(vc, "", app, "A")
@@ -117,7 +164,8 @@ def build(NAME=NAME, HLSL=HLSL):
             log("connect failed", pin)
     MEL.connect_material_property(cu, "", unreal.MaterialProperty.MP_BASE_COLOR)
     for pin, prop in (("Rough", unreal.MaterialProperty.MP_ROUGHNESS), ("Metal", unreal.MaterialProperty.MP_METALLIC),
-                      ("Spec", unreal.MaterialProperty.MP_SPECULAR), ("NormalWS", unreal.MaterialProperty.MP_NORMAL)):
+                      ("Spec", unreal.MaterialProperty.MP_SPECULAR), ("NormalWS", unreal.MaterialProperty.MP_NORMAL),
+                      ("GdAOut", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION))[:5 if gd else 4]:
         if not MEL.connect_material_property(cu, pin, prop):
             log("property connect failed", pin)
     MEL.recompile_material(m)
@@ -129,4 +177,4 @@ def build(NAME=NAME, HLSL=HLSL):
 if __name__ in ("__main__", "gyrosim_bldg_mat"):
     build()
     if os.environ.get("GYROSIM_BLDG_MAT_V2", "1") != "0" and not os.environ.get("GYROSIM_BLDG_HLSL") and os.path.isfile(V2[1]):
-        build(*V2)
+        build(*V2, gd=False)

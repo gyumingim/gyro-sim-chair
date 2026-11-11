@@ -5,3 +5,4 @@ refs/
 GyroSimTiles/
 tile_cache/
 unreal/GyroSim/Content/Materials/Ground/T_GyroCoast.uasset
+unreal/GyroSim/Content/Materials/Ground/T_GyroBldgAO.uasset

@@ -32,10 +32,13 @@ import atmos_look                                                     # noqa: E4
 COAST_PNG = os.environ.get("GYROSIM_COAST_PNG", r"C:/GyroSimTiles/coast/coast_mask.png")
 COAST_TEX = PATH + "/T_GyroCoast"
 MPC = PATH + "/MPC_GyroCoast"
+# grounded day (11-11): building occlusion field (sim/bldg_ao_build.py, GIS footprints only; kept out of git like the tiles)
+AO_PNG = os.environ.get("GYROSIM_BLDG_AO_PNG", r"C:/GyroSimTiles/buildings/ao/bldg_ao.png")
+AO_TEX = PATH + "/T_GyroBldgAO"
 
 
 def _defaults():
-    return {**atmos_look.GROUND, **getattr(atmos_look, "SEA_COAST_DEF", {})}
+    return {**atmos_look.GROUND, **getattr(atmos_look, "SEA_COAST_DEF", {}), **getattr(atmos_look, "GD_GROUND_DEF", {})}
 
 
 def _scalar_names():
@@ -77,19 +80,56 @@ def coast_assets():
     if mpc is None:
         mpc = unreal.AssetToolsHelpers.get_asset_tools().create_asset("MPC_GyroCoast", PATH, unreal.MaterialParameterCollection,
                                                                       unreal.MaterialParameterCollectionFactoryNew())
-    vps = []
-    for n in ("CoastU", "CoastV", "CoastU2", "CoastV2"):
-        v = unreal.CollectionVectorParameter()
-        v.set_editor_property("parameter_name", n)
-        v.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, -1.0, 0.0))      # u = v = -1: outside -> coast v2 idle
-        vps.append(v)
-    mpc.set_editor_property("vector_parameters", vps)
-    EAL.save_asset(MPC, only_if_is_dirty=False)
+    # only the missing parameters (11-11): re-creating one gives it a new id and breaks M_GyroBuilding, which also reads them
+    vps = list(mpc.get_editor_property("vector_parameters"))
+    have = {str(v.get_editor_property("parameter_name")) for v in vps}
+    if any(n not in have for n in ("CoastU", "CoastV", "CoastU2", "CoastV2")):
+        for n in ("CoastU", "CoastV", "CoastU2", "CoastV2"):
+            if n in have:
+                continue
+            v = unreal.CollectionVectorParameter()
+            v.set_editor_property("parameter_name", n)
+            v.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, -1.0, 0.0))      # u = v = -1: outside -> coast v2 idle
+            vps.append(v)
+        mpc.set_editor_property("vector_parameters", vps)
+        EAL.save_asset(MPC, only_if_is_dirty=False)
     return tex, mpc
 
 
+def _import_tex(png, name, size=8192):
+    """a linear, uncompressed-ish data texture from a PNG outside git (clamped, never streamed)."""
+    if not os.path.isfile(png):
+        log("no", png)
+        return None
+    t = unreal.AssetImportTask()
+    for k, v in (("filename", png), ("destination_path", PATH), ("destination_name", name), ("automated", True),
+                 ("replace_existing", True), ("save", False)):
+        t.set_editor_property(k, v)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+    tex = unreal.load_asset(PATH + "/" + name)
+    if tex:
+        for k, v in (("srgb", False), ("compression_settings", unreal.TextureCompressionSettings.TC_BC7),
+                     ("never_stream", True), ("address_x", unreal.TextureAddress.TA_CLAMP), ("address_y", unreal.TextureAddress.TA_CLAMP),
+                     ("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD), ("max_texture_size", size)):
+            try:
+                tex.set_editor_property(k, v)
+            except Exception as e:
+                log(name, k, repr(e))
+        EAL.save_asset(PATH + "/" + name, only_if_is_dirty=False)
+        log("imported", name, tex.blueprint_get_size_x(), tex.blueprint_get_size_y())
+    return tex
+
+
+def bldg_ao_asset():
+    """grounded day: T_GyroBldgAO (shared with M_GyroBuilding, Scripts/buildings_material.py)."""
+    if os.environ.get("GYROSIM_BLDG_AO_REIMPORT", "1") == "0" and EAL.does_asset_exist(AO_TEX):
+        return unreal.load_asset(AO_TEX)
+    return _import_tex(AO_PNG, "T_GyroBldgAO")
+
+
 def build():
-    ctex, mpc = coast_assets()                    # first: a failure here leaves the old material in place
+    ctex, mpc = coast_assets()
+    aotex = bldg_ao_asset()                    # first: a failure here leaves the old material in place
     for p in (atmos_look.GROUND_MI_SEA0, MI, MAT):
         if EAL.does_asset_exist(p):
             EAL.delete_asset(p)
@@ -99,7 +139,7 @@ def build():
     brk = X(unreal.MaterialExpressionBreakMaterialAttributes, 400, -200)
     MEL.connect_material_expressions(layers, "", brk, "")
     mk = X(unreal.MaterialExpressionMakeMaterialAttributes, 1400, -200)
-    for pin in ("Metallic", "EmissiveColor", "Opacity", "OpacityMask", "AmbientOcclusion", "WorldPositionOffset"):
+    for pin in ("Metallic", "EmissiveColor", "Opacity", "OpacityMask", "WorldPositionOffset"):   # AO: through the Custom node
         if not MEL.connect_material_expressions(brk, pin, mk, pin):
             log("pass-through failed", pin)
     nrm = X(unreal.MaterialExpressionVertexNormalWS, 400, 300)
@@ -122,6 +162,16 @@ def build():
         ct.set_editor_property("texture", ctex)
     ct.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
     srcs.append(("CoastTex", ct, ""))
+    at = X(unreal.MaterialExpressionTextureObjectParameter, 150, 1300)           # grounded day: building occlusion field
+    at.set_editor_property("parameter_name", "BldgAOTex")
+    if aotex:
+        at.set_editor_property("texture", aotex)
+    at.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+    srcs.append(("BldgAOTex", at, ""))
+    srcs.append(("AOin", brk, "AmbientOcclusion"))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # live tuning (tune_look.py): MPC_GyroTune TuneA / TuneC
+    import tune_mpc
+    srcs += [(n, e, "") for e, n in tune_mpc.inputs(m, X, 150, 1500) if n in ("TuneA", "TuneC")]
     for i, n in enumerate(("CoastU", "CoastV", "CoastU2", "CoastV2")):
         cp = X(unreal.MaterialExpressionCollectionParameter, 150, 800 + 120 * i)
         cp.set_editor_property("collection", mpc)
@@ -157,7 +207,8 @@ def build():
     cu.set_editor_property("inputs", ins)
     outs = []
     for n, t in (("Rough", unreal.CustomMaterialOutputType.CMOT_FLOAT1), ("Spec", unreal.CustomMaterialOutputType.CMOT_FLOAT1),
-                 ("NormalWS", unreal.CustomMaterialOutputType.CMOT_FLOAT3), ("Mask", unreal.CustomMaterialOutputType.CMOT_FLOAT1)):
+                 ("NormalWS", unreal.CustomMaterialOutputType.CMOT_FLOAT3), ("Mask", unreal.CustomMaterialOutputType.CMOT_FLOAT1),
+                 ("GdAOut", unreal.CustomMaterialOutputType.CMOT_FLOAT1)):
         co = unreal.CustomOutput()
         co.set_editor_property("output_name", n)
         co.set_editor_property("output_type", t)
@@ -170,7 +221,7 @@ def build():
     for n, e, pin in srcs:
         if not MEL.connect_material_expressions(e, pin, cu, n):
             log("connect failed", n)
-    for pin, dst in (("", "BaseColor"), ("Rough", "Roughness"), ("Spec", "Specular"), ("NormalWS", "Normal")):
+    for pin, dst in (("", "BaseColor"), ("Rough", "Roughness"), ("Spec", "Specular"), ("NormalWS", "Normal"), ("GdAOut", "AmbientOcclusion")):
         if not MEL.connect_material_expressions(cu, pin, mk, dst):
             log("connect to attributes failed", pin, dst)
     MEL.connect_material_property(mk, "", unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES)
@@ -180,7 +231,8 @@ def build():
     mi = EAL.duplicate_asset(SRC_MI, MI)
     MEL.set_material_instance_parent(mi, m)
     atmos_look.write_ground_params(mi, {**atmos_look.GROUND, **atmos_look.SEA_NEW, **atmos_look.SEA_ART,
-                                        **(getattr(atmos_look, "SEA_COAST", {}) if ctex else {})})
+                                        **(getattr(atmos_look, "SEA_COAST", {}) if ctex else {}),
+                                        **(getattr(atmos_look, "GD_GROUND", {}) if (ctex and aotex) else {})})
     EAL.save_asset(MI, only_if_is_dirty=False)
     # the sea before the 11-10 pass (GYROSIM_SEA_LOOK=0): the 11-09 values, waves without the grazing fix
     if EAL.does_asset_exist(atmos_look.GROUND_MI_SEA0):

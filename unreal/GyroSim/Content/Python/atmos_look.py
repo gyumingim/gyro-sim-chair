@@ -199,6 +199,14 @@ SEA_COAST_DEF = dict(CoastOn=0.0, CoastD=40.0, BridgeD=40.0, FarD=1000.0, Bridge
                      SeaFarArt=0.0, SeaWarpM=700.0, SeaWarpAmp=0.35, SeaRoughGraze=0.06, SeaSpecGraze=1.5)
 SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0, CoastFaceOn=1.0, SeaWallColor=(0.17, 0.17, 0.16))    # SeaFarArt stays 0: blind A/B 11-11 04:25 preferred the sea without it in 5 of 6
                                                 # views (stronger diamond grid + mirror-like far sea); kept as an off switch
+# Grounded day (11-11, docs/grounded-day-busan.md): building occlusion field T_GyroBldgAO (sim/bldg_ao_build.py, same grid
+# and world -> UV rows as the coast mask). Lumen sees no Cesium mesh, so sky light filled street canyons unoccluded and the
+# ground at a tower's foot was as bright as an open square. GdAO = share of the sky-view factor put into the ground's
+# AmbientOcclusion (sky / indirect light only), GdCanyonAlb = share in the albedo, GdLeanDark = albedo darkening in the
+# ortho photo's lean zone at the foot of towers. GD_GROUND_DEF = material defaults (GdOn 0 = off, also MI_GyroGround_Sea0);
+# GD_GROUND = MI_GyroGround. GYROSIM_GROUNDED_DAY=0 at Play -> GdOn 0 (the look before).
+GD_GROUND_DEF = dict(GdOn=0.0, GdAO=1.0, GdCanyonAlb=0.0, GdLeanDark=0.0)
+GD_GROUND = dict(GD_GROUND_DEF, GdOn=1.0)
 
 
 def _set(obj, k, v, tag):
@@ -342,6 +350,8 @@ def apply_ground(tileset, on=None):
             coast_look.start(tileset)
         except Exception as e:
             log("coast look", repr(e))
+    if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
+        off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
     if m is not None and os.environ.get("GYROSIM_TREES_CANOPY", os.environ.get("GYROSIM_TREES_V2", "1")) == "0":
         off["CanopyAmp"] = 0.0                   # trees v2 ground canopy pattern off (A/B)
     if off:       # A/B: render-time ground detail off (Cesium copies a dynamic instance's

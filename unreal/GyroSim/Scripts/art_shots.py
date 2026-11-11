@@ -17,9 +17,16 @@ Env:
                       "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
                       "cvars": {console variable: value}, "pp": {grade_look extra},
                       "lm": {MI_GyroLandmark scalar: value} (instance of the MI asset itself),
-                      "grounded": 0|1, "grounded_def": {atmos_look.GROUNDED_DEF key: value} (low-sun cloud shadow fade)}, ..] - each view is shot once per variant (tilesets whose
+                      "grounded": 0|1, "grounded_def": {atmos_look.GROUNDED_DEF key: value} (low-sun cloud shadow fade),
+                      "hide": [actor tag, ..] (e.g. CesiumBuildings: ortho photo only, for the baked shadow direction)}, ..] - each view is shot once per variant (tilesets whose
                       material changes are refreshed and reloaded); file <view>_<variant>.png. Default: one shot, TAG.
   GYROSIM_ART_HOOK    optional .py file exec'd once after the Play look is applied (probes / dumps; gets ST, log, unreal)
+  GYROSIM_ART_PRESET  sim_client preset to apply (default monitor; vr = CSM shadows, no Lumen)
+  GYROSIM_ART_SERVE   1 = persistent render server for the slider page (sim/tune_server.py): after the set-up the editor idles
+                      at t.MaxFPS 1 and polls C:/GyroSimTiles/tune/render_req.json {"id", "view": name in VIEWS, "res"}; per
+                      request: t.MaxFPS 30, the view, tune_look.apply (params.json), settle, HighResShot -> tune/renders/<id>.png,
+                      tune/render_done.json, back to 1 fps. Quits after GYROSIM_ART_IDLE_MIN (15) minutes without a request
+                      or on {"quit": true}. Touches the lock file's mtime every 2 minutes (the runner holds it).
   GYROSIM_SHOTS_DIR   output folder (default C:/GyroSimTiles/shots/art - V-World imagery stays outside git), shots_<tag>.json
 Quits the editor when done.
 """
@@ -223,6 +230,10 @@ def set_variant(v):
                 val = want.get(k, orig[k])
                 if val is not None:
                     atmos_look._set(c, k, val, key)
+    if v.get("hide") != prev.get("hide"):          # hide actors by tag for this variant (shown again on the next)
+        for tag in set(prev.get("hide") or []) | set(v.get("hide") or []):
+            for a in unreal.GameplayStatics.get_all_actors_with_tag(w, tag):
+                a.set_actor_hidden_in_game(tag in (v.get("hide") or []))
     corig = ST.setdefault("orig_cvars", {})
     cw = v.get("cvars") or {}
     for k in set(corig) | set(cw):
@@ -288,7 +299,7 @@ def tick(dt):
                 pc = unreal.GameplayStatics.get_player_controller(w, 0)
                 pc.set_view_target_with_blend(cam, 0.0)
                 try:
-                    sim_client.apply_preset("monitor", w)          # realism v2 + atmos_look + grade_look, as in Play
+                    sim_client.apply_preset(os.environ.get("GYROSIM_ART_PRESET", "monitor"), w)   # realism v2 + atmos_look + grade_look, as in Play
                 except Exception as e:
                     log("preset", repr(e))
                 cmd("t.MaxFPS 0"); cmd("r.VSync 0"); cmd("t.FPSChart.OpenFolderOnDump 0")
@@ -297,7 +308,9 @@ def tick(dt):
                         exec(open(os.environ["GYROSIM_ART_HOOK"], encoding="utf-8").read(), dict(ST=ST, log=log, unreal=unreal, OUT=OUT))
                     except Exception as e:
                         log("hook", repr(e))
-                ST.update(phase="view", t=now, vi=0)
+                ST.update(phase="serve" if SERVE else "view", t=now, vi=0, last_req=now, last_touch=now)
+                if SERVE:
+                    cmd("t.MaxFPS 1")
             elif el > 120:
                 log("no PIE world"); ST.update(phase="end", t=now)
         elif ph == "view" and el > 1.0:
@@ -356,6 +369,28 @@ def tick(dt):
             cmd("r.ScreenPercentage 100")
             ST["si"] += 1
             ST.update(phase="variant", t=now)
+        elif ph == "serve":
+            serve_tick(now)
+        elif ph == "s_load":
+            ps = [progress(ST["ts"]), progress(ST["b"])] + [progress(x) for x in ST.get("extra", [])]
+            if (min(ps) >= 99.9 and el > 6.0) or el > 90.0:
+                ST.update(phase="s_settle", t=now)
+        elif ph == "s_settle" and el > float(os.environ.get("GYROSIM_ART_SETTLE_SERVE", "3")):
+            r = ST["req"]
+            fn = os.path.join(TUNE_DIR, "renders", "%s.png" % r["id"]).replace("\\", "/")
+            cmd("HighResShot %s filename=%s" % (r.get("res", "1280x720"), fn))
+            ST.update(phase="s_wait", t=now, req_file=fn)
+        elif ph == "s_wait":
+            fn = ST["req_file"]
+            if (os.path.exists(fn) and el > 1.0) or el > 30.0:
+                r = ST["req"]
+                done = dict(id=r["id"], file=fn if os.path.exists(fn) else None, seconds=round(now - ST["req_t"], 1),
+                            view=r.get("view"), tune=ST.get("req_tune"), made=time.strftime("%Y-%m-%d %H:%M:%S"))
+                with open(os.path.join(TUNE_DIR, "render_done.json"), "w", encoding="utf-8") as f:
+                    json.dump(done, f)
+                log("served", json.dumps(done)[:200])
+                cmd("t.MaxFPS 1")
+                ST.update(phase="serve", t=now, last_req=now)
         elif ph == "end" and el > 2.0:
             env = {k: v for k, v in os.environ.items() if k.startswith("GYROSIM_")
                    and not any(s in k.upper() for s in ("KEY", "TOKEN", "SECRET", "PASS", "AUTH"))}
@@ -386,6 +421,52 @@ def tick(dt):
         import traceback
         log("error", repr(e), " | ".join(traceback.format_exc().splitlines()))
         ST.update(phase="end" if ST["phase"] not in ("end", "quit") else "quit", t=time.monotonic())
+
+
+SERVE = os.environ.get("GYROSIM_ART_SERVE", "0") == "1"
+TUNE_DIR = r"C:/GyroSimTiles/tune"
+LOCK = r"C:/GyroSimTiles/ue_offscreen.lock"
+
+
+def serve_tick(now):
+    """persistent render server: one request at a time (see the docstring)."""
+    if now - ST.get("last_touch", 0) > 120.0:
+        try:
+            if os.path.exists(LOCK):
+                os.utime(LOCK, None)
+        except OSError:
+            pass
+        ST["last_touch"] = now
+    if now - ST.get("last_req", now) > 60.0 * float(os.environ.get("GYROSIM_ART_IDLE_MIN", "15")):
+        log("serve idle -> quit"); ST.update(phase="end", t=now); return
+    rq = os.path.join(TUNE_DIR, "render_req.json")
+    if not os.path.exists(rq):
+        return
+    try:
+        with open(rq, encoding="utf-8") as f:
+            r = json.load(f)
+        os.remove(rq)
+    except Exception as e:
+        log("bad request", repr(e)); return
+    if r.get("quit"):
+        ST.update(phase="end", t=now); return
+    os.makedirs(os.path.join(TUNE_DIR, "renders"), exist_ok=True)
+    cmd("t.MaxFPS 30")
+    vw = next((v for v in VIEWS if v[0] == r.get("view")), VIEWS[0])
+    moved = ST.get("cur_view") != vw[0]
+    if moved:
+        pc = unreal.GameplayStatics.get_player_controller(ST["w"], 0)
+        pc.set_view_target_with_blend(ST["cam"], 0.0)
+        place_view(vw)
+        ST["cur_view"] = vw[0]
+    try:
+        import tune_look
+        ST["req_tune"] = tune_look.apply(ST["w"])
+    except Exception as e:
+        log("tune", repr(e))
+    r["view"] = vw[0]
+    ST.update(req=r, req_t=now, phase="s_load" if moved else "s_settle", t=now)
+    log("request", json.dumps(r)[:200])
 
 
 sim_client.stop()                      # this editor must not talk to a running server (the user's session)

@@ -250,6 +250,28 @@ if (SeaFarArt > 0.5)
     wRough = lerp(wRough, SeaRoughGraze, saturate(gz * 3.0));
     wSpec = wSpec * (1.0 + SeaSpecGraze * saturate(gz * 3.0));
 }
+// ---- grounded day (11-11, GdOn 1; GYROSIM_GROUNDED_DAY=0 -> 0, docs/grounded-day-busan.md): building occlusion field
+// T_GyroBldgAO (sim/bldg_ao_build.py: R = sky-view factor estimate of the ground from the GIS footprints / heights, B = the
+// ortho photo's lean zone at the foot of towers), same grid / UV rows as the coast mask. Lumen sees no Cesium mesh, so the
+// sky light reached street canyons unoccluded (real photos: canyon ground about as bright as open ground in the sun, much
+// darker in the shade; sim: canyon ground brighter than open ground). The SVF goes into AmbientOcclusion (sky / indirect
+// light only, the sun is untouched); GdCanyonAlb / GdLeanDark optionally into the albedo (art fix, not physical).
+GdAOut = AOin;
+if (GdOn > 0.5)
+{
+    float2 gk = P.xy * 1e-5;
+    float3 gq = float3(gk.x * gk.x, gk.x * gk.y, gk.y * gk.y);
+    float2 guv = float2(dot(CoastU.xy, gk) + CoastU.z + dot(CoastU2, gq), dot(CoastV.xy, gk) + CoastV.z + dot(CoastV2, gq));
+    if (all(guv > 0.0005) && all(guv < 0.9995))
+    {
+        float4 bo = Texture2DSample(BldgAOTex, BldgAOTexSampler, guv);
+        float land = 1.0 - m;
+        float tOn = step(0.5, TuneA.x);                                             // live tuning (tune_look.py, MPC_GyroTune)
+        float gAO = lerp(GdAO, TuneC.y, tOn), gCA = lerp(GdCanyonAlb, TuneC.z, tOn), gLD = lerp(GdLeanDark, TuneC.w, tOn);
+        GdAOut = AOin * lerp(1.0, bo.r, saturate(gAO) * land);
+        g *= lerp(1.0, lerp(1.0, bo.r, gCA) * (1.0 - gLD * bo.b), land);
+    }
+}
 Rough = lerp(Rg, wRough, m);
 Spec = lerp(Sp, saturate(wSpec), m);
 return lerp(g, body, m);

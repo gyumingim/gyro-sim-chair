@@ -9,7 +9,9 @@
 //          N (vertex normal, world), V (camera vector, world, surface -> eye), P (camera-relative world position, cm),
 //          L (direction to the sun, SkyAtmosphereLightDirection), A (ArtFix: 1 = 11-10 art pass wall paint, 0 = before),
 //          RP (RoofPhoto: 0 = procedural roofs with the photo as a low-frequency tint (round 2 default), 1 = the photo)
-// Outputs: return = base colour; Rough, Metal, Spec, NormalWS (world space: the material has tangent space normals off)
+//          grounded day (11-11): PA (absolute world position, cm), BldgAOTex (+ sampler), CoastU / CoastV / CoastU2 / CoastV2,
+//          GdOn, GdAO, GdBase, GdBaseH, GdGrad, GdGradH, GdFloor, GdTint, GdSat, TuneA..C (MPC_GyroTune) - see the end of the file
+// Outputs: return = base colour; Rough, Metal, Spec, NormalWS (world space: the material has tangent space normals off), GdAOut (AO)
 // Styles: 0 plain, 1 house, 2 apartment (balcony glazing + railing, stair cores, AC louvres / units, gable dong number),
 //         3 shopfront (signs), 4 punched windows (half stone clad), 5 factory, 6 office curtain wall, 7 glass tower,
 //         8 ribbon windows, 9 rooftop prop (water tank FRP / steel, lift machine room, laundry), 10 villa (빌라, brick / tile,
@@ -19,7 +21,7 @@
 // engine) and a sun shadow test (ray from the hit point back to the wall plane toward the sun: blocked = in shadow).
 // Behind the glass: interior mapping (J. van Dongen, "Interior Mapping", CGI 2008) - a box room per bay x floor.
 
-Rough = saturate(R); Metal = 0.0; Spec = 0.5; NormalWS = N;
+Rough = saturate(R); Metal = 0.0; Spec = 0.5; NormalWS = N; GdAOut = 1.0;
 float a255 = round(VC.a * 255.0);
 float3 Nn = normalize(N);
 float3 up = float3(0, 0, 1);
@@ -750,5 +752,39 @@ if (acUnit > 0.5 && parapet < 0.5)
     Rough = lerp(Rough, 0.5, box * nearD); Metal = lerp(Metal, 0.0, box * nearD);
     NormalWS = normalize(lerp(NormalWS, Nn + up * 0.15 * (f.y - ay0) / (ay1 - ay0), box * nearD));
     col = lerp(col, col * 0.97 + 0.03, box * far * 0.3);
+}
+// --- grounded day (11-11, GdOn; GYROSIM_GROUNDED_DAY=0 -> 0, docs/grounded-day-busan.md) ------------------------------------
+// Lumen sees no Cesium mesh: the sky light reached the foot of every wall and the bottom of every street canyon unoccluded,
+// so walls were as bright at the street as at the roof (real photos: the bottom 10 % of a facade ~8 L* under its middle,
+// top - bottom ~11 L*). The building occlusion field (sim/bldg_ao_build.py) gives the ground's sky-view factor in front of
+// the wall (6 m out) and the building's base (m MSL, inside the footprint); height above the base from the absolute world
+// height (Z 0 = MSL at the Cesium origin, + curvature drop as ground_look.hlsl). Occlusion = canyon (1 - SVF, fading to 0 at
+// GdGradH m up as (1 - z / H)^1.5; at least GdFloor where the canyon is open: neighbours' cast shadows, dirt and the
+// street-level sky occlusion the field misses) and the wall / ground corner (exp(-z / GdBaseH)) into AmbientOcclusion (sky + indirect only, the sun is
+// untouched); GdBase / GdGrad put the same terms into the albedo (art fix), GdTint / GdSat scale the wall albedo / chroma.
+if (GdOn > 0.5)
+{
+    // live tuning (tune_look.py, MPC_GyroTune): TuneA.x = 1 -> the MPC values replace the material scalars
+    float tOn = step(0.5, TuneA.x);
+    float gBase = lerp(GdBase, TuneA.y, tOn), gBaseH = lerp(GdBaseH, TuneA.z, tOn), gGrad = lerp(GdGrad, TuneA.w, tOn);
+    float gGradH = lerp(GdGradH, TuneB.x, tOn), gFloor = lerp(GdFloor, TuneB.y, tOn), gAO = lerp(GdAO, TuneB.z, tOn);
+    float gTint = lerp(GdTint, TuneB.w, tOn), gSat = lerp(GdSat, TuneC.x, tOn);
+    float2 gk = PA.xy * 1e-5;
+    float3 gq = float3(gk.x * gk.x, gk.x * gk.y, gk.y * gk.y);
+    float2 gduv = float2(dot(CoastU.xy, gk) + CoastU.z + dot(CoastU2, gq), dot(CoastV.xy, gk) + CoastV.z + dot(CoastV2, gq));
+    float2 dU = float2(dot(CoastU.xy, Nn.xy), dot(CoastV.xy, Nn.xy)) * 1e-5;   // UV per cm along the wall normal (linear part)
+    if (all(gduv > 0.001) && all(gduv < 0.999))
+    {
+        float4 bin = Texture2DSampleLevel(BldgAOTex, BldgAOTexSampler, gduv - dU * 150.0, 0);   // 1.5 m inside: own base
+        float4 bout = Texture2DSampleLevel(BldgAOTex, BldgAOTexSampler, gduv + dU * 600.0, 0);  // 6 m out: street canyon
+        float hm = (PA.z + PA.x * PA.x / 1.271e9 + PA.y * PA.y / 1.277e9) * 0.01;              // m MSL (approx.)
+        float za = max(hm - (bin.g * 255.0 - 5.0), 0.0);
+        float foot = exp(-za / max(gBaseH, 0.1));
+        float lowF = 1.0 - saturate(za / max(gGradH, 1.0));
+        float canyon = max(1.0 - bout.r, gFloor) * lowF * sqrt(lowF);                          // (1 - z / H)^1.5
+        GdAOut = saturate((1.0 - gAO * canyon) * (1.0 - 0.5 * gAO * foot));
+        col *= (1.0 - gBase * foot) * (1.0 - gGrad * canyon) * gTint;
+        col = lerp(dot(col, float3(0.2126, 0.7152, 0.0722)).xxx, col, gSat);
+    }
 }
 return col;
