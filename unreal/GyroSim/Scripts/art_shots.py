@@ -16,7 +16,8 @@ Env:
                       "cloud": {VolumetricCloudComponent prop: value}, "cloudmat": {cloud material param: value}, "sky": {SkyAtmosphereComponent prop: value},
                       "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
                       "cvars": {console variable: value}, "pp": {grade_look extra},
-                      "lm": {MI_GyroLandmark scalar: value} (instance of the MI asset itself)}, ..] - each view is shot once per variant (tilesets whose
+                      "lm": {MI_GyroLandmark scalar: value} (instance of the MI asset itself),
+                      "grounded": 0|1, "grounded_def": {atmos_look.GROUNDED_DEF key: value} (low-sun cloud shadow fade)}, ..] - each view is shot once per variant (tilesets whose
                       material changes are refreshed and reloaded); file <view>_<variant>.png. Default: one shot, TAG.
   GYROSIM_ART_HOOK    optional .py file exec'd once after the Play look is applied (probes / dumps; gets ST, log, unreal)
   GYROSIM_SHOTS_DIR   output folder (default C:/GyroSimTiles/shots/art - V-World imagery stays outside git), shots_<tag>.json
@@ -124,6 +125,20 @@ def set_sun(opts):
         return
     for a in unreal.GameplayStatics.get_all_actors_of_class(ST["w"], unreal.DirectionalLight):
         a.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=rot[0], yaw=rot[1]), False)
+    grounded()
+
+
+def grounded():
+    """low-sun cloud shadow fade (atmos_look.apply_grounded) for the current sun and variant ('grounded': 0 | 1,
+    'grounded_def': {CLOUD_SURF_LOW / CLOUD_EL_LOW / CLOUD_EL_HIGH} for sweeps; the module values are restored after)"""
+    import atmos_look
+    v = ST.get("cur") or {}
+    keep = dict(atmos_look.GROUNDED_DEF)
+    atmos_look.GROUNDED_DEF.update(v.get("grounded_def") or {})
+    try:
+        atmos_look.apply_grounded(ST["w"], on=(atmos_look.grounded_on() if v.get("grounded") is None else bool(v["grounded"])))
+    finally:
+        atmos_look.GROUNDED_DEF.clear(); atmos_look.GROUNDED_DEF.update(keep)
 
 
 def _mid(tileset, base_attr, params):
@@ -217,6 +232,8 @@ def set_variant(v):
         val = cw.get(k, corig[k])
         cmd("%s %s" % (k, ("%g" % val) if isinstance(val, float) else val))
     ST["cur"] = v
+    if "light" not in v:                         # a variant's explicit light values win over the grounded rule
+        grounded()
     log("variant", json.dumps(v)[:300])
     return reload
 

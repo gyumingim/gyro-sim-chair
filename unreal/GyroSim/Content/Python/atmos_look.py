@@ -85,6 +85,45 @@ HAZE_FOG_V3 = dict(fog_density=0.001, start_distance=150000.0, fog_inscattering_
 # b* 15 -> 12; photos 34 / 6) but a blind reviewer preferred the stronger warm glow in both haze views (a16, b3) and it
 # warmed front-lit far land by ~0.7 b* -> reverted, the values above stay. (The glass part of backlit v2 lives in the
 # building / landmark materials.)
+# ---- grounded (11-11, docs/grounded-busan.md; GYROSIM_GROUNDED=0 = before) ----------------------------------------------
+# Low sun (b2 LCT sunrise, sun 10 deg): the whole city sat in volumetric cloud shadow while the sea kept its sun glint ->
+# flat grey facades, no warm sunlit faces, near-black ground = buildings "pasted on". Offscreen A/B (same run, frozen clouds):
+# cloud shadow off was the only change that moved the sunlit-face / ground numbers toward 75 real low-sun photos; brighter
+# sun, building cast shadows off, screen traces off, sky light x0.6 did not (sun 18 deg: still fully shadowed, 40 deg: not).
+# The cloud shadow map traces the light through the whole 2.6 km cloud slab, at 10 deg that is a ~15 km slant path, so
+# almost every ray hits some cloud. Fix (photo-statistics correction, not a physical model): the cloud shadow ON THE
+# SURFACE fades to CLOUD_SURF_LOW below CLOUD_EL_LOW deg sun elevation, full strength again from CLOUD_EL_HIGH deg
+# (Play's default sun 42 deg = unchanged). Cloud shadow in the air (light shafts / haze) stays.
+GROUNDED_DEF = dict(CLOUD_SURF_LOW=0.5, CLOUD_EL_LOW=15.0, CLOUD_EL_HIGH=35.0)
+
+
+def grounded_on():
+    return STATE["on"] and os.environ.get("GYROSIM_GROUNDED", "1") != "0"
+
+
+def cloud_surface_strength(el_deg, on=None):
+    """cloud shadow on surface strength for a sun elevation (deg); 1.0 when grounded is off"""
+    on = grounded_on() if on is None else on
+    if not on:
+        return 1.0
+    g = GROUNDED_DEF
+    t = min(1.0, max(0.0, (el_deg - g["CLOUD_EL_LOW"]) / (g["CLOUD_EL_HIGH"] - g["CLOUD_EL_LOW"])))
+    t = t * t * (3.0 - 2.0 * t)
+    return g["CLOUD_SURF_LOW"] + (1.0 - g["CLOUD_SURF_LOW"]) * t
+
+
+def apply_grounded(world, on=None):
+    """set the sun's cloud-shadow-on-surface strength from its current elevation (call after every sun rotation change)"""
+    for a in _actors(world, unreal.DirectionalLight):
+        try:
+            el = -a.get_actor_rotation().pitch
+            s = cloud_surface_strength(el, on)
+            a.get_component_by_class(unreal.DirectionalLightComponent).set_editor_property("cloud_shadow_on_surface_strength", s)
+            log("grounded", "on" if (grounded_on() if on is None else on) else "off", "sun el %.1f -> cloud surface shadow %.2f" % (el, s))
+        except Exception as e:
+            log("grounded failed", repr(e))
+
+
 if HAZE_V2:
     AIR["fog"] = dict(AIR["fog"], **HAZE_FOG)
 if HAZE_V3:
@@ -233,6 +272,7 @@ def apply(world, preset="monitor", on=None):
         if rot:
             for a, _ in cs.get("light", []):
                 a.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=rot[0], yaw=rot[1]), False)
+        apply_grounded(world, on=grounded_on() and on)
         for a in _actors(world, unreal.PostProcessVolume):
             ps = a.get_editor_property("settings")
             for k, v in AIR["pp"].items():
