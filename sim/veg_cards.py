@@ -219,7 +219,7 @@ def _trunk_line(y1, lean_deg, az, wob, rg, n=6):
 def _clump_cards(T, cc, size, n_cards, cells, rg, crown_c, tint, ao, flat, upw, crown_w):
     """n_cards around a clump centre; flat in [0, 1]: 1 = cards near-horizontal (pine pads), 0 = random facing (oak)."""
     for j in range(n_cards):
-        if j == 0 or rg.uniform() < flat:
+        if (j == 0 and not SPREAD) or rg.uniform() < flat:
             tilt = rg.uniform(0, 0.45 if j == 0 else 0.8)            # rad from up
         else:
             tilt = rg.uniform(0.6, 1.5)
@@ -233,8 +233,9 @@ def _clump_cards(T, cc, size, n_cards, cells, rg, crown_c, tint, ao, flat, upw, 
 PINE_TINT = np.array([1.0, 1.0, 1.0])
 # density variants (11-11 user feedback 'too few leaves'): --variant big = cards x1.8 size, same count;
 # --variant more = ~2x cards (clumps x1.3, cards per clump x1.25, cards x0.9 size; ~1.7x cards, <= ~800 tris). Default = the first preview.
-CARD_SCALE, CLUMP_MUL, CARD_MUL = 1.0, 1.0, 1.0
-VARIANTS = dict(v1=(1.0, 1.0, 1.0), big=(1.8, 1.0, 1.0), more=(0.9, 1.3, 1.25))
+CARD_SCALE, CLUMP_MUL, CARD_MUL, SPREAD = 1.0, 1.0, 1.0, False
+VARIANTS = dict(v1=(1.0, 1.0, 1.0), big=(1.8, 1.0, 1.0), more=(0.9, 1.3, 1.25), spread=(1.8, 1.0, 1.0, True))
+# --variant spread = big cards, same count, but cards spread evenly over each pine layer / the whole oak dome
 OAK_TINT = np.array([1.0, 1.0, 1.0])
 
 
@@ -289,8 +290,20 @@ def pine(var):
             depth = np.linalg.norm((cc - crown_c) / [R, 0.25 * H, R])
             hf = np.clip((cc[1] - 0.6 * H) / (0.4 * H), 0, 1)
             ao = np.clip((0.55 + 0.45 * min(depth, 1.0)) * (0.72 + 0.28 * hf), 0.3, 1.0)
-            _clump_cards(T, cc, pr * rg.uniform(0.8, 1.05), round(rg.integers(3, 6) * CARD_MUL), ["pineA", "pineB"], rg, crown_c,
-                         PINE_TINT, ao, flat=0.6 if not narrow else 0.45, upw=0.45, crown_w=0.3)
+            sz = pr * rg.uniform(0.8, 1.05)                 # (draw order kept = same trees as before)
+            nc = round(rg.integers(3, 6) * CARD_MUL)
+            if not SPREAD:
+                _clump_cards(T, cc, sz, nc, ["pineA", "pineB"], rg, crown_c,
+                             PINE_TINT, ao, flat=0.6 if not narrow else 0.45, upw=0.45, crown_w=0.3)
+                continue
+            for _ in range(nc):                     # spread: single cards evenly over a WIDE flat layer (no tight clumps)
+                a2, r2 = rg.uniform(0, 2 * math.pi), pr * 1.55 * math.sqrt(rg.uniform(0.02, 1.0))
+                c2 = p + [r2 * math.cos(a2), rg.uniform(-0.18, 0.28) * pr, r2 * math.sin(a2)]
+                d2 = np.linalg.norm((c2 - crown_c) / [R, 0.25 * H, R])
+                h2 = np.clip((c2[1] - 0.6 * H) / (0.4 * H), 0, 1)
+                ao2 = np.clip((0.55 + 0.45 * min(d2, 1.0)) * (0.72 + 0.28 * h2), 0.3, 1.0)
+                _clump_cards(T, c2, pr * 0.75, 1, ["pineA", "pineB"], rg, p - [0, 0.6 * pr, 0], PINE_TINT, ao2,
+                             flat=0.7 if not narrow else 0.5, upw=0.45, crown_w=0.3)
     return T, dict(H=round(H, 2), R=round(R, 2), lean=round(lean, 1), kind="narrow" if narrow else "umbrella")
 
 
@@ -330,8 +343,21 @@ def oak(var):
             depth = np.linalg.norm(q)
             down = max(0.0, -(cc - lc)[1] / lr)
             ao = np.clip((0.5 + 0.5 * min(depth, 1.0)) * (1 - 0.25 * down), 0.3, 1.0)
-            _clump_cards(T, cc, lr * rg.uniform(0.75, 0.95), round(rg.integers(3, 6) * CARD_MUL), ["oakA", "oakB"], rg, crown_c, OAK_TINT, ao,
-                         flat=0.25, upw=0.25, crown_w=0.4)
+            sz = lr * rg.uniform(0.75, 0.95)
+            nc = round(rg.integers(3, 6) * CARD_MUL)
+            if not SPREAD:
+                _clump_cards(T, cc, sz, nc, ["oakA", "oakB"], rg, crown_c, OAK_TINT, ao,
+                             flat=0.25, upw=0.25, crown_w=0.4)
+                continue
+            for _ in range(nc):                     # spread: single cards over a broad dome (outer shell + volume)
+                while True:
+                    d2 = rg.normal(0, 1, 3); d2 /= np.linalg.norm(d2)
+                    if d2[1] > -0.4:
+                        break
+                rr2 = rg.uniform(0.55, 1.0) ** 0.6
+                c2 = crown_c + [0, 0.05 * H, 0] + d2 * rr2 * [R * 1.0, 0.34 * H, R * 1.0]
+                ao2 = np.clip((0.5 + 0.5 * rr2) * (1 - 0.25 * max(0.0, -d2[1])), 0.3, 1.0)
+                _clump_cards(T, c2, lr * 0.7, 1, ["oakA", "oakB"], rg, crown_c, OAK_TINT, ao2, flat=0.25, upw=0.25, crown_w=0.4)
     return T, dict(H=round(H, 2), R=round(R, 2), kind="oak")
 
 
@@ -452,5 +478,5 @@ def main(out, baseline=False):
 
 if __name__ == "__main__":
     if "--variant" in sys.argv:
-        CARD_SCALE, CLUMP_MUL, CARD_MUL = VARIANTS[sys.argv[sys.argv.index("--variant") + 1]]
+        CARD_SCALE, CLUMP_MUL, CARD_MUL, SPREAD = (VARIANTS[sys.argv[sys.argv.index("--variant") + 1]] + (False,))[:4]
     main(sys.argv[1], "--baseline" in sys.argv)
