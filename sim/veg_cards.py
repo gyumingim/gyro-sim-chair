@@ -36,12 +36,12 @@ def _srgb(c):
 def _draw_pine_cell(draw, ox, oy, S, rg):
     """needle pad seen from above: 8-12 twigs from the centre, needle pairs along them, dense tufts at the tips."""
     cx, cy = ox + S / 2, oy + S / 2
-    n_tw = rg.integers(8, 13)
+    n_tw = rg.integers(13, 17)
     a0 = rg.uniform(0, 2 * math.pi)
     twigs = []
     for k in range(n_tw):
         a = a0 + 2 * math.pi * k / n_tw + rg.uniform(-0.25, 0.25)
-        L = S * 0.5 * rg.uniform(0.55, 0.92)
+        L = S * 0.5 * rg.uniform(0.66, 0.84)
         bend = rg.uniform(-0.35, 0.35)
         twigs.append((a, L, bend))
     # twigs (thin brown) first, then needles: inner (dark) to outer (lighter) for a self-shadowed look
@@ -56,7 +56,7 @@ def _draw_pine_cell(draw, ox, oy, S, rg):
         draw.line(pts, fill=_srgb((70, 48, 30)) + (255,), width=int(S * 0.012))
     for pass_ in range(2):
         for (a, L, bend), pts in zip(twigs, pts_all):
-            for i in range(2, 12):
+            for i in range(1, 12):
                 t = i / 11
                 if pass_ == 0 and t > 0.6 or pass_ == 1 and t <= 0.6:
                     continue
@@ -66,9 +66,9 @@ def _draw_pine_cell(draw, ox, oy, S, rg):
                 for j in range(nb):
                     side = 1 if j % 2 == 0 else -1
                     ang = aa + side * rg.uniform(0.25, 0.95) * (0.7 if t > 0.85 else 1.0)
-                    ln = S * rg.uniform(0.07, 0.12) * (0.75 + 0.35 * t)
+                    ln = S * rg.uniform(0.09, 0.14) * (0.75 + 0.35 * t)
                     shade = 0.62 + 0.55 * t + rg.uniform(-0.12, 0.12)
-                    col = np.array([30, 54, 38]) * shade + rg.uniform(-5, 5, 3)
+                    col = np.array([40, 70, 46]) * shade + rg.uniform(-5, 5, 3)
                     col[2] += 4                                    # blue-green
                     draw.line([(x, y), (x + math.cos(ang) * ln, y + math.sin(ang) * ln)],
                               fill=_srgb(col) + (255,), width=max(2, int(S * 0.011)))
@@ -88,21 +88,21 @@ def _leaf_poly(x, y, ang, L, W, rg, lobes):
 def _draw_oak_cell(draw, ox, oy, S, rg):
     """oak leaf cluster: twigs from the bottom-centre region, ~70 lobed leaves, darker inside / lighter at the rim."""
     cx, cy = ox + S / 2, oy + S / 2
-    n_tw = rg.integers(6, 9)
+    n_tw = rg.integers(8, 11)
     leaves = []
     for k in range(n_tw):
         a = 2 * math.pi * k / n_tw + rg.uniform(-0.3, 0.3)
-        L = S * 0.5 * rg.uniform(0.45, 0.68)
+        L = S * 0.5 * rg.uniform(0.55, 0.75)
         ex, ey = cx + math.cos(a) * L, cy + math.sin(a) * L
         draw.line([(cx, cy), (ex, ey)], fill=_srgb((66, 52, 36)) + (255,), width=int(S * 0.012))
-        for i in range(rg.integers(12, 18)):
+        for i in range(rg.integers(18, 25)):
             t = rg.uniform(0.15, 1.0)
             x, y = cx + (ex - cx) * t, cy + (ey - cy) * t
             ang = a + rg.uniform(-1.2, 1.2)
             leaves.append((t, x, y, ang))
     leaves.sort(key=lambda q: q[0])
     for t, x, y, ang in leaves:
-        L = S * rg.uniform(0.11, 0.16)
+        L = S * rg.uniform(0.13, 0.18)
         W = L * rg.uniform(0.42, 0.55)
         shade = 0.6 + 0.5 * t + rg.uniform(-0.12, 0.12)
         col = np.array([58, 84, 34]) * shade + rg.uniform(-6, 6, 3)
@@ -226,11 +226,15 @@ def _clump_cards(T, cc, size, n_cards, cells, rg, crown_c, tint, ao, flat, upw, 
         yaw = rg.uniform(0, 2 * math.pi)
         facing = np.array([math.sin(tilt) * math.cos(yaw), math.cos(tilt), math.sin(tilt) * math.sin(yaw)])
         off = rg.normal(0, 1, 3) * size * np.array([0.18, 0.08 + 0.12 * (1 - flat), 0.18])
-        T.card(cc + off, size * rg.uniform(1.25, 1.6), facing, rg.uniform(0, 2 * math.pi), cells[rg.integers(len(cells))],
+        T.card(cc + off, size * CARD_SCALE * rg.uniform(1.25, 1.6), facing, rg.uniform(0, 2 * math.pi), cells[rg.integers(len(cells))],
                bool(rg.integers(2)), cc, crown_c, rg, tint * rg.uniform(0.88, 1.12), ao * rg.uniform(0.9, 1.05), upw, crown_w)
 
 
 PINE_TINT = np.array([1.0, 1.0, 1.0])
+# density variants (11-11 user feedback 'too few leaves'): --variant big = cards x1.8 size, same count;
+# --variant more = ~2x cards (clumps x1.3, cards per clump x1.25, cards x0.9 size; ~1.7x cards, <= ~800 tris). Default = the first preview.
+CARD_SCALE, CLUMP_MUL, CARD_MUL = 1.0, 1.0, 1.0
+VARIANTS = dict(v1=(1.0, 1.0, 1.0), big=(1.8, 1.0, 1.0), more=(0.9, 1.3, 1.25))
 OAK_TINT = np.array([1.0, 1.0, 1.0])
 
 
@@ -277,7 +281,7 @@ def pine(var):
         mid = (b0 + p) / 2 + [0, 0.5, 0]
         T.tube([b0, mid, p - [0, 0.35 * pr, 0]], [0.10, 0.07, 0.04], [BARK_ORANGE] * 3, sides=4)
     for k, (p, pr) in enumerate(pads):
-        n_cl = rg.integers(3, 5) if not narrow else rg.integers(2, 4)
+        n_cl = round((rg.integers(3, 5) if not narrow else rg.integers(2, 4)) * CLUMP_MUL)
         for i in range(n_cl):
             ang = rg.uniform(0, 2 * math.pi)
             rr = 0 if i == 0 else pr * rg.uniform(0.45, 0.85)
@@ -285,7 +289,7 @@ def pine(var):
             depth = np.linalg.norm((cc - crown_c) / [R, 0.25 * H, R])
             hf = np.clip((cc[1] - 0.6 * H) / (0.4 * H), 0, 1)
             ao = np.clip((0.55 + 0.45 * min(depth, 1.0)) * (0.72 + 0.28 * hf), 0.3, 1.0)
-            _clump_cards(T, cc, pr * rg.uniform(0.8, 1.05), rg.integers(3, 6), ["pineA", "pineB"], rg, crown_c,
+            _clump_cards(T, cc, pr * rg.uniform(0.8, 1.05), round(rg.integers(3, 6) * CARD_MUL), ["pineA", "pineB"], rg, crown_c,
                          PINE_TINT, ao, flat=0.6 if not narrow else 0.45, upw=0.45, crown_w=0.3)
     return T, dict(H=round(H, 2), R=round(R, 2), lean=round(lean, 1), kind="narrow" if narrow else "umbrella")
 
@@ -318,7 +322,7 @@ def oak(var):
         mid = b0 + (tgt - b0) * 0.5 + [0, 0.8, 0]
         T.tube([b0, mid, tgt - (tgt - b0) * 0.15], [0.15, 0.10, 0.06], [BARK_OAK] * 3, sides=5)
     for k, (lc, lr) in enumerate(lobes):
-        n_cl = rg.integers(3, 5)
+        n_cl = round(rg.integers(3, 5) * CLUMP_MUL)
         for i in range(n_cl):
             d = rg.normal(0, 1, 3); d /= np.linalg.norm(d)
             cc = lc + d * lr * (0 if i == 0 else rg.uniform(0.5, 0.9)) * [1, 0.7, 1]
@@ -326,7 +330,7 @@ def oak(var):
             depth = np.linalg.norm(q)
             down = max(0.0, -(cc - lc)[1] / lr)
             ao = np.clip((0.5 + 0.5 * min(depth, 1.0)) * (1 - 0.25 * down), 0.3, 1.0)
-            _clump_cards(T, cc, lr * rg.uniform(0.75, 0.95), rg.integers(3, 6), ["oakA", "oakB"], rg, crown_c, OAK_TINT, ao,
+            _clump_cards(T, cc, lr * rg.uniform(0.75, 0.95), round(rg.integers(3, 6) * CARD_MUL), ["oakA", "oakB"], rg, crown_c, OAK_TINT, ao,
                          flat=0.25, upw=0.25, crown_w=0.4)
     return T, dict(H=round(H, 2), R=round(R, 2), kind="oak")
 
@@ -447,4 +451,6 @@ def main(out, baseline=False):
 
 
 if __name__ == "__main__":
+    if "--variant" in sys.argv:
+        CARD_SCALE, CLUMP_MUL, CARD_MUL = VARIANTS[sys.argv[sys.argv.index("--variant") + 1]]
     main(sys.argv[1], "--baseline" in sys.argv)
