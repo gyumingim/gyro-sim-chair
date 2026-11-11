@@ -459,6 +459,17 @@ if (style == 3) inner = lerp(inner, inner * float3(3.4, 3.2, 2.8) + 0.04, step(0
 float3 glass = lerp(inner * (0.6 + tint), tint, glassMetal);
 float gRough = glassRough + 0.04 * bayH2;
 float gMetal = glassMetal;
+// backlit v2 (11-11, BK = BacklitV2 on / off, BkMetal / BkDark / BkRough / BkKeep): looking toward a low sun, real curtain
+// glass reads dark with sparse single-pane glints (75 backlit photos, refs/backlit: facade pixels L* >= 85 ~0.1 %, sun-side
+// facades ~3.6 stops under the sky near the sun) - the sim mirrored the whole face. Art fix, not a physical model: the
+// pane metallic / brightness drop only while the camera looks toward the sun (view-sun angle < ~80 deg, full < ~40); BkKeep = share of panes left
+// mirror-like (glints); far away (sub-pixel panes) their average.
+float bkV = BK * smoothstep(0.15, 0.75, dot(rd, Ls));      // a high sun never gets close to the view direction
+float bkKeep = lerp(step(1.0 - BkKeep, H1(cell.x * 2.9 + cell.y * 13.7 + 5.1)), BkKeep, far);
+float bkG = bkV * (1.0 - bkKeep);
+gMetal *= lerp(1.0, BkMetal, bkG);
+glass *= lerp(1.0, BkDark, bkG);
+gRough += BkRough * bkG;
 float3 gN = normalize(Nn + T * (bayH - 0.5) * 0.035 + up * (bayH2 - 0.5) * 0.035);
 float fm = frac(pg.x * max(mull, 1.0));
 float frame = (mull > 0.0) ? (1.0 - step(0.03, fm) * step(fm, 0.97)) : 0.0;
@@ -667,6 +678,12 @@ if (style == 2 && endw > 0.5 && nbE >= 2.0)
 }
 
 // --- combine --------------------------------------------------------------------------------------------------------------------
+if (style == 6 || style == 7)                                // backlit v2: the metallic spandrels / walls of glass towers too
+{
+    wallMetal *= lerp(1.0, BkMetal, bkV);
+    w *= lerp(1.0, BkDark, bkV);
+    wr += BkRough * bkV;
+}
 float3 insC = onGlass ? glass : rev;
 float insR = onGlass ? gRough : 0.8;
 float insM = onGlass ? gMetal : 0.0;

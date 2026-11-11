@@ -3,6 +3,7 @@
 // material layers, like the ground material). Material only, the glb tiles are unchanged.
 // Inputs:  C / Rg / Mt / Sp (layer base colour, roughness, metallic, specular = the glb's PBR values x vertex colour),
 //          UV (TEXCOORD_0: facade texture repeats, 4 bays x 4 floors per repeat), N (vertex normal, world),
+//          V (camera vector, surface -> eye), L (direction to the sun, SkyAtmosphereLightDirection),
 //          parameters below (MI_GyroLandmark, defaults = landmarks_look.GLASS).
 // Outputs: return = base colour; Rough, Metal, Spec, NormalWS (world space: tangent space normals off)
 // Which pixels are glass: the glb facade modules have glass panes (metallic 0.5-0.6, roughness 0.07-0.1) and frames /
@@ -53,7 +54,16 @@ float3 nP = normalize(N + (d.x * tx + d.y * ty) * near * t);
 NormalWS = normalize(lerp(N, nP, g));
 
 float rPane = GlassRough + GlassRoughVar * hp * near;
+// backlit v2 (11-11, BacklitV2 on / off; same rule as buildings_facade.hlsl): looking toward the sun the
+// panes go dark and matte except a BkKeep share of single panes (glints) - backlit photos: facade glints ~0.1 % of pixels,
+// sun-side facades ~3.6 stops under the sky near the sun. Far away (sub-pixel panes) the average.
+float3 Ls = normalize(L + float3(0.0, 0.0, 1e-4));
+float bkV = BacklitV2 * smoothstep(0.15, 0.75, dot(-normalize(V), Ls));
+float bkKeep = lerp(BkKeep, step(1.0 - BkKeep, H1(cell.x * 2.9 + cell.y * 13.7 + 5.1)), near);
+float bkG = bkV * (1.0 - bkKeep) * t;
+col *= lerp(1.0, BkDark, bkG);
+rPane += BkRough * bkG;
 Rough = lerp(Rg, lerp(FrameRough, rPane, t), g);
-Metal = lerp(Mt, lerp(FrameMetal, GlassMetal, t), g);
+Metal = lerp(Mt, lerp(FrameMetal, GlassMetal * lerp(1.0, BkMetal, bkV * (1.0 - bkKeep)), t), g);
 Spec = lerp(Sp, lerp(0.5, GlassSpec, t), g);
 return lerp(C, col, g);

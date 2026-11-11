@@ -40,12 +40,14 @@ def build():
             log("pass-through failed", pin)
     tc = X(unreal.MaterialExpressionTextureCoordinate, 400, 300)
     nrm = X(unreal.MaterialExpressionVertexNormalWS, 400, 400)
+    cam = X(unreal.MaterialExpressionCameraVectorWS, 400, 480)                     # backlit v2 (11-11): view and sun direction
+    sun = X(unreal.MaterialExpressionSkyAtmosphereLightDirection, 400, 540)
     cu = X(unreal.MaterialExpressionCustom, 900, -200)
     cu.set_editor_property("code", open(HLSL, encoding="utf-8").read())
     cu.set_editor_property("description", "GyroGlass")
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     srcs = [("C", brk, "BaseColor"), ("Rg", brk, "Roughness"), ("Mt", brk, "Metallic"), ("Sp", brk, "Specular"),
-            ("UV", tc, ""), ("N", nrm, "")]
+            ("UV", tc, ""), ("N", nrm, ""), ("V", cam, ""), ("L", sun, "")]
     y = 600
     for k, v in landmarks_look.GLASS.items():
         e = X(unreal.MaterialExpressionScalarParameter, 400, y)

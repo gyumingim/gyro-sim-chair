@@ -6,7 +6,8 @@ tiles through C:/GyroSimTiles/landmarks/exclude.json (sim/buildings_build.py --t
 Glass: /Game/Landmarks/MI_GyroLandmark (Scripts/landmarks_material.py + landmarks_glass.hlsl, 11-10): Cesium's glTF
 material layers (base colour + metallic-roughness textures baked in the glb) and then reflective curtain-wall glass on the
 glass-module pixels (dark body, ~10-20 % sky reflection, per-pane / per-floor variation and tilt, darker mullions).
-GYROSIM_LM_GLASS=0 = Cesium's default material (the look before 11-10, A/B). Physics meshes on so the camera floor trace
+GYROSIM_LM_GLASS=0 = Cesium's default material (the look before 11-10, A/B). GYROSIM_BACKLIT_V2=0 = glass without the
+11-11 backlit rule (dark panes with sparse glints toward a low sun; docs/backlit-busan.md). Physics meshes on so the camera floor trace
 stands on them like on the building tiles."""
 import os
 import unreal
@@ -28,7 +29,9 @@ GLASS_MI = "/Game/Landmarks/MI_GyroLandmark"
 GLASS = dict(GlassOn=1.0, Grid=4.0, PaneM=0.55, FrameM=0.10, PaneR=0.09, FrameR=0.55,
              GlassDark=0.8, GlassMetal=0.6, GlassSpec=1.0, GlassRough=0.03, GlassRoughVar=0.05,
              PaneVar=0.30, FloorVar=0.20, TiltDeg=0.8, BowDeg=0.4,
-             FrameGain=0.75, FrameMetal=0.6, FrameRough=0.35)
+             FrameGain=0.75, FrameMetal=0.6, FrameRough=0.35,
+             # backlit v2 (11-11, docs/backlit-busan.md): toward a low sun the panes go dark / matte except BkKeep of them
+             BacklitV2=1.0, BkMetal=0.2, BkDark=0.55, BkRough=0.12, BkKeep=0.035)
 
 
 def url():
@@ -89,6 +92,12 @@ def apply(world, log=unreal.log, georef=None):
                 m = unreal.load_asset(GLASS_MI)
             except Exception:
                 m = None
+        if m is not None and os.environ.get("GYROSIM_BACKLIT_V2", "1") == "0":     # 11-11 backlit glass off (look before)
+            try:
+                m = unreal.MaterialLibrary.create_dynamic_material_instance(world, m)
+                m.set_scalar_parameter_value("BacklitV2", 0.0)
+            except Exception as e:
+                log("[landmarks] backlit off %r" % (e,))
         try:
             a.set_editor_property("material", m)               # None = Cesium default glTF material (PBR from the glb)
             log("[landmarks] material %s" % (GLASS_MI if m else "Cesium default"))

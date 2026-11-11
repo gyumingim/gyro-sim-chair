@@ -15,7 +15,8 @@ Env:
                       "trees": {"v2": 0|1, "look2": 0|1, "tiles": folder} (trees_look version / v2 material extras / tile build),
                       "cloud": {VolumetricCloudComponent prop: value}, "cloudmat": {cloud material param: value}, "sky": {SkyAtmosphereComponent prop: value},
                       "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
-                      "cvars": {console variable: value}, "pp": {grade_look extra}}, ..] - each view is shot once per variant (tilesets whose
+                      "cvars": {console variable: value}, "pp": {grade_look extra},
+                      "lm": {MI_GyroLandmark scalar: value} (instance of the MI asset itself)}, ..] - each view is shot once per variant (tilesets whose
                       material changes are refreshed and reloaded); file <view>_<variant>.png. Default: one shot, TAG.
   GYROSIM_ART_HOOK    optional .py file exec'd once after the Play look is applied (probes / dumps; gets ST, log, unreal)
   GYROSIM_SHOTS_DIR   output folder (default C:/GyroSimTiles/shots/art - V-World imagery stays outside git), shots_<tag>.json
@@ -127,7 +128,8 @@ def set_sun(opts):
 
 def _mid(tileset, base_attr, params):
     """dynamic instance of the tileset's current material with params set (Cesium copies its values onto every tile)."""
-    base = ST.setdefault("base_mat", {}).setdefault(base_attr, tileset.get_editor_property("material"))
+    base = ST.setdefault("base_mat", {}).setdefault(base_attr, unreal.load_asset(landmarks_look.GLASS_MI) if base_attr == "lm"
+                                                    else tileset.get_editor_property("material"))   # lm: never a MID of the Play MID
     if not params:
         tileset.set_editor_property("material", base)
         return
@@ -157,6 +159,9 @@ def set_variant(v):
         trees_look.apply(w, log, ST["gr"], v2=bool(tv.get("v2", True)), look2=bool(tv.get("look2", True)), tiles=tv.get("tiles"))
         ST.get("base_mat", {}).pop("tree", None)
         reload = True
+    lm = landmarks_look.find(w)                  # landmark glass parameters (MI_GyroLandmark scalars)
+    if lm is not None and (v.get("lm") != prev.get("lm") or ST["cur"] is None) and (v.get("lm") or prev.get("lm") or ST.get("lm_mid")):
+        _mid(lm, "lm", v.get("lm")); lm.refresh_tileset(); reload = True; ST["lm_mid"] = True
     tr = trees_look.find(w)
     if tr is not None and (v.get("tree") != prev.get("tree") or ST["cur"] is None):
         _mid(tr, "tree", v.get("tree")); tr.refresh_tileset(); reload = True

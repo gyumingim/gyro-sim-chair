@@ -80,6 +80,11 @@ HAZE_V3 = HAZE_V2 and os.environ.get("GYROSIM_HAZE_V3", "1") != "0"
 HAZE_FOG_V3 = dict(fog_density=0.001, start_distance=150000.0, fog_inscattering_luminance=(0.43, 0.44, 0.44),
                    directional_inscattering_luminance=(0.25, 0.22, 0.17), directional_inscattering_exponent=6.0,
                    directional_inscattering_start_distance=0.0)
+# Backlit v2 (11-11, docs/backlit-busan.md) also tried a weaker aerosol forward peak here (Mie anisotropy 0.6 -> 0.3, Mie
+# colour (0.55, 0.74, 1)): it moved the into-the-sun haze toward the photo statistics (ground near the sun L* 47 -> 40,
+# b* 15 -> 12; photos 34 / 6) but a blind reviewer preferred the stronger warm glow in both haze views (a16, b3) and it
+# warmed front-lit far land by ~0.7 b* -> reverted, the values above stay. (The glass part of backlit v2 lives in the
+# building / landmark materials.)
 if HAZE_V2:
     AIR["fog"] = dict(AIR["fog"], **HAZE_FOG)
 if HAZE_V3:

@@ -10,7 +10,9 @@ brick / stone, rooftop tanks / machine rooms / laundry, sharpened roof photo). G
 material M_GyroBuilding_v2 and, when it exists, the tile folder kept at the v3 swap (buildings/tiles_prev_<date>_v3, newest).
 GYROSIM_BLDG_TILES_DIR = a tile folder name under C:/GyroSimTiles/buildings (or a full path) to load instead of the URL the
 caller set (offscreen before / after shots of a tiles_new build).
-Round 2 (11-10 night): roofs procedural by default (photo = low-frequency tint), GYROSIM_BLDG_ROOF_PHOTO=1 = the photo roofs."""
+Round 2 (11-10 night): roofs procedural by default (photo = low-frequency tint), GYROSIM_BLDG_ROOF_PHOTO=1 = the photo roofs.
+Backlit v2 (11-11, docs/backlit-busan.md): glass-tower panes go dark with sparse glints when the camera looks toward a low
+sun (material parameters BacklitV2 / BkMetal / BkDark / BkRough / BkKeep); GYROSIM_BACKLIT_V2=0 = the look before."""
 import glob, os
 import unreal
 
@@ -55,13 +57,16 @@ def apply(tileset, log=unreal.log):
             m = None
     art_off = os.environ.get("GYROSIM_BLDG_ART", "1") == "0"
     roof_photo = os.environ.get("GYROSIM_BLDG_ROOF_PHOTO", "0") == "1"      # round 2: 1 = photo roofs (default procedural)
-    if m is not None and (art_off or roof_photo):
+    backlit_off = os.environ.get("GYROSIM_BACKLIT_V2", "1") == "0"            # 11-11: dark backlit glass off (look before)
+    if m is not None and (art_off or roof_photo or backlit_off):
         try:
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
             if art_off:
                 m.set_scalar_parameter_value("ArtFix", 0.0)
             if roof_photo:
                 m.set_scalar_parameter_value("RoofPhoto", 1.0)
+            if backlit_off:
+                m.set_scalar_parameter_value("BacklitV2", 0.0)
         except Exception as e:
             log("[buildings_look] parameter instance failed %r" % (e,))
     try:

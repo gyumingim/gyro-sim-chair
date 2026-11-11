@@ -76,12 +76,20 @@ def build(NAME=NAME, HLSL=HLSL):
     rph = X(unreal.MaterialExpressionScalarParameter, -1100, 900)                   # round 2: 1 = photo roofs (buildings_look)
     rph.set_editor_property("parameter_name", "RoofPhoto")
     rph.set_editor_property("default_value", 0.0)
+    # backlit v2 (11-11, buildings_look.BACKLIT): BacklitV2 on / off + its tuning scalars (Custom inputs BK, BkMetal ..)
+    bks = []
+    for i, (pn, inp, dv) in enumerate((("BacklitV2", "BK", 1.0), ("BkMetal", "BkMetal", 0.2), ("BkDark", "BkDark", 0.55),
+                                        ("BkRough", "BkRough", 0.12), ("BkKeep", "BkKeep", 0.035))):
+        e = X(unreal.MaterialExpressionScalarParameter, -1100, 1000 + 80 * i)
+        e.set_editor_property("parameter_name", pn)
+        e.set_editor_property("default_value", dv)
+        bks.append((e, inp))
     cu = X(unreal.MaterialExpressionCustom, -500, 0)
     cu.set_editor_property("code", open(HLSL, encoding="utf-8").read())
     cu.set_editor_property("description", "GyroFacade")
     cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     ins = []
-    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A", "TexObj", "RP"):
+    for n in ("UV", "VC", "R", "Tex", "N", "V", "P", "L", "A", "TexObj", "RP") + tuple(i for _, i in bks):
         ci = unreal.CustomInput()
         ci.set_editor_property("input_name", n)
         ins.append(ci)
@@ -99,7 +107,7 @@ def build(NAME=NAME, HLSL=HLSL):
         cu.post_edit_change()
     except Exception:
         pass
-    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A"), (tobj, "TexObj"), (rph, "RP")):
+    for src, pin in ((tc, "UV"), (vc, "VC"), (rf, "R"), (mul, "Tex"), (nrm, "N"), (cam, "V"), (wp, "P"), (sun, "L"), (art, "A"), (tobj, "TexObj"), (rph, "RP")) + tuple(bks):
         if src is vc:                                                    # VertexColor "" is RGB: append A -> RGBA
             app = X(unreal.MaterialExpressionAppendVector, -800, 250)
             MEL.connect_material_expressions(vc, "", app, "A")
