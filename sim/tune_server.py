@@ -99,7 +99,7 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/state":
             d, l = _clean(_read(DEFAULTS)), _clean(_read(PARAMS))
             return self._send(200, dict(values=dict(d, **l), defaults=d, live=l, ranges=RANGES, render_server=_render_server()))
-        m = re.fullmatch(r"/api/img/([0-9a-f]{8,32})\.png", self.path)
+        m = re.fullmatch(r"/api/img/([0-9a-f]{8,32})\.png", self.path.split("?", 1)[0])   # page adds ?t= cache-buster
         if m:
             p = os.path.join(TUNE, "renders", m.group(1) + ".png")
             if os.path.exists(p):
@@ -138,7 +138,7 @@ class H(BaseHTTPRequestHandler):
 
     def _render(self, b):
             rid = uuid.uuid4().hex[:16]
-            _write(os.path.join(TUNE, "render_req.json"), dict(id=rid, view=str(b.get("view", "n5_gwangan_500"))[:64], res="1280x720"))
+            _write(os.path.join(TUNE, "render_req.json"), dict(id=rid, view=str(b.get("view", "n5_gwangan_500"))[:64], res="1920x1080"))
             t0 = time.time()
             while time.time() - t0 < 90:
                 d = _read(os.path.join(TUNE, "render_done.json"))
