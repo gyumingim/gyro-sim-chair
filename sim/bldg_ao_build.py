@@ -12,7 +12,9 @@ MPC_GyroCoast world -> UV rows. Channels:
   G  building base, m MSL + 5 (1 m steps, 0..250 m), nearest building outside footprints (the facade samples it at its foot)
   B  'lean zone' near tall buildings: max over buildings of 1 - d / (0.25 h) outside the footprint (h >= 20 m), where the
      ortho photo's off-nadir lean puts the tower's own facade / roof on the ground (bright skirt at the foot)
-  A  1 inside a footprint
+  A  signed distance to the nearest footprint edge (contact band, 11-12 docs/research/building-grounding-study.md):
+     A = (d + 8) x 8, d in m (< 0 inside, -8 .. +23.9 m in 1/8 m steps; inside = A < 64). Computed on a 2x finer grid
+     and averaged (edge position error ~ +-1.5 m instead of +-3 m); bilinear filtering keeps it exact along straight walls.
 Lumen sees no Cesium mesh (no distance fields, HW ray tracing off), so the sky light reaches street canyons unoccluded:
 the materials put R into their AmbientOcclusion output (sky / indirect light only) - see ground_look.hlsl / buildings_facade.hlsl.
 """
@@ -57,6 +59,8 @@ def main():
     py = (n - s) / N * 110950.0
     pm = 0.5 * (px + py)
     H = np.zeros((N, N), np.float32)
+    tr2 = rasterio.transform.from_origin(w, n, (e - w) / (2 * N), (n - s) / (2 * N))
+    F2 = np.zeros((2 * N, 2 * N), bool)                   # footprints on the 2x grid (signed distance, channel A)
     BASE = np.full((N, N), np.nan, np.float32)
     srcs = []
     for f in sorted(os.listdir(WORK)):
@@ -72,6 +76,7 @@ def main():
         h = rasterio.features.rasterize([(P[i], float(D["h"][i])) for i in idx], out_shape=(N, N), transform=tr, dtype=np.float32)
         b = rasterio.features.rasterize([(P[i], float(D["base"][i])) for i in idx], out_shape=(N, N), transform=tr, dtype=np.float32,
                                         fill=np.nan)
+        F2 |= rasterio.features.rasterize([(P[i], 1) for i in idx], out_shape=(2 * N, 2 * N), transform=tr2, dtype=np.uint8) > 0
         upd = h > H
         H[upd] = h[upd]
         BASE[upd] = b[upd]
@@ -100,8 +105,14 @@ def main():
         d = ndimage.distance_transform_edt(~sel) * pm
         hm = float(np.median(H[sel]))
         lean = np.maximum(lean, np.clip(1.0 - d / (LEAN * hm), 0.0, 1.0) * (~inside))
+    # A: signed distance (m) on the 2x grid, averaged 2 x 2
+    sd = ndimage.distance_transform_edt(~F2).astype(np.float32)
+    sd -= ndimage.distance_transform_edt(F2).astype(np.float32)
+    sd *= 0.5 * pm
+    sd = sd.reshape(N, 2, N, 2).mean(axis=(1, 3))
+    del F2
     img = np.stack([np.clip(svf * 255.0 + 0.5, 0, 255), np.clip(base + 5.0 + 0.5, 0, 255), np.clip(lean * 255.0 + 0.5, 0, 255),
-                    inside * 255.0], -1).astype(np.uint8)
+                    np.clip((sd + 8.0) * 8.0 + 0.5, 0, 255)], -1).astype(np.uint8)
     os.makedirs(OUT, exist_ok=True)
     from PIL import Image
     Image.fromarray(img, "RGBA").save(os.path.join(OUT, "bldg_ao.png"), optimize=False, compress_level=6)
@@ -109,7 +120,8 @@ def main():
     meta = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), seconds=round(time.time() - t0), box_swne=list(BOX), size=N,
                 pixel_m=[float(px), float(py)], sources=srcs, scales_m=list(SCALES), lean=LEAN,
                 encoding=dict(R="sky-view factor estimate x 255 (ground)", G="building base m MSL + 5 (nearest building)",
-                              B="lean zone 1 - d / (0.25 h), h >= 20 m, x 255", A="inside a footprint"),
+                              B="lean zone 1 - d / (0.25 h), h >= 20 m, x 255",
+                              A="signed distance to the footprint edge (d + 8) x 8, d m (< 0 inside); inside = A < 64"),
                 stats=dict(inside_frac=float(inside.mean()), svf_ground_near_buildings_median=float(np.median(svf[oc])) if oc.any() else None,
                            svf_ground_near_buildings_p10=float(np.percentile(svf[oc], 10)) if oc.any() else None,
                            base_max=float(np.nanmax(BASE)) if np.isfinite(BASE).any() else None, h_max=float(H.max())),

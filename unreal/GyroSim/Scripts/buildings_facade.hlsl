@@ -784,6 +784,10 @@ if (GdOn > 0.5)
         float canyon = max(1.0 - bout.r, gFloor) * lowF * sqrt(lowF);                          // (1 - z / H)^1.5
         GdAOut = saturate((1.0 - gAO * canyon) * (1.0 - 0.5 * gAO * foot));
         col *= (1.0 - gBase * foot) * (1.0 - gGrad * canyon) * gTint;
+        // building contact (11-12, BcOn; GYROSIM_BLDG_CONTACT): extra foot band (scans: the wall foot ~2 stop under its
+        // middle); goes with the darker ground around the footprint (ground_look.hlsl), alone it only deepens the step
+        if (BcOn > 0.5)
+            col *= 1.0 - BcFoot * exp(-za / max(BcFootH, 0.1));
         col = lerp(dot(col, float3(0.2126, 0.7152, 0.0722)).xxx, col, gSat);
     }
 }

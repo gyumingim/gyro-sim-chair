@@ -23,7 +23,8 @@ MEL = unreal.MaterialEditingLibrary
 # sim/bldg_ao_build.py) + the coast mask's world -> UV rows (MPC_GyroCoast). Material defaults = the new look; buildings_look
 # sets GdOn 0 for GYROSIM_GROUNDED_DAY=0. GdAO: canyon / foot occlusion into AmbientOcclusion (sky + indirect light only);
 # GdBase / GdGrad: the same as albedo darkening (art fix); GdTint / GdSat: wall albedo / saturation (hypothesis c sweeps).
-GD = (("GdOn", 1.0), ("GdAO", 1.0), ("GdBase", 0.5), ("GdBaseH", 8.0), ("GdGrad", 0.6), ("GdGradH", 50.0), ("GdFloor", 0.7), ("GdTint", 1.0), ("GdSat", 1.0))   # f3 (e2 sweep)
+GD = (("GdOn", 1.0), ("GdAO", 1.0), ("GdBase", 0.5), ("GdBaseH", 8.0), ("GdGrad", 0.6), ("GdGradH", 50.0), ("GdFloor", 0.7), ("GdTint", 1.0), ("GdSat", 1.0),   # f3 (e2 sweep)
+      ("BcOn", 0.0), ("BcFoot", 0.55), ("BcFootH", 5.0))   # building contact (11-12): set at Play (buildings_look, GYROSIM_BLDG_CONTACT)
 AO_TEX = "/Game/Materials/Ground/T_GyroBldgAO"
 MPC = "/Game/Materials/Ground/MPC_GyroCoast"
 log = lambda *a: unreal.log("[bldg_mat] " + " ".join(str(x) for x in a))

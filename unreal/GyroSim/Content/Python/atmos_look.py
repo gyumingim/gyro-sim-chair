@@ -205,7 +205,20 @@ SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0, CoastFaceOn=1.0, SeaWallColor=(0.17
 # AmbientOcclusion (sky / indirect light only), GdCanyonAlb = share in the albedo, GdLeanDark = albedo darkening in the
 # ortho photo's lean zone at the foot of towers. GD_GROUND_DEF = material defaults (GdOn 0 = off, also MI_GyroGround_Sea0);
 # GD_GROUND = MI_GyroGround. GYROSIM_GROUNDED_DAY=0 at Play -> GdOn 0 (the look before).
-GD_GROUND_DEF = dict(GdOn=0.0, GdAO=1.0, GdCanyonAlb=0.0, GdLeanDark=0.0)
+GD_GROUND_DEF = dict(GdOn=0.0, GdAO=1.0, GdCanyonAlb=0.0, GdLeanDark=0.0,
+                     BcOn=0.0, BcDark=0.3, BcMargin=2.0, BcK=0.7, BcW=8.0)
+# Building contact (11-12, docs/research/building-grounding-study.md, needs GdOn): ground photo darkened under / around the
+# footprints + contact band (ground_look.hlsl), facade foot band (buildings_facade.hlsl). Set at Play on a dynamic instance:
+# GYROSIM_BLDG_CONTACT=1 / 0 (default BLDG_CONTACT_DEFAULT).
+# 11-12: default ON - Blender gap to the scans 1.95 -> 1.24 (these 'strong' values; the Blender pick x0.4 / 0.55 / 6 m: 1.20,
+# a tie, but too faint in game), GPU +0.00..0.03 ms (= run-to-run), no new hitches (art_shots A/B, 6 views).
+BLDG_CONTACT_DEFAULT = "1"
+BC_GROUND = {k: GD_GROUND_DEF[k] for k in ("BcDark", "BcMargin", "BcK", "BcW")}
+BC_BLDG = dict(BcFoot=0.55, BcFootH=5.0)
+
+
+def bldg_contact_on():
+    return os.environ.get("GYROSIM_BLDG_CONTACT", BLDG_CONTACT_DEFAULT) == "1"
 GD_GROUND = dict(GD_GROUND_DEF, GdOn=1.0)
 # Ground photo v2 (11-11, docs/ground-photo-busan.md, ground_look.hlsl 'ground photo v2'): the V-World ortho photo is graded
 # like a bright-midday survey print (bright concrete / roofs near white, strong colour) and read too bright against the
@@ -371,6 +384,9 @@ def apply_ground(tileset, on=None):
             log("relief look", repr(e))
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
         off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
+    if m is not None and bldg_contact_on():
+        off["BcOn"] = 1.0                        # building contact (11-12): material default is 0
+        off.update(BC_GROUND)
     if m is not None and not PHOTO_V2_ON:
         off.update(PHOTO_DEF)                    # ground photo v2 (11-11): photo brightness / gamma / saturation grade off (A/B)
     if m is not None and os.environ.get("GYROSIM_TREES_CANOPY", os.environ.get("GYROSIM_TREES_V2", "1")) == "0":

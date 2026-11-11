@@ -61,7 +61,12 @@ def apply(tileset, log=unreal.log):
     roof_photo = os.environ.get("GYROSIM_BLDG_ROOF_PHOTO", "0") == "1"      # round 2: 1 = photo roofs (default procedural)
     backlit_off = os.environ.get("GYROSIM_BACKLIT_V2", "1") == "0"            # 11-11: dark backlit glass off (look before)
     gd_off = os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0"               # 11-11: grounded day occlusion off (look before)
-    if m is not None and (art_off or roof_photo or backlit_off or gd_off):
+    try:                                                                      # 11-12: building contact (facade foot band)
+        import atmos_look
+        bc_on = atmos_look.bldg_contact_on()
+    except Exception:
+        bc_on = False
+    if m is not None and (art_off or roof_photo or backlit_off or gd_off or bc_on):
         try:
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
             if art_off:
@@ -72,6 +77,10 @@ def apply(tileset, log=unreal.log):
                 m.set_scalar_parameter_value("BacklitV2", 0.0)
             if gd_off:
                 m.set_scalar_parameter_value("GdOn", 0.0)
+            if bc_on:
+                m.set_scalar_parameter_value("BcOn", 1.0)
+                for k, v in atmos_look.BC_BLDG.items():
+                    m.set_scalar_parameter_value(k, float(v))
         except Exception as e:
             log("[buildings_look] parameter instance failed %r" % (e,))
     try:

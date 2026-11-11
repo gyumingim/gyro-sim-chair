@@ -332,6 +332,18 @@ if (GdOn > 0.5)
         float gAO = lerp(GdAO, TuneC.y, tOn), gCA = lerp(GdCanyonAlb, TuneC.z, tOn), gLD = lerp(GdLeanDark, TuneC.w, tOn);
         GdAOut = AOin * lerp(1.0, bo.r, saturate(gAO) * land);
         g *= lerp(1.0, lerp(1.0, bo.r, gCA) * (1.0 - gLD * bo.b), land);
+        // building contact (11-12, BcOn; GYROSIM_BLDG_CONTACT, docs/research/building-grounding-study.md): photogrammetry scans
+        // show the ground next to a building 1-1.7 stop darker than open ground (baked shade / dirt), the V-World photo shows
+        // it as bright or brighter (the off-nadir photo paints the building's own roof / wall there). (a') the photo inside
+        // the footprint + BcMargin m + the lean zone (B) x BcDark (pattern kept); (b) contact band 1 - BcK exp(-d / BcW).
+        // A = signed distance to the footprint edge, (d + 8) x 8 (sim/bldg_ao_build.py).
+        if (BcOn > 0.5)
+        {
+            float sd = bo.a * 255.0 / 8.0 - 8.0;
+            float zone = max(saturate(BcMargin + 1.0 - sd), bo.b);
+            float band = BcK * exp(-max(sd, 0.0) / max(BcW, 0.1));
+            g *= lerp(1.0, lerp(1.0, BcDark, zone) * (1.0 - band), land);
+        }
     }
 }
 Rough = lerp(Rg, wRough, m);

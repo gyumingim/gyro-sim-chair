@@ -363,7 +363,9 @@ def tick(dt):
             vw = VIEWS[ST["vi"]]
             d = sorted(ST["dts"][5:])
             r = dict(view=vw[0], variant=VARIANTS[ST["si"]]["name"], gpu_ms=gpu_from_log(), viewport=ST["sp"][:2], screen_percentage=ST["sp"][2],
-                     frames=len(d), avg_ms=round(sum(d) / len(d) * 1000, 2) if d else None)
+                     frames=len(d), avg_ms=round(sum(d) / len(d) * 1000, 2) if d else None,
+                     p99_ms=round(d[min(len(d) - 1, int(0.99 * len(d)))] * 1000, 2) if d else None,
+                     max_ms=round(d[-1] * 1000, 2) if d else None)
             ST["gpu"].append(r)
             log("gpu", json.dumps(r))
             cmd("r.ScreenPercentage 100")
