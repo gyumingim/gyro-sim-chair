@@ -38,6 +38,9 @@ VIEWS = [("jangsan_300", 35.1920, 129.1480, 540.0, 150.0, 1100.0, 925.0),
          ("seunghak_300", 35.1167, 128.9800, 420.0, 90.0, 1000.0, 790.0),
          ("seunghak_800", 35.1167, 128.9800, 390.0, 90.0, 2500.0, 1290.0),
          ("hwangryeong_low", 35.1560, 129.0800, 330.0, 160.0, 450.0, 520.0)]
+for _ev in filter(None, os.environ.get("GYROSIM_TSHOT_EXTRA", "").split(";")):     # "name,lat,lon,h,bearing,dist,camh;..."
+    _p = _ev.split(",")
+    VIEWS.append((_p[0],) + tuple(float(x) for x in _p[1:7]))
 if os.environ.get("GYROSIM_TSHOT_VIEWS"):
     VIEWS = [v for v in VIEWS if v[0] in os.environ["GYROSIM_TSHOT_VIEWS"].split(",")]
 GPU_VIEWS = os.environ.get("GYROSIM_TSHOT_GPU", "hwangryeong_300,jangsan_800,hwangryeong_low").split(",")
