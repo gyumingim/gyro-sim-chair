@@ -4,7 +4,7 @@ Runs inside the offscreen editor of Scripts/trees_shots.py:
         -RenderOffscreen -nosplash -nosound -ABSLOG=<file>   (GYROSIM_TSHOT_LOG = the same file, for the GPU numbers)
 Holds nothing itself: the caller holds C:/GyroSimTiles/ue_offscreen.lock. Quits the editor when done.
 States (GYROSIM_TNS_STATES, comma list, each once):
-    none   no 3D trees at all (GPU floor)          blob   the old round tiles (before)
+    none   no 3D trees at all (GPU floor)          blob   the old round tiles (before)   cards  leaf-card tiles (11-12)
     near   real-leaf trees, default (lite: oak D for every tree, recoloured per species)   near_r<m>  another radius
     full   the 8-model set (needs those meshes imported)
     noshadow  near trees without shadows
@@ -117,9 +117,15 @@ def setup_cesium(world):
 
 def set_state(st):
     w = ST["w"]
+    if st in ("blob", "cards"):                            # 11-12: blob = the v2 blob tiles, cards = leaf-card tiles (same actor)
+        os.environ["GYROSIM_TREES_CARDS"] = "1" if st == "cards" else "0"
+        os.environ["GYROSIM_TREES_NEAR"] = "0"; os.environ["GYROSIM_TREES_IMPOSTOR"] = "0"
+        ST["blob"] = trees_look.apply(w, log, ST["gr"])
+        os.environ["GYROSIM_TREES_NEAR"] = "1"
+        log("state", st, "tiles", trees_look.config()[1])
     blob = ST.get("blob")
     if blob is not None:
-        blob.set_actor_hidden_in_game(st != "blob")
+        blob.set_actor_hidden_in_game(st not in ("blob", "cards"))
     near = st.startswith("near") or st in ("full", "noshadow")
     imp = st.startswith("imp")
     if imp:                                                # impostor cards (trees_imp) in the same actor
@@ -303,7 +309,7 @@ def tick(dt):
         elif ph == "load":
             p1, p2 = progress(ST["ts"]), progress(ST["b"])
             st = STATES[ST["si"]]
-            p3 = progress(ST["blob"]) if (st == "blob" and ST.get("blob") is not None) else 100.0
+            p3 = progress(ST["blob"]) if (st in ("blob", "cards") and ST.get("blob") is not None) else 100.0
             pend = trees_near.pending() if (st.startswith("near") or st in ("full", "noshadow")) else (trees_imp.pending() if st.startswith("imp") else 0)
             if pend == 0 and ST.get("quiet") is None and el > 2.0:
                 ST["quiet"] = now
@@ -361,7 +367,7 @@ def tick(dt):
         elif ph == "fly_load":
             st = STATES[ST["si"]]
             pend = trees_imp.pending() if st.startswith("imp") else 0
-            p = min(progress(ST["ts"]), progress(ST["b"]), progress(ST["blob"]) if (st == "blob" and ST.get("blob")) else 100.0)
+            p = min(progress(ST["ts"]), progress(ST["b"]), progress(ST["blob"]) if (st in ("blob", "cards") and ST.get("blob")) else 100.0)
             if (p >= 99.9 and pend == 0 and el > 8.0) or el > 90.0:
                 ST.update(phase="fly", t=now, dts=[], gt=[], fly_d=0.0)
                 trees_imp.ST["stats"]["max_tick_ms"] = 0.0

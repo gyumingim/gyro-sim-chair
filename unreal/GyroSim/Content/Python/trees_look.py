@@ -7,7 +7,8 @@ does not know trees either). Called by sim_client._vworld_ground after the roads
 sim/vworld_trees_attribution.png (sim_client._attribution uses it when this returned an actor).
 Art pass 11-10: material /Game/Trees/M_GyroTree (Scripts/trees_material.py + trees_foliage.hlsl: leaf clumps, dark gaps,
 per-clump lighting on the vertex-coloured blob crowns); GYROSIM_TREES_ART=0 = Cesium's stock material (the look before).
-v2 (default, see V2 below): tiles_v2 + M_GyroTree2; GYROSIM_TREES_V2=0 = v1."""
+v2 (default, see V2 below): tiles_v2 + M_GyroTree2; GYROSIM_TREES_V2=0 = v1.
+11-12: leaf-card trees tiles_cards + M_GyroTreeCard on top of v2 (GYROSIM_TREES_CARDS=0 = the v2 blobs)."""
 import os
 import unreal
 
@@ -23,6 +24,21 @@ SSE = float(os.environ.get("GYROSIM_TREES_SSE", "16"))
 #   GYROSIM_TREES_WIND=1   M_GyroTree2W (gentle sway, world position offset; off by default - cost not measured)
 _V2_TILES = r"C:/GyroSimTiles/veg/tiles_v2"
 _V1_TILES = r"C:/GyroSimTiles/veg/tiles"
+# 11-12 leaf-card trees (sim/veg_cards_tiles.py + /Game/Trees/M_GyroTreeCard): default when built; GYROSIM_TREES_CARDS=0 =
+# the old blob tiles (tiles_v2 + M_GyroTree2)
+_CARD_TILES = r"C:/GyroSimTiles/veg/tiles_cards"
+_CARD_MAT = "/Game/Trees/M_GyroTreeCard"
+CARDS_DEFAULT = "1"
+
+
+def cards_on():
+    if os.environ.get("GYROSIM_TREES_CARDS", CARDS_DEFAULT) == "0" or os.environ.get("GYROSIM_TREES_TILES"):
+        return False
+    why = [k for k, ok in (("no tiles", os.path.isfile(_CARD_TILES + "/tileset.json")),
+                           ("no material", unreal.load_asset(_CARD_MAT) is not None)) if not ok]
+    if why:
+        unreal.log("[trees] leaf-card trees unavailable (%s) -> blob tiles" % ", ".join(why))
+    return not why
 LOOK2_OFF = dict(VarAmt=0.0, GapDark=0.0, Bump=0.0, SssAmt=0.0, AoBase=0.0, AoAmb=0.0, RimAmt=0.0)
 STATE = dict(v2=None)
 
@@ -34,6 +50,8 @@ def config(v2=None):
     if v2 and not os.path.isfile(_V2_TILES + "/tileset.json") and not os.environ.get("GYROSIM_TREES_TILES"):
         v2 = False                                     # no v2 tiles built yet -> v1
     tiles = os.environ.get("GYROSIM_TREES_TILES", _V2_TILES if v2 else _V1_TILES).replace("\\", "/")
+    if v2 and cards_on():
+        return v2, _CARD_TILES, _CARD_MAT
     mat = ("/Game/Trees/M_GyroTree2" + ("W" if os.environ.get("GYROSIM_TREES_WIND", "0") == "1" else "")) if v2 else "/Game/Trees/M_GyroTree"
     return v2, tiles, mat
 

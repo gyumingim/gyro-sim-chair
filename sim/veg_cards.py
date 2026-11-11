@@ -137,6 +137,7 @@ def make_atlas(seed=7):
 class Tree:
     def __init__(self):
         self.fol = dict(P=[], N=[], UV=[], C=[])              # cards (triangle list, 4 verts / quad)
+        self.recs = []                                        # card() arguments (far LOD rebuild)
         self.bark = dict(P=[], N=[], C=[], I=[])
         self.nb = 0
 
@@ -165,6 +166,7 @@ class Tree:
         self.nb += len(P)
 
     def card(self, c, size, facing, spin, cell, flip, clump_c, crown_c, rg, tint, ao, upw, crown_w):
+        self.recs.append((c, size, facing, spin, cell, flip, clump_c, crown_c, tint, ao, upw, crown_w))
         """square card centred at c, normal ~facing, rotated by spin around it; uv = atlas cell; emitted front + back."""
         f = facing / np.linalg.norm(facing)
         a = np.cross(f, UP if abs(f[1]) < 0.95 else np.array([1.0, 0, 0])); a /= np.linalg.norm(a)
@@ -434,6 +436,60 @@ def glb_bytes(items, atlas_png, root_matrix=None):
     total = 12 + 8 + len(js) + 8 + len(blob)
     return (struct.pack("<III", 0x46546C67, 2, total) + struct.pack("<II", len(js), 0x4E4F534A) + js
             + struct.pack("<II", len(blob), 0x004E4942) + bytes(blob))
+
+
+# ---------------------------------------------------------------- game tiles (sim/veg_cards_tiles.py) ------------------------
+def far_tree(T, n=8, seed=0):
+    """cheap far LOD of a card tree: n of its cards (farthest-point spread over the crown), enlarged to keep the coverage;
+    no trunk. n=8 -> 32 triangles (front + back), the old far shapes had 24-32."""
+    rg = np.random.default_rng(seed)
+    C = np.array([r[0] for r in T.recs])
+    pick = [int(np.argmax(C[:, 1]))]
+    d = np.linalg.norm(C - C[pick[0]], axis=1)
+    while len(pick) < min(n, len(C)):
+        k = int(np.argmax(d)); pick.append(k); d = np.minimum(d, np.linalg.norm(C - C[k], axis=1))
+    f = math.sqrt(len(C) / len(pick)) * 0.62
+    F = Tree()
+    for k in pick:
+        c, size, facing, spin, cell, flip, clump_c, crown_c, tint, ao, upw, crown_w = T.recs[k]
+        fac = facing * [0.5, 1.0, 0.5]                     # far: flatter (seen from above / afar)
+        F.card(c, size * f, fac, spin, cell, flip, clump_c, crown_c, rg, tint, ao, upw, crown_w)
+    return F
+
+
+def unit_arrays(T, kind_leaf, tint_leaf, foliage_only=False, extent=None):
+    """card Tree (metres) -> veg_v2 prototype arrays + UV, unit tree (height 1, crown radius 1), INDEXED (8 verts / card):
+    P, N (float32), COLOR_0 (uint8: sRGB tint, A = 64 kind + 63 ao - the veg_v2 encoding), I (uint32), UV (float32;
+    atlas uv for leaf cards, (-1, -1) for bark). extent = (H, R) to normalise by (default: measured from the foliage)."""
+    import veg_v2 as V2
+    fP = np.array(T.fol["P"]); fN = np.array(T.fol["N"]); fU = np.array(T.fol["UV"]); fC = np.array(T.fol["C"])
+    nc = len(fP) // 12
+    sel = np.array([[0, 1, 2, 5, 6, 8, 7, 10]]) + 12 * np.arange(nc)[:, None]          # front c0..c3, back c0..c3
+    P = fP[sel].reshape(-1, 3); Nn = fN[sel].reshape(-1, 3); UV = fU[sel].reshape(-1, 2)
+    ao = np.clip(fC[sel].reshape(-1, 3).mean(1), 0, 1)
+    q = np.array([[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6]])
+    I = (q[None] + 8 * np.arange(nc)[:, None, None]).reshape(-1)
+    rgb = np.tile(V2.lin_to_srgb8(np.asarray(tint_leaf)), (len(P), 1))
+    A = kind_leaf * 64 + np.round(ao * 63)
+    parts = [(P, Nn, rgb, A, UV, I)]
+    if T.bark["P"] and not foliage_only:
+        bP = np.concatenate(T.bark["P"]); bN = np.concatenate(T.bark["N"]); bC = np.concatenate(T.bark["C"])
+        bI = np.concatenate(T.bark["I"]).reshape(-1)
+        parts.append((bP, bN, V2.lin_to_srgb8(bC), np.full(len(bP), 50.0), np.full((len(bP), 2), -1.0), bI + len(P)))
+    P = np.concatenate([x[0] for x in parts]); Nn = np.concatenate([x[1] for x in parts])
+    rgb = np.concatenate([x[2] for x in parts]); A = np.concatenate([x[3] for x in parts])
+    UV = np.concatenate([x[4] for x in parts]); I = np.concatenate([x[5] for x in parts])
+    if extent is None:
+        ctr = fP[:, [0, 2]].mean(0)
+        R = float(np.percentile(np.linalg.norm(fP[:, [0, 2]] - ctr, axis=1), 92))
+        H = float(fP[:, 1].max())
+    else:
+        H, R = extent
+    sc = np.array([R, H, R])
+    P = P / sc
+    Nn = Nn * sc; Nn /= np.linalg.norm(Nn, axis=1, keepdims=True) + 1e-12
+    Cu = np.concatenate((rgb, A[:, None]), 1).astype(np.uint8)
+    return P.astype(np.float32), Nn.astype(np.float32), Cu, I.astype(np.uint32), UV.astype(np.float32), (H, R)
 
 
 def baseline_tree(pid, H, R):

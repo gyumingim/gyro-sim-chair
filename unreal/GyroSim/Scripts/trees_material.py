@@ -5,7 +5,7 @@ Scripts/trees_foliage.hlsl in one Custom node on the tiles' vertex colour - no t
 Run in an editor that does not have the asset open (new asset, nothing else is touched or saved):
     UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<this file> -unattended -nosplash -nullrhi
 Re-running rebuilds the graph in place. Builds M_GyroTree (v1) and the v2 pair M_GyroTree2 / M_GyroTree2W
-(GYROSIM_TREE_MAT=1 or 2 = only that one).
+(GYROSIM_TREE_MAT=1 or 2 = only that one; =card = only the leaf-card material M_GyroTreeCard + its atlas).
 """
 import os
 import unreal
@@ -187,8 +187,105 @@ def build2(name=NAME2, wind=False):
     return m
 
 
+# ---- leaf-card trees (11-11/12, sim/veg_cards_tiles.py tiles): /Game/Trees/M_GyroTreeCard + atlas T_GyroTreeCards ---------
+NAME_C, TEX_C = "M_GyroTreeCard", "T_GyroTreeCards"
+ATLAS_C = r"C:/GyroSimTiles/veg/cards_atlas.png"
+HLSL_C = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trees_card.hlsl")
+PARAMS_C = dict(Gain=1.15, VarAmt=1.0, AoBase=0.6, AoAmb=0.85, SssAmt=0.4, RimAmt=0.25, TexLum=0.0589, TexChroma=0.3,
+                OakSat=0.8, MipScale=0.3, UpBias=0.3)
+
+
+def import_atlas():
+    t = unreal.AssetImportTask()
+    t.set_editor_property("filename", ATLAS_C)
+    t.set_editor_property("destination_path", PATH)
+    t.set_editor_property("destination_name", TEX_C)
+    t.set_editor_property("replace_existing", True)
+    t.set_editor_property("automated", True)
+    t.set_editor_property("save", False)
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+    tex = unreal.load_asset(PATH + "/" + TEX_C)
+    tex.set_editor_property("srgb", True)
+    tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_DEFAULT)
+    tex.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+    unreal.EditorAssetLibrary.save_asset(PATH + "/" + TEX_C, only_if_is_dirty=False)
+    log("imported", ATLAS_C)
+    return tex
+
+
+def build_card():
+    """masked two-sided-foliage material: atlas leaves (UV >= 0) with coverage-preserving mips, veg_v2 vertex colour decode."""
+    tex = import_atlas()
+    full = PATH + "/" + NAME_C
+    if unreal.EditorAssetLibrary.does_asset_exist(full):
+        m = unreal.load_asset(full)
+        MEL.delete_all_material_expressions(m)
+    else:
+        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(NAME_C, PATH, unreal.Material, unreal.MaterialFactoryNew())
+    m.set_editor_property("tangent_space_normal", False)
+    m.set_editor_property("two_sided", False)
+    m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
+    m.set_editor_property("opacity_mask_clip_value", 0.5)
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_TWO_SIDED_FOLIAGE)
+    try:
+        m.set_editor_property("used_with_instanced_static_meshes", True)
+    except Exception as e:
+        log("flag", repr(e))
+    X = lambda cls, x, y: MEL.create_material_expression(m, cls, x, y)
+    vc = X(unreal.MaterialExpressionVertexColor, -1300, 0)
+    nrm = X(unreal.MaterialExpressionVertexNormalWS, -1300, 300)
+    pir = X(unreal.MaterialExpressionPerInstanceRandom, -1300, 400)
+    cam = X(unreal.MaterialExpressionCameraVectorWS, -1300, 450)
+    tc = X(unreal.MaterialExpressionTextureCoordinate, -1600, 600)
+    ts = X(unreal.MaterialExpressionTextureSample, -1300, 600)
+    ts.set_editor_property("texture", tex)
+    MEL.connect_material_expressions(tc, "", ts, "UVs")
+    srcs = [("VC", vc, ""), ("VA", vc, "A"), ("N", nrm, ""), ("PIR", pir, ""), ("V", cam, ""), ("UV", tc, ""), ("TexRGB", ts, ""), ("TexA", ts, "A")]
+    y = 900
+    for k, v in PARAMS_C.items():
+        e = X(unreal.MaterialExpressionScalarParameter, -1300, y)
+        e.set_editor_property("parameter_name", k)
+        e.set_editor_property("default_value", float(v))
+        srcs.append((k, e, "")); y += 90
+    cu = X(unreal.MaterialExpressionCustom, -600, 0)
+    cu.set_editor_property("code", open(HLSL_C, encoding="utf-8").read())
+    cu.set_editor_property("description", "GyroTreeCard")
+    cu.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    ins = []
+    for n, _, _ in srcs:
+        ci = unreal.CustomInput(); ci.set_editor_property("input_name", n); ins.append(ci)
+    cu.set_editor_property("inputs", ins)
+    F1, F3 = unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMaterialOutputType.CMOT_FLOAT3
+    outs = []
+    for n, t in (("Rough", F1), ("NormalWS", F3), ("SSS", F3), ("AOut", F1), ("Mask", F1)):
+        co = unreal.CustomOutput(); co.set_editor_property("output_name", n); co.set_editor_property("output_type", t); outs.append(co)
+    cu.set_editor_property("additional_outputs", outs)
+    try:
+        cu.post_edit_change()
+    except Exception:
+        pass
+    for n, src, pin in srcs:
+        if not MEL.connect_material_expressions(src, pin, cu, n):
+            log("connect failed", n)
+    MP = unreal.MaterialProperty
+    MEL.connect_material_property(cu, "", MP.MP_BASE_COLOR)
+    for pin, prop in (("Rough", MP.MP_ROUGHNESS), ("NormalWS", MP.MP_NORMAL), ("SSS", MP.MP_SUBSURFACE_COLOR),
+                      ("AOut", MP.MP_AMBIENT_OCCLUSION), ("Mask", MP.MP_OPACITY_MASK)):
+        if not MEL.connect_material_property(cu, pin, prop):
+            log("property connect failed", pin)
+    sp = X(unreal.MaterialExpressionConstant, -600, 500)
+    sp.set_editor_property("r", 0.3)
+    MEL.connect_material_property(sp, "", MP.MP_SPECULAR)
+    MEL.recompile_material(m)
+    unreal.EditorAssetLibrary.save_asset(full, only_if_is_dirty=False)
+    log("built", full)
+    return m
+
+
 if __name__ in ("__main__", "gyrosim_tree_mat"):
-    if os.environ.get("GYROSIM_TREE_MAT", "") in ("", "1", "all"):
+    if os.environ.get("GYROSIM_TREE_MAT", "") == "card":
+        build_card()
+    elif os.environ.get("GYROSIM_TREE_MAT", "") in ("", "1", "all"):
         build()
     if os.environ.get("GYROSIM_TREE_MAT", "") in ("", "2", "all"):
         build2()
