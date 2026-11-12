@@ -70,11 +70,18 @@ def new_fdm(mode="air", at=None):
     else:
         try:
             fdm["simulation/do_simple_trim"] = 1   # level flight trim: sets throttle + pitch trim
-        except RuntimeError as e:                  # jsbsim.TrimFailureError (e.g. a spot too slow / too high): fly untrimmed
-            print("simcore: trim failed (%s) - untrimmed start" % (str(e).strip() or type(e).__name__), flush=True)
-            fdm.run_ic()                           # back to the initial conditions the failed trim moved away from
+        except RuntimeError as e:                  # jsbsim.TrimFailureError (e.g. a scripted spot too slow / too high)
+            kts = float(fdm["ic/vc-kts"])
+            if abs(kts - START["kts"]) < 1.0:
+                raise                              # already the safe speed: the caller keeps the current flight
+            print("simcore: trim failed at %.0f kt (%s) - one retry at %.0f kt" % (kts, str(e).strip() or type(e).__name__,
+                                                                                  START["kts"]), flush=True)
+            fdm["ic/vc-kts"] = START["kts"]        # the default air start speed, trims from 100 m to 13 km (measured 11-12)
+            fdm["ic/gamma-deg"] = 0
+            fdm.run_ic()
             fdm["propulsion/set-running"] = -1
             fdm["gear/gear-cmd-norm"] = 0
+            fdm["simulation/do_simple_trim"] = 1   # a second failure raises to the caller (server.reset keeps the flight)
     return fdm
 
 
@@ -95,11 +102,12 @@ class Chair:
         return x + v * dt, v
 
     def update(self, phi_deg, theta_deg, ax_g, ay_g, dt):
-        tgt_r = max(-CHAIR_LIM[0], min(CHAIR_LIM[0], 0.35 * phi_deg + 25 * ay_g))
-        tgt_p = max(-CHAIR_LIM[1], min(CHAIR_LIM[1], 0.30 * theta_deg + 20 * ax_g))
-        k = min(1.0, dt / CHAIR_LP)
-        self.tr += (tgt_r - self.tr) * k
-        self.tp += (tgt_p - self.tp) * k
+        if all(math.isfinite(x) for x in (phi_deg, theta_deg, ax_g, ay_g)):    # NaN / inf attitude: hold the last target
+            tgt_r = max(-CHAIR_LIM[0], min(CHAIR_LIM[0], 0.35 * phi_deg + 25 * ay_g))   # (min / max would turn NaN into a limit)
+            tgt_p = max(-CHAIR_LIM[1], min(CHAIR_LIM[1], 0.30 * theta_deg + 20 * ax_g))
+            k = min(1.0, dt / CHAIR_LP)
+            self.tr += (tgt_r - self.tr) * k
+            self.tp += (tgt_p - self.tp) * k
         self.roll, self.vr = self._follow(self.roll, self.vr, self.tr, CHAIR_RATE[0], CHAIR_ACC[0], dt)
         self.pitch, self.vp = self._follow(self.pitch, self.vp, self.tp, CHAIR_RATE[1], CHAIR_ACC[1], dt)
         self.roll = max(-CHAIR_LIM[0], min(CHAIR_LIM[0], self.roll))
@@ -118,8 +126,9 @@ class Sim:
         self.reset(mode)
 
     def reset(self, mode, at=None):
-        self.mode = mode if mode in MODES else "air"
-        self.fdm = new_fdm(self.mode, at if self.mode == "air" else None)
+        mode = mode if mode in MODES else "air"
+        self.fdm = new_fdm(mode, at if mode == "air" else None)     # may raise (trim): nothing of this Sim changed yet
+        self.mode = mode
         self.chair = Chair()
         self.ctrl.update(ail=0.0, elev=0.0, rud=0.0, brk_l=0.0, brk_r=0.0)
         self.ctrl["gear"] = 1.0 if self.mode == "runway" else 0.0

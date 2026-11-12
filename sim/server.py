@@ -96,6 +96,15 @@ udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 _lock = threading.RLock()                 # sim / trainer are touched from the asyncio loop and the joystick thread
 
 
+# 'place' (checks / scripts): values outside these are refused (absurd starts gave NaN flights). The start picker
+# (sim/start_spots.py) stays well inside: 250 kt, 60 m AGL .. 3000 m.
+PLACE_LIMITS = dict(lat=(-89.0, 89.0), lon=(-180.0, 180.0), alt_m=(-100.0, 15000.0), hdg=(-720.0, 720.0), kts=(100.0, 700.0))
+
+
+def place_ok(at):
+    return all(math.isfinite(v) and PLACE_LIMITS[k][0] <= v <= PLACE_LIMITS[k][1] for k, v in at.items())
+
+
 def reset(mode, at=None):
     with _lock:
         if mode == "air" and at is None and state.get("spot_at") and getattr(globals().get("trainer"), "L", None) is None:   # free flight (R, crash retry): chosen spot
@@ -256,9 +265,11 @@ def handle_msg(m, src):
                 picker.open = False                  # scripted placement (checks) closes the start picker
             try:
                 at = {k: float(m[k]) for k in ("lat", "lon", "alt_m", "hdg", "kts") if k in m}
-                if "lat" in at and "lon" in at and "alt_m" in at and all(math.isfinite(v) for v in at.values()):
+                if "lat" in at and "lon" in at and "alt_m" in at and place_ok(at):
                     reset("air", at)
-            except (TypeError, ValueError):
+                else:
+                    print("sim: place refused (needs lat / lon / alt_m inside %s): %r" % (PLACE_LIMITS, at), flush=True)
+            except (TypeError, ValueError, OverflowError):
                 pass
         elif cmd in ("tut", "menu", "voice"):
             trainer.command(m)
@@ -276,7 +287,10 @@ def handle_msg(m, src):
             elif udp_fresh():
                 return                               # Unreal is driving; ignore the browser's idle controls
             joy_keys = state["joy"] or ()
-            vals = {k: float(v) for k, v in m["ctrl"].items() if k in sim.ctrl and k not in joy_keys}
+            try:
+                vals = {k: float(v) for k, v in m["ctrl"].items() if k in sim.ctrl and k not in joy_keys}
+            except OverflowError:                    # an integer too big for a float
+                return
             if all(math.isfinite(v) for v in vals.values()):       # NaN / inf (JSON allows them): drop the message, keep last values
                 sim.ctrl.update(vals)
 
@@ -285,7 +299,7 @@ class CmdUDP(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         try:
             handle_msg(json.loads(data), "udp")
-        except (ValueError, TypeError, AttributeError):
+        except (ValueError, TypeError, AttributeError, OverflowError):
             pass
 
 
@@ -406,7 +420,7 @@ async def handler(ws):
         async for msg in ws:
             try:
                 handle_msg(json.loads(msg), "ws")
-            except (ValueError, TypeError, AttributeError):
+            except (ValueError, TypeError, AttributeError, OverflowError):
                 pass
     task = asyncio.create_task(rx())
     try:
