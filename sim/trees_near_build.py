@@ -64,7 +64,8 @@ def build_db():
     t0 = time.time()
     fs = sorted(glob.glob(os.path.join(V.WORK, "b_*.npz")))
     parts = {}
-    with Pool(int(os.environ.get("GYROSIM_VEG_PROCS", "12")), initializer=V2._init2) as pool:
+    import power_rule as PR                         # power rule: half the cores unless GYROSIM_VEG_PROCS is set
+    with Pool(PR.workers("GYROSIM_VEG_PROCS"), initializer=V2._init2) as pool:
         for res in pool.imap(_attrs, fs, chunksize=4):
             if res is None:
                 continue
@@ -356,6 +357,9 @@ def preview(outdir, names=None):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if any(x in a for x in ("--db", "--meshes", "--preview")):
+        import power_rule
+        power_rule.heavy_job("trees_near_build", "GYROSIM_VEG_PROCS")
     sel = [x for x in a if not x.startswith("--")]
     if "--db" in a:
         build_db()

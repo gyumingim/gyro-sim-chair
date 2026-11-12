@@ -579,7 +579,8 @@ def terrain():
     os.makedirs(NEW_TILES)
     print("coast terrain: %d candidate tiles (levels %s)" % (len(jobs), COAST_LEVELS), flush=True)
     done = []
-    with mp.Pool(max(1, min(10, (os.cpu_count() or 4) - 2))) as pool:
+    import power_rule as PR                         # power rule: half the cores by default (GYROSIM_WORKERS overrides)
+    with mp.Pool(min(10, PR.workers())) as pool:
         for i, r in enumerate(pool.imap_unordered(_coast_job, jobs, chunksize=32)):
             if r:
                 done.append(r)
@@ -807,6 +808,9 @@ def swap(back=False):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if any(x in a for x in ("--mask", "--terrain", "--piers")):
+        import power_rule
+        power_rule.heavy_job("coast_build")
     if "--fetch" in a:
         fetch()
     if "--mask" in a:

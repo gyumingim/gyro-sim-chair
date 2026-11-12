@@ -1056,7 +1056,8 @@ def tiles(args):
     tex = dict(buildings=0, roof_photo={}, color_photo=0, palette=0, floors_data=0, verts=0, roof_jpg_bytes=0, atlas_px=0, styles={})
     import buildings_tex as BT
     BT_STYLE = BT.STYLE_NAMES
-    with mp.Pool(max(1, (os.cpu_count() or 4) - 2)) as pool:
+    import power_rule as PR                         # power rule: half the cores by default (GYROSIM_WORKERS overrides)
+    with mp.Pool(PR.workers()) as pool:
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
@@ -1188,6 +1189,9 @@ def ground_one(path):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if any(x in a for x in ("--prep", "--tiles", "--ground", "--all")):
+        import power_rule
+        power_rule.heavy_job("buildings_build")
     if "--prep" in a or "--all" in a:
         prep(a)
     if "--tiles" in a or "--all" in a:

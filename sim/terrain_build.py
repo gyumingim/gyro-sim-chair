@@ -391,7 +391,8 @@ def tiles():
     print("tiles to build:", {L: len(v) for L, v in plan.items()}, "total", len(jobs), flush=True)
     os.makedirs(T.TILES, exist_ok=True)
     t0, done, size = time.time(), 0, {}
-    with mp.Pool(max(1, (os.cpu_count() or 4) - 2)) as pool:
+    import power_rule as PR                         # power rule: half the cores by default (GYROSIM_WORKERS overrides)
+    with mp.Pool(PR.workers()) as pool:
         for L, nb, _, _ in pool.imap_unordered(_work, jobs, chunksize=16):
             done += 1
             size[L] = size.get(L, 0) + nb
@@ -413,6 +414,9 @@ def tiles():
 
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if any(x in a for x in ("--prep", "--check", "--tiles", "--all")):
+        import power_rule
+        power_rule.heavy_job("terrain_build")
     if "--prep" in a or "--all" in a:
         prep()
     if "--check" in a or "--all" in a:

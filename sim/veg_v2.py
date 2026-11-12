@@ -687,7 +687,8 @@ def tiles2(args):
     t0 = time.time()
     fs = sorted(glob.glob(os.path.join(V.WORK, "b_*.npz")))
     parts, stats = {}, []
-    with Pool(int(os.environ.get("GYROSIM_VEG_PROCS", "12")), initializer=_init2) as pool:
+    import power_rule as PR                         # power rule: half the cores unless GYROSIM_VEG_PROCS is set
+    with Pool(PR.workers("GYROSIM_VEG_PROCS"), initializer=_init2) as pool:
         for res in pool.imap(block_attrs, fs, chunksize=4):
             if res is None:
                 continue
@@ -855,6 +856,9 @@ def swap():
 
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if any(x in a for x in ("--tiles", "--preview")):
+        import power_rule
+        power_rule.heavy_job("veg_v2", "GYROSIM_VEG_PROCS")
     if "--swap" in a:
         swap()
     if "--preview" in a:

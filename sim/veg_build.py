@@ -374,7 +374,8 @@ def prep(args):
         bl = [(int(math.floor(lat / DLA)), int(math.floor(lon / DLO)))]
     t0 = time.time()
     stats = []
-    with Pool(int(os.environ.get("GYROSIM_VEG_PROCS", "12")), initializer=_init) as pool:
+    import power_rule as PR                         # power rule: half the cores unless GYROSIM_VEG_PROCS is set
+    with Pool(PR.workers("GYROSIM_VEG_PROCS"), initializer=_init) as pool:
         for k, st in enumerate(pool.imap_unordered(prep_block, bl)):
             stats.append(st)
             if k % 50 == 0:
@@ -703,6 +704,9 @@ def attrib():
 
 if __name__ == "__main__":
     a = sys.argv[1:]
+    if any(x in a for x in ("--prep", "--tiles")):
+        import power_rule
+        power_rule.heavy_job("veg_build", "GYROSIM_VEG_PROCS")
     if "--fetch" in a:
         fetch()
     if "--prep" in a:
