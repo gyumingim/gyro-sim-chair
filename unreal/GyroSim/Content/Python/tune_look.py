@@ -155,6 +155,9 @@ def start(world=None):
         return
     os.makedirs(os.path.dirname(PARAMS), exist_ok=True)
     ST["mtime"] = None                       # re-apply on the next tick (the look modules just reset light / pp values)
+    for k in [k for k in ST["orig"] if k.startswith("pp:")]:   # post-process "before" values = what the look just set
+        del ST["orig"][k]                    # (sun / sky intensity bases stay: apply_look does not reset them, re-reading
+                                             # them here would multiply sun_mult / sky_mult again)
     if ST["h"] is None:
         ST["h"] = unreal.register_slate_post_tick_callback(_tick)
         log("watching", PARAMS)
