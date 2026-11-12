@@ -70,14 +70,25 @@ def apply(world=None, v=None):
                 if k not in o:
                     o[k] = float(c.get_editor_property("intensity"))
                 c.set_intensity(o[k] * float(v[key]))
-    pp = {k2: v[k1] for k1, k2 in (("exposure_bias", "auto_exposure_bias"), ("le_shadow", "local_exposure_shadow_contrast_scale"),
-                                   ("le_highlight", "local_exposure_highlight_contrast_scale")) if k1 in v}
-    if pp:
+    PP = (("exposure_bias", "auto_exposure_bias"), ("le_shadow", "local_exposure_shadow_contrast_scale"),
+          ("le_highlight", "local_exposure_highlight_contrast_scale"))
+    pp = {k2: v[k1] for k1, k2 in PP if k1 in v}
+    # a key that left both files (revert: exposure_bias has no default) -> the value from before the first slide
+    gone = [k2 for k1, k2 in PP if k1 not in v and k1 in ST["applied"]]
+    if pp or gone:
         for a in _actors(w, unreal.PostProcessVolume):
             ps = a.get_editor_property("settings")
             for k, x in pp.items():
+                ok = "pp:" + k + a.get_path_name()
+                if ok not in o:
+                    o[ok] = (bool(ps.get_editor_property("override_" + k)), float(ps.get_editor_property(k)))
                 ps.set_editor_property("override_" + k, True)
                 ps.set_editor_property(k, float(x))
+            for k in gone:
+                ok = "pp:" + k + a.get_path_name()
+                if ok in o:
+                    ps.set_editor_property("override_" + k, o[ok][0])
+                    ps.set_editor_property(k, o[ok][1])
             a.set_editor_property("settings", ps)
     if any(k in v for _, ks in GD_KEYS for k in ks[1:]):
         try:
