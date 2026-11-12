@@ -62,7 +62,8 @@ FILL_DEFAULTS = dict(
 # stop classification reads the reply BODY (rec["text"]), never the proxy's note (= the matched stop code, always
 # OVER_REQUEST_LIMIT / 일일 제한 for a stop). Rate = HTTP 429 or a short-window word in the body; daily wording in the body
 # wins over it (a daily stop must never be cleared); a stop whose body has neither = the daily limit (safe default).
-# HTTP 429 is checked as the status only: a bare "429" in a body is not a rate word.
+# HTTP 429 is checked as the status only (a bare "429" in a body is not a rate word), and a 429 whose body carries the
+# documented daily code (OVER_REQUEST_LIMIT = 일일 제한 초과, docs/vworld-integration.md) with no short-window word is daily.
 RATE_WORDS = ("TOO_MANY", "Too Many", "per second", "per minute", "초당", "분당", "1초", "1분", "RATE", "rate limit")
 DAILY_WORDS = ("일일", "하루", "daily", "DAILY", "per day")
 KEY_WORDS = ("INVALID_KEY", "UNAVAILABLE_KEY", "등록되지 않은 인증키", "사용할 수 없는 인증키")
@@ -593,7 +594,8 @@ class Run:
             return 3
         body = rec.get("text") or ""
         daily_type = any(w in body for w in DAILY_WORDS)
-        rate_type = not daily_type and (http == 429 or any(w in body for w in RATE_WORDS))
+        daily_code = any(c in body for c in VP.STOP_CODES if c not in KEY_WORDS)   # OVER_REQUEST_LIMIT / 일일 제한 = daily (docs)
+        rate_type = not daily_type and (any(w in body for w in RATE_WORDS) or (http == 429 and not daily_code))
         if rec.get("kind") == "stop" and not rate_type:                   # OVER_REQUEST_LIMIT / 일일 제한: the daily limit
             c = int(px.usage.get("count", 0)) - 1                         # requests that got through today
             st["observed_daily_limits"].append(dict(day=day, count_at_stop=c, fill_count=int(px.usage.get("fill_count", 0)), at=now_s(),
