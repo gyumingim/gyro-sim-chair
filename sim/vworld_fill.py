@@ -60,6 +60,9 @@ FILL_DEFAULTS = dict(
     flying_wait_min=30.0,
 )
 RATE_WORDS = ("429", "TOO_MANY", "Too Many", "per second", "per minute", "초당", "분당", "1초", "1분", "RATE", "rate limit")
+# daily-limit wording wins over RATE_WORDS: an OVER_REQUEST_LIMIT body may also contain "429" / "1분" etc., and a rate
+# reading would clear the shared daily stop in usage.json
+DAILY_WORDS = ("OVER_REQUEST_LIMIT", "일일", "하루", "daily", "DAILY", "per day")
 KEY_WORDS = ("INVALID_KEY", "UNAVAILABLE_KEY", "등록되지 않은 인증키", "사용할 수 없는 인증키")
 
 
@@ -586,7 +589,8 @@ class Run:
             st["key_errors"].append(dict(day=day, at=now_s(), note=rec.get("note")))
             self.end = "KEY ERROR (%s) - stopped for the day, check the key" % rec.get("note")
             return 3
-        rate_type = http == 429 or any(w in text for w in RATE_WORDS)
+        daily_type = any(w in text for w in DAILY_WORDS)
+        rate_type = not daily_type and (http == 429 or any(w in text for w in RATE_WORDS))
         if rec.get("kind") == "stop" and not rate_type:                   # OVER_REQUEST_LIMIT / 일일 제한: the daily limit
             c = int(px.usage.get("count", 0)) - 1                         # requests that got through today
             st["observed_daily_limits"].append(dict(day=day, count_at_stop=c, fill_count=int(px.usage.get("fill_count", 0)), at=now_s(),
