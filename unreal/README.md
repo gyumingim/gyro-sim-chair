@@ -36,7 +36,7 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   응답이 진짜 JPEG 인지 검사 (오류는 HTTP 200 + XML 로 옴). `OVER_REQUEST_LIMIT`·키 오류 → 그날 0시까지 호출 중지. 그 밖 오류 → 1, 2, 4 … 300 초 쉬기, 3 번 실패한 타일은 24 시간 안 부름.
   못 받으면: 캐시 → 낮은 줌 캐시 확대 → 빈 타일. 상태: `python sim/vworld_proxy.py --status`, 호출 기록 `C:\GyroSimTiles\vworld\usage.jsonl`. 오프라인 = 설정 `"mode": "cache-only"`.
 - **약관 (19조 무단 저장 금지)**: 캐시(`C:\GyroSimTiles\vworld`, 저장소 밖)는 **받은 뒤 3 일(서버 max-age) 지나면 지움** (설정 파일이 없어도 같음).
-  `permanent_cache` 를 켠 설정을 한 번이라도 읽으면 캐시 폴더에 `PERMANENT_CACHE` 표시 파일을 남기고, 그 뒤 설정이 없어지거나 깨지면 지우지 않고 경고만 한다. `--status`·cache-only 는 지우지 않는다.
+  `permanent_cache` 를 켠 설정을 한 번이라도 읽으면 캐시 폴더에 `PERMANENT_CACHE` 표시 파일을 남기고, 그 파일이 있는 동안은 설정이 없어지거나 깨지거나 `permanent_cache` 가 false 여도 지우지 않고 경고만 한다 (3 일 규칙을 다시 쓰려면 그 파일을 지운다). `--status`·cache-only 는 지우지 않는다.
   `permanent_cache`(영구 보관)·`prefetch_enabled`(미리 받기 `--prefetch`)는 기본 **끔** — **공간정보산업진흥원의 서면 허락을 받은 뒤에만** 켠다 (1661-0115, vworld@spacen.or.kr).
   타일은 절대 git 에 넣지 않는다 (`.gitignore` 에 `GyroSimTiles/`, `tile_cache/`). Cesium 자체 캐시에도 안 남게 프록시가 `no-store` 로 보냄.
 - **화면**: 오른쪽 아래에 출처 "지도: 브이월드(V-World), 국토교통부" (13조, `sim/vworld_attribution.png`, VR 에선 아래 가운데). 오른쪽 화면 MAP 줄 = V-WORLD PHOTO.

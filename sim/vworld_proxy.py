@@ -39,8 +39,9 @@ TERMS (V-World 이용약관 19조 "오픈플랫폼에서 제공되는 데이터�
   - `permanent_cache` is OFF by default: every cached tile is deleted when the server's Cache-Control max-age has run
     out (259200 s = 3 days, measured), counted from the download. This is also what happens with no config file.
   - a cache that ran with permanent_cache on gets the marker file <cache_dir>/PERMANENT_CACHE (written whenever such a
-    config is loaded). With that marker and a missing / broken config, cleanup is skipped with a warning (a lost
-    config must not delete days of permitted downloads). Read-only entry points (--status, cache-only) never clean up.
+    config is loaded). While that marker exists cleanup is skipped with a warning, whatever the config says (a lost or
+    reset config must not delete days of permitted downloads); deleting the marker is the one explicit act that lets the
+    3-day rule run again. Read-only entry points (--status, cache-only) never clean up.
   - Turn `permanent_cache` (and `prefetch_enabled`) on ONLY after written permission from 공간정보산업진흥원
     (V-World operator; 1661-0115, vworld@spacen.or.kr). The prefetch job refuses to run unless both are on.
   - the cache lives outside the repo (default C:\\GyroSimTiles\\vworld) and must never be committed (19조, 측량성과 국외
@@ -253,11 +254,13 @@ class Proxy:
         self.last_cleanup = now
         if self.cfg["permanent_cache"] or not self.allow_cleanup:
             return 0
-        if not self.cfg.get("_config_ok") and os.path.exists(self.marker):   # a permanent cache whose config got lost
+        if os.path.exists(self.marker):      # a marked (permanent) cache is never cleaned as a side effect of the config
             if not getattr(self, "_skip_logged", False):
                 self._skip_logged = True
-                self.log("WARNING: cleanup skipped - config %s missing or broken, but %s says this cache is permanent "
-                         "(tiles kept; fix the config or delete the marker)" % (CONFIG_FILE, self.marker))
+                why = ("config %s says permanent_cache false" % CONFIG_FILE if self.cfg.get("_config_ok")
+                       else "config %s missing or broken" % CONFIG_FILE)
+                self.log("WARNING: cleanup skipped - %s, but %s marks this cache permanent (tiles kept). Set permanent_cache "
+                         "true again, or delete %s to let the 3-day rule run" % (why, self.marker, self.marker))
             return 0
         with self.lock:
             old = self.db.execute("SELECT z, y, x FROM t WHERE status IN ('ok', 'empty', 'derived') AND fetched + max_age <= ?", (now,)).fetchall()
