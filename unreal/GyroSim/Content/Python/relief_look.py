@@ -365,17 +365,17 @@ def start(tileset=None, photo=None):
         log("no", MPC, "/", RT, "(run Scripts/ground_material.py) - relief off")
         return False
     world = tileset.get_world() if tileset is not None else None
-    try:                                                  # the asset's size does not stick when set in the commandlet
-        if ST["rt"].get_editor_property("size_x") != SIZE or ST["rt"].get_editor_property("size_y") != SIZE:
-            unreal.RenderingLibrary.resize_render_target2d(ST["rt"], SIZE, SIZE)
-    except Exception as e:
-        log("rt resize", repr(e))
     if not on():
         ST["on"] = False
         if world is not None:
             _set(world, "RelF", (0.0, 0.0, 0.0, 0.0))
         log("GYROSIM_PHOTO_DEPTH=0: off")
-        return False
+        return False                                      # off: no resize to SIZE (4096^2 x 8 B = 128 MiB)
+    try:                                                  # the asset's size does not stick when set in the commandlet
+        if ST["rt"].get_editor_property("size_x") != SIZE or ST["rt"].get_editor_property("size_y") != SIZE:
+            unreal.RenderingLibrary.resize_render_target2d(ST["rt"], SIZE, SIZE)
+    except Exception as e:
+        log("rt resize", repr(e))
     if not os.path.isfile(PY):
         log("no relief python", PY, "- relief off")
         return False
