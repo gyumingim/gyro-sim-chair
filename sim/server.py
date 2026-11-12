@@ -299,7 +299,7 @@ class CmdUDP(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         try:
             handle_msg(json.loads(data), "udp")
-        except (ValueError, TypeError, AttributeError, OverflowError):
+        except (ValueError, TypeError, AttributeError, OverflowError, RecursionError):
             pass
 
 
@@ -420,7 +420,7 @@ async def handler(ws):
         async for msg in ws:
             try:
                 handle_msg(json.loads(msg), "ws")
-            except (ValueError, TypeError, AttributeError, OverflowError):
+            except (ValueError, TypeError, AttributeError, OverflowError, RecursionError):
                 pass
     task = asyncio.create_task(rx())
     try:
