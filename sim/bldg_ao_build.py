@@ -15,6 +15,10 @@ MPC_GyroCoast world -> UV rows. Channels:
   A  signed distance to the nearest footprint edge (contact band, 11-12 docs/research/building-grounding-study.md):
      A = (d + 8) x 8, d in m (< 0 inside, -8 .. +23.9 m in 1/8 m steps; inside = A < 64). Computed on a 2x finer grid
      and averaged (edge position error ~ +-1.5 m instead of +-3 m); bilinear filtering keeps it exact along straight walls.
+     Only footprint pixels whose block stands out of the rendered ground count (11-12 fix): where the terrain (1" DEM,
+     the source of the Cesium terrain mesh) is above roof - BURIED_TOL m, the block is buried there (underground
+     structures, a 2.8 m 'building' under a school ground on a slope, the uphill part of a hillside block), the photo of
+     the ground is what shows, and darkening it as 'inside' painted whole parcels near-black (x BcDark x (1 - BcK)).
 Lumen sees no Cesium mesh (no distance fields, HW ray tracing off), so the sky light reaches street canyons unoccluded:
 the materials put R into their AmbientOcclusion output (sky / indirect light only) - see ground_look.hlsl / buildings_facade.hlsl.
 """
@@ -30,6 +34,7 @@ OUT = os.environ.get("GYROSIM_BLDG_AO", r"C:\GyroSimTiles\buildings\ao")
 BOX = (34.96, 128.75, 35.40, 129.33)                      # S W N E = coast_build.BOX (same grid as T_GyroCoast)
 N = 8192
 SCALES = (6.0, 12.0, 24.0, 48.0, 96.0, 192.0)             # m
+BURIED_TOL = 0.5                                          # m, a footprint pixel counts only where roof > terrain + this
 LEAN = 0.25                                               # lean zone length / building height (off-nadir ~14 deg, 추정)
 
 
@@ -52,6 +57,10 @@ def polys(D):
 def main():
     import rasterio.features, rasterio.transform
     from scipy import ndimage
+    import terrain_dem
+    dem = terrain_dem.Dem()
+    if not dem.ok:
+        sys.exit("no terrain DEM (terrain_dem.Dem) - needed to drop buried footprint pixels from channel A")
     t0 = time.time()
     s, w, n, e = BOX
     tr = rasterio.transform.from_origin(w, n, (e - w) / N, (n - s) / N)
@@ -61,6 +70,7 @@ def main():
     H = np.zeros((N, N), np.float32)
     tr2 = rasterio.transform.from_origin(w, n, (e - w) / (2 * N), (n - s) / (2 * N))
     F2 = np.zeros((2 * N, 2 * N), bool)                   # footprints on the 2x grid (signed distance, channel A)
+    R2 = np.zeros((2 * N, 2 * N), np.int16)               # roof m MSL x 10 on the 2x grid (buried pixels, channel A)
     BASE = np.full((N, N), np.nan, np.float32)
     srcs = []
     for f in sorted(os.listdir(WORK)):
@@ -77,6 +87,10 @@ def main():
         b = rasterio.features.rasterize([(P[i], float(D["base"][i])) for i in idx], out_shape=(N, N), transform=tr, dtype=np.float32,
                                         fill=np.nan)
         F2 |= rasterio.features.rasterize([(P[i], 1) for i in idx], out_shape=(2 * N, 2 * N), transform=tr2, dtype=np.uint8) > 0
+        roof = np.clip((D["base"] + D["h"]) * 10.0, -32000, 32000)
+        ir = sorted(idx, key=lambda i: roof[i])                                 # highest roof wins where footprints touch
+        np.maximum(R2, rasterio.features.rasterize([(P[i], int(roof[i])) for i in ir], out_shape=(2 * N, 2 * N), transform=tr2,
+                                                   dtype=np.int16, fill=-32768), out=R2)
         upd = h > H
         H[upd] = h[upd]
         BASE[upd] = b[upd]
@@ -105,6 +119,18 @@ def main():
         d = ndimage.distance_transform_edt(~sel) * pm
         hm = float(np.median(H[sel]))
         lean = np.maximum(lean, np.clip(1.0 - d / (LEAN * hm), 0.0, 1.0) * (~inside))
+    # A: only footprint pixels whose block stands out of the rendered ground (see the docstring)
+    rr, cc = np.nonzero(F2)
+    lat2 = n - (rr + 0.5) * (n - s) / (2 * N)
+    lon2 = w + (cc + 0.5) * (e - w) / (2 * N)
+    terr = np.empty(len(rr), np.float32)
+    for k in range(0, len(rr), 2000000):
+        terr[k:k + 2000000] = dem.msl(lat2[k:k + 2000000], lon2[k:k + 2000000])
+    bur = R2[rr, cc] * 0.1 <= terr + BURIED_TOL
+    n_f2, n_bur = int(len(rr)), int(bur.sum())
+    F2[rr[bur], cc[bur]] = False
+    del R2, rr, cc, lat2, lon2, terr, bur
+    print("channel A: %d of %d footprint pixels buried (%.2f %%)" % (n_bur, n_f2, 100.0 * n_bur / max(n_f2, 1)), flush=True)
     # A: signed distance (m) on the 2x grid, averaged 2 x 2
     sd = ndimage.distance_transform_edt(~F2).astype(np.float32)
     sd -= ndimage.distance_transform_edt(F2).astype(np.float32)
@@ -121,8 +147,10 @@ def main():
                 pixel_m=[float(px), float(py)], sources=srcs, scales_m=list(SCALES), lean=LEAN,
                 encoding=dict(R="sky-view factor estimate x 255 (ground)", G="building base m MSL + 5 (nearest building)",
                               B="lean zone 1 - d / (0.25 h), h >= 20 m, x 255",
-                              A="signed distance to the footprint edge (d + 8) x 8, d m (< 0 inside); inside = A < 64"),
-                stats=dict(inside_frac=float(inside.mean()), svf_ground_near_buildings_median=float(np.median(svf[oc])) if oc.any() else None,
+                              A="signed distance to the footprint edge (d + 8) x 8, d m (< 0 inside); inside = A < 64; "
+                                "buried footprint pixels (terrain > roof - buried_tol_m) are not footprint"),
+                buried_tol_m=BURIED_TOL,
+                stats=dict(inside_frac=float(inside.mean()), a_footprint_px2=n_f2, a_buried_px2=n_bur, svf_ground_near_buildings_median=float(np.median(svf[oc])) if oc.any() else None,
                            svf_ground_near_buildings_p10=float(np.percentile(svf[oc], 10)) if oc.any() else None,
                            base_max=float(np.nanmax(BASE)) if np.isfinite(BASE).any() else None, h_max=float(H.max())),
                 note="GIS footprints / heights only (buildings_build.py work npz); render-time data, kept out of git")
