@@ -14,7 +14,10 @@ Lock convention for ALL holders (this is the one place it is written down):
   - a holder that may run longer than 2 minutes without an UnrealEditor process keeps the mtime fresh (this module
     touches it every REFRESH_S from a daemon thread), because sim/landmarks/run_shots.sh treats a lock older than
     120 s with no UnrealEditor alive (or older than 30 min) as stale.
-  - run_shots.sh never takes over a lock whose token names a live pid.
+  - run_shots.sh never takes over a lock whose token names a live pid that started no later than the token's time
+    (a pid reused after a power cut / kill does not count); after 5 min of waiting it prints a "may be a leftover" hint.
+    Its own token follows this convention and its EXIT trap removes only its own lock.
+  - the token time is local "yyyy-mm-ddThh:mm:ss" (Python strftime / PowerShell Get-Date -Format s).
 """
 import atexit, os, sys, threading, time, uuid
 
