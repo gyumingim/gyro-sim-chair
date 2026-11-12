@@ -190,6 +190,7 @@ class ViewFx:
         try:
             if getattr(self, "look_world", None) is not world:
                 self.look_world, self.look_mids, self.look_on = world, [], LOOK_ON
+                self.look_skip = set()                        # (component, slot, material) seen with no entry: not re-tested
             acts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
             ac = unreal.GameplayStatics.get_all_actors_with_tag(world, "Aircraft")
             if ac:
@@ -201,9 +202,13 @@ class ViewFx:
                         m = smc.get_material(i)
                         if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
                             continue
+                        key = (smc, i, m)                     # a new part or a re-set material is a new key: examined again
+                        if key in self.look_skip:
+                            continue
                         name = m.get_name()
                         vals = CANOPY if "Canopy" in name else COCKPIT_LOOK.get(name)
                         if vals is None:
+                            self.look_skip.add(key)
                             continue
                         mid = smc.create_dynamic_material_instance(i, m)
                         if not mid:

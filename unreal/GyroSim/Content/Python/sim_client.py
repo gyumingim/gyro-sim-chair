@@ -2031,10 +2031,26 @@ class SimClient:
 
     def _vworld_poll(self, now):
         """proxy status every 5 s (budget / stopped) -> HUD note; the proxy never sends the key."""
-        if self.cesium_mode != "vworld" or now - getattr(self, "vw_poll_t", 0.0) < 5.0:
+        if self.cesium_mode != "vworld":
+            return
+        res = getattr(self, "vw_poll_res", None)              # a finished background poll: apply it here (game thread)
+        if res is not None:
+            self.vw_poll_res = None
+            self._vworld_apply(res[0])
+        if now - getattr(self, "vw_poll_t", 0.0) < 5.0 or getattr(self, "vw_poll_busy", False):
             return
         self.vw_poll_t = now
-        st = self.vworld_status(0.15)
+        self.vw_poll_busy = True
+        import threading
+
+        def work():                                           # off the game thread: urllib + a file read only, no unreal API
+            try:
+                self.vw_poll_res = (self.vworld_status(0.15),)
+            finally:
+                self.vw_poll_busy = False
+        threading.Thread(target=work, name="vworld_poll", daemon=True).start()
+
+    def _vworld_apply(self, st):
         self.vw_stat = st
         if st is None:
             self.vw_note = "V-WORLD PROXY STOPPED - CACHED TILES ONLY"
