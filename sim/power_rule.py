@@ -67,7 +67,7 @@ def below_normal():
 
 def _release(token):
     try:
-        with open(LOCK, encoding="utf-8-sig") as f:
+        with open(LOCK, encoding="utf-8-sig", errors="replace") as f:
             first = f.readline().strip()
         if first == token:
             os.remove(LOCK)
@@ -101,15 +101,24 @@ def take_lock(name):
 
 def _refresh(token):
     """keep the lock's mtime fresh while it is ours (run_shots.sh stale rule), stop once it is not."""
+    warned = False
     while True:
         time.sleep(REFRESH_S)
         try:
-            with open(LOCK, encoding="utf-8-sig") as f:
-                if f.readline().strip() != token:
-                    return
+            with open(LOCK, encoding="utf-8-sig", errors="replace") as f:
+                first = f.readline().strip()
+            if first != token:
+                print("power_rule: WARNING - %s is no longer ours (now %r); this job runs WITHOUT the lock" % (LOCK, first[:80]),
+                      flush=True)
+                return
             os.utime(LOCK, None)
-        except OSError:
+        except FileNotFoundError:
+            print("power_rule: WARNING - %s was removed; this job runs WITHOUT the lock" % LOCK, flush=True)
             return
+        except OSError as e:                 # sharing violation / antivirus: transient, try again next round
+            if not warned:
+                warned = True
+                print("power_rule: lock refresh failed (%r) - retrying every %.0f s" % (e, REFRESH_S), flush=True)
 
 
 def heavy_job(name, env=None):
