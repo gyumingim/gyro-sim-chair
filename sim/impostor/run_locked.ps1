@@ -1,5 +1,6 @@
 # Run one heavy job (headless Blender bake etc.) while holding C:\GyroSimTiles\ue_offscreen.lock (power rule).
 # Lock created atomically with our own token, removed only if still ours. Exits 3 if the lock is busy.
+# Convention for all lock holders (token with pid, mtime refresh, stale rule): sim/power_rule.py docstring.
 #   powershell -NoProfile -File sim\impostor\run_locked.ps1 -exe <blender.exe> -argstr "-b --factory-startup -P x.py -- a b" -log <file>
 param([string]$exe, [string]$argstr, [string]$log)
 $lock = "C:\GyroSimTiles\ue_offscreen.lock"

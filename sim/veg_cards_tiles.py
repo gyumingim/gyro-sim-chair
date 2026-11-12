@@ -126,10 +126,10 @@ def glb_instanced_uv(protos, groups, Mx):
 
 if __name__ == "__main__":
     # power rule (PSU tripped twice 11-11): below-normal priority (pool workers inherit it), at most half the cores
-    import ctypes
-    ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x4000)
+    import power_rule                                   # typed SetPriorityClass + read back (sim/power_rule.py)
+    low = power_rule.below_normal()
     os.environ["GYROSIM_VEG_PROCS"] = str(min(int(os.environ.get("GYROSIM_VEG_PROCS", "6")), max(1, (os.cpu_count() or 2) // 2)))
-    print("procs", os.environ["GYROSIM_VEG_PROCS"], "priority below-normal", flush=True)
+    print("procs", os.environ["GYROSIM_VEG_PROCS"], "priority", "below-normal" if low else "NOT lowered (normal)", flush=True)
     img = VC.make_atlas()
     img.save(ATLAS_OUT)
     a = np.asarray(img).astype(np.float64) / 255.0

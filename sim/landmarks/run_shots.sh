@@ -13,6 +13,12 @@ while true; do
   if ( set -o noclobber; echo "landmarks_shots $(date +%Y-%m-%dT%H:%M:%S)" > "$LOCK" ) 2>/dev/null; then break; fi
   age=$(( $(date +%s) - $(stat -c %Y "$LOCK") ))
   alive=$(tasklist 2>/dev/null | grep -c -i "^UnrealEditor")      # UnrealEditor.exe and UnrealEditor-Cmd.exe (commandlets hold the lock too)
+  # a token naming a live Windows pid ("<job> pid<N> ...": PowerShell holders, sim/power_rule.py builds) is never stale
+  # (lock convention: sim/power_rule.py docstring)
+  hpid=$(grep -o -m1 'pid[0-9][0-9]*' "$LOCK" 2>/dev/null | head -1 | cut -c4-)
+  if [ -n "$hpid" ] && MSYS_NO_PATHCONV=1 tasklist /FI "PID eq $hpid" /NH 2>/dev/null | grep -q " $hpid "; then
+    echo "$(date +%T) lock held by live pid $hpid: $(cat "$LOCK") (${age}s) - waiting"; sleep 60; continue
+  fi
   if [ "$age" -gt 1800 ] || { [ "$alive" -eq 0 ] && [ "$age" -gt 120 ]; }; then     # 2 min grace: holders run several UE in a row
     echo "stale lock ($(cat "$LOCK"), ${age}s, UE alive $alive) - taking over"; rm -f "$LOCK"; continue
   fi
