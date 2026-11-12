@@ -373,6 +373,28 @@ def joystick_thread():
         time.sleep(0.01)
 
 
+def local_origin(origin):
+    """True when a WebSocket / POST may act: no Origin header (Unreal, python clients) or a page served from this PC
+    (http(s)://127.0.0.1:* or localhost:*). Any other web page open in a browser must not reset / pause / steer the sim."""
+    if not origin:
+        return True
+    from urllib.parse import urlsplit
+    try:
+        u = urlsplit(origin.strip())
+        u.port                                       # raises ValueError on a bad port
+    except ValueError:
+        return False
+    return u.scheme in ("http", "https") and u.hostname in ("127.0.0.1", "localhost") and not u.username and u.path in ("", "/")
+
+
+def ws_origin_check(connection, request):
+    origins = request.headers.get_all("Origin")
+    if not all(local_origin(o) for o in origins):
+        print("sim: WebSocket refused, Origin %r is not this PC" % (origins,), flush=True)
+        return connection.respond(403, "origin not allowed")
+    return None
+
+
 async def handler(ws):
     async def rx():
         async for msg in ws:
@@ -448,7 +470,7 @@ async def main():
         print("vworld proxy not started:", repr(e), flush=True)
     threading.Thread(target=joystick_thread, daemon=True).start()
     await asyncio.get_running_loop().create_datagram_endpoint(CmdUDP, local_addr=("127.0.0.1", CMD_UDP_PORT))
-    async with serve(handler, "127.0.0.1", WS_PORT):
+    async with serve(handler, "127.0.0.1", WS_PORT, process_request=ws_origin_check):
         print(f"sim: open http://127.0.0.1:{HTTP_PORT}/  (ws {WS_PORT}, chair UDP {CHAIR_UDP}, "
               f"Unreal state UDP {UNREAL_UDP}, cmd UDP {CMD_UDP_PORT})", flush=True)
         await physics()

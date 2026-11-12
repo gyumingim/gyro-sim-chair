@@ -19,6 +19,7 @@ PARAMS = os.path.join(TUNE, "params.json")
 DEFAULTS = os.path.join(os.path.dirname(HERE), "unreal", "GyroSim", "Content", "Python", "tune_defaults.json")
 LOCK = r"C:\GyroSimTiles\ue_offscreen.lock"
 ORIGIN = "http://127.0.0.1:8767"
+ALLOWED_ORIGINS = (ORIGIN, "http://localhost:8767")    # POST is refused from any other page
 RENDER_LOCK = threading.Lock()                  # one render request at a time (a second click waits its turn)
 # slider ranges (also in docs/grounded-day-busan.md): key -> (min, max, step, label)
 RANGES = {
@@ -112,7 +113,22 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, body=open(p, "rb").read(), ctype="image/png")
         self._send(404, dict(error="not found"))
 
+    def _refuse(self):
+        """-> an error reply for a POST that must not act: a browser page from another origin (a text/plain POST needs no
+        preflight, so CORS alone does not stop it) or a body that is not JSON. No Origin = curl / python, allowed."""
+        org = self.headers.get("Origin")
+        if org and org.rstrip("/") not in ALLOWED_ORIGINS:
+            return 403, "origin not allowed"
+        n = int(self.headers.get("Content-Length") or 0)
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if n > 0 and ctype != "application/json":
+            return 415, "Content-Type must be application/json"
+        return None
+
     def do_POST(self):
+        bad = self._refuse()
+        if bad:
+            return self._send(bad[0], dict(error=bad[1]))
         if self.path == "/api/params":
             v = dict(_clean(_read(PARAMS)), **_clean(self._body()))
             _write(PARAMS, v)
