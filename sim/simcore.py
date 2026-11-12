@@ -68,7 +68,13 @@ def new_fdm(mode="air", at=None):
     if mode == "runway":
         fdm["fcs/throttle-cmd-norm"] = 0.0
     else:
-        fdm["simulation/do_simple_trim"] = 1       # level flight trim: sets throttle + pitch trim
+        try:
+            fdm["simulation/do_simple_trim"] = 1   # level flight trim: sets throttle + pitch trim
+        except RuntimeError as e:                  # jsbsim.TrimFailureError (e.g. a spot too slow / too high): fly untrimmed
+            print("simcore: trim failed (%s) - untrimmed start" % (str(e).strip() or type(e).__name__), flush=True)
+            fdm.run_ic()                           # back to the initial conditions the failed trim moved away from
+            fdm["propulsion/set-running"] = -1
+            fdm["gear/gear-cmd-norm"] = 0
     return fdm
 
 

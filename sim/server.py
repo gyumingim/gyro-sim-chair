@@ -20,7 +20,7 @@ item '출발 위치 고르기' opens it mid-flight. Commands {"cmd": "spot", "op
 
 Run:  python server.py [--start rkpk] [--free-flight]      then open http://127.0.0.1:8780/   (--start: airfield, default rktu = Cheongju)
 """
-import asyncio, json, os, socket, sys, threading, time
+import asyncio, json, math, os, socket, sys, threading, time
 # start airfield (sim/airfield.py AIRFIELDS): --start rkpk (Busan Gimhae 36L) | rktu (Cheongju 06R, default), or the
 # GYROSIM_START environment variable. Set before anything imports airfield (simcore, terrain_dem).
 if "--start" in sys.argv:
@@ -100,7 +100,11 @@ def reset(mode, at=None):
     with _lock:
         if mode == "air" and at is None and state.get("spot_at") and getattr(globals().get("trainer"), "L", None) is None:   # free flight (R, crash retry): chosen spot
             at = state["spot_at"]
-        sim.reset(mode, at)
+        try:
+            sim.reset(mode, at)
+        except RuntimeError as e:                    # JSBSim refused the start (simcore already flies untrimmed on a trim failure)
+            print("sim: reset %s %r failed (%s) - keeping the current flight" % (mode, at, e), flush=True)
+            return
         state["rid"] += 1
         state["paused"] = False
         state["crashed"] = False
@@ -252,7 +256,7 @@ def handle_msg(m, src):
                 picker.open = False                  # scripted placement (checks) closes the start picker
             try:
                 at = {k: float(m[k]) for k in ("lat", "lon", "alt_m", "hdg", "kts") if k in m}
-                if "lat" in at and "lon" in at and "alt_m" in at:
+                if "lat" in at and "lon" in at and "alt_m" in at and all(math.isfinite(v) for v in at.values()):
                     reset("air", at)
             except (TypeError, ValueError):
                 pass
@@ -272,7 +276,9 @@ def handle_msg(m, src):
             elif udp_fresh():
                 return                               # Unreal is driving; ignore the browser's idle controls
             joy_keys = state["joy"] or ()
-            sim.ctrl.update({k: float(v) for k, v in m["ctrl"].items() if k in sim.ctrl and k not in joy_keys})
+            vals = {k: float(v) for k, v in m["ctrl"].items() if k in sim.ctrl and k not in joy_keys}
+            if all(math.isfinite(v) for v in vals.values()):       # NaN / inf (JSON allows them): drop the message, keep last values
+                sim.ctrl.update(vals)
 
 
 class CmdUDP(asyncio.DatagramProtocol):
