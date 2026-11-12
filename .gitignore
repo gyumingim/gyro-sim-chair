@@ -6,3 +6,7 @@ GyroSimTiles/
 tile_cache/
 unreal/GyroSim/Content/Materials/Ground/T_GyroCoast.uasset
 unreal/GyroSim/Content/Materials/Ground/T_GyroBldgAO.uasset
+# python bytecode and local backup copies (index.html.bak_v8pre etc.)
+__pycache__/
+*.bak_*
+index.html.bak_*
