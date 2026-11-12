@@ -66,12 +66,12 @@ git 에는 **스크립트만** 들어 있다. 아래 자료는 스크립트가 �
 ## 빠졌던 자료 (11-12 정리, 원본·결과물 모두 git 밖)
 | 자료 | 어디에 씀 | 출처 | 라이선스 | 비고 |
 |---|---|---|---|---|
-| **V-World 항공사진** (WMTS `Satellite`, z19 를 받고 z18-z14 는 로컬에서 만듦) | `vworld` 모드의 땅 사진, 3D 나무 자리·색, 사진 입체 입력 | https://www.vworld.kr (오픈플랫폼 WMTS, 인증키 필요) | V-World 이용약관 (https://www.vworld.kr/v4po_prcint_a001.do): 13조 출처 표시 "지도: 브이월드(V-World), 국토교통부" (화면 출처 판 `sim/vworld_attribution.png`), 19조 허락 없는 저장 금지. 저장소 기본값은 3 일 지나면 삭제, 영구 캐시는 이 PC 로컬 설정만 (`docs/vworld-integration.md` 약관 절). 타일은 git·업로드 금지 | `sim/vworld_proxy.py`, `sim/vworld_fill.py` |
+| **V-World 항공사진** (WMTS `Satellite`, z19 를 받고 z18-z14 는 로컬에서 만듦) | `vworld` 모드의 땅 사진, 3D 나무 자리·색, 사진 입체 입력 | https://www.vworld.kr (오픈플랫폼 WMTS, 인증키 필요) | V-World 이용약관 (https://www.vworld.kr/v4po_prcint_a001.do): 13조 출처 표시 "지도: 브이월드(V-World), 국토교통부" (화면 출처 판 `sim/vworld_attribution.png`), 19조 허락 없는 저장 금지. 캐시는 받은 뒤 3 일(서버 max-age) 지나면 삭제 (설정 파일이 없을 때도 같음). 영구 캐시는 이 PC 로컬 설정에서만 켜고, 그 캐시 폴더의 `PERMANENT_CACHE` 표시 파일이 있으면 설정이 없어져도 지우지 않음 (`docs/vworld-integration.md` 약관 절). 타일은 git·업로드 금지 | `sim/vworld_proxy.py`, `sim/vworld_fill.py` |
 | **국토교통부 GIS건물통합정보** 부산 (`AL_D010_26_20261009`) | 부산 3D 건물, 랜드마크 교체, 해안 지형 보정 | https://www.vworld.kr/dtmk/dtmk_ntads_s001.do (사용자가 직접 받음) | **CC BY** (위 충청북도 줄과 같음). 표기 "건물: 국토교통부 GIS건물통합정보 (CC BY)" — 화면 출처 판과 `tileset.json` copyright | `sim/buildings_build.py`, `sim/landmarks/landmarks_build.py`, `sim/terrain_coastfix.py` |
 | KOSTAT 2013 시도 경계 (`southkorea/southkorea-maps` 의 `kostat/2013/json/skorea_provinces_geo.json`) | 부산 사진 타일 목록(경계 + 300 m), 미니맵 시 경계선 | https://github.com/southkorea/southkorea-maps (원자료 통계청) | **[확인 필요]** (저장소·원자료 라이선스를 이 저장소 문서에서 확인하지 못함) | `sim/vworld_fill.py`, `sim/minimap_build.py` |
 | TUM Downtown Campus UAV 사진측량 메시 (TUM2TWIN) | 건물 접지 연구의 비교 렌더 (로컬 분석만) | https://zenodo.org/records/15282970 | **CC BY 4.0** | `C:/GyroSimTiles/refs/scan3d/`, `docs/research/building-grounding-study.md`. 스캔·렌더는 git 에 없음 |
 | Avenue Rd - Drone Photogrammetry (continuumtoon, Objaverse 미러) | 위와 같음 (로컬 분석만) | https://zenodo.org/records/10324567 | **CC BY 4.0** | 위와 같음 |
-| Poly Haven `pine_sapling_medium` | 임포스터 나무 실험(기본 꺼짐)의 어린 소나무 원형 | https://polyhaven.com/a/pine_sapling_medium | CC0 1.0 (Poly Haven 자료 공통) | `sim/impostor/pipeline.py`, 원본 git 밖 |
+| Poly Haven `pine_sapling_medium` | 임포스터 나무 실험(기본 꺼짐)의 어린 소나무 원형 | https://polyhaven.com/a/pine_sapling_medium (폴더 이름에서 추정한 주소, 열어 보지 않음 **[확인 필요]**) | CC0 1.0 (Poly Haven 자료 공통) | `sim/impostor/pipeline.py`, 원본 git 밖 |
 | Depth Anything V2 Small (`depth-anything/Depth-Anything-V2-Small-hf`) | 사진 입체: 땅 사진 → 높이 (기본 꺼짐) | https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf | **Apache-2.0** (`sim/photo_relief.py`, `docs/photo-relief-busan.md` 기록) | 모델 파일은 로컬만, git 에 없음 |
 
 저장소 전체 라이선스 파일(`LICENSE`)은 아직 없다 (공개 저장소에서 없으면 기본은 "모든 권리 보유"). 어떤 라이선스로 할지는 소유자가 정한다.

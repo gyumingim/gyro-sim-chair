@@ -37,7 +37,10 @@ example: sim/vworld_proxy.example.json):
     (never calls the API, never reads the key) that exits with its parent (Content/Python/photo_src.py starts it).
 TERMS (V-World 이용약관 19조 "오픈플랫폼에서 제공되는 데이터는 무단으로 저장하지 못합니다", 18조):
   - `permanent_cache` is OFF by default: every cached tile is deleted when the server's Cache-Control max-age has run
-    out (259200 s = 3 days, measured), counted from the download.
+    out (259200 s = 3 days, measured), counted from the download. This is also what happens with no config file.
+  - a cache that ran with permanent_cache on gets the marker file <cache_dir>/PERMANENT_CACHE (written whenever such a
+    config is loaded). With that marker and a missing / broken config, cleanup is skipped with a warning (a lost
+    config must not delete days of permitted downloads). Read-only entry points (--status, cache-only) never clean up.
   - Turn `permanent_cache` (and `prefetch_enabled`) on ONLY after written permission from 공간정보산업진흥원
     (V-World operator; 1661-0115, vworld@spacen.or.kr). The prefetch job refuses to run unless both are on.
   - the cache lives outside the repo (default C:\\GyroSimTiles\\vworld) and must never be committed (19조, 측량성과 국외
@@ -77,6 +80,7 @@ DEFAULTS = dict(
 STOP_CODES = ("OVER_REQUEST_LIMIT", "INVALID_KEY", "UNAVAILABLE_KEY", "등록되지 않은 인증키", "사용할 수 없는 인증키", "일일 제한")
 EMPTY_CODES = ("FileNotFound", "FILE_NOT_FOUND", "NOT_FOUND")
 KST = 9 * 3600
+PERM_MARKER = "PERMANENT_CACHE"      # in cache_dir: this cache ran with permanent_cache on (cleanup() rule)
 GAPFIX = os.environ.get("GYROSIM_VW_GAPFIX", "1") != "0"
 GAP_MIN = 0.03                       # fraction of full white rows / columns (seam tile 19/207217/450086 = 0.64; white roofs 0)
 GAP_ZMIN = 14
@@ -93,7 +97,7 @@ def load_config(path=CONFIG_FILE):
         with open(path, encoding="utf-8-sig") as f:
             user = json.load(f)
         cfg.update({k: v for k, v in user.items() if not k.startswith("_")})
-        cfg["_config_ok"] = True         # cleanup() deletes tiles only with a config that was really read (never on fallback defaults)
+        cfg["_config_ok"] = True         # a config that was really read (see cleanup(): the PERMANENT_CACHE marker rule)
     except OSError:
         pass
     except (ValueError, AttributeError) as e:
@@ -153,6 +157,14 @@ class Proxy:
         self.dir = self.cfg["cache_dir"]
         self.tiles = os.path.join(self.dir, self.cfg["layer"])
         os.makedirs(self.tiles, exist_ok=True)
+        self.marker = os.path.join(self.dir, PERM_MARKER)
+        if self.cfg.get("_config_ok") and self.cfg["permanent_cache"] and not os.path.exists(self.marker):
+            try:                             # remember that this cache is permanent, in case the config is lost later
+                with open(self.marker, "w", encoding="utf-8") as f:
+                    f.write("permanent_cache was on in %s (%s). While this file exists, a missing / broken config does not "
+                            "delete tiles." % (CONFIG_FILE, time.strftime("%Y-%m-%d %H:%M:%S")))
+            except OSError:
+                pass
         self.lock = threading.RLock()
         self.db = sqlite3.connect(os.path.join(self.dir, "index.sqlite"), check_same_thread=False)
         self.db.execute("CREATE TABLE IF NOT EXISTS t (z INT, y INT, x INT, fetched REAL, max_age REAL, status TEXT, fails INT DEFAULT 0, "
@@ -241,10 +253,11 @@ class Proxy:
         self.last_cleanup = now
         if self.cfg["permanent_cache"] or not self.allow_cleanup:
             return 0
-        if not self.cfg.get("_config_ok"):   # config missing or unreadable: keep the cache, it may hold days of downloads
+        if not self.cfg.get("_config_ok") and os.path.exists(self.marker):   # a permanent cache whose config got lost
             if not getattr(self, "_skip_logged", False):
                 self._skip_logged = True
-                self.log("cleanup skipped: no valid config %s (tiles are kept)" % CONFIG_FILE)
+                self.log("WARNING: cleanup skipped - config %s missing or broken, but %s says this cache is permanent "
+                         "(tiles kept; fix the config or delete the marker)" % (CONFIG_FILE, self.marker))
             return 0
         with self.lock:
             old = self.db.execute("SELECT z, y, x FROM t WHERE status IN ('ok', 'empty', 'derived') AND fetched + max_age <= ?", (now,)).fetchall()
@@ -746,7 +759,7 @@ def selftest():
     up = ThreadingHTTPServer(("127.0.0.1", 0), Fake)
     threading.Thread(target=up.serve_forever, daemon=True).start()
     tmp = tempfile.mkdtemp(prefix="vwproxy_test_")
-    cfg = dict(DEFAULTS, cache_dir=tmp, port=0, daily_budget=6, rate_per_s=50.0, queue_wait_s=1.0, _config_ok=True)
+    cfg = dict(DEFAULTS, cache_dir=tmp, port=0, daily_budget=6, rate_per_s=50.0, queue_wait_s=1.0)
     px = Proxy(cfg, key="TESTKEY123", upstream="http://127.0.0.1:%d/{key}/{layer}/{z}/{y}/{x}.jpeg" % up.server_address[1])
     res = {}
     z, y, x = 15, 12900, 27990                                 # near RKTU
