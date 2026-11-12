@@ -91,6 +91,15 @@ def _unmerc(mx, my):
     return lat, lon
 
 
+def _finite(v):
+    """client number -> finite float, or None (NaN / inf / a huge int / not a number)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return f if math.isfinite(f) else None
+
+
 class Picker:
     def __init__(self, ground=None, render=True, out_dir=OUT, last_file=LAST, minimap_dir=MINIMAP_DIR):
         """ground(lat, lon) -> ground / roof height MSL m (server: DEM + roofs) or None."""
@@ -182,7 +191,10 @@ class Picker:
     def _load_last(self):
         try:
             d = json.load(open(self.last_file, encoding="utf-8"))
-        except (OSError, ValueError):
+            nums = [float(d[k]) for k in ("alt_m", "hdg", "lat", "lon") if d.get(k) is not None]
+        except (OSError, ValueError, TypeError, AttributeError, OverflowError, RecursionError):
+            return
+        if not all(math.isfinite(v) for v in nums):          # a corrupt last-spot file (NaN / inf): ignore it
             return
         k = d.get("key")
         if k not in self.rows:
@@ -200,6 +212,8 @@ class Picker:
 
     def save_last(self):
         k = self.key
+        if not (math.isfinite(self.alt) and math.isfinite(self.hdg)):     # never write NaN / inf to the last-spot file
+            return
         d = dict(key=k, alt_m=self.alt, hdg=self.hdg % 360, saved=time.strftime("%Y-%m-%d %H:%M:%S"))
         if k == CUSTOM and self.custom:
             d.update(lat=self.custom[0], lon=self.custom[1])
@@ -238,9 +252,15 @@ class Picker:
             except (TypeError, ValueError):
                 pass
         elif op == "alt":
-            self._step_alt(float(m.get("d", 1)))
+            d = _finite(m.get("d", 1))
+            if d is not None:
+                self._step_alt(d)
         elif op == "hdg":
-            self.hdg = (self.hdg + float(m.get("d", 1)) * float(m.get("step", HDG_STEP))) % 360
+            d, step = _finite(m.get("d", 1)), _finite(m.get("step", HDG_STEP))
+            h = (self.hdg + d * step) % 360 if d is not None and step is not None else float("nan")
+            if not math.isfinite(h):                               # NaN / inf / overflow (scripted client): ignored
+                return None
+            self.hdg = h
             if self.key == RANDOM:
                 self._select(0)
             self._changed()
