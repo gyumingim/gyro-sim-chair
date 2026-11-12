@@ -93,9 +93,10 @@ def load_config(path=CONFIG_FILE):
         with open(path, encoding="utf-8-sig") as f:
             user = json.load(f)
         cfg.update({k: v for k, v in user.items() if not k.startswith("_")})
+        cfg["_config_ok"] = True         # cleanup() deletes tiles only with a config that was really read (never on fallback defaults)
     except OSError:
         pass
-    except ValueError as e:
+    except (ValueError, AttributeError) as e:
         print("vworld_proxy: bad config %s (%s) - using defaults" % (path, e), flush=True)
     return cfg
 
@@ -142,8 +143,9 @@ def tile_lonlat_box(z, y, x):
 
 
 class Proxy:
-    def __init__(self, cfg=None, key=None, upstream=UPSTREAM, role="flight"):
+    def __init__(self, cfg=None, key=None, upstream=UPSTREAM, role="flight", cleanup=True):
         self.cfg = cfg or load_config()
+        self.allow_cleanup = cleanup         # False for read-only users (--status, cache-only): they never delete tiles
         self.role = role                     # flight (Unreal) | fill (sim/vworld_fill.py): fill requests are counted apart
         self.last_rec = None                 # the last upstream request record (usage.jsonl line), for the filler
         self.key = key if key is not None else read_key()
@@ -237,7 +239,12 @@ class Proxy:
         """TERMS 19: delete every tile whose server max-age (3 days) has run out, unless permanent_cache is on."""
         now = time.time()
         self.last_cleanup = now
-        if self.cfg["permanent_cache"]:
+        if self.cfg["permanent_cache"] or not self.allow_cleanup:
+            return 0
+        if not self.cfg.get("_config_ok"):   # config missing or unreadable: keep the cache, it may hold days of downloads
+            if not getattr(self, "_skip_logged", False):
+                self._skip_logged = True
+                self.log("cleanup skipped: no valid config %s (tiles are kept)" % CONFIG_FILE)
             return 0
         with self.lock:
             old = self.db.execute("SELECT z, y, x FROM t WHERE status IN ('ok', 'empty', 'derived') AND fetched + max_age <= ?", (now,)).fetchall()
@@ -739,7 +746,7 @@ def selftest():
     up = ThreadingHTTPServer(("127.0.0.1", 0), Fake)
     threading.Thread(target=up.serve_forever, daemon=True).start()
     tmp = tempfile.mkdtemp(prefix="vwproxy_test_")
-    cfg = dict(DEFAULTS, cache_dir=tmp, port=0, daily_budget=6, rate_per_s=50.0, queue_wait_s=1.0)
+    cfg = dict(DEFAULTS, cache_dir=tmp, port=0, daily_budget=6, rate_per_s=50.0, queue_wait_s=1.0, _config_ok=True)
     px = Proxy(cfg, key="TESTKEY123", upstream="http://127.0.0.1:%d/{key}/{layer}/{z}/{y}/{x}.jpeg" % up.server_address[1])
     res = {}
     z, y, x = 15, 12900, 27990                                 # near RKTU
@@ -817,7 +824,7 @@ if __name__ == "__main__":
     if "--cache-only-port" in a:                          # offscreen shots: cache only, no key, dies with its parent
         cfg = dict(load_config(), mode="cache-only", port=int(a[a.index("--cache-only-port") + 1]))
         ppid = int(a[a.index("--parent-pid") + 1]) if "--parent-pid" in a else 0
-        srv, px = serve(cfg, Proxy(cfg, key=""), block=False)
+        srv, px = serve(cfg, Proxy(cfg, key="", cleanup=False), block=False)
 
         def alive(pid):
             if os.name == "nt":
@@ -839,7 +846,7 @@ if __name__ == "__main__":
         px.save_gaps()
         sys.exit(0)
     if "--status" in a:
-        p = Proxy()
+        p = Proxy(cleanup=False)
         print(json.dumps(p.status(), ensure_ascii=False, indent=1))
         sys.exit(0)
     serve()

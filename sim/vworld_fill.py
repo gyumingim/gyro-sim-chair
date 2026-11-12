@@ -217,7 +217,7 @@ def derive(px=None, tiles=None, min_zoom=DERIVE_MIN_ZOOM, rebuild=False, log=pri
     cfg, _ = cfg_all()
     P = paths(cfg)
     if px is None:
-        px = VP.Proxy(dict(cfg, mode="cache-only"), key="", role="fill")
+        px = VP.Proxy(dict(cfg, mode="cache-only"), key="", role="fill", cleanup=False)
         px.log = lambda *a: None
     if tiles is None:
         tiles = jload(P["tiles"], {}).get("tiles", [])
@@ -644,7 +644,7 @@ def print_status():
     if tl is None:
         print("no tile list yet: python sim/vworld_fill.py --build-region")
         return 1
-    px = VP.Proxy(dict(cfg, mode="cache-only"), key="", role="fill")    # read only: never calls the API, no key loaded
+    px = VP.Proxy(dict(cfg, mode="cache-only"), key="", role="fill", cleanup=False)    # read only: never calls the API, no key loaded
     px.log = lambda *a: None
     st = load_state(P, fill)
     s = status_dict(cfg, fill, st, px, tl["tiles"], done_keys(px))
