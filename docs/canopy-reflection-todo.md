@@ -22,6 +22,15 @@
     그림: 세션 scratchpad canopy_cube_map/img/flight_*.png (켬) / flight_off_*.png (끔), 고치기 전 img/v4_before_fix/.
   - 백업 (세션 scratchpad canopy_cube_map/backup/): FlightMap.umap.before_cube (배치 전 맵), params.json.before,
     DefaultEngine.ini.with_rt (레이트레이싱 실험 설정). DefaultEngine.ini 는 실험 전 값(r.RayTracing·SkinCache·SM6 없음)으로 되돌렸다.
+- **11-14 흰 막대 고침:** 오른쪽 위(right_up) 유리에 보이던 날카로운 흰 막대는 실내 큐브(C 층)에 구워진 무릎판 금속 집게
+  (AC_CkShell, MI_Ck2_Metal: 금속 1, 거칠기 0.3)가 하늘빛을 거울처럼 비춘 것이었다.
+  - 고침 1 (view_fx.bake_matte): 큐브를 굽는 순간에만 반짝이는 슬롯(금속 ≥ 0.5, 또는 거칠기 ≤ 0.15 이고 발광 없음; 지금 18 개)을
+    같은 재질의 무광 대역(금속 0, 거칠기 0.8)으로 바꾸고, 구운 뒤 try/finally 로 원래 재질을 그대로 되돌린다.
+    로그: `canopy cube: baked (...), N shiny slots matte for the bake`.
+  - 고침 2 (M_CkCanopyV3Fx): 큐브 값을 "하늘빛만 받는 흰 무광면" 밝기(SkyE/π × CubeClamp, 기본 1)로 자른다. 색은 유지. CubeClamp 0 = 안 자름.
+  - 확인 (FlightMap 화면 밖, 해운대 350 m, 같은 순간 짝 사진): 막대 밝기 차 58.6 → 5.7 (/255). 막대 밖은 바뀐 게 노이즈 수준
+    (평균 1.3~2.3). 그림·숫자: 세션 scratchpad canopy_barfix/ (progress.md, img/).
+  - 확인함: CockpitView.bat(cockpit_view_open.py)은 canopy() 를 한 번만 불러서 큐브를 굽지 않는다 (C 층 없음).
 - 11-13 물리 기반 반사 V5 (scratchpad review/canopy_reflection_advice.md). (11-13 에는 기본 꺼짐이었다.)
   - 켜는 법: 룩 페이지 http://127.0.0.1:8768/ 의 '캐노피 반사' 체크, 또는 `GYROSIM_CANOPY_FXREFL=1`.
   - 셰이더 구성: 유리 두 면 Fresnel(ReflAmt 1.9) × (A 조종사 구 + B 해 받는 테두리 + C 실내 큐브 + D 바깥) + E 번쩍임.

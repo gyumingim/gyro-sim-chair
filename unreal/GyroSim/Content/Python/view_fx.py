@@ -154,6 +154,81 @@ def cube_content(world, cc):
     for a in show:
         cc.show_only_actor_components(a, True)
     return show
+
+
+# 11-14 (scratchpad canopy_bar / canopy_barfix): a sharp white bar in the glass (view right_up) was the kneeboard clip
+# (MI_Ck2_Metal: metallic 1, rough 0.3) mirroring the sky light into the baked cube. For the bake only, every shiny slot of
+# the show-only parts (metallic >= 0.5, or rough <= 0.15 without emissive) gets a matte stand-in: a dynamic instance of the
+# same material (same tint / textures) with metallic 0 and rough 0.8; the original materials are put back right after.
+BAKE_METAL_KEYS = ("Metal", "Metallic", "WearMetal")
+BAKE_ROUGH_KEYS = ("Rough", "Roughness")
+BAKE_MATTE = dict(Rough=0.8, Roughness=0.8, RoughVar=0.0, Sheen=0.0, Polish=0.0)
+
+
+def _scalars(m):
+    """{name: value} of a material's scalar parameters (instance values, else the parent defaults)"""
+    MEL = unreal.MaterialEditingLibrary
+    try:
+        names = [str(n) for n in MEL.get_scalar_parameter_names(m)]
+    except Exception:
+        names = []
+    out = {}
+    for n in names:
+        try:
+            if isinstance(m, unreal.MaterialInstanceDynamic):
+                out[n] = float(m.get_scalar_parameter_value(n))
+            elif isinstance(m, unreal.MaterialInstance):
+                out[n] = float(MEL.get_material_instance_scalar_parameter_value(m, n))
+            else:
+                out[n] = float(MEL.get_material_default_scalar_parameter_value(m, n))
+        except Exception:
+            pass
+    return out
+
+
+def bake_matte(world, show, swapped):
+    """swap shiny slots of the show-only actors to matte stand-ins; appends (component, slot, original material) to
+    swapped as it goes (so a failure half way can still be undone by bake_restore)"""
+    for a in show:
+        for c in a.get_components_by_class(unreal.MeshComponent):
+            for i in range(c.get_num_materials()):
+                m = c.get_material(i)
+                if m is None:
+                    continue
+                p = _scalars(m)
+                metal = max([p.get(k, 0.0) for k in BAKE_METAL_KEYS[:2]] + [0.0])
+                rough = min([p[k] for k in BAKE_ROUGH_KEYS if k in p] + [1.0])
+                if not (metal >= 0.5 or (rough <= 0.15 and p.get("Emissive", 0.0) <= 0.0)):
+                    continue
+                dyn = isinstance(m, unreal.MaterialInstanceDynamic)     # a look MID cannot parent a MID: copy its values
+                mid = unreal.MaterialLibrary.create_dynamic_material_instance(world, m.parent if dyn else m)
+                if not mid:
+                    continue
+                if dyn:
+                    for k, v in p.items():
+                        mid.set_scalar_parameter_value(k, v)
+                    try:
+                        for k in unreal.MaterialEditingLibrary.get_vector_parameter_names(m):
+                            mid.set_vector_parameter_value(k, m.get_vector_parameter_value(k))
+                    except Exception:
+                        pass
+                for k in BAKE_METAL_KEYS:
+                    if k in p:
+                        mid.set_scalar_parameter_value(k, 0.0)
+                for k, v in BAKE_MATTE.items():
+                    if k in p:
+                        mid.set_scalar_parameter_value(k, v)
+                swapped.append((c, i, m))
+                c.set_material(i, mid)
+    return swapped
+
+
+def bake_restore(swapped):
+    for c, i, m in swapped:
+        try:
+            c.set_material(i, m)
+        except Exception as e:
+            _log("canopy cube restore", repr(e))
 # cockpit paint (M_CkSurface instances): matte painted metal, no grazing sheen, darker, edges worn on the canopy bow;
 # glare shield / panels dark matte (11-10 review: the bow read as smooth plastic, the coaming as glossy)
 COCKPIT_LOOK = {
@@ -539,13 +614,18 @@ class ViewFx:
                 except Exception as e:
                     _log("canopy cube flags", repr(e))
                 show = cube_content(world, cc)
-                self.cube_cap = cc
+                self.cube_cap, self.cube_show = cc, show
                 _log("canopy cube: capture at the eye, show-only %d physical parts (no pilot / overlays / glass), no direct sun" % len(show))
             if self.cube_cap is not None and now - self.cube_t >= CUBE_S:
                 self.cube_t = now
-                self.cube_cap.capture_scene()
+                swapped = []
+                try:                                          # matte stand-ins for the bake only (see bake_matte)
+                    bake_matte(world, getattr(self, "cube_show", []), swapped)
+                    self.cube_cap.capture_scene()             # flushes render state, renders now
+                finally:
+                    bake_restore(swapped)
                 if not self.cube_baked:
-                    _log("canopy cube: baked (%s)" % self.cube_cap.get_owner().get_name())
+                    _log("canopy cube: baked (%s), %d shiny slots matte for the bake" % (self.cube_cap.get_owner().get_name(), len(swapped)))
                 self.cube_baked = True
                 for mid, vals, old in getattr(self, "look_mids", []):
                     if "Fx" in mid.parent.get_name() and self.look_on:
