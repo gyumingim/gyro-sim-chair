@@ -263,7 +263,10 @@ float2 cell = floor(uvF);
 float2 f = frac(uvF);
 f.y = 1.0 - f.y;                                            // y up inside a floor (0 = floor slab, 1 = ceiling)
 float2 fw = max(abs(ddx(UV)) + abs(ddy(UV)), 1e-4) * float2(kb, 1.0);   // cells per pixel
-float far = saturate((max(fw.x, fw.y) - 0.18) / 0.3);       // 0 near .. 1 = sub-pixel cells: use the average look
+// 11-14 (review scene_realism 3 / 2.x, scratchpad fixes_1114): the window grid stayed crisp down to ~2 px per cell, so far
+// blocks showed thousands of identical windows and shimmered in motion; the average look now starts at ~10 px per cell
+// and is complete at ~3 px (was ~5.5 px .. ~2 px)
+float far = saturate((max(fw.x, fw.y) - 0.10) / 0.22);      // 0 near .. 1 = few-pixel cells: use the average look
 float nearD = 1.0 - far;
 float bayH = H1(cell.x * 1.7 + cell.y * 31.1);
 float bayH2 = H1(cell.x * 5.3 + cell.y * 7.7 + 3.1);
