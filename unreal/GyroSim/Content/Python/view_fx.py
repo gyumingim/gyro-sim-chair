@@ -29,7 +29,131 @@ SOUND_ON = os.environ.get("GYROSIM_SOUND", "1") != "0"
 CHAIR_PORT = 4210
 # canopy (realism v3 glass + fx layer): scratch glints only close to the sun direction and faint (v3: Gain 3, GlintPow 10)
 LOOK_ON = os.environ.get("GYROSIM_CKLOOK", "1") != "0"
-CANOPY = dict(Gain=float(os.environ.get("GYROSIM_CANOPY_GAIN", "0.35")), GlintPow=40.0, AnisoPow=10.0)
+# 11-13 clear glass from inside (cockpit A/B: hiding the canopy alone removed the whole yellow-brown cast): the V3 glass had an
+# amber Beer-path tint (TintCol (1, 0.85, 0.58) x TintAmt 0.3, up to 3x the path at grazing angles) - the F-16 gold coating is
+# an OUTSIDE reflection look - and a strong grazing reflection (ReflAmt 0.85) of the dark coaming. Together = brown glow
+# along the sills and a dark brown blob above the glare shield behind the HUD. Now neutral (no tint), faint fresnel / sky
+# reflection (ReflAmt 0.15; 0.30 since the interior cube below), almost no smudge haze. Eye-point warmth with these = the canopy hidden (scratchpad canopy r3).
+CANOPY = dict(Gain=float(os.environ.get("GYROSIM_CANOPY_GAIN", "0.35")), GlintPow=40.0, AnisoPow=10.0,
+              TintAmt=0.0, TintCol=(1.0, 1.0, 1.0), ReflAmt=0.30, SmudgeAmt=0.005)
+# 11-13 V4 (scratchpad review canopy_fable.md option 1, diag in scratchpad canopy_fix): the milky veil and the angular 'window'
+# were NOT reflections - with every reflection term at 0 the ThinTranslucent inner shell (M_CkCanopyV3) still added 40-68/255
+# of sky colour (gone when that slot is not drawn). The inner slot now gets M_CkCanopyTrans (modulate: background x (1 - F))
+# and the outer additive shell M_CkCanopyV3Fx draws the V4 reflection: F x L with a closed cockpit proxy (sill floor, rear
+# bulkhead, pilot spheres) and bright frame rings around the fuselage axis (the bent concentric arcs of canopy photos, c12).
+# Physical Fresnel (polycarbonate F0 0.05), no veil / halo / smudge terms. No ray tracing needed (VR-safe).
+V4_ON = os.environ.get("GYROSIM_CANOPY_V4", "1") != "0"
+# 11-13 smooth canopy: /Game/ThirdParty/F16/Meshes/F16_Glass_Smooth = the same glass (identical vertex positions / bbox)
+# subdivided once (simple) with normals transferred from a Catmull-Clark copy (scratchpad canopy_smooth/smooth2.py) - the
+# 856-triangle original gave faceted reflections (stair-stepped arcs). GYROSIM_CANOPY_SMOOTH=0 = the original mesh.
+# 11-13 (later) that CC-normal mesh measured WORSE (kaleidoscope zebra, normal error p95 ~9 deg; scratchpad canopy_curve):
+# /Game/ThirdParty/F16/Meshes/F16_Glass_Fit = a true smooth refit of the original vertices (symmetric cubic-RBF surface per
+# piece, original outline, ~2.5 cm remesh, analytic normals, inner shell = parallel 6.3 mm offset, UV0 transferred,
+# 16-bit tangent basis; scratchpad canopy_curve/fitmesh2.py). 11-13 user decision: Fit is the default (improved in place).
+# GYROSIM_CANOPY_SMOOTH: 1 / fit (default) = F16_Glass_Fit, cc = the old F16_Glass_Smooth, 0 = the original mesh.
+_SMOOTH = os.environ.get("GYROSIM_CANOPY_SMOOTH", "fit").strip().lower()
+SMOOTH_ON = _SMOOTH != "0"
+SMOOTH_MESH = "/Game/ThirdParty/F16/Meshes/" + ("F16_Glass_Smooth" if _SMOOTH == "cc" else "F16_Glass_Fit")
+TRANS_MAT = "/Game/Cockpit/Materials/M_CkCanopyTrans"
+# 11-13 grey plate over the canopy top (offscreen diag scratchpad canopy_curve/t15): it was the V4 reflection of the outer
+# Fx shell (ReflAmt 1 x the closed cockpit proxy: looking up, the mirror ray hits the lit proxy floor) - reflection was meant
+# to be OFF (user 11-13). Fx shell ReflAmt 0 unless GYROSIM_CANOPY_FXREFL=1; the inner transmission shell keeps its
+# Fresnel loss (background x (1 - F), F0 0.05) and the scratch glints stay.
+FX_REFL_ON = os.environ.get("GYROSIM_CANOPY_FXREFL", "0") == "1"
+# 11-13 physically based reflection (V5 Fx shader, review canopy_reflection_advice.md), applied live every second
+# (ViewFx.refl_live) from the look page (tune_look params, section '캐노피 반사'): cr_on (0/1, default 1 = ON since 11-14, user
+# decision; 0 = off), cr_mult (overall x, 1 = physical: two-surface Fresnel ReflAmt 1.9), cr_cube (interior cube gain, 1 = physical),
+# cr_lit (live-sun pilot / sunlit-edge layers, 1 = physical), cr_glint (scratch glints / sun spot x). The shader reuses
+# inputs: InSun = SunE (directional light lux), LitAbs = SkyE, HaloGlow = LitGain, VeilPow = SunPow, Wobble = CubeMinLod.
+REFL_F2 = 1.9                   # ReflAmt for two glass surfaces (the inner shell has no specular)
+SKY_E_FRAC = 0.15               # sky illuminance / sun illuminance on an up-facing surface (clear day, estimate)
+REFL_ON_VALS = dict(F0=0.05, PilotRefl=1.0, RingGain=1.0, VeilPow=400.0, Wobble=1.0)
+if V4_ON:
+    CANOPY.update(F0=0.05, ReflAmt=1.0, SmudgeAmt=0.0, HaloGlow=0.0, VeilGlow=0.0, CubeAmt=0.0,
+                  RingGain=float(os.environ.get("GYROSIM_CANOPY_RINGS", "0.0")), RingX0=315.0, RingW=3.0, BulkX=300.0)
+# 11-13 interior in the glass: the canopy's reflection is drawn by its own outer-shell shader (M_CkCanopyV3Fx: unlit additive,
+# the inner ThinTranslucent shell has Specular 0), so engine reflections (Lumen front-layer translucency reflections, reflection
+# captures) never reach it - tested, no change. Instead a cube map of the real cockpit is captured at the eye in the aircraft
+# frame (SceneCaptureCube at the tub centre, capture_rotation on, pilot / canopy / overlays hidden) into RT_CkCanopyInterior and the shader's
+# downward 'inner' reflection (was a flat coaming plane) samples it (CubeAmt). Re-captured every CUBE_S s (the light on the
+# panel changes with attitude); 256 px faces. GYROSIM_CANOPY_CUBE=0 = the analytic interior as before.
+# 11-13 (later): baked interior cube in the V4 shader (scratchpad review canopy_techniques.md 4.2): captured ONCE at the design
+# eye in the aircraft frame, 512 px, sky / fog / clouds black (capture show flags), parallax box = the cockpit; weak gain.
+CUBE_ON = os.environ.get("GYROSIM_CANOPY_CUBE", "0") == "1"      # 11-13 user: off by default (busy interior pattern)
+CUBE_RT = "/Game/Cockpit/Materials/RT_CkCanopyInterior"
+CUBE_S = float(os.environ.get("GYROSIM_CANOPY_CUBE_S", "1e9"))     # re-capture period (s); default: once per world
+# one-time bake face size (512 showed seam jaggies). 11-13 user: higher is better -> 2048 = the largest that works: the
+# engine clamps cube render targets to 2048 in editor builds (UTextureRenderTargetCube::PostEditChangeProperty MaxSize).
+CUBE_PX = int(os.environ.get("GYROSIM_CANOPY_CUBE_PX", "2048"))
+# 11-14 (FlightMap Play, offscreen A/B, scratchpad canopy_cube_map): a bake on the first Play tick gave large bright planes in
+# the glass; the same cube re-baked after the world had loaded gave the faint reflection seen in CockpitView. Cause not found
+# (look / light / exposure still settling at the first tick - guess). The one bake now waits CUBE_DELAY s after the capture
+# actor is set up; until then the shader gets CubeAmt 0.
+CUBE_DELAY = float(os.environ.get("GYROSIM_CANOPY_CUBE_DELAY", "10"))
+# 11-13 (review canopy_reflection_advice.md): no direct sun in the bake (the sun direction would be baked in; sunlit parts are
+# the live analytic layers in the Fx shader) - sky light + emissive instruments only; HDR (FloatRGBA) + mips.
+CUBE_BLACK_FLAGS = ("Atmosphere", "Fog", "Cloud", "VolumetricFog", "DirectionalLights")
+CUBE_POS = (412.0, 0.0, 75.0)   # capture point = centre of the ellipsoid proxy below (aircraft-local cm)
+# parallax-corrected lookup (11-13, "the dome must bend the interior like a curved mirror"): the shader intersects the
+# reflection ray from the canopy pixel with this box around the tub (local cm; canopy 267..558 / +-34 / 63..127, shell
+# 370..541 / +-50 / -10..127) and samples the cube with (hit - CUBE_POS) -> near interior parts sit at their real place.
+CUBE = dict(CubeAmt=1.0, CubeGain=float(os.environ.get("GYROSIM_CANOPY_CUBE_GAIN", "1.0")),
+            PxMode=1.0, PxMin=(252.0, -52.0, 5.0), PxMax=(572.0, 52.0, 145.0), CubePos=CUBE_POS)
+# 11-13 proxy: ellipsoid inscribed in PxMin..PxMax (PxMode 1) instead of the box (PxMode 0): no creases where box faces meet.
+# Compared with a Blender Cycles 100 %-mirror render of the same cockpit (scratchpad canopy_proxy): mean edge correlation
+# ellipsoid 0.23 / sphere 0.20 / box 0.18 over 5 views (all weak; single run).     # gain 4: the dark interior ghosts visibly on the bright sky (look-matched, not measured)
+# 11-13 ray-traced canopy reflection (experiment, off; needs r.RayTracing=True, r.SkinCache.CompileShaders=True and SM6 in
+# DefaultEngine.ini - those were removed again 11-14 because RT is unused; add them back to try it). When hardware ray
+# tracing is available and Lumen is the GI method (monitor preset), the front glass shell (M_CkCanopyV3) gets a real
+# specular (SpecAmt / GlassRough params) and Lumen front-layer translucency reflections with hardware ray tracing (hit
+# lighting) draw the real cockpit bent by the dome; the fake reflection of the outer shell (ReflAmt, interior cube) is
+# switched off. No ray tracing (VR preset, other GPU, GYROSIM_CANOPY_RT=0) -> the cube look above.
+RT_WANT = os.environ.get("GYROSIM_CANOPY_RT", "0") == "1"    # 11-13: off by default (Busan GPU load unmeasured, PSU)
+RT_CVARS = {"r.Lumen.HardwareRayTracing": 1, "r.Lumen.HardwareRayTracing.LightingMode": 2,
+            "r.Lumen.TranslucencyReflections.FrontLayer.EnableForProject": 1, "r.Lumen.TranslucencyReflections.FrontLayer.Enable": 1}
+RT_CANOPY = dict(SpecAmt=float(os.environ.get("GYROSIM_CANOPY_SPEC", "1.0")), GlassRough=0.02)
+RT_FX = dict(ReflAmt=0.0, CubeAmt=0.0)         # outer shell: scratch glints only
+# 'bent mirror' shell (11-13, user request): a copy of the canopy dome (same mesh, 0.5 % smaller about the eye) with a pure
+# mirror material (M_CkCanopyMirror: white, metallic 1, roughness 0, dithered opacity MirrorOpacity) - with ray-traced
+# reflections it shows what a curved mirror in the canopy's place reflects; at low opacity it blends that over the view.
+# GYROSIM_CANOPY_MIRROR = opacity 0..1 (0 = off); only with ray tracing.
+MIRROR_MAT = "/Game/Cockpit/Materials/M_CkCanopyMirror"
+MIRROR = float(os.environ.get("GYROSIM_CANOPY_MIRROR", "0"))
+MIRROR_SHRINK = 0.995
+
+
+def rt_available():
+    try:
+        g = unreal.SystemLibrary.get_console_variable_int_value
+        return RT_WANT and g("r.RayTracing") == 1 and g("r.DynamicGlobalIlluminationMethod") == 1
+    except Exception:
+        return False
+
+
+CUBE_HIDE_TAGS = ("CanopyMirror", "Canopy", "PilotHead", "PilotBody", "Pilot", "HUD", "Overlay", "Minimap", "TutorPanel", "KeyPanel", "CrashBack", "CrashPanel")
+# 11-13 (user screenshots, cube gain 3): the reflection showed virtual overlays (Korean beginner callouts, the kneeboard
+# training display, ...) and no pilot. The cube now renders a SHOW-ONLY list: physical aircraft parts (actors tagged
+# AircraftPart: cockpit shell, frame / bow, sills, instruments, real lights / MFD glow, exterior skin) minus anything
+# virtual or glass, and minus the pilot (review canopy_reflection_advice.md: the bake point is inside his torso; the
+# helmet / shoulders are live-shaded analytic spheres in the Fx shader). New overlays are excluded automatically unless
+# they are tagged AircraftPart. Scratchpad canopy_curve/t20, t21.
+CUBE_SHOW_TAG = "AircraftPart"
+CUBE_EXCLUDE_TAGS = ("Overlay", "HUD", "Minimap", "TutorPanel", "KeyPanel", "CrashBack", "CrashPanel", "Attribution",
+                     "BeginnerLabel", "MFD_C", "Canopy", "CanopyMirror", "CanopyGhost", "SimView", "SimCamera",
+                     "PilotHead", "PilotBody", "Pilot")   # pilot: analytic spheres in the shader (the bake point is in his torso)
+
+
+def cube_content(world, cc):
+    """show-only list of the canopy interior cube (physical aircraft parts, no pilot / overlays / glass)"""
+    excl = set(CUBE_EXCLUDE_TAGS)
+    show = [a for a in unreal.GameplayStatics.get_all_actors_with_tag(world, CUBE_SHOW_TAG)
+            if not excl & {str(t) for t in a.tags}]
+    cc.set_editor_property("primitive_render_mode", unreal.SceneCapturePrimitiveRenderMode.PRM_USE_SHOW_ONLY_LIST)
+    cc.clear_show_only_components()          # (show_only_actors / hidden_actors are not settable from Python on a
+    cc.clear_hidden_components()             #  spawned capture: 'cannot be edited on templates' -> component lists)
+    for a in show:
+        cc.show_only_actor_components(a, True)
+    return show
 # cockpit paint (M_CkSurface instances): matte painted metal, no grazing sheen, darker, edges worn on the canopy bow;
 # glare shield / panels dark matte (11-10 review: the bow read as smooth plastic, the coaming as glossy)
 COCKPIT_LOOK = {
@@ -191,6 +315,7 @@ class ViewFx:
             if getattr(self, "look_world", None) is not world:
                 self.look_world, self.look_mids, self.look_on = world, [], LOOK_ON
                 self.look_skip = set()                        # (component, slot, material) seen with no entry: not re-tested
+            self.smooth_canopy(world)
             acts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
             ac = unreal.GameplayStatics.get_all_actors_with_tag(world, "Aircraft")
             if ac:
@@ -206,11 +331,14 @@ class ViewFx:
                         if key in self.look_skip:
                             continue
                         name = m.get_name()
-                        vals = CANOPY if "Canopy" in name else COCKPIT_LOOK.get(name)
+                        vals = self._canopy_vals(name) if "Canopy" in name else COCKPIT_LOOK.get(name)
                         if vals is None:
                             self.look_skip.add(key)
                             continue
-                        mid = smc.create_dynamic_material_instance(i, m)
+                        src = m
+                        if V4_ON and name == "M_CkCanopyV3" and not rt_available():   # inner shell -> transmission only
+                            src = unreal.load_asset(TRANS_MAT) or m
+                        mid = smc.create_dynamic_material_instance(i, src)
                         if not mid:
                             continue
                         old = {k: (mid.get_scalar_parameter_value(k) if not isinstance(v, tuple) else mid.get_vector_parameter_value(k))
@@ -221,10 +349,211 @@ class ViewFx:
                         names.add(name)
             if n:
                 _log("look: %d material slots (canopy glints / cockpit paint), on=%s" % (n, self.look_on), sorted(names))
+            self.rt_mode(world)
+            self.refl_live(world)
+            self.interior_cube(world, now)
         except Exception as e:
             if not getattr(self, "_ck_err", None):
                 self._ck_err = repr(e)
                 _log("canopy / cockpit look", repr(e))
+
+    def smooth_canopy(self, world):
+        """once per world: the canopy component gets the smooth mesh, materials kept per slot name (slot order differs)."""
+        if not SMOOTH_ON or getattr(self, "smooth_world", None) is world:
+            return
+        self.smooth_world = world
+        new = unreal.load_asset(SMOOTH_MESH)
+        if new is None:
+            _log("canopy smooth mesh missing", SMOOTH_MESH)
+            return
+        for a in unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"):
+            for c in a.get_components_by_class(unreal.StaticMeshComponent):
+                old = c.static_mesh
+                if old is None or old == new or old.get_name() != "F16_Glass":
+                    continue
+                names = [str(n) for n in c.get_material_slot_names()]
+                mats = {n: c.get_material(i) for i, n in enumerate(names)}
+                c.set_static_mesh(new)
+                for n, m in mats.items():
+                    if m is not None:
+                        c.set_material_by_name(unreal.Name(n), m)
+                _log("canopy: smooth mesh", new.get_name())
+
+    def refl_live(self, world):
+        """every second: canopy reflection on/off + strengths (look page) and the LIVE sun for the analytic layers"""
+        try:
+            v = {}
+            try:
+                import tune_look
+                if tune_look.on():
+                    v = tune_look.ST.get("applied") or tune_look.values()
+            except Exception:
+                v = {}
+            on = FX_REFL_ON or float(v.get("cr_on", 1.0)) >= 0.5      # 11-14 user: ON by default
+            mult, cg, lg, gg = (float(v.get(k, 1.0)) for k in ("cr_mult", "cr_cube", "cr_lit", "cr_glint"))
+            self.cube_wanted = on and cg > 0.0
+            sun_e, sdir = 0.0, None
+            for a in unreal.GameplayStatics.get_all_actors_of_class(world, unreal.DirectionalLight):
+                c = a.get_component_by_class(unreal.DirectionalLightComponent)
+                if c is None or not c.is_visible():
+                    continue
+                col = c.get_editor_property("light_color")
+                lum = (0.2126 * col.r + 0.7152 * col.g + 0.0722 * col.b) / 255.0
+                sun_e = float(c.get_editor_property("intensity")) * max(lum, 1e-3)
+                f = a.get_actor_forward_vector()
+                sdir = unreal.LinearColor(-f.x, -f.y, -f.z, 0.0)
+                break
+            cube_ok = getattr(self, "cube_cap", None) is not None and getattr(self, "cube_baked", False)
+            for mid, vals, old in getattr(self, "look_mids", []):
+                if "Fx" not in mid.parent.get_name():
+                    continue
+                d = dict(Gain=CANOPY.get("Gain", 0.35) * gg)
+                if on:
+                    d.update(REFL_ON_VALS, ReflAmt=REFL_F2 * mult, HaloGlow=lg, InSun=sun_e, LitAbs=SKY_E_FRAC * sun_e,
+                             CubeGain=cg, CubeAmt=1.0 if cube_ok and cg > 0.0 else 0.0)
+                    if cube_ok:
+                        d.update({k: x for k, x in CUBE.items() if k not in ("CubeAmt", "CubeGain")})
+                else:
+                    d.update(ReflAmt=0.0, CubeAmt=0.0)
+                self._apply(mid, d)
+                if sdir is not None:
+                    mid.set_vector_parameter_value("SunDir", sdir)
+            self.refl_state = dict(on=on, mult=mult, cube=cg, lit=lg, glint=gg, sun_e=round(sun_e, 3), cube_ok=cube_ok)
+        except Exception as e:
+            if not getattr(self, "_refl_err", None):
+                self._refl_err = repr(e)
+                _log("canopy reflection live", repr(e))
+
+    def _canopy_vals(self, name):
+        if not rt_available():
+            if "Fx" in name and not FX_REFL_ON:
+                return dict(CANOPY, ReflAmt=0.0)          # outer shell: no interior-proxy reflection (grey plate overhead)
+            return CANOPY
+        return dict(CANOPY, **RT_FX) if "Fx" in name else dict(CANOPY, **RT_CANOPY)
+
+    def rt_mode(self, world, force=False):
+        """ray-traced canopy reflection on / off (rt_available() can change with the quality preset): cvars once per change,
+        the canopy instances' values, the mirror shell."""
+        rt = rt_available()
+        if not force and getattr(self, "rt_world", None) is world and self.rt_state == rt:
+            return
+        self.rt_world, self.rt_state = world, rt
+        if rt:
+            for k, v in RT_CVARS.items():
+                unreal.SystemLibrary.execute_console_command(world, "%s %s" % (k, v))
+        for mid, vals, old in getattr(self, "look_mids", []):
+            if "Canopy" in mid.parent.get_name() and self.look_on:
+                self._apply(mid, self._canopy_vals(mid.parent.get_name()))
+        self.mirror(world, MIRROR if rt else 0.0)
+        _log("canopy reflection:", "ray traced (spec %.2f, mirror %.2f)" % (RT_CANOPY["SpecAmt"], MIRROR) if rt else "interior cube")
+
+    def mirror(self, world, opacity):
+        """the bent-mirror shell (see MIRROR); opacity 0 hides it. Returns the actor."""
+        try:
+            a = getattr(self, "mirror_actor", None)
+            if a is not None and getattr(self, "mirror_world", None) is not world:
+                a = None
+            if a is None and opacity > 0.0:
+                can = unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy")
+                mat = unreal.load_asset(MIRROR_MAT)
+                if not can or mat is None:
+                    _log("canopy mirror: no", "canopy" if not can else "material")
+                    return None
+                can = can[0]
+                smc0 = can.get_component_by_class(unreal.StaticMeshComponent)
+                if world == unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world():
+                    a = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).spawn_actor_from_class(
+                        unreal.StaticMeshActor, can.get_actor_location(), can.get_actor_rotation(), transient=True)
+                else:
+                    a = unreal.GameplayStatics.finish_spawning_actor(
+                        unreal.GameplayStatics.begin_deferred_actor_spawn_from_class(world, unreal.StaticMeshActor, unreal.Transform()),
+                        unreal.Transform())
+                a.tags = [unreal.Name("CanopyMirror"), unreal.Name("AircraftPart")]
+                a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+                a.attach_to_actor(can, unreal.Name(""), unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD,
+                                  unreal.AttachmentRule.KEEP_WORLD, False)
+                s = MIRROR_SHRINK                               # shrink toward the eye: just inside the glass, no z-fight
+                e = unreal.Vector(430.0 * (1 - s), 0.0, 100.0 * (1 - s))
+                a.root_component.set_relative_location_and_rotation(e, unreal.Rotator(0.0, 0.0, 0.0), False, True)
+                a.set_actor_relative_scale3d(unreal.Vector(s, s, s))
+                smc = a.static_mesh_component
+                smc.set_static_mesh(smc0.static_mesh)
+                smc.set_cast_shadow(False)
+                smc.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+                mid = unreal.MaterialLibrary.create_dynamic_material_instance(world, mat)
+                for i in range(smc.get_num_materials()):
+                    smc.set_material(i, mid)
+                self.mirror_actor, self.mirror_world, self.mirror_mid = a, world, mid
+            if a is not None:
+                self.mirror_mid.set_scalar_parameter_value("MirrorOpacity", float(opacity))
+                a.static_mesh_component.set_visibility(opacity > 0.0, False)
+            return a
+        except Exception as e:
+            _log("canopy mirror", repr(e))
+            return None
+
+    def interior_cube(self, world, now):
+        """eye cube map of the cockpit for the canopy reflection (see CUBE_ON); called from canopy()."""
+        if not (CUBE_ON or getattr(self, "cube_wanted", False)) or world is None or rt_available():
+            return
+        try:
+            if getattr(self, "cube_world", None) is not world:
+                self.cube_world, self.cube_cap, self.cube_baked = world, None, False
+                self.cube_t = now + CUBE_DELAY - CUBE_S          # first (and by default only) bake CUBE_DELAY s from now
+                rt = unreal.load_asset(CUBE_RT)
+                ac = unreal.GameplayStatics.get_all_actors_with_tag(world, "Aircraft")
+                if rt is None or not ac:
+                    _log("canopy cube: no", "render target" if rt is None else "aircraft")
+                    return
+                ac = ac[0]
+                # the capture actor: a map-placed SceneCaptureCube tagged CanopyCube (Python cannot spawn actors into a Play
+                # world - no deferred-spawn / add-component binding), or in an editor world (CockpitView) a transient one
+                caps = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "CanopyCube"))
+                cap = caps[0] if caps else None
+                if cap is None and world == unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world():
+                    cap = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).spawn_actor_from_class(
+                        unreal.SceneCaptureCube, ac.get_actor_location(), ac.get_actor_rotation(), transient=True)
+                    cap.tags = [unreal.Name("CanopyCube")]
+                if cap is None:
+                    _log("canopy cube: no CanopyCube actor in this map (needs a placed SceneCaptureCube) - analytic interior only")
+                    return
+                if cap.get_attach_parent_actor() != ac:
+                    cap.attach_to_actor(ac, unreal.Name(""), unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD,
+                                        unreal.AttachmentRule.KEEP_WORLD, False)
+                cap.root_component.set_relative_location_and_rotation(unreal.Vector(*CUBE_POS), unreal.Rotator(0.0, 0.0, 0.0), False, True)
+                cc = cap.get_component_by_class(unreal.SceneCaptureComponentCube)
+                cc.set_editor_property("texture_target", rt)
+                cc.set_editor_property("capture_rotation", True)
+                cc.set_editor_property("capture_every_frame", False)
+                cc.set_editor_property("capture_on_movement", False)
+                cc.set_editor_property("capture_source", unreal.SceneCaptureSource.SCS_SCENE_COLOR_HDR)
+                try:                                            # sky / fog / clouds black: only the cockpit reflects
+                    fl = []
+                    for n in CUBE_BLACK_FLAGS:
+                        f = unreal.EngineShowFlagsSetting()
+                        f.set_editor_property("show_flag_name", n); f.set_editor_property("enabled", False)
+                        fl.append(f)
+                    cc.set_editor_property("show_flag_settings", fl)
+                    rt.set_editor_property("size_x", CUBE_PX)
+                    rt.set_editor_property("auto_generate_mips", True)       # footprint mips (V5 shader LOD)
+                except Exception as e:
+                    _log("canopy cube flags", repr(e))
+                show = cube_content(world, cc)
+                self.cube_cap = cc
+                _log("canopy cube: capture at the eye, show-only %d physical parts (no pilot / overlays / glass), no direct sun" % len(show))
+            if self.cube_cap is not None and now - self.cube_t >= CUBE_S:
+                self.cube_t = now
+                self.cube_cap.capture_scene()
+                if not self.cube_baked:
+                    _log("canopy cube: baked (%s)" % self.cube_cap.get_owner().get_name())
+                self.cube_baked = True
+                for mid, vals, old in getattr(self, "look_mids", []):
+                    if "Fx" in mid.parent.get_name() and self.look_on:
+                        self._apply(mid, CUBE)
+        except Exception as e:
+            if not getattr(self, "_cube_err", None):
+                self._cube_err = repr(e)
+                _log("canopy cube", repr(e))
 
     @staticmethod
     def _apply(mid, vals):
@@ -241,6 +570,9 @@ class ViewFx:
         self.look_on = on
         for mid, vals, old in getattr(self, "look_mids", []):
             self._apply(mid, vals if on else old)
+        for mid, vals, old in getattr(self, "look_mids", []):
+            if "Fx" in mid.parent.get_name() and getattr(self, "cube_cap", None) is not None and getattr(self, "cube_baked", False):
+                self._apply(mid, CUBE if on else dict(CubeAmt=0.0))
 
     # ---- sound --------------------------------------------------------------------------------------------------
     def sound(self, world, s, dt):

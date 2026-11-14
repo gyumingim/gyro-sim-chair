@@ -1,0 +1,54 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>부산 화면 조절</title><style>
+:root{--bg:#fff;--fg:#1d1d1f;--mut:#666;--line:#ddd;--btn:#eee;--on:#1a73e8;--bad:#c62828}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111;--fg:#eee;--mut:#aaa;--line:#333;--btn:#222;--on:#5b9cff;--bad:#ff8a80}}
+:root[data-theme=dark]{--bg:#111;--fg:#eee;--mut:#aaa;--line:#333;--btn:#222;--on:#5b9cff;--bad:#ff8a80}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif;margin:0 auto;padding:0 16px 60px;max-width:900px}
+.row{display:grid;grid-template-columns:1fr 70px;gap:4px 10px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0}
+.row label{grid-column:1/3;font-size:14px;color:var(--mut)}input[type=range]{width:100%}.val{text-align:right;font-variant-numeric:tabular-nums}
+.bt{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:2}
+button{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--btn);color:var(--fg);flex:1;min-width:90px}
+#st{color:var(--mut);font-size:14px;min-height:1.5em}img{width:100%;height:auto;border-radius:6px;display:block;margin-top:8px}
+h2{font-size:17px;margin:20px 0 4px}
+.fx{border:2px solid var(--on);border-radius:10px;padding:4px 12px 12px;margin:14px 0}.fx h3{font-size:15px;margin:12px 0 2px;color:var(--mut)}
+.fx label.ck{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px;cursor:pointer}
+.fx label.ck input{width:22px;height:22px;flex:none}.fx label.ck.off{color:var(--bad);font-weight:600}
+#fxst{color:var(--mut);font-size:14px;min-height:1.5em}
+</style></head><body>
+<h1>부산 화면 조절</h1>
+<p style="color:var(--mut)">슬라이더를 움직이면 바로 적용됨 (켜져 있는 시뮬, 0.5초 안). '렌더' 는 꺼진 화면에서 n5 (광안 500 m) 를 찍어 보여줌 (오프스크린 렌더 서버가 켜져 있을 때만). '저장' = 지금 값을 기본값으로, '되돌리기' = 저장된 기본값으로 (효과도 전부 켜짐).</p>
+<div class="bt"><button id="render">렌더 (n5)</button><button id="save">저장</button><button id="revert">되돌리기</button></div>
+<div id="st">연결 중…</div><img id="img" alt="">
+<div class="fx"><h2>효과 끄기/켜기</h2>
+<p style="color:var(--mut);font-size:14px;margin:4px 0">체크 = 켜짐 (지금 모습). 체크를 풀면 그 효과만 꺼짐 (0.5–1초 안). 다시 체크하면 원래대로. 저장되지 않음 (게임을 다시 켜면 전부 켜짐). 누런 빛이 사라지는 항목을 찾으면 알려 주세요.</p>
+<div class="bt" style="position:static"><button id="fxall">전부 켜기</button></div><div id="fxst"></div><div id="fxl"></div></div>
+<div id="sl"></div>
+<script>
+var API='http://127.0.0.1:8768',R={},V={},T=null,st=document.getElementById('st');
+var GROUPS=[['해와 빛',['sun_az','sun_el','sun_mult','sky_mult','exposure_bias','le_shadow','le_highlight']],
+ ['건물 (땅에 붙이기)',['GdBase','GdBaseH','GdGrad','GdGradH','GdFloor','GdAO','GdTint','GdSat']],['땅',['GdGroundAO','GdCanyonAlb','GdLeanDark']],['땅 사진 (V-World)',['PhGain','PhGamma','PhSat','PhKnee']],['캐노피 반사',['cr_on','cr_mult','cr_cube','cr_lit','cr_glint']]];
+var START={};
+function j(m,p,b,to){var c=new AbortController();var tm=setTimeout(function(){c.abort()},to||15000);return fetch(API+p,{method:m,signal:c.signal,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined}).finally(function(){clearTimeout(tm)}).then(function(r){return r.json().then(function(d){d._code=r.status;return d})})}
+function build(){var h='';GROUPS.forEach(function(g){h+='<h2>'+g[0]+'</h2>';if(g[0]=='캐노피 반사')h+='<p style="color:var(--mut);font-size:14px;margin:4px 0">1 = 물리적으로 맞는 세기. 반사는 지금 기본으로 꺼져 있음 (켜기 체크는 사용자가 정할 때까지 저장하지 마세요).</p>';g[1].forEach(function(k){var r=R[k];if(!r)return;
+ var v=(k in V)?V[k]:((k in START)?START[k]:(k=='exposure_bias'?0:(r[0]+r[1])/2));
+ if(k=='cr_on'){h+='<div class="row"><label class="ck" style="grid-column:1/3;display:flex;gap:10px;align-items:center;font-size:15px;color:var(--fg)"><input type="checkbox" id="cr_on" style="width:22px;height:22px"'+(v>=0.5?' checked':'')+'><span>'+r[3]+'</span></label></div>';return}
+ h+='<div class="row"><label for="'+k+'">'+r[3]+(k in V?'':' (미설정)')+'</label><input type="range" id="'+k+'" min="'+r[0]+'" max="'+r[1]+'" step="'+r[2]+'" value="'+v+'"><span class="val" id="v_'+k+'">'+v+'</span></div>'})});
+ document.getElementById('sl').innerHTML=h;
+ var cb=document.getElementById('cr_on');if(cb)cb.onchange=function(){V.cr_on=cb.checked?1:0;j('POST','/api/params',{cr_on:V.cr_on}).then(function(){st.textContent='적용: 캐노피 반사 '+(cb.checked?'켜짐':'꺼짐')}).catch(err)};
+ document.querySelectorAll('input[type=range]').forEach(function(e){e.oninput=function(){document.getElementById('v_'+e.id).textContent=e.value;V[e.id]=parseFloat(e.value);
+  clearTimeout(T);T=setTimeout(function(){var o={};o[e.id]=V[e.id];j('POST','/api/params',o).then(function(){st.textContent='적용: '+e.id+' = '+e.value}).catch(err)},150)}})}
+var FX=[],FXOFF={};
+function fxbuild(){var h='',g0='';FX.forEach(function(f){if(f[1]!=g0){g0=f[1];h+='<h3>'+g0+'</h3>'}var off=!!FXOFF[f[0]];
+ h+='<label class="ck'+(off?' off':'')+'"><input type="checkbox" data-k="'+f[0]+'"'+(off?'':' checked')+'><span>'+f[2]+(off?' — 꺼짐':'')+'</span></label>'});
+ document.getElementById('fxl').innerHTML=h;var n=Object.keys(FXOFF).length;document.getElementById('fxst').textContent=n?('꺼진 효과 '+n+' 개'):'전부 켜짐 (지금 모습)';
+ document.querySelectorAll('.fx input[type=checkbox]').forEach(function(e){e.onchange=function(){var o={};o[e.dataset.k]=!e.checked;
+  j('POST','/api/fx',o).then(function(d){FXOFF=d.fx_off||{};fxbuild()}).catch(err)}})}
+document.getElementById('fxall').onclick=function(){j('POST','/api/fx_reset').then(function(d){FXOFF=d.fx_off||{};fxbuild()}).catch(err)};
+function err(e){st.textContent='서버 연결 안 됨 (python -I sim/tune_server.py)';}
+function load(){j('GET','/api/state').then(function(d){R=d.ranges;V=d.values;START=d.start||{};build();FX=d.fx||[];FXOFF=d.fx_off||{};fxbuild();st.textContent='연결됨'+(d.render_server?' · 렌더 서버 켜짐':' · 렌더 서버 꺼짐 (렌더 버튼 안 됨)')}).catch(err)}
+document.getElementById('save').onclick=function(){if(!confirm('지금 값을 기본값으로 저장할까요?'))return;j('POST','/api/save').then(function(){st.textContent='저장됨 (tune_defaults.json)'}).catch(err)};
+document.getElementById('revert').onclick=function(){j('POST','/api/revert').then(function(){st.textContent='기본값으로 되돌림';load()}).catch(err)};
+document.getElementById('render').onclick=function(){st.textContent='렌더 중…';var t0=Date.now();var tk=setInterval(function(){st.textContent='렌더 중… '+((Date.now()-t0)/1000).toFixed(0)+' 초 (보통 4–15 초)'},1000);j('POST','/api/render',{view:'n5_gwangan_500'},130000).finally(function(){clearInterval(tk)}).then(function(d){
+ if(d.img){document.getElementById('img').src=API+d.img+'?t='+Date.now();st.textContent='렌더 '+((Date.now()-t0)/1000).toFixed(1)+' 초'}else st.textContent='렌더 실패: '+(d.error||d._code)}).catch(function(e){st.textContent=(e&&e.name=='AbortError')?'렌더 시간 초과 (130 초): 렌더 서버가 꺼졌거나 바쁨':'서버 연결 안 됨'})};
+load();
+</script></body></html>

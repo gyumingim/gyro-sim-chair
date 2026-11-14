@@ -245,7 +245,10 @@ SLOTS = {
     "CK2_Hose": dict(Tint=(0.07, 0.08, 0.045), Rough=0.75, NormalAmt=0.0, EdgeWear=0.0, Dust=0.4),
     "CK2_Strap": dict(Tint=(0.07, 0.08, 0.05), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
 }
-GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.03, FresnelOp=0.55, Rough=0.04), "CK2_HUDGlass": dict(Tint=(0.10, 0.14, 0.05), Opacity=0.16, FresnelOp=0.6, Rough=0.03, EdgeTint=(0.05, 0.07, 0.015))}
+GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.03, FresnelOp=0.55, Rough=0.04), "CK2_HUDGlass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.018, FresnelOp=0.3, Rough=0.03, EdgeTint=(0.0, 0.0, 0.0))}
+# 11-13 HUD combiner: was Tint (0.10, 0.14, 0.05) / Opacity 0.16 / FresnelOp 0.6 / EdgeTint (0.05, 0.07, 0.015) -> the lit
+# yellow-green base colour over two panes (~30 % cover) read as an opaque plate; real combiner = near-clear, faint reflection.
+# Neutral (Tint / EdgeTint 0, Opacity 0.018 x 2 panes): mean colour behind the glass = the no-glass shot within 1 %
 LAMPS = {"amber": (1.0, 0.45, 0.04), "red": (1.0, 0.06, 0.03), "green": (0.15, 1.0, 0.25)}
 
 

@@ -4,5 +4,6 @@
  "GdBase": 0.5, "GdBaseH": 8.0, "GdGrad": 0.6, "GdGradH": 50.0, "GdFloor": 0.7, "GdAO": 1.0, "GdTint": 1.0, "GdSat": 1.0,
  "GdGroundAO": 1.0, "GdCanyonAlb": 0.0, "GdLeanDark": 0.0,
  "PhGain": 0.9, "PhGamma": 1.0, "PhSat": 1.0, "PhKnee": 1.0,
- "RelGain": 20.0, "RelNormal": 1.0, "RelShadow": 0.6
+ "RelGain": 20.0, "RelNormal": 1.0, "RelShadow": 0.6,
+ "cr_on": 1
 }

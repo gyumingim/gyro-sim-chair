@@ -5,7 +5,11 @@ API (JSON; CORS for the page's origin http://127.0.0.1:8767):
   POST /api/params  {k: v}   live values -> C:/GyroSimTiles/tune/params.json (the running sim applies them within ~0.5 s,
                              unreal/GyroSim/Content/Python/tune_look.py)
   POST /api/save             live values become the defaults: unreal/GyroSim/Content/Python/tune_defaults.json
-  POST /api/revert           live file = the defaults again
+  POST /api/revert           live file = the defaults again (also turns every effect switch back ON)
+  POST /api/fx {off_x: bool} effect OFF / ON switches (FX below; unreal .../fx_toggle.py): true -> "off_x": true in params.json,
+                             false -> the key is removed. Never written to the defaults (/api/save ignores them).
+  POST /api/fx_reset         every effect ON again (all off_* keys removed)
+  GET  /                     the slider page itself (sim/tune_page.html), so no other web server is needed
   POST /api/render {"view"}  asks the persistent offscreen editor (art_shots.py GYROSIM_ART_SERVE=1) for a shot with the
                              live values; waits up to 90 s -> {"img": "/api/img/<id>.png", "seconds"}
   GET  /api/img/<id>.png     the rendered PNG (C:/GyroSimTiles/tune/renders)
@@ -19,7 +23,8 @@ PARAMS = os.path.join(TUNE, "params.json")
 DEFAULTS = os.path.join(os.path.dirname(HERE), "unreal", "GyroSim", "Content", "Python", "tune_defaults.json")
 LOCK = r"C:\GyroSimTiles\ue_offscreen.lock"
 ORIGIN = "http://127.0.0.1:8767"
-ALLOWED_ORIGINS = (ORIGIN, "http://localhost:8767")    # POST is refused from any other page
+ALLOWED_ORIGINS = (ORIGIN, "http://localhost:8767", "http://127.0.0.1:8768", "http://localhost:8768")    # POST is refused from any other page
+PAGE = os.path.join(HERE, "tune_page.html")
 RENDER_LOCK = threading.Lock()                  # one render request at a time (a second click waits its turn)
 # slider ranges (also in docs/grounded-day-busan.md): key -> (min, max, step, label)
 RANGES = {
@@ -39,7 +44,58 @@ RANGES = {
     # photo relief (11-11, docs/photo-relief-busan.md): AI height from the photo -> ground normals + shadows (relief_look.py)
     "RelGain": (0.0, 40.0, 0.5, "사진 입체: 높이 배율 (m/단위, 20 = 기본)"), "RelNormal": (0.0, 3.0, 0.05, "사진 입체: 면 기울기(노멀) 세기"),
     "RelShadow": (0.0, 1.0, 0.05, "사진 입체: 그림자 세기"),
+    # canopy reflection (11-13, view_fx.refl_live / V5 Fx shader; 1 = physical): cr_on is the page's checkbox (0 / 1)
+    "cr_on": (0, 1, 1, "캐노피 반사 켜기 (1 = 켬: 기본값, 11-14 사용자 결정 / 0 = 끔)"),
+    "cr_mult": (0.0, 5.0, 0.05, "캐노피 반사 전체 세기 x (1 = 물리값)"),
+    "cr_cube": (0.0, 5.0, 0.05, "실내 큐브 세기 x (1 = 물리값)"),
+    "cr_lit": (0.0, 3.0, 0.05, "조종사·햇빛 받는 테두리 세기 x (1 = 물리값)"),
+    "cr_glint": (0.0, 3.0, 0.05, "번쩍임·긁힘 세기 x (1 = 지금)"),
 }
+# slider start values when a key is in neither file (the page shows these, nothing is written until the user moves it)
+START = {"cr_on": 1, "cr_mult": 1.0, "cr_cube": 1.0, "cr_lit": 1.0, "cr_glint": 1.0}
+
+
+# effect OFF switches (11-13): key -> (group, label). Implementation: unreal/GyroSim/Content/Python/fx_toggle.py
+FX = {
+    "off_wb": ("화면 색 (후처리)", "화이트밸런스·색조 (6900 K → 6500 K, 틴트 0)"),
+    "off_grade": ("화면 색 (후처리)", "색 보정: 채도·대비·감마·게인·오프셋 (따뜻한 그림자·중간톤 게인 포함)"),
+    "off_tone": ("화면 색 (후처리)", "톤 커브 (필믹 → 엔진 기본)"),
+    "off_lut": ("화면 색 (후처리)", "색 LUT"),
+    "off_autoexp": ("노출·렌즈", "노출 보정 EV → 0"),
+    "off_localexp": ("노출·렌즈", "로컬 노출 (그림자 올리기·밝은 곳 누르기)"),
+    "off_bloom": ("노출·렌즈", "블룸·렌즈 플레어"),
+    "off_vignette": ("노출·렌즈", "비네트·필름 그레인·색수차·샤픈"),
+    "off_sun": ("빛", "햇빛 (해 끄기)"),
+    "off_suncolor": ("빛", "햇빛 색 → 흰색"),
+    "off_skylight": ("빛", "하늘빛 (스카이 라이트)"),
+    "off_skycolor": ("빛", "하늘빛 색 → 흰색, 아래쪽 반구 색 → 검정"),
+    "off_ao": ("빛", "앰비언트 오클루전 (AO)"),
+    "off_lumen": ("빛", "Lumen 간접광 (GI)"),
+    "off_cockpitlight": ("빛", "조종석 보조등"),
+    "off_fog": ("공기·하늘", "높이 안개 (아지랑이)"),
+    "off_fogglow": ("공기·하늘", "안개의 해 쪽 따뜻한 빛"),
+    "off_aerial": ("공기·하늘", "공기 원근 (먼 곳 뿌옇게, 하늘 대기)"),
+    "off_skytint": ("공기·하늘", "하늘 색 보정 (sky luminance factor)"),
+    "off_skyatmos": ("공기·하늘", "하늘 대기 전체 (하늘이 검게 됨)"),
+    "off_clouds": ("공기·하늘", "구름"),
+    "off_photo": ("땅·도시", "땅 사진 보정 (밝기·감마·채도 → 1)"),
+    "off_gd": ("땅·도시", "건물·땅 어둡게 붙이기 (grounded)"),
+    "off_groundmat": ("땅·도시", "땅 재질 전체 → Cesium 기본: 바다·해안·사진 보정 모두 끔 (느림: 땅 타일 다시 불러옴)"),
+    "off_buildings": ("땅·도시", "건물"),
+    "off_landmarks": ("땅·도시", "랜드마크 건물"),
+    "off_trees": ("땅·도시", "나무"),
+    "off_roads": ("땅·도시", "다리·고가도로·부두"),
+    "off_life": ("땅·도시", "차·배"),
+    "off_canopy": ("조종석", "캐노피 유리"),
+    "off_hudglass": ("조종석", "계기·HUD 유리"),
+    "off_cockpit": ("조종석", "조종석·기체 몸체"),
+    "off_hud": ("조종석", "HUD 기호"),
+    "off_minimap": ("조종석", "미니맵"),
+}
+
+
+def _fx(d):
+    return {k: True for k, v in d.items() if k in FX and v is True}
 
 
 def _read(p):
@@ -105,7 +161,14 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/state":
             d, l = _clean(_read(DEFAULTS)), _clean(_read(PARAMS))
-            return self._send(200, dict(values=dict(d, **l), defaults=d, live=l, ranges=RANGES, render_server=_render_server()))
+            return self._send(200, dict(values=dict(d, **l), defaults=d, live=l, ranges=RANGES, start=START, render_server=_render_server(),
+                                        fx=[[k, g, t] for k, (g, t) in FX.items()], fx_off=_fx(_read(PARAMS))))
+        if self.path.split("?", 1)[0] in ("/", "/index.html"):
+            try:
+                with open(PAGE, "rb") as f:
+                    return self._send(200, body=f.read(), ctype="text/html; charset=utf-8")
+            except OSError:
+                return self._send(404, dict(error="no page"))
         m = re.fullmatch(r"/api/img/([0-9a-f]{8,32})\.png", self.path.split("?", 1)[0])   # page adds ?t= cache-buster
         if m:
             p = os.path.join(TUNE, "renders", m.group(1) + ".png")
@@ -131,8 +194,20 @@ class H(BaseHTTPRequestHandler):
             return self._send(bad[0], dict(error=bad[1]))
         if self.path == "/api/params":
             v = dict(_clean(_read(PARAMS)), **_clean(self._body()))
+            v.update(_fx(_read(PARAMS)))                 # the effect switches stay as they are
             _write(PARAMS, v)
             return self._send(200, dict(ok=True, live=v))
+        if self.path in ("/api/fx", "/api/fx_reset"):
+            cur = _read(PARAMS)
+            b = self._body() if self.path == "/api/fx" else {k: False for k in FX}
+            for k, x in b.items():
+                if k in FX:
+                    if x is True:
+                        cur[k] = True
+                    else:
+                        cur.pop(k, None)
+            _write(PARAMS, cur)
+            return self._send(200, dict(ok=True, fx_off=_fx(cur)))
         if self.path == "/api/save":
             cur = _read(DEFAULTS)
             note = cur.get("_note")

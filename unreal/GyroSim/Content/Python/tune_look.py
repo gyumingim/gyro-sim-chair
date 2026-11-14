@@ -7,6 +7,7 @@ mtime changes (light Slate tick, 0.5 s) and applies the values at once, no resta
   le_shadow / le_highlight       local exposure shadow / highlight contrast scale (1 = no lift / compression)
   GdBase .. GdLeanDark           grounded-day material values through MPC_GyroTune (TuneA..C; TuneOn = 1)
   PhGain / PhGamma / PhSat / PhKnee   ground photo v2 (TuneD; docs/ground-photo-busan.md). GYROSIM_GROUND_PHOTO_V2=0 forces 1/1/1/1
+  off_<name>: true                    effect OFF switches (fx_toggle.py; page section '효과 끄기/켜기'), never in the defaults
 Defaults: tune_defaults.json next to this file (the slider page's '저장' writes it; in git, numbers only).
 Values missing from both files leave the look as the other modules set it. GYROSIM_TUNE=0 = off (nothing is read).
 """
@@ -99,12 +100,26 @@ def apply(world=None, v=None):
                 d["TuneOn"] = 1.0
                 if os.environ.get("GYROSIM_GROUND_PHOTO_V2", "1") == "0":     # the photo look before 11-11, over the sliders
                     d.update(PhGain=1.0, PhGamma=1.0, PhSat=1.0, PhKnee=1.0)
+                _fx_mpc(v, d)                                                 # effect switches (fx_toggle.py)
                 for vec, ks in GD_KEYS:
                     unreal.MaterialLibrary.set_vector_parameter_value(w, mpc, vec, unreal.LinearColor(*[float(d.get(k, 0.0)) for k in ks]))
         except Exception as e:
             log("mpc", repr(e))
+    try:                                     # effect OFF / ON switches (off_*: true), after the sliders
+        import fx_toggle
+        fx_toggle.apply(w, v)
+    except Exception as e:
+        log("fx", repr(e))
     ST["applied"] = dict(v)
     return v
+
+
+def _fx_mpc(v, d):
+    try:
+        import fx_toggle
+        fx_toggle.mpc_override(v, d)
+    except Exception as e:
+        log("fx mpc", repr(e))
 
 
 def _gd_defaults():
@@ -139,6 +154,14 @@ def _tick(dt):
         if w is None:
             return
         m = _mtime()
+        if w == ST["world"] and m == ST["mtime"] and now - ST.get("fx_t", 0.0) >= 1.0:   # switches: new tiles / re-shown HUD
+            ST["fx_t"] = now
+            try:
+                import fx_toggle
+                if fx_toggle.active():
+                    fx_toggle.apply(w, ST["applied"], full=False)
+            except Exception as e:
+                log("fx tick", repr(e))
         if w != ST["world"] or m != ST["mtime"]:
             ST["world"], ST["mtime"] = w, m
             if w != ST.get("orig_world"):
