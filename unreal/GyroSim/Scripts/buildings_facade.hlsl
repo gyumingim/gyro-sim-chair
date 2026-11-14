@@ -65,6 +65,10 @@ if (R > 0.9)
         float3 c = c0 + mag * (1.2 * (c0 - bl) + 0.5 * (bl - bl2));
         c = clamp(c, min(c0, bl) * 0.75, max(c0, bl) * 1.25 + 0.02);
         float green = saturate((c.g - max(c.r, c.b)) * 10.0);                     // green urethane waterproofing paint
+        // 11-14 (review scene_realism 3, scratchpad fixes_1114): green / teal roof photos read as moss over whole blocks;
+        // green-to-teal hues (g above r, b at most ~1.25 g) keep 60 % of their chroma
+        float gt = saturate((c.g - c.r) * 12.0) * saturate((c.g * 1.25 - c.b) * 12.0);
+        c = lerp(dot(c, float3(0.3, 0.59, 0.11)).xxx, c, lerp(1.0, 0.6, gt));
         c *= 1.0 + dg * (0.16 * (n1 - 0.5) * (1.0 - 0.4 * green) + 0.10 * (n2 - 0.5)) + 0.06 * (n3 - 0.5);
         Rough = lerp(0.9, 0.55, green) + 0.08 * (n2 - 0.5);
         Spec = 0.4;
@@ -100,6 +104,9 @@ if (R > 0.9)
     // photo as a low-frequency tint only: relative brightness and a little of its hue (no detail)
     float3 tintP = low / max(lowL, 0.02);
     base *= lerp(1.0.xxx, clamp(tintP, 0.6, 1.5), 0.45) * clamp(lerp(1.0, lowL / 0.35, 0.45), 0.7, 1.3);
+    // 11-14: the procedural roofs are the tall / big blocks (buildings_build: height >= 18 m or area >= 1500 m2, or no roof
+    // photo): greyer, half the chroma (the green paint ones keep a faint tint)
+    base = lerp(dot(base, float3(0.3, 0.59, 0.11)).xxx, base, 0.5);
     // stains / puddle marks / grain, expansion joints (~6 m), patch repairs
     float st = smoothstep(0.6, 0.9, n2) * 0.15 + smoothstep(0.65, 0.95, n3) * 0.12;
     base *= 1.0 - st;
