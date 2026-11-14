@@ -129,7 +129,8 @@ RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
 # toe brakes 18 deg (hardware/pedals/brakes_v4), gear handle +-16 deg (down = handle down)
 STICK_ROLL, STICK_PITCH, THR_SWING, PEDAL_CM, TOE_DEG, GEAR_HANDLE_DEG = 12.75, 12.75, 30.0, 4.0, 18.0, 16.0
 NEEDLES = ("asi", "alt", "alt10k", "vsi")
-HUD_BRIGHT, MFD_BRIGHT = 2.0, 1.2
+# 11-14 HUD 2.0 -> 1.3 (review cockpit_quality: near-white mint symbology over the city; hud.GREEN deeper green too)
+HUD_BRIGHT, MFD_BRIGHT = 1.3, 1.2
 CRASH_BG = unreal.LinearColor(0.305, 0.0052, 0.0052, 1.0)     # = render.py CRASH_BG (150, 16, 16) sRGB, linear
 CRASH_BTN = dict(retry=(60 / 1024, 430 / 640, 492 / 1024, 590 / 640), menu=(532 / 1024, 430 / 640, 964 / 1024, 590 / 640))  # = render.py
 CRASH_W, CRASH_H = 160.0, 100.0          # CrashPanel plane size, cm (build_level)

@@ -22,8 +22,10 @@ DISP = {"MFD_C": (1280, 800), "MFD_L": (1024, 1024), "MFD_R": (1024, 1024)}     
 DISP_SCALE = 0.75          # physical render target = logical x this (no mips: Canvas does not rebuild them; the display
                            # material supersamples 3 x 3 instead - no shimmer at VR / monitor distance)
 LAD_W, LAD_H, LAD_AZ = 1024, 8192, 16.0     # pitch ladder atlas: x = azimuth -16..16 deg, y = elevation +90..-90 deg
-GREEN = unreal.LinearColor(0.25, 1.0, 0.35, 1.0)
-DIM = unreal.LinearColor(0.12, 0.55, 0.18, 1.0)
+# 11-14 (review cockpit_quality, scratchpad fixes_1114): HUD symbology read near-white mint (0.25, 1.0, 0.35 x Brightness 2):
+# deeper P43-like green; the displays share it
+GREEN = unreal.LinearColor(0.10, 1.0, 0.22, 1.0)
+DIM = unreal.LinearColor(0.05, 0.55, 0.12, 1.0)
 AMBER = unreal.LinearColor(1.0, 0.75, 0.15, 1.0)
 RED = unreal.LinearColor(1.0, 0.2, 0.15, 1.0)
 WHITE = unreal.LinearColor(0.9, 0.95, 1.0, 1.0)
@@ -38,6 +40,9 @@ ST_COL = (GREEN, AMBER, RED)
 BOLD = os.environ.get("GYROSIM_NO_BOLD") != "1"     # A/B switch for the frame-time check only
 HUD_PLATE = 0.12                 # grey of the backing plates behind HUD text (M_HUD maps it to "dark, no light": build_level.HUD_PLATE)
 PLATE = unreal.LinearColor(HUD_PLATE, HUD_PLATE, HUD_PLATE, 1.0)
+# 11-14: the plates drew black boxes behind every HUD number (a real HUD is light only, nothing dark on the combiner) -> off
+# by default; GYROSIM_HUD_PLATES=1 brings them back (Painter.fill skips the PLATE colour otherwise)
+HUD_PLATES = os.environ.get("GYROSIM_HUD_PLATES", "0") == "1"
 HUD_BIG, HUD_NUM = 1.5, 1.15     # HUD numbers (x ts 1.6): speed / altitude boxes, other values (was 1.3 / 0.8-0.9)
 LINE_MAXW = 740.0                # instructor line max width (px): the 28 cm combiner foot is ~ +-10.2 deg (Scripts/cockpit/layout.py HUD_W)
 HUD_LABELS = os.environ.get("GYROSIM_HUD_LABELS", "0") == "1"
@@ -124,6 +129,8 @@ class Painter:
         self.c.draw_box(V2(x * k, y * k), V2(w * k, h * k), max(1.0, t * k), col)
 
     def fill(self, x, y, w, h, col):
+        if col is PLATE and not HUD_PLATES:
+            return
         if w > 0 and h > 0:
             k = self.k
             self.c.draw_texture(self.white, V2(x * k, y * k), V2(w * k, h * k), V2(0, 0), V2(1, 1), col, unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
