@@ -230,7 +230,9 @@ SLOTS = {
     "CK2_White": dict(Tint=(0.8, 0.8, 0.78), Rough=0.5, NormalAmt=0.0, EdgeWear=0.00, Backlight=0.0),
     "CK2_Bezel": dict(Tint=(0.03, 0.031, 0.033), Rough=0.4, EdgeWear=0.6, NormalAmt=0.0, Spec=0.5, WearColor=(0.42, 0.43, 0.4)),
     "CK2_Red": dict(Tint=(0.42, 0.02, 0.015), Rough=0.4, EdgeWear=0.25, NormalAmt=0.0),
-    "CK2_Lens": dict(Rough=0.45, Spec=0.3, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0, Emissive=0.9),
+    # 11-14: decorative annunciator lenses OFF (Emissive 0.9 -> 0.05): every caution / warning legend (TF FAIL, ENG FIRE,
+    # HYD, OXY LOW, ...) glowed while the MFD said "no warnings"; the six sim-driven lamps are the CK2_LampOn_* overlays
+    "CK2_Lens": dict(Rough=0.45, Spec=0.3, EdgeWear=0.00, Dust=0.1, NormalAmt=0.0, Emissive=0.05),
     "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
     "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
     "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),

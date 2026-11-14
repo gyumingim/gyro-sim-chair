@@ -210,7 +210,9 @@ def tape(c, a, b, w, h, label):
 
 def lamp(c, a, b, w, h, colr, txt):
     base = {"amber": (34, 22, 5), "red": (34, 7, 6), "green": (6, 24, 10)}[colr]          # dark lens (review: lenses went white)
-    leg = {"amber": (200, 130, 30), "red": (200, 50, 40), "green": (70, 180, 90)}[colr]   # legend glows (CK2_Lens Emissive)
+    # 11-14: unlit legends (were (200, 130, 30) / (200, 50, 40) / (70, 180, 90): bright paint read as every caution lamp lit
+    # while the MFD said no warnings; the sim-driven lamps are the CK2_LampOn overlays) - dim, still readable up close
+    leg = {"amber": (88, 62, 26), "red": (86, 30, 26), "green": (36, 72, 44)}[colr]
     c.rect(a - w / 2 - 0.15, b - h / 2 - 0.15, a + w / 2 + 0.15, b + h / 2 + 0.15, fill=(8, 8, 8), h=118)
     c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=base)
     if txt:
