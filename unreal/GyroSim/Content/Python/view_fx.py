@@ -163,6 +163,13 @@ def cube_content(world, cc):
 BAKE_METAL_KEYS = ("Metal", "Metallic", "WearMetal")
 BAKE_ROUGH_KEYS = ("Rough", "Roughness")
 BAKE_MATTE = dict(Rough=0.8, Roughness=0.8, RoughVar=0.0, Sheen=0.0, Polish=0.0)
+# 11-14 (scratchpad fixes_1114 r00-r03, same-run A/B in Play): the green concentric arcs over the HUD and the vertical
+# "console text" streaks in the side glass came from the emissive cockpit slots in the bake (MI_Ck2_Lit DED / lit parts,
+# MI_Ck2_Lens legends): bake with them black -> arcs gone; every other slot group, the fill light, the box proxy -> no
+# change. The bake has no sun, so the lit legends were the brightest thing in the interior and the dome stretched them into
+# arcs. Emissive / backlight x BAKE_EMISSIVE for the bake only (0.15: arc pixels over the HUD 7.3 % -> 3.7 %, floor 3.5 %).
+BAKE_EMISSIVE = float(os.environ.get("GYROSIM_CANOPY_BAKE_EMISSIVE", "0.15"))
+BAKE_EMISSIVE_KEYS = ("Emissive", "Backlight")
 
 
 def _scalars(m):
@@ -227,7 +234,10 @@ def bake_matte(world, show, swapped):
                 if m is None:
                     continue
                 p = _scalars(m)
-                if not bake_swappable(m, p):
+                swap = bake_swappable(m, p)
+                emi = (BAKE_EMISSIVE < 1.0 and _blend_mode(m) in (unreal.BlendMode.BLEND_OPAQUE, unreal.BlendMode.BLEND_MASKED)
+                       and max([p.get(k, 0.0) for k in BAKE_EMISSIVE_KEYS] + [0.0]) > 0.0)
+                if not (swap or emi):
                     continue
                 dyn = isinstance(m, unreal.MaterialInstanceDynamic)     # a look MID cannot parent a MID: copy its values
                 mid = unreal.MaterialLibrary.create_dynamic_material_instance(world, m.parent if dyn else m)
@@ -241,12 +251,17 @@ def bake_matte(world, show, swapped):
                             mid.set_vector_parameter_value(k, m.get_vector_parameter_value(k))
                     except Exception:
                         pass
-                for k in BAKE_METAL_KEYS:
-                    if k in p:
-                        mid.set_scalar_parameter_value(k, 0.0)
-                for k, v in BAKE_MATTE.items():
-                    if k in p:
-                        mid.set_scalar_parameter_value(k, v)
+                if swap:
+                    for k in BAKE_METAL_KEYS:
+                        if k in p:
+                            mid.set_scalar_parameter_value(k, 0.0)
+                    for k, v in BAKE_MATTE.items():
+                        if k in p:
+                            mid.set_scalar_parameter_value(k, v)
+                if emi:
+                    for k in BAKE_EMISSIVE_KEYS:
+                        if k in p:
+                            mid.set_scalar_parameter_value(k, p[k] * BAKE_EMISSIVE)
                 swapped.append((c, i, m))
                 c.set_material(i, mid)
     return swapped
@@ -654,7 +669,7 @@ class ViewFx:
                 finally:
                     bake_restore(swapped)
                 if not self.cube_baked:
-                    _log("canopy cube: baked (%s), %d shiny slots matte for the bake" % (self.cube_cap.get_owner().get_name(), len(swapped)))
+                    _log("canopy cube: baked (%s), %d slots stood in for the bake (shiny -> matte, emissive dimmed)" % (self.cube_cap.get_owner().get_name(), len(swapped)))
                 self.cube_baked = True
                 for mid, vals, old in getattr(self, "look_mids", []):
                     if "Fx" in mid.parent.get_name() and self.look_on:
