@@ -157,9 +157,9 @@ def cube_content(world, cc):
 
 
 # 11-14 (scratchpad canopy_bar / canopy_barfix): a sharp white bar in the glass (view right_up) was the kneeboard clip
-# (MI_Ck2_Metal: metallic 1, rough 0.3) mirroring the sky light into the baked cube. For the bake only, every shiny slot of
-# the show-only parts (metallic >= 0.5, or rough <= 0.15 without emissive) gets a matte stand-in: a dynamic instance of the
-# same material (same tint / textures) with metallic 0 and rough 0.8; the original materials are put back right after.
+# (MI_Ck2_Metal: metallic 1, rough 0.3) mirroring the sky light into the baked cube; the fix is the CubeClamp in
+# M_CkCanopyV3Fx. For the bake only, the glossy slots that bake_swappable() picks get a matte stand-in: a dynamic instance
+# of the same material (same tint / textures) with metallic 0 and rough 0.8; the original materials are put back right after.
 BAKE_METAL_KEYS = ("Metal", "Metallic", "WearMetal")
 BAKE_ROUGH_KEYS = ("Rough", "Roughness")
 BAKE_MATTE = dict(Rough=0.8, Roughness=0.8, RoughVar=0.0, Sheen=0.0, Polish=0.0)
@@ -186,9 +186,40 @@ def _scalars(m):
     return out
 
 
+def _blend_mode(m):
+    """effective blend mode of a material / instance (instance override first, then the base material); None = unknown"""
+    try:
+        o = m.get_editor_property("base_property_overrides")
+        if o and o.get_editor_property("override_blend_mode"):
+            return o.get_editor_property("blend_mode")
+    except Exception:
+        pass
+    try:
+        return m.get_base_material().get_editor_property("blend_mode")
+    except Exception:
+        return None
+
+
+def bake_swappable(m, p):
+    """which slots get a matte stand-in for the bake. 11-14 rework (scratchpad j1, same-moment A/B, CubeClamp 1 in all):
+    the first rule (metal >= 0.5 or rough <= 0.15) put a NEW wide pale plate at the top of the glass (view right_up, top
+    box +6/255 vs no swap). Per-group exclusion: only MI_Ck2_Metal on the cockpit shell causes it (metal -> matte keeps its
+    0.55 tint as a bright diffuse albedo); the translucent glass was not the cause. The CubeClamp alone already keeps the
+    kneeboard bar faint (bar - glass 5.3-5.7 with no swap vs 5.5-6.0 with the swap; 58-62 without the clamp), so metal
+    slots are no longer swapped. Left: OPAQUE / MASKED, non-emissive, non-metal glossy slots (rough <= 0.15, the MFD
+    screen glass); translucent (instrument / HUD glass) and emissive slots are never swapped."""
+    if _blend_mode(m) not in (unreal.BlendMode.BLEND_OPAQUE, unreal.BlendMode.BLEND_MASKED):
+        return False
+    if max(p.get("Emissive", 0.0), p.get("Backlight", 0.0)) > 0.0:
+        return False
+    metal = max([p.get(k, 0.0) for k in BAKE_METAL_KEYS[:2]] + [0.0])
+    rough = min([p[k] for k in BAKE_ROUGH_KEYS if k in p] + [1.0])
+    return metal < 0.5 and rough <= 0.15
+
+
 def bake_matte(world, show, swapped):
-    """swap shiny slots of the show-only actors to matte stand-ins; appends (component, slot, original material) to
-    swapped as it goes (so a failure half way can still be undone by bake_restore)"""
+    """swap shiny opaque slots of the show-only actors to matte stand-ins; appends (component, slot, original material)
+    to swapped as it goes (so a failure half way can still be undone by bake_restore)"""
     for a in show:
         for c in a.get_components_by_class(unreal.MeshComponent):
             for i in range(c.get_num_materials()):
@@ -196,9 +227,7 @@ def bake_matte(world, show, swapped):
                 if m is None:
                     continue
                 p = _scalars(m)
-                metal = max([p.get(k, 0.0) for k in BAKE_METAL_KEYS[:2]] + [0.0])
-                rough = min([p[k] for k in BAKE_ROUGH_KEYS if k in p] + [1.0])
-                if not (metal >= 0.5 or (rough <= 0.15 and p.get("Emissive", 0.0) <= 0.0)):
+                if not bake_swappable(m, p):
                     continue
                 dyn = isinstance(m, unreal.MaterialInstanceDynamic)     # a look MID cannot parent a MID: copy its values
                 mid = unreal.MaterialLibrary.create_dynamic_material_instance(world, m.parent if dyn else m)
