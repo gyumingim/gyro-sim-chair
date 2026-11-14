@@ -785,25 +785,30 @@ def build_lit():
     return out
 
 
-KNEE = dict(center=(457.0, -12.5, 46.5), size=(20.0, 12.5))
+# 11-14 (scratchpad fixes_1114): the board sat at the knee facing the eye (457, -12.5, 46.5), so the pilot's left thigh
+# (pilot_body.fbx: flat top z ~52 for x 442..457, y -22..-6) came up through it and ~65 % of the screen was hidden from the
+# eye. Now it lies on the thigh top like a strapped kneeboard: tilt 0 = flat (normal up), 1 = facing the eye; the eye sees
+# it ~30 deg off its normal. Thigh top 1.3 cm under the screen face (slab back 0.9 cm), ~4 % of the screen behind the body.
+KNEE = dict(center=(454.0, -14.0, 53.2), size=(20.0, 12.5), tilt=0.0)
 
 
 def build_kneeboard():
     P = part(SH)                     # kneeboard rides in the shell (no extra actor at Play)
     c = KNEE["center"]
-    n = norm(sub(L.EYE, c))
-    ex = norm(cross((0, 0, 1), n))          # right on the board as seen by the pilot
-    ex = (ex[0], ex[1], ex[2])
-    if ex[1] < 0:
-        ex = tuple(-x for x in ex)
-    ey = cross(n, ex)
+    de = norm(sub(L.EYE, c))
+    t = KNEE["tilt"]
+    n = norm(tuple((1.0 - t) * a + t * b for a, b in zip((0.0, 0.0, 1.0), de)))
+    yv = (0.0, 1.0, 0.0)                    # right on the board as seen by the pilot = aircraft +y in the board plane
+    k = sum(a * b for a, b in zip(n, yv))
+    ex = norm(tuple(a - k * b for a, b in zip(yv, n)))
+    ey = cross(n, ex)                       # in-plane, toward the pilot = DOWN on the board as he reads it
     w, h = KNEE["size"]
     o = frame_pt(c, ex, ey, n, -w / 2 - 1.2, -h / 2 - 1.5, 0.0)
     slab(P, "CK2_Kneeboard", (o, ex, ey, n), 0, 0, w + 2.4, h + 3.6, -0.9, -0.15, None, None, bevel=0.1)
-    box(P, "CK2_Metal", frame_pt(c, ex, ey, n, 0.0, h / 2 + 1.2, 0.0), (6.0, 1.0, 0.5), ex, ey, n)
+    box(P, "CK2_Metal", frame_pt(c, ex, ey, n, 0.0, -(h / 2 + 1.2), 0.0), (6.0, 1.0, 0.5), ex, ey, n)    # clip at the top (far) edge
     for sd in (-1, 1):                      # leg strap
         box(P, "CK2_Strap", frame_pt(c, ex, ey, n, sd * (w / 2 + 1.6), 0.0, -1.2), (1.2, 3.6, 2.6), ex, ey, n)
-    return dict(center=c, normal=n, up=ey, right=ex, size=list(KNEE["size"]))
+    return dict(center=c, normal=n, up=tuple(-x for x in ey), right=ex, size=list(KNEE["size"]))
 
 
 # =====================================================================================================================
@@ -1065,8 +1070,10 @@ def main():
     screens = {}
     for s, tag in ((-1, "MFD_L"), (1, "MFD_R")):
         screens[tag] = dict(center=L.panel_pt(s * L.MFD_U, L.MFD_V, L.MFD_DEPTH - 0.55 + 0.06), normal=PN, up=PU, size=[L.MFD_SCREEN, L.MFD_SCREEN], px=[1024, 1024])
-    screens["MFD_C"] = dict(center=L.add(knee["center"], knee["normal"], 0.05), normal=knee["normal"], up=knee["up"], size=knee["size"], px=[1280, 800],
-                            where="kneeboard")
+    # 11-14: "up" = board up as the pilot reads it and "right" given explicitly (was up = board DOWN and no right, so
+    # cockpit_v2._right() took n x up = the pilot's LEFT as screen X: the display showed rotated 180 deg)
+    screens["MFD_C"] = dict(center=L.add(knee["center"], knee["normal"], 0.05), normal=knee["normal"], up=knee["up"], right=knee["right"],
+                            size=knee["size"], px=[1280, 800], where="kneeboard")
     cal = {"adi": L.panel_pt(0.0, 33.9, 1.0), "asi": L.panel_pt(-5.6, 52.7, 1.0), "alt": L.panel_pt(5.6, 52.7, 1.0), "vsi": L.panel_pt(8.6, 34.6, 1.0),
            "gear": plate_point("AUX_L", 14.0, 13.0, 1.0)[0], "wheels": plate_point("AUX_L", 19.5, 15.8, 1.0)[0], "lights": plate_point("AUX_L", 5.6, 7.4, 1.0)[0]}
     man = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), frame="UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)", version="cockpit v2 (F-16 Block 50/52 style)",
