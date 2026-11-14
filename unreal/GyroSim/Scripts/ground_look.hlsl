@@ -295,7 +295,9 @@ if (SeaArt > 0.5)
     macroW = 1.0 + SeaMacroAmp * (mv * 2.0 - 1.0);
     n2 *= saturate(1.5 - footS / (WaveScale * 0.01 * 0.37 / 8.0));                     // octave 2, own footprint
 }
-float2 nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStrength * 0.5 * (1.0 - 0.5 * fade)) * macroW;
+// 11-14: the swell octave n3 kept half its strength at full distance fade -> a regular weave / grid over the far sea
+// (review scene_realism 2.5, scratchpad fixes_1114 a15_open_sea_300). It now keeps 15 %.
+float2 nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStrength * 0.5 * (1.0 - 0.85 * fade)) * macroW;
 float3 tx = normalize(cross(float3(0.0, 1.0, 0.0), up));                          // ~ north on the sea plane
 float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);
