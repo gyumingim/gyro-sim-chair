@@ -8,7 +8,10 @@ sim/vworld_trees_attribution.png (sim_client._attribution uses it when this retu
 Art pass 11-10: material /Game/Trees/M_GyroTree (Scripts/trees_material.py + trees_foliage.hlsl: leaf clumps, dark gaps,
 per-clump lighting on the vertex-coloured blob crowns); GYROSIM_TREES_ART=0 = Cesium's stock material (the look before).
 v2 (default, see V2 below): tiles_v2 + M_GyroTree2; GYROSIM_TREES_V2=0 = v1.
-11-12: leaf-card trees tiles_cards + M_GyroTreeCard on top of v2 (GYROSIM_TREES_CARDS=0 = the v2 blobs)."""
+11-12: leaf-card trees tiles_cards + M_GyroTreeCard on top of v2 (GYROSIM_TREES_CARDS=0 = the v2 blobs).
+11-15 'photo' (owner: tree colours stand out, hard tree-area edges, colours the photo does not have): tiles_cards_photo
+(sim/veg_cards_tiles.py with GYROSIM_VEG_PHOTO=1: crown colour = the V-World photo under the trees per tile / prototype /
+half, soft thinned tree-area edges) with the same M_GyroTreeCard; default when built, GYROSIM_TREES_PHOTO=0 = tiles_cards."""
 import os
 import unreal
 
@@ -29,6 +32,17 @@ _V1_TILES = r"C:/GyroSimTiles/veg/tiles"
 _CARD_TILES = r"C:/GyroSimTiles/veg/tiles_cards"
 _CARD_MAT = "/Game/Trees/M_GyroTreeCard"
 CARDS_DEFAULT = "1"
+_PHOTO_TILES = r"C:/GyroSimTiles/veg/tiles_cards_photo"
+PHOTO_DEFAULT = "1"
+
+
+def photo_on():
+    if os.environ.get("GYROSIM_TREES_PHOTO", PHOTO_DEFAULT) == "0":
+        return False
+    if not os.path.isfile(_PHOTO_TILES + "/tileset.json"):
+        unreal.log("[trees] photo-coloured trees not built (%s) -> tiles_cards" % _PHOTO_TILES)
+        return False
+    return True
 
 
 def cards_on():
@@ -51,7 +65,7 @@ def config(v2=None):
         v2 = False                                     # no v2 tiles built yet -> v1
     tiles = os.environ.get("GYROSIM_TREES_TILES", _V2_TILES if v2 else _V1_TILES).replace("\\", "/")
     if v2 and cards_on():
-        return v2, _CARD_TILES, _CARD_MAT
+        return v2, (_PHOTO_TILES if photo_on() else _CARD_TILES), _CARD_MAT
     mat = ("/Game/Trees/M_GyroTree2" + ("W" if os.environ.get("GYROSIM_TREES_WIND", "0") == "1" else "")) if v2 else "/Game/Trees/M_GyroTree"
     return v2, tiles, mat
 

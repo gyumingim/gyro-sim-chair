@@ -9,6 +9,10 @@ texture asset T_GyroTreeCards imported from C:/GyroSimTiles/veg/cards_atlas.png 
 white base colour texture only so Cesium loads TEXCOORD_0 into UV channel 0.
 
     python -I sim/veg_cards_tiles.py         -> C:/GyroSimTiles/veg/tiles_cards (tmp -> swap, keeps tiles_cards_prev)
+11-15 photo build (crown colour from the V-World photo under each tree, soft tree-area edges, sim/veg_v2.py PHOTO; same
+material M_GyroTreeCard, trees_look.py picks tiles_cards_photo when it is there; the atlas is then written to
+cards_atlas_photo.png and compared with cards_atlas.png - the imported texture is kept):
+    GYROSIM_VEG_PHOTO=1 GYROSIM_VEG_TILES2=C:/GyroSimTiles/veg/tiles_cards_photo python -I sim/veg_cards_tiles.py
 Run holding C:/GyroSimTiles/ue_offscreen.lock (big CPU job; <= half the cores, below-normal priority); the swap is skipped while any UnrealEditor runs.
 """
 import io, json, math, os, struct, sys, site
@@ -131,7 +135,15 @@ if __name__ == "__main__":
     os.environ["GYROSIM_VEG_PROCS"] = str(min(int(os.environ.get("GYROSIM_VEG_PROCS", "6")), max(1, (os.cpu_count() or 2) // 2)))
     print("procs", os.environ["GYROSIM_VEG_PROCS"], "priority", "below-normal" if low else "NOT lowered (normal)", flush=True)
     img = VC.make_atlas()
-    img.save(ATLAS_OUT)
+    sfx = "_photo" if V2.PHOTO else ""
+    if sfx and os.path.isfile(ATLAS_OUT):               # the UVs must match the imported atlas: same layout, not overwritten
+        ATLAS_OUT = ATLAS_OUT.replace(".png", sfx + ".png")
+        img.save(ATLAS_OUT)
+        from PIL import Image
+        same = np.array_equal(np.asarray(Image.open(ATLAS_OUT)), np.asarray(Image.open(ATLAS_OUT.replace(sfx + ".png", ".png"))))
+        print("atlas identical to cards_atlas.png:", same, flush=True)
+    else:
+        img.save(ATLAS_OUT)
     a = np.asarray(img).astype(np.float64) / 255.0
     lin = np.where(a[..., :3] <= 0.04045, a[..., :3] / 12.92, ((a[..., :3] + 0.055) / 1.055) ** 2.4)
     m = a[..., 3] > 0.5

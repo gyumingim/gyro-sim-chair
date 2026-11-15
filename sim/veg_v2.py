@@ -51,6 +51,28 @@ PROTOS_DIR = "" if _PD.lower() in ("", "none", "0") or not os.path.isdir(_PD) el
 # round 2: A refines at ~3.9 km (v1 / first v2: 2.6 km) - the far trees reach further, the tree line edge moves into the haze
 GE2 = dict(root=20000.0, a=float(os.environ.get("GYROSIM_VEG2_GEA", "45.0")), b=float(os.environ.get("GYROSIM_VEG2_GEB", "12.0")), c=0.0)
 NBIN = 2                                                  # colour bins per shape (+ per-instance variation in the material)
+# 11-15 'photo' build (owner: tree colours stand out, hard tree-area edges, colours the aerial photo does not have; the
+# species palette below put lime broadleaf / dark blue-green pine patches on a photo whose forest is one grey teal-green,
+# 25 sample blocks: photo under the trees sRGB (40, 64, 52) for 'pine' and 'broad' trees alike, broadleaf tint after the
+# card material (78, 101, 64)). GYROSIM_VEG_PHOTO=1:
+#   - crown colour = the V-World photo under the tree (sim/veg_photo.py, ~3 m Gaussian mean, finest cached zoom) x PHOTO_GAIN
+#     (1.9 = the mean luminance of the species tints before: brightness level unchanged, only the colour follows the photo),
+#     species only a small tilt (PHOTO_SPECIES) + the material's per-tree variation; the card material's own green push
+#     (atlas TexChroma, OakSat, SSS tint) is divided out in the vertex colour (photo_correct);
+#   - instanced tiles carry one colour per (tile, prototype, bin): bins are re-split per C tile at the median photo
+#     luminance (same 50 / 50 shape mix), each group gets its trees' mean photo colour (tiles2 / tile_glb2 recolour);
+#   - forest edges fade: trees within EDGE_M of the tree-area edge are thinned (keep EDGE_KEEP .. 1) and smaller
+#     (EDGE_SIZE .. 1), neighbour blocks included so block borders are no edge.
+# Default 0 = the build before. The photo itself is never written; only per-tile mean colours end up in the tiles.
+PHOTO = os.environ.get("GYROSIM_VEG_PHOTO", "0") == "1"
+PHOTO_GAIN = float(os.environ.get("GYROSIM_VEG_PHOTO_GAIN", "1.9"))
+PHOTO_SPECIES = dict(pine=(0.97, 0.98, 1.03), bpine=(0.95, 0.97, 1.04), broad=(1.04, 1.03, 0.95), shrub=(1.03, 1.02, 0.97))
+PHOTO_CHROMA = float(os.environ.get("GYROSIM_VEG_PHOTO_CHROMA", "1.0"))   # x the photo's own chroma (1 = as photographed)
+EDGE_M = float(os.environ.get("GYROSIM_VEG_EDGE_M", "12.0"))
+EDGE_KEEP, EDGE_SIZE = 0.6, 0.85                           # at the very edge: 60 % of the trees, 85 % size
+CARD_DET = np.array([0.855, 1.06, 0.823])               # mean atlas detail of M_GyroTreeCard (TexChroma 0.3, atlas mean rgb)
+SSS_TILT = np.array([1.0, 0.99, 1.05])                  # ~ undo a little of the SSS (1.2, 1.4, 0.9) green tilt (estimate, shots)
+OAK_SAT = 0.8                                           # material OakSat (kind >= 2)
 R_FAC = 0.78
 KIND = dict(bark=0, pine=1, broad=2, shrub=3)
 # linear summer albedo of the sunlit crown (before the per-vertex AO); 소나무 dark olive-green, 곰솔 darker / bluer,
@@ -640,18 +662,116 @@ def block_attrs(f):
                pid=np.concatenate((pid[keep], spid)).astype(np.int8),
                tint=np.concatenate((tint[keep], tint[ii] * rng.uniform(0.93, 1.07, (len(ii), 1)))).astype(np.float32),
                yaw=np.concatenate((yaw[keep], rng.random(len(ii)))).astype(np.float32))
+    st_photo = {}
+    if PHOTO:
+        out, st_photo = photo_block(f, out, rng)
     rt = ridge_tors(f, dem, lat[keep], lon[keep], rng)
     if rt is not None:
+        if PHOTO:
+            rt["ptint"] = rt["tint"]
         for kk in out:
             out[kk] = np.concatenate((out[kk], rt[kk].astype(out[kk].dtype)))
     st = dict(n=n, ridge_tors=0 if rt is None else int(len(rt["lat"])), rock_photo=int(rock.sum()), tor=int((tor & keep).sum()), scrub=int((scrub & keep).sum()), infill=int(len(ii)),
               seaside=int(seaside.sum()), pine=int((pine & keep & ~shrub & ~tor & ~scrub).sum()), shrub=int((shrub & keep).sum()),
               coast=int(coast[keep].sum()), ridge=int((tpi[keep] > 10).sum()), valley=int((tpi[keep] < -10).sum()),
               pine_ridge=int((pine & keep & ~shrub & (tpi > 10)).sum()), pine_valley=int((pine & keep & ~shrub & (tpi < -10)).sum()))
+    st.update(st_photo)
     return out, st
 
 
+def _edge_dist(f, lat, lon):
+    """distance (m) from each tree to the edge of its tree area: trees of this block + the 8 neighbour blocks' prep trees
+    on a 3 m grid, closed by 9 m (gaps between crowns are no edge), Euclidean distance to the nearest non-tree cell."""
+    from scipy import ndimage
+    i, j = (int(x) for x in os.path.basename(f)[2:-4].split("_"))
+    la, lo = [lat], [lon]
+    for di in (-1, 0, 1):
+        for dj in (-1, 0, 1):
+            g = os.path.join(os.path.dirname(f), "b_%d_%d.npz" % (i + di, j + dj))
+            if (di or dj) and os.path.isfile(g):
+                z = np.load(g)
+                if int(z["n"]) > 0:
+                    la.append(z["lat"]); lo.append(z["lon"])
+    la, lo = np.concatenate(la), np.concatenate(lo)
+    cl = math.cos(math.radians(float(lat.mean())))
+    x0, y0 = float(lon.min()), float(lat.min())
+    pad = EDGE_M + 12.0
+    X = (la - y0) * 111320.0; Y = (lo - x0) * 111320.0 * cl          # (north, east) metres from this block's corner
+    xm, ym = (lat.max() - y0) * 111320.0, (lon.max() - x0) * 111320.0 * cl
+    sel = (X > -pad) & (X < xm + pad) & (Y > -pad) & (Y < ym + pad)
+    G = 3.0
+    H, W = int((xm + 2 * pad) / G) + 2, int((ym + 2 * pad) / G) + 2
+    occ = np.zeros((H, W), bool)
+    occ[((X[sel] + pad) / G).astype(np.int64), ((Y[sel] + pad) / G).astype(np.int64)] = True
+    disk = lambda r: (np.add.outer(np.arange(-r, r + 1) ** 2, np.arange(-r, r + 1) ** 2) <= r * r + r)
+    occ = ndimage.binary_dilation(occ, disk(3))                        # +9 m (tops are 4-10 m apart)
+    occ = ndimage.binary_erosion(occ, disk(3), border_value=1)          # -9 m (closing: the area of the crowns)
+    d = ndimage.distance_transform_edt(occ) * G
+    x, y = (lat - y0) * 111320.0, (lon - x0) * 111320.0 * cl
+    return d[((x + pad) / G).astype(np.int64), ((y + pad) / G).astype(np.int64)]
+
+
+def photo_block(f, out, rng):
+    """GYROSIM_VEG_PHOTO: soft tree-area edges + the photo colour under every tree (out['ptint'], linear albedo target)."""
+    import veg_photo
+    pid = out["pid"]
+    rock = SPECIES_OF[pid] == 4
+    n0 = len(pid)
+    d = _edge_dist(f, out["lat"], out["lon"])
+    s = np.clip(d / EDGE_M, 0.0, 1.0)
+    s = s * s * (3 - 2 * s)
+    keep = rock | (rng.random(n0) < EDGE_KEEP + (1 - EDGE_KEEP) * s)
+    size = np.where(rock, 1.0, EDGE_SIZE + (1 - EDGE_SIZE) * s).astype(np.float32)
+    out = {k: v[keep] for k, v in out.items()}
+    out["h"] = out["h"] * size[keep]; out["r"] = out["r"] * size[keep]
+    c, zu = veg_photo.photo_lin(out["lat"], out["lon"])
+    c = c.astype(np.float64)
+    grp = SPECIES_OF[out["pid"]]
+    Y = c @ LUM + 1e-5
+    if PHOTO_CHROMA != 1.0:
+        c = Y[:, None] + PHOTO_CHROMA * (c - Y[:, None])
+    sp = np.array([PHOTO_SPECIES.get(g, (1.0, 1.0, 1.0)) for g in GROUPS])[grp]
+    pt = np.clip(c, 1e-4, 1.0) * PHOTO_GAIN * sp
+    nophoto = zu == 0
+    pt = np.where((nophoto | (grp == 4))[:, None], out["tint"], pt)
+    out["ptint"] = pt.astype(np.float32)
+    st = dict(edge_dropped=int(n0 - keep.sum()), edge_zone=int((d < EDGE_M).sum()), photo_none=int(nophoto.sum()),
+              **{"photo_z%d" % z: int((zu == z).sum()) for z in veg_photo.ZOOMS})
+    return out, st
+
+
+LUM = np.array([0.2126, 0.7152, 0.0722])
+
+
+def photo_correct(lin, kind, card):
+    """target albedo -> vertex colour for M_GyroTreeCard: divide out the material's own colour push (atlas detail on card
+    leaves, OakSat on kind >= 2, part of the SSS tilt) so what the material makes of it is the photo colour."""
+    c = np.asarray(lin, np.float64).copy()
+    c = np.where(card[:, None], c / CARD_DET, c)
+    y = c @ LUM
+    c = np.where((kind >= 2)[:, None], y[:, None] + (c - y[:, None]) / OAK_SAT, c)
+    c = c * np.where(card[:, None], SSS_TILT, 1.0)
+    return np.clip(c, 1e-4, 1.0)
+
+
 # ---- tiles ---------------------------------------------------------------------------------------------------------------
+_REF = {}                                                   # PHOTO: proto index -> the tint its foliage vertex colours were built with
+
+
+def recolour(arr, ref, target):
+    """prototype arrays (P, N, C, I[, UV]) with the foliage vertex colours (kind > 0) moved from tint ref to the photo
+    target (linear), material compensation included (photo_correct); bark untouched."""
+    C = arr[2]
+    kind = C[:, 3] // 64
+    fol = kind > 0
+    card = (arr[4][:, 0] > -0.5) if len(arr) > 4 else np.zeros(len(C), bool)
+    lin = V.srgb_to_lin(C[:, :3].astype(np.float64))
+    new = photo_correct(lin * (np.asarray(target) / np.maximum(np.asarray(ref, np.float64), 1e-5))[None], kind, card)
+    C2 = C.copy()
+    C2[fol, :3] = lin_to_srgb8(new[fol]).astype(np.uint8)
+    return (arr[0], arr[1], C2) + tuple(arr[3:])
+
+
 def tile_glb2(D, idx, center, near, pal, pidx):
     import buildings_build as B
     R = B.enu_rot(*center)
@@ -667,11 +787,16 @@ def tile_glb2(D, idx, center, near, pal, pidx):
     Sc = np.stack((r, hh, r), 1)
     pid, bins = D["pid"][idx], D["bin"][idx]
     groups = []
+    if PHOTO:
+        pal = list(pal)
     for p_ in np.unique(pid):
         for b_ in range(NBIN):
             m = (pid == p_) & (bins == b_)
             if m.any():
-                groups.append((pidx[(int(p_), near, b_)], Tl[m], Rq[m], Sc[m]))
+                k = pidx[(int(p_), near, b_)]
+                groups.append((k, Tl[m], Rq[m], Sc[m]))
+                if PHOTO and SPECIES_OF[int(p_)] != 4:          # this tile's own colour for this prototype: its trees' photo mean
+                    pal[k] = recolour(pal[k], _REF[k], D["ptint"][idx][m].astype(np.float64).mean(0))
     Mx = np.eye(4)
     Mx[:3, :3] = S @ R @ S.T
     Mx[:3, 3] = S @ C0
@@ -711,6 +836,17 @@ def tiles2(args):
         cen = V.palette(D["tint"][m], NBIN, seed=11 + g)
         D["bin"][m] = ((D["tint"][m][:, None, :] - cen[None]) ** 2).sum(-1).argmin(1)
         pals[g] = cen
+    if PHOTO:                    # bins = darker / lighter photo half per (C tile, prototype): each half gets its own colour
+        ci_ = np.floor(D["lat"] / (V.DLA / V.SUB)).astype(np.int64); cj_ = np.floor(D["lon"] / (V.DLO / V.SUB)).astype(np.int64)
+        key = (ci_ * 100000 + cj_) * 16 + D["pid"].astype(np.int64)
+        yv = D["ptint"].astype(np.float64) @ LUM
+        o = np.lexsort((yv, key))
+        ks = key[o]
+        start = np.r_[0, np.nonzero(np.diff(ks))[0] + 1]
+        cnt = np.diff(np.r_[start, len(ks)])
+        rank = np.arange(len(ks)) - np.repeat(start, cnt)
+        D["bin"][o] = (rank >= np.repeat(cnt, cnt) / 2.0).astype(np.int8)
+        D["bin"][grp == 4] = np.minimum(D["bin"][grp == 4], NBIN - 1)
     drop = dropin_protos()
     protos, pidx, tri = [], {}, []
     for p_ in range(len(PROTOS)):
@@ -727,6 +863,7 @@ def tiles2(args):
                 else:
                     arr = build_proto(p_, not near).arrays(tint, tint if nm == "rock" else trunk)
                 pidx[(p_, near, b_)] = len(protos)
+                _REF[len(protos)] = np.asarray(tint, np.float64)
                 protos.append(arr)
                 tri.append(len(arr[3]) // 3)
     tmp = TILES2 + "_tmp"
@@ -784,6 +921,9 @@ def tiles2(args):
                                                     far_mean=round(float(np.mean(nodes_per["far"])), 1)),
                prototype_triangles=dict(near=[tri[pidx[(p, True, 0)]] for p in range(len(PROTOS))], far=[tri[pidx[(p, False, 0)]] for p in range(len(PROTOS))]),
                palettes={GROUPS[k]: np.asarray(v).round(4).tolist() for k, v in pals.items()}, tint=TINT, r_fac=R_FAC, ge=GE2,
+               photo=dict(on=True, gain=PHOTO_GAIN, chroma=PHOTO_CHROMA, species=PHOTO_SPECIES, edge_m=EDGE_M, edge_keep=EDGE_KEEP,
+                          edge_size=EDGE_SIZE, sigma_m=__import__("veg_photo").SIGMA_M, card_det=CARD_DET.tolist(), sss_tilt=SSS_TILT.tolist(),
+                          note="per-tile mean photo colours only; no imagery stored") if PHOTO else False,
                dropin=dict(dir=PROTOS_DIR, glb={k: len(v) for k, v in drop.items()}, proxies={g: [os.path.basename(f) for f in proxy_files(g)] for g in ("pine", "broad")},
                            pick=PROXY_PICK), inputs=dict(work=V.WORK))
     json.dump(out, open(os.path.join(tmp, "build.json"), "w"), indent=1)
