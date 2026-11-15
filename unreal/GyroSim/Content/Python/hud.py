@@ -319,7 +319,10 @@ class Painter:
         self.ts = 1.0
         self.k = DISP_SCALE
         try:
-            {"MFD_C": self._train, "MFD_L": self._pfd, "MFD_R": self._session}[tag](s, ex)
+            if tag == "MFD_R" and ex.get("map") is not None:                 # 11-15: moving map page (mfd_map.py, J toggles)
+                self._map_page(s, ex)
+            else:
+                {"MFD_C": self._train, "MFD_L": self._pfd, "MFD_R": self._session}[tag](s, ex)
         finally:
             self._end()
 
@@ -448,6 +451,23 @@ class Painter:
         pts = [(gx + gw - (t0 - t) / 30.0 * gw, mid - max(-3.0, min(3.0, v)) / 3.0 * gh / 2) for t, v in self.hist]
         for a, b in zip(pts, pts[1:]):
             self.line(a, b, AMBER, 4)
+
+    def _map_page(self, s, ex):
+        """right MFD moving map (mfd_map.MfdMap draws tiles / rings / names / own-ship); the chair page's active warnings
+        stay on top (same banners) and the chair angles shrink to one line at the bottom. J -> the chair page."""
+        ex["map"].draw(self, s, GREEN, DIM, WHITE)
+        act = [k for k in WARN_TXT if k in (ex.get("warnings") or [])]
+        y = 112
+        for key in act[:2]:
+            en, _ko, col = WARN_TXT[key]
+            self.fill(12, y, 1000, 150, unreal.LinearColor(col.r * 0.28, col.g * 0.28, col.b * 0.28, 1.0))
+            self.text(en, 28, y + 46, 4.2, col, center=False)
+            if ex.get("beginner"):
+                self.label("wd_" + key, 28, y + 112, 60, WHITE)
+            y += 160
+        self.text("CHAIR R %+.1f  P %+.1f" % (s.get("chair_roll", 0.0), s.get("chair_pitch", 0.0)), 36, 962, 2.0, LBL_COL, center=False)
+        self.last["MFD_R"] = dict(page="map", warnings=list(act), chair=[round(s.get("chair_roll", 0.0), 1), round(s.get("chair_pitch", 0.0), 1)],
+                                  psi=round(float(s.get("psi", 0.0)), 1), tiles=sum(1 for v in ex["map"].tiles.values() if v is not None))
 
     def _session(self, s, ex):
         """chair cue vs its limits, status, ACTIVE warnings only (big, with a short Korean line); master caution logic."""

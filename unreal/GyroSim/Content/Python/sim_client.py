@@ -30,6 +30,8 @@ import geo, hud, cockpit_gauges as gauges
 importlib.reload(geo); importlib.reload(hud); importlib.reload(gauges)
 import view_fx, airframe_live         # cockpit view feel + sound (view_fx), moving surfaces / lights (airframe_live)
 importlib.reload(view_fx); importlib.reload(airframe_live)
+import mfd_map                         # right MFD moving map (11-15)
+importlib.reload(mfd_map)
 import cockpit_v2                      # F-16 style cockpit v2: mesh swap at Play (GYROSIM_COCKPIT_V2=0 = v1)
 importlib.reload(cockpit_v2)
 import pie_fullscreen                 # not reloaded: it defines a UObject class (PIE full screen, F11 / Alt+Enter)
@@ -86,11 +88,14 @@ VW_SSE = 4.0                        # raster overlay screen-space error (default
 # (more requests would only burn the daily budget: online fetches stop at z16, beyond that it is the cache or the parent cut out).
 VW_SSE_HIRES, VW_HIRES_APTS = 1.0, ("rkpk",)
 VW_ATTRIB_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "vworld_attribution.png"))
-VW_ATTRIB_D, VW_ATTRIB_W = 150.0, 0.30         # cm ahead of the view camera, width as a fraction of the view width
+VW_ATTRIB_D, VW_ATTRIB_W = 150.0, 0.23         # cm ahead of the view camera, width as a fraction of the view width
+# 11-15 (user): source plate ~25 % smaller (was 0.30 / 0.40, VR 40 / 55 cm). Terms 13조 9항 require the credit ("오픈플랫폼을
+# 이용하여 만든 것임을 표기") in a way the operator sets; no size / position / logo rule found (vworld.kr terms + copyright
+# policy, read 11-15). Never removed; the right MFD map carries the V-World line too.
 # local South Korea terrain (Copernicus DEM GLO-30 -> quantized-mesh, sim/terrain_build.py) from the same proxy at
 # /terrain/layer.json: preferred in the vworld mode (before Cesium World Terrain); its credit is on the source plate
 VW_TERRAIN_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_terrain_attribution.png")
-VW_TERRAIN_ATTRIB_W = 0.40
+VW_TERRAIN_ATTRIB_W = 0.30
 # local 3D buildings (국토교통부 GIS건물통합정보 -> 3D Tiles, sim/buildings_build.py) from the same proxy at
 # /buildings/tileset.json: in the vworld mode on the local terrain (before Cesium OSM Buildings); credit on the plate
 VW_BLDG_ATTRIB_PNG = os.path.join(os.path.dirname(VW_ATTRIB_PNG), "vworld_buildings_attribution.png")
@@ -101,6 +106,11 @@ VW_BLDG_SSE = 16.0                  # buildings tileset screen-space error (tile
 # drawn 1:1 into a render target with the aircraft marker + heading arrow, on the 'Minimap' plate (build_level /
 # Scripts/add_minimap.py). Shown in the vworld mode while the aircraft is over / near the picture: top right on the monitor,
 # head-locked lower right in VR. J toggles it.
+# 11-15 (user decision): the moving map is the right MFD's page now (mfd_map.py: V-World tiles from the local cache,
+# heading-up, range rings); the floating plate is off unless GYROSIM_MINIMAP_PLATE=1. J: right MFD map <-> chair / warnings
+# page (with the plate on, J also toggles the plate as before). The plate actor still serves the start picker.
+MINIMAP_PLATE = os.environ.get("GYROSIM_MINIMAP_PLATE", "0") == "1"
+MFD_MAP = os.environ.get("GYROSIM_MFD_MAP", "1") != "0"
 MINIMAP_DIR = os.path.join(os.environ.get("GYROSIM_TILES", "C:\\GyroSimTiles"), "minimap")
 MINIMAP_W = 0.27                    # monitor: plate width as a fraction of the view width
 MINIMAP_VR_CM, MINIMAP_VR_DIR = 34.0, (24.0, -20.0)    # VR: width at VW_ATTRIB_D, direction (right deg, up deg)
@@ -1694,7 +1704,8 @@ class SimClient:
                     t0 = time.perf_counter()
                     tut = s.get("tut") or {}
                     P.draw_display(tag, s, dict(beginner=bool(tut.get("beginner", True)), radar_m=self.radar_m, gmax=self.gmax,
-                                                warnings=self.warnings, panel_tex=self.panel_tex, loading=not self.startup_done))
+                                                warnings=self.warnings, panel_tex=self.panel_tex, loading=not self.startup_done,
+                                                map=self._mfd_map() if tag == "MFD_R" else None))
                     self.disp_ms += ((time.perf_counter() - t0) * 1000 - self.disp_ms) * 0.05
             except Exception as e:
                 if now - self.last_log > 2:
@@ -1793,7 +1804,7 @@ class SimClient:
         self.attrib_key = key
         D = VW_ATTRIB_D
         if self.hmd:                                             # VR: low centre, 26 deg down, fixed size (head-locked)
-            hw, w = D * math.tan(math.radians(VIEW_FOV / 2)), 55.0 if getattr(self, "vw_local", False) else 40.0
+            hw, w = D * math.tan(math.radians(VIEW_FOV / 2)), 42.0 if getattr(self, "vw_local", False) else 30.0
             pos = unreal.Vector(D, 0.0, -D * math.tan(math.radians(26.0)))
         else:
             hw = D * math.tan(math.radians(fov / 2))             # half view width at D
@@ -1808,6 +1819,21 @@ class SimClient:
         a.set_actor_relative_location(pos, False, True)
         a.set_actor_relative_rotation(r, False, True)
         a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, h / 100.0, 1.0))
+
+    # ---- right MFD moving map (11-15) ---------------------------------------------------------------------------------
+    def _mfd_map(self):
+        """the MfdMap of this Play world when the right MFD shows the map page (vworld mode, J not toggled off), else None."""
+        if not MFD_MAP or self.cesium_mode != "vworld" or not getattr(self, "mfd_map_on", True) or "lat" not in (self.s or {}):
+            return None
+        mp = getattr(self, "mfd_map_obj", None)
+        if mp is None or mp.world != self.world:
+            try:
+                mp = self.mfd_map_obj = mfd_map.MfdMap(self.world)
+            except Exception as e:
+                _log("mfd map", repr(e))
+                self.mfd_map_on = False
+                return None
+        return mp if mp.ok else None
 
     # ---- Busan minimap ----------------------------------------------------------------------------------------------
     def _minimap_init(self):
@@ -1890,8 +1916,15 @@ class SimClient:
             return
         if self.kb.focused() and self.kb.pressed("J"):
             self.minimap_on = not getattr(self, "minimap_on", True)
+            self.mfd_map_on = not getattr(self, "mfd_map_on", True)
+            self.mfd_t = 0.0
         s = self.s
         show = False
+        if not MINIMAP_PLATE:                            # 11-15: the map is on the right MFD; the plate stays hidden
+            if mm["shown"] is not False:
+                mm["shown"] = False
+                mm["actor"].set_actor_hidden_in_game(True)
+            return
         u = v = 0.0
         if s is not None and self.cesium_mode == "vworld" and getattr(self, "minimap_on", True) and "lat" in s:
             u, v = self.minimap_uv(s["lat"], s["lon"])

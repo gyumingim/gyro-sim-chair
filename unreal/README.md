@@ -59,6 +59,11 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   "출발 위치 고르기 (부산)" (Backspace = 메뉴로, 원래 자리로 돌아감). 조이스틱: 앞뒤 = 고르기, 좌우 = 방향, 트리거 = 출발, 두 번째 = 메뉴로, 세 번째 = 무작위.
   마지막 선택은 `sim/out/start_spot.json` (git 밖). 속도 250 kt, 고도는 해발 (땅 위 높이 함께 표시, 땅 위 60 m 아래로는 못 내림). 서버 `--no-picker` = 예전처럼 바로 비행.
   코드 `sim/start_spots.py` (상태·그림), `server.py` (`spot_open` / `spot_close`), `sim_client._spot_screen` (그림은 `Minimap` 판을 가운데로 옮겨 씀). 점검 `-GyroSimSpot` (`Scripts/spot_check.py`).
+- **오른쪽 MFD 지도 (11-15, 사용자 결정)**: 떠 있는 미니맵 판 대신 오른쪽 MFD 화면에 움직이는 지도. 로컬 V-World 캐시 z13 타일을 그대로 읽어
+  그릴 때만 채도 40 %·밝기 60 % (M_MfdMap, 저장 타일은 안 바꿈·새 파일 안 만듦), 기수 방향이 위, 내 비행기 노란 삼각형, 초록 거리 원 5 / 10 km,
+  지명은 똑바로 같은 크기 (`Art/Cockpit/tex/T_MapNames.png`, `Scripts/cockpit/make_map_labels.py`), 지도 안에 V-World 출처 줄.
+  **J** = 오른쪽 MFD 지도 ↔ 의자·경고 화면. 지도 화면에서도 켜진 경고는 위에 크게, 의자 각도는 아래 한 줄. 코드 `mfd_map.py`, `hud._map_page`.
+  옛 떠 있는 판은 `GYROSIM_MINIMAP_PLATE=1` 일 때만 (그때는 J 가 판도 같이 켜고 끔). 화면 출처 판은 약 25 % 작게 (약관 13조 9항: 표기 의무, 크기 규정 없음).
 - **부산 미니맵 (11-09)**: 화면 오른쪽 위 (VR: 시야 오른쪽 아래, 머리에 고정 — 헤드셋 시험 안 함), 노란 화살표 = 위치, 빨간 선 = 기수 방향, **J** 켜기/끄기. vworld 모드에서
   비행기가 부산 그림 근처일 때만. 그림은 `python sim/minimap_build.py` 가 로컬 V-World 캐시(z14)로 만듦 → `C:\GyroSimTiles\minimap\` (git 밖, 약관 19조).
   판은 맵의 `Minimap` 액터 (`build_level.py`, 기존 맵엔 `Scripts/add_minimap.py` 로 추가), 그리기 `sim_client._minimap`.
