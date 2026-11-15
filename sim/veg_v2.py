@@ -68,6 +68,8 @@ PHOTO = os.environ.get("GYROSIM_VEG_PHOTO", "0") == "1"
 PHOTO_GAIN = float(os.environ.get("GYROSIM_VEG_PHOTO_GAIN", "1.9"))
 PHOTO_SPECIES = dict(pine=(0.97, 0.98, 1.03), bpine=(0.95, 0.97, 1.04), broad=(1.04, 1.03, 0.95), shrub=(1.03, 1.02, 0.97))
 PHOTO_CHROMA = float(os.environ.get("GYROSIM_VEG_PHOTO_CHROMA", "1.0"))   # x the photo's own chroma (1 = as photographed)
+# lower zooms of the cache read darker than z17 on the same trees (audit 11-15, 3 blocks: z14 ~0.91, z13 ~0.93 linear)
+ZOOM_GAIN = {14: 1.09, 13: 1.07, 12: 1.07}
 EDGE_M = float(os.environ.get("GYROSIM_VEG_EDGE_M", "12.0"))
 EDGE_KEEP, EDGE_SIZE = 0.6, 0.85                           # at the very edge: 60 % of the trees, 85 % size
 CARD_DET = np.array([0.855, 1.06, 0.823])               # mean atlas detail of M_GyroTreeCard (TexChroma 0.3, atlas mean rgb)
@@ -717,6 +719,9 @@ def photo_block(f, out, rng):
     pid = out["pid"]
     rock = SPECIES_OF[pid] == 4
     n0 = len(pid)
+    if n0 == 0:
+        out["ptint"] = out["tint"]
+        return out, dict(edge_dropped=0, photo_offgreen=0, edge_zone=0, photo_none=0, **{"photo_z%d" % z: 0 for z in veg_photo.ZOOMS})
     d = _edge_dist(f, out["lat"], out["lon"])
     s = np.clip(d / EDGE_M, 0.0, 1.0)
     s = s * s * (3 - 2 * s)
@@ -725,8 +730,20 @@ def photo_block(f, out, rng):
     out = {k: v[keep] for k, v in out.items()}
     out["h"] = out["h"] * size[keep]; out["r"] = out["r"] * size[keep]
     c, zu = veg_photo.photo_lin(out["lat"], out["lon"])
-    c = c.astype(np.float64)
+    c = c.astype(np.float64) * np.array([ZOOM_GAIN.get(int(z), 1.0) for z in range(32)])[zu][:, None]
     grp = SPECIES_OF[out["pid"]]
+    # vegetation guard (audit 11-15: ~0.7 % of trees stood on roofs / roads / bright ground -> lilac-grey or pale crowns):
+    # a photo colour that is not green-dominant or brighter than 2 x the block's vegetation median is replaced by the
+    # block's vegetation median colour (all off-green: the species tint)
+    Y = c @ LUM + 1e-5
+    veg = (c[:, 1] >= c[:, 0]) & (c[:, 1] >= c[:, 2])
+    if veg.sum() >= 20:
+        med = np.median(c[veg], 0)
+        bad = ~veg | (Y > 2.0 * float(med @ LUM))
+        c = np.where(bad[:, None], med[None], c)
+    else:
+        bad = np.ones(len(c), bool)
+        zu = np.zeros_like(zu)                          # -> species tint below
     Y = c @ LUM + 1e-5
     if PHOTO_CHROMA != 1.0:
         c = Y[:, None] + PHOTO_CHROMA * (c - Y[:, None])
@@ -735,7 +752,7 @@ def photo_block(f, out, rng):
     nophoto = zu == 0
     pt = np.where((nophoto | (grp == 4))[:, None], out["tint"], pt)
     out["ptint"] = pt.astype(np.float32)
-    st = dict(edge_dropped=int(n0 - keep.sum()), edge_zone=int((d < EDGE_M).sum()), photo_none=int(nophoto.sum()),
+    st = dict(edge_dropped=int(n0 - keep.sum()), photo_offgreen=int(bad.sum()), edge_zone=int((d < EDGE_M).sum()), photo_none=int(nophoto.sum()),
               **{"photo_z%d" % z: int((zu == z).sum()) for z in veg_photo.ZOOMS})
     return out, st
 
@@ -747,9 +764,9 @@ def photo_correct(lin, kind, card):
     """target albedo -> vertex colour for M_GyroTreeCard: divide out the material's own colour push (atlas detail on card
     leaves, OakSat on kind >= 2, part of the SSS tilt) so what the material makes of it is the photo colour."""
     c = np.asarray(lin, np.float64).copy()
-    c = np.where(card[:, None], c / CARD_DET, c)
-    y = c @ LUM
+    y = c @ LUM                                         # the material applies atlas detail first, OakSat last -> undo in reverse
     c = np.where((kind >= 2)[:, None], y[:, None] + (c - y[:, None]) / OAK_SAT, c)
+    c = np.where(card[:, None], c / CARD_DET, c)
     c = c * np.where(card[:, None], SSS_TILT, 1.0)
     return np.clip(c, 1e-4, 1.0)
 
