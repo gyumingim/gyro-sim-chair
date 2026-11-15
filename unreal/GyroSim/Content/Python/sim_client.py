@@ -1894,6 +1894,9 @@ class SimClient:
         """once per Play world: plate, render target, picture + bounds (sim/minimap_build.py). Leaves mm['ok'] False when
         anything is missing (logged once) - the sim runs as before."""
         mm = self.mm = dict(world=self.world, ok=False, shown=None, key=None, t=0.0, pos=None)
+        # 11-15 bug fix: the client outlives a Play; a start picker left 'shown' by the last Play kept the new Play's
+        # (hidden) plate from ever showing -> picker invisible, only the preview jumps visible. Reset per world.
+        self.spot_shown, self.spot_ver, self.spot_tex = False, None, None
         try:
             a = self._find("Minimap")
             if a is None:
