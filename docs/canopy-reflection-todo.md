@@ -31,6 +31,11 @@
   - 확인 (FlightMap 화면 밖, 해운대 350 m, 같은 순간 짝 사진): 막대 밝기 차 58.6 → 5.7 (/255). 막대 밖은 바뀐 게 노이즈 수준
     (평균 1.3~2.3). 그림·숫자: 세션 scratchpad canopy_barfix/ (progress.md, img/).
   - 확인함: CockpitView.bat(cockpit_view_open.py)은 canopy() 를 한 번만 불러서 큐브를 굽지 않는다 (C 층 없음).
+- **11-15 옆 유리의 흰 타원 고침 (사용자 결정):** dir_090 / dir_270 에서 보이던 크고 평평한 흰 타원은 셰이더 안의 조종사 헬멧 구
+  (반지름 14 cm, 흰색 0.80, 경계가 칼같이 딱 끊김)였다. (전에 'Eye 를 멀리 보내도 남는다' 고 한 시험은 Eye 가 상수 노드라 아무것도 안 바꾼 시험이었다.)
+  - 고침 (M_CkCanopyV3Fx, 새 파라미터 3 개): HelmetR 11 (14 → 11 cm), HelmetAlb 0.35 (0.80 → 0.35), PilotSoft 0.6 (구의 가장자리를 부드럽게 흐림).
+    헬멧 뒤에는 이제 구운 실내 큐브가 보이고, 그 위에 헬멧을 흐린 가장자리로 섞는다. PilotSoft 0 + HelmetR 14 + HelmetAlb 0.8 = 11-14 V5 그대로.
+  - 노드 코드 사본: `unreal/GyroSim/Scripts/canopy_v5_fx.hlsl`. 숫자·그림: 세션 scratchpad fixes_1114 (r08, 같은 실행 짝 사진).
 - 11-13 물리 기반 반사 V5 (scratchpad review/canopy_reflection_advice.md). (11-13 에는 기본 꺼짐이었다.)
   - 켜는 법: 룩 페이지 http://127.0.0.1:8768/ 의 '캐노피 반사' 체크, 또는 `GYROSIM_CANOPY_FXREFL=1`.
   - 셰이더 구성: 유리 두 면 Fresnel(ReflAmt 1.9) × (A 조종사 구 + B 해 받는 테두리 + C 실내 큐브 + D 바깥) + E 번쩍임.
