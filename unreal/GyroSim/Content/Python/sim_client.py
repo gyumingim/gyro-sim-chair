@@ -272,10 +272,11 @@ PRESETS = {
 # per-preset lighting look (realism pass 11-05). Monitor has Lumen GI (bounce light fills the cockpit) so the fill
 # light can be low; VR has no GI (sky light + distance-field AO only), so it keeps more fill or the shadows go black.
 # shadow_contrast: local exposure shadow contrast (1 = shadows not lifted), exp_min: lowest EV100 the auto exposure may
-# drop to when looking down into the cockpit (outside view = build_level.EXPOSURE_EV 2.0).
+# drop to when looking down into the cockpit (outside view = build_level.EXPOSURE_EV 2.0). 11-15 (user decision): exp_min
+# 0.3 -> 1.0, the thighs / glare shield looking down no longer blow out (r07 A/B: thigh 201 -> 180 /255, panel still readable).
 PRESET_LOOK = {
-    "monitor": dict(fill_cd=1.4, shadow_contrast=0.85, highlight_contrast=0.85, exp_min=0.3, contact_shadow=0.03, vignette=0.2),
-    "vr": dict(fill_cd=2.4, shadow_contrast=0.8, highlight_contrast=0.85, exp_min=0.3, contact_shadow=0.02, vignette=0.0),
+    "monitor": dict(fill_cd=1.4, shadow_contrast=0.85, highlight_contrast=0.85, exp_min=1.0, contact_shadow=0.03, vignette=0.2),
+    "vr": dict(fill_cd=2.4, shadow_contrast=0.8, highlight_contrast=0.85, exp_min=1.0, contact_shadow=0.02, vignette=0.0),
 }
 
 
