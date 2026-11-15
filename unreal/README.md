@@ -64,6 +64,11 @@ python unreal\GyroSim\Scripts\fetch_textures.py                                 
   지명은 똑바로 같은 크기 (`Art/Cockpit/tex/T_MapNames.png`, `Scripts/cockpit/make_map_labels.py`), 지도 안에 V-World 출처 줄.
   **J** = 오른쪽 MFD 지도 ↔ 의자·경고 화면. 지도 화면에서도 켜진 경고는 위에 크게, 의자 각도는 아래 한 줄. 코드 `mfd_map.py`, `hud._map_page`.
   옛 떠 있는 판은 `GYROSIM_MINIMAP_PLATE=1` 일 때만 (그때는 J 가 판도 같이 켜고 끔). 화면 출처 판은 약 25 % 작게 (약관 13조 9항: 표기 의무, 크기 규정 없음).
+- **비행 끊김 줄이기 (11-15)**: 모니터 Play 는 **60 fps 상한 + VSync** (`t.MaxFPS 60`, `r.VSync 1`, `r.VSyncEditor 1`; 전에는 상한·VSync 없이 ~94 fps 를 60 Hz 화면에 → 덜컥임).
+  `GYROSIM_MAXFPS=0` = 예전처럼 상한·VSync 없음, 다른 값 = 그 상한 (예 144 Hz 화면이면 144). `GYROSIM_VSYNC=0` = 상한만, VSync 끔. VR 은 상한을 풀고 헤드셋이 맞춤.
+  **모니터 케이블은 RTX 5080 (그래픽카드 뒤 단자) 에 꽂을 것**: 메인보드(AMD 내장 GPU) 단자에 꽂으면 그림을 매 프레임 내장 GPU 로 복사해서 프레임 간격이 흔들림.
+  같이 바뀐 것: 패킷 보간 시계 (2 초 최솟값으로 천천히 따라감, 지연 33 ms), 오른쪽 MFD 지도는 움직였을 때만 다시 그림·화면 밖 타일 안 그림·타일 읽기 1 장씩 (멈춤·시작 고르기 중 미리 읽음),
+  HUD 와 MFD 는 다른 프레임에, 캐노피 재질 훑기 5 초마다, 캐노피 큐브 굽기는 Play 시작 멈춤 동안. 확인: Play 중 콘솔 `stat unitgraph` (Frame 선이 16.7 ms 에 평평하면 정상).
 - **부산 미니맵 (11-09)**: 화면 오른쪽 위 (VR: 시야 오른쪽 아래, 머리에 고정 — 헤드셋 시험 안 함), 노란 화살표 = 위치, 빨간 선 = 기수 방향, **J** 켜기/끄기. vworld 모드에서
   비행기가 부산 그림 근처일 때만. 그림은 `python sim/minimap_build.py` 가 로컬 V-World 캐시(z14)로 만듦 → `C:\GyroSimTiles\minimap\` (git 밖, 약관 19조).
   판은 맵의 `Minimap` 액터 (`build_level.py`, 기존 맵엔 `Scripts/add_minimap.py` 로 추가), 그리기 `sim_client._minimap`.

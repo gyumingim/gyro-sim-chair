@@ -90,6 +90,10 @@ CUBE_PX = int(os.environ.get("GYROSIM_CANOPY_CUBE_PX", "2048"))
 # (look / light / exposure still settling at the first tick - guess). The one bake now waits CUBE_DELAY s after the capture
 # actor is set up; until then the shader gets CubeAmt 0.
 CUBE_DELAY = float(os.environ.get("GYROSIM_CANOPY_CUBE_DELAY", "10"))
+# 11-15 (stutter fix): the Play start (sim_client._startup) asks bake_ready() before it unpauses, so the one bake (a hitch)
+# happens while the sim is still paused, once the frame rate has settled - CUBE_DELAY is then only the fallback.
+# canopy(): material scan every SWEEP_S s over a component list cached per world (rebuilt every SWEEP_LIST_S s)
+SWEEP_S, SWEEP_LIST_S = 5.0, 30.0
 # 11-13 (review canopy_reflection_advice.md): no direct sun in the bake (the sun direction would be baked in; sunlit parts are
 # the live analytic layers in the Fx shader) - sky light + emissive instruments only; HDR (FloatRGBA) + mips.
 CUBE_BLACK_FLAGS = ("Atmosphere", "Fog", "Cloud", "VolumetricFog", "DirectionalLights")
@@ -435,37 +439,44 @@ class ViewFx:
                 self.look_world, self.look_mids, self.look_on = world, [], LOOK_ON
                 self.look_skip = set()                        # (component, slot, material) seen with no entry: not re-tested
             self.smooth_canopy(world)
-            acts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
-            ac = unreal.GameplayStatics.get_all_actors_with_tag(world, "Aircraft")
-            if ac:
-                acts += [a for a in ac[0].get_attached_actors(True, True) if a not in acts]
+            # 11-15 (stutter fix): the actor / component lists are cached per world (rebuilt every SWEEP_LIST_S s) and the
+            # material scan runs every SWEEP_S s (was: everything every 1 s); reflection live values + cube stay at 1 s
+            sweep = now - getattr(self, "sweep_t", -1e9) >= SWEEP_S or getattr(self, "sweep_world", None) is not world
+            if sweep:
+                self.sweep_t = now
+            if getattr(self, "sweep_world", None) is not world or now - self.sweep_list_t >= SWEEP_LIST_S:
+                acts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
+                ac = unreal.GameplayStatics.get_all_actors_with_tag(world, "Aircraft")
+                if ac:
+                    acts += [a for a in ac[0].get_attached_actors(True, True) if a not in acts]
+                self.sweep_smcs = [smc for a in acts for smc in a.get_components_by_class(unreal.StaticMeshComponent)]
+                self.sweep_world, self.sweep_list_t = world, now
             n, names = 0, set()
-            for a in acts:
-                for smc in a.get_components_by_class(unreal.StaticMeshComponent):
-                    for i in range(smc.get_num_materials()):
-                        m = smc.get_material(i)
-                        if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
-                            continue
-                        key = (smc, i, m)                     # a new part or a re-set material is a new key: examined again
-                        if key in self.look_skip:
-                            continue
-                        name = m.get_name()
-                        vals = self._canopy_vals(name) if "Canopy" in name else COCKPIT_LOOK.get(name)
-                        if vals is None:
-                            self.look_skip.add(key)
-                            continue
-                        src = m
-                        if V4_ON and name == "M_CkCanopyV3" and not rt_available():   # inner shell -> transmission only
-                            src = unreal.load_asset(TRANS_MAT) or m
-                        mid = smc.create_dynamic_material_instance(i, src)
-                        if not mid:
-                            continue
-                        old = {k: (mid.get_scalar_parameter_value(k) if not isinstance(v, tuple) else mid.get_vector_parameter_value(k))
-                               for k, v in vals.items()}
-                        self.look_mids.append((mid, vals, old))
-                        self._apply(mid, vals if self.look_on else old)
-                        n += 1
-                        names.add(name)
+            for smc in (self.sweep_smcs if sweep else ()):
+                for i in range(smc.get_num_materials()):
+                    m = smc.get_material(i)
+                    if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
+                        continue
+                    key = (smc, i, m)                     # a new part or a re-set material is a new key: examined again
+                    if key in self.look_skip:
+                        continue
+                    name = m.get_name()
+                    vals = self._canopy_vals(name) if "Canopy" in name else COCKPIT_LOOK.get(name)
+                    if vals is None:
+                        self.look_skip.add(key)
+                        continue
+                    src = m
+                    if V4_ON and name == "M_CkCanopyV3" and not rt_available():   # inner shell -> transmission only
+                        src = unreal.load_asset(TRANS_MAT) or m
+                    mid = smc.create_dynamic_material_instance(i, src)
+                    if not mid:
+                        continue
+                    old = {k: (mid.get_scalar_parameter_value(k) if not isinstance(v, tuple) else mid.get_vector_parameter_value(k))
+                           for k, v in vals.items()}
+                    self.look_mids.append((mid, vals, old))
+                    self._apply(mid, vals if self.look_on else old)
+                    n += 1
+                    names.add(name)
             if n:
                 _log("look: %d material slots (canopy glints / cockpit paint), on=%s" % (n, self.look_on), sorted(names))
             self.rt_mode(world)
@@ -610,6 +621,18 @@ class ViewFx:
         except Exception as e:
             _log("canopy mirror", repr(e))
             return None
+
+    def bake_ready(self, world, now):
+        """Play start hook: True when no cube bake is pending (done earlier, not wanted or not possible). Otherwise it
+        bakes now (one hitch, the caller is still paused) and returns False, so the caller waits a few frames more."""
+        if world is None or rt_available() or getattr(self, "cube_world", None) is not world:
+            # cube not set up for this world yet: wait for canopy() (1 s) unless the cube cannot / need not come
+            return world is None or rt_available() or getattr(self, "cube_wanted", None) is False and not CUBE_ON
+        if not (CUBE_ON or getattr(self, "cube_wanted", False)) or self.cube_cap is None or self.cube_baked:
+            return True
+        self.cube_t = now - CUBE_S
+        self.interior_cube(world, now)
+        return False if self.cube_baked else True        # bake failed: do not hold the start
 
     def interior_cube(self, world, now):
         """eye cube map of the cockpit for the canopy reflection (see CUBE_ON); called from canopy()."""

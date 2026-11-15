@@ -64,8 +64,11 @@ TOWER_SPAN_M = 60.0                                      # monitor tower / flyby
 GEAR_BOTTOM_CM = 177.5             # F-16 model tire bottom below the actor origin (ThirdParty/f16_obj/manifest.json)
 AGL_REST_M = 1.66                  # JSBSim F-16 h-agl when standing on the runway (measured from server.py, runway start)
 Z_OFFSET_CM = GEAR_BOTTOM_CM - AGL_REST_M * 100.0
-INTERP_DELAY = 1 / 60 + 0.004      # s behind the newest packet
+# s behind the newest packet. 11-15 (stutter fix): 1 / 60 + 4 ms left only ~4 ms for packet jitter (Windows 15.6 ms timer
+# on the server send + one client frame of receive latency) -> regular extrapolation; 33 ms = 2 packets.
+INTERP_DELAY = 0.033
 MAX_EXTRAP = 0.05
+OFF_WIN_S, OFF_SLEW, OFF_JUMP, OFF_SNAP_S = 2.0, 0.00005, 0.25, 0.5   # clock offset: min over 2 s, slew 0.05 ms / packet, re-anchor > 0.25 s, snap only the first 0.5 s
 
 GROUND_MODES = ("grid", "fields", "photo", "terrain", "photoreal", "vworld")
 STARTUP_MODE = "air"               # Play always starts here (fresh run, not wherever the server drifted to)
@@ -191,6 +194,8 @@ class Interp:
     def reset(self):
         self.buf = []                  # (t_sim, (x, y, z) cm, quat)
         self.off = None
+        self.win = []                  # (local time, now - t) of the last OFF_WIN_S s, offsets increasing (monotonic min queue)
+        self.t_anchor = None
 
     def push(self, s, now, loc, rot):
         t = s["t"]
@@ -198,17 +203,31 @@ class Interp:
             self.reset()
         if self.buf and abs(t - self.buf[-1][0]) < 1e-6:
             return                      # paused / duplicate
-        off = now - t
-        if self.off is None or off < self.off:
-            self.off = off
-        elif off - self.off > 0.25:     # clock jump (pause, hitch): re-anchor
-            self.reset()
-            self.off = off
-        else:
-            self.off += min(off - self.off, 0.0005)     # follow slow drift upward
+        self._offset(now, now - t)
         self.buf.append((t, (loc.x, loc.y, loc.z), e2q(rot.roll, rot.pitch, rot.yaw)))
         if len(self.buf) > 12:
             self.buf.pop(0)
+
+    def _offset(self, now, off):
+        """sim -> local clock offset. 11-15 (stutter fix): the old rule snapped DOWN to every lower packet and crept up
+        0.5 ms per packet -> a sawtooth in the render time. Now: target = the smallest offset of the last OFF_WIN_S s (the
+        least delayed packet), self.off slews toward it at most OFF_SLEW per packet both ways; a jump > OFF_JUMP (pause,
+        hitch) re-anchors, and right after an anchor (OFF_SNAP_S) it may still snap down to settle quickly."""
+        w = self.win
+        while w and w[-1][1] >= off:
+            w.pop()
+        w.append((now, off))
+        while w[0][0] < now - OFF_WIN_S:
+            w.pop(0)
+        tgt = w[0][1]
+        if self.off is None or abs(off - self.off) > OFF_JUMP:      # first packet / clock jump: re-anchor
+            if self.off is not None:
+                self.buf, self.win = [], [(now, off)]
+            self.off, self.t_anchor = off, now
+        elif now - self.t_anchor < OFF_SNAP_S and tgt < self.off:
+            self.off = tgt
+        else:
+            self.off += max(-OFF_SLEW, min(OFF_SLEW, tgt - self.off))
 
     def sample(self, now):
         b = self.buf
@@ -277,6 +296,13 @@ PRESETS = {
            "r.AntiAliasingMethod": 2, "r.VolumetricCloud.ViewRaySampleMaxCount": 256, "r.ScreenPercentage": 100,
            "sg.ShadowQuality": 2, "sg.PostProcessQuality": 2, "r.Lumen.ScreenProbeGather.ScreenTraces": 0},
 }
+# 11-15 (stutter fix): frame pacing on the monitor. It ran uncapped without vsync (~94 fps on a 60 Hz screen -> uneven frame
+# times on screen = judder). Monitor: cap + vsync. GYROSIM_MAXFPS=0 = uncapped and no vsync (old behaviour), other value = that
+# cap; GYROSIM_VSYNC=0 keeps the cap but no vsync. Not in PRESETS["vr"]: VR clears our cap (the HMD runtime paces itself).
+MAXFPS = float(os.environ.get("GYROSIM_MAXFPS", "60") or 0)
+VSYNC = MAXFPS > 0 and os.environ.get("GYROSIM_VSYNC", "1") != "0"
+PACING = {"monitor": {"t.MaxFPS": MAXFPS, "r.VSync": int(VSYNC), "r.VSyncEditor": int(VSYNC)},
+          "vr": {"t.MaxFPS": 0, "r.VSync": 0, "r.VSyncEditor": 0}}
 
 
 # per-preset lighting look (realism pass 11-05). Monitor has Lumen GI (bounce light fills the cockpit) so the fill
@@ -352,10 +378,10 @@ def apply_preset(name, world=None):
     if world is None:
         world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world() or \
             unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
-    for k, v in p.items():
+    for k, v in list(p.items()) + list(PACING.get(name, {}).items()):
         unreal.SystemLibrary.execute_console_command(world, "%s %s" % (k, v))
     apply_look(name, world)
-    _log("quality preset", name)
+    _log("quality preset", name, PACING.get(name))
     return True
 
 
@@ -888,7 +914,11 @@ class SimClient:
             else:
                 d = st["dts"][-30:]
                 fps = len(d) / sum(d) if d and sum(d) > 0 else 0.0
-                if (el > STARTUP_MIN and len(d) >= 30 and fps >= STARTUP_FPS) or el > STARTUP_MAX:
+                need = STARTUP_FPS if (self.hmd or MAXFPS <= 0) else min(STARTUP_FPS, 0.9 * MAXFPS)   # the 60 fps cap never reaches 90
+                ready = el > STARTUP_MIN and len(d) >= 30 and fps >= need
+                if ready and not self.fx.bake_ready(self.world, now):     # canopy cube bake (one hitch) while still paused
+                    ready = False
+                if ready or el > STARTUP_MAX:
                     self._send({"cmd": "pause", "on": False})
                     st["phase"], st["ready_s"], st["ready_fps"] = "done", round(el, 2), round(fps, 1)
         if st["phase"] == "done":
@@ -1671,8 +1701,10 @@ class SimClient:
             if getattr(self, "ladder_on", None) != on:
                 self.ladder_on = on
                 mid.set_scalar_parameter_value("LadderOn", on)
+        hud_now = False
         if P and hv and "HUD" in self.screens and now - self.hud_t >= 1.0 / HUD_HZ:
             self.hud_t = now
+            hud_now = True                                          # 11-15: no MFD redraw on this frame (stagger)
             t0 = time.perf_counter()
             try:
                 if not fresh:
@@ -1695,17 +1727,24 @@ class SimClient:
                 if now - self.last_log > 2:
                     self.last_log = now
                     _log("hud draw", repr(e))
-        if P and fresh and now - self.mfd_t >= 1.0 / DISP_HZ:          # one display per call, in turn (spreads the cost)
+        # one display per call, in turn (spreads the cost); 11-15: never on the frame the HUD drew (HUD / MFD alternate frames)
+        if P and fresh and now - self.mfd_t >= (1.0 if not hud_now else 2.0) / DISP_HZ:     # (below 30 fps: both)
             self.mfd_t = now
             try:
                 self.mfd_i = (getattr(self, "mfd_i", 0) + 1) % len(DISP_ORDER)
                 tag = DISP_ORDER[self.mfd_i]
+                mp = self._mfd_map() if tag == "MFD_R" else None
+                tut = s.get("tut") or {}
+                beg = bool(tut.get("beginner", True))
+                if mp is not None and not mp.changed(s, (beg, tuple(self.warnings or ()), not self.startup_done), now):
+                    tag = None                                      # map page: nothing moved since the last draw, keep it
+                elif tag == "MFD_R" and mp is None and getattr(self, "mfd_map_obj", None) is not None:
+                    self.mfd_map_obj.last = None                    # chair page drawn over it: the next map page redraws
                 if tag in self.screens:
                     t0 = time.perf_counter()
-                    tut = s.get("tut") or {}
-                    P.draw_display(tag, s, dict(beginner=bool(tut.get("beginner", True)), radar_m=self.radar_m, gmax=self.gmax,
+                    P.draw_display(tag, s, dict(beginner=beg, radar_m=self.radar_m, gmax=self.gmax,
                                                 warnings=self.warnings, panel_tex=self.panel_tex, loading=not self.startup_done,
-                                                map=self._mfd_map() if tag == "MFD_R" else None))
+                                                map=mp))
                     self.disp_ms += ((time.perf_counter() - t0) * 1000 - self.disp_ms) * 0.05
             except Exception as e:
                 if now - self.last_log > 2:
@@ -1834,6 +1873,21 @@ class SimClient:
                 self.mfd_map_on = False
                 return None
         return mp if mp.ok else None
+
+    def _mfd_map_preload(self):
+        """11-15 (stutter fix): while the sim is paused (Play start, P, start picker) import the map tiles around the
+        aircraft a few per frame, so flight only imports the odd new tile at the edge (mfd_map.MAX_NEW = 1 per redraw)."""
+        s = self.s
+        if not s or not (s.get("paused") or (s.get("spot") or {}).get("open")):
+            return
+        try:
+            mp = self._mfd_map()
+            if mp is not None:
+                mp.preload(s, mfd_map.PRELOAD_N)
+        except Exception as e:
+            if not getattr(self, "_preload_err", None):
+                self._preload_err = repr(e)
+                _log("mfd map preload", repr(e))
 
     # ---- Busan minimap ----------------------------------------------------------------------------------------------
     def _minimap_init(self):
@@ -2123,6 +2177,7 @@ class SimClient:
             self._fog_follow(now)
             self._vworld_poll(now)
             self._minimap(now)
+            self._mfd_map_preload()
             self._spot_screen(now)
             self._overlay(now)
             self._set_view_target()

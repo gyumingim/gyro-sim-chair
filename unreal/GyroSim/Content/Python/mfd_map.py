@@ -23,7 +23,13 @@ BRIGHT = 0.60                     # ~60 % brightness as a display (sRGB) value -
 PX_KM = 44.0                      # logical display px per km (display 1024 x 1024 logical)
 OWN = (512.0, 700.0)              # own-ship position on the display (heading-up: more map ahead)
 RINGS_KM = (5.0, 10.0)
-MAX_NEW = 6                       # tile imports per redraw
+# tile imports per redraw. 11-15 (stutter fix): 6 -> 1 (each is a synchronous JPEG import, a few ms); the disc around the
+# aircraft is preloaded while the sim is paused / the start picker is open (preload, PRELOAD_N per frame)
+MAX_NEW = 1
+PRELOAD_N = 2
+# redraw only when the picture would change: moved > REDRAW_PX logical px, turned > REDRAW_DEG, other inputs changed, a tile
+# still pending, or REDRAW_MAX_S passed
+REDRAW_PX, REDRAW_DEG, REDRAW_MAX_S = 2.0, 0.5, 1.0
 NAME_H = 44.0                     # place name height (logical px), the same for every name
 PROJ = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
 LBL_DIR = os.path.join(PROJ, "Art", "Cockpit", "tex")
@@ -43,6 +49,9 @@ class MfdMap:
         self.world = world
         self.tiles = {}
         self.new = 0
+        self.last = None                  # (px x, px y, psi, key, time) of the last draw (changed())
+        self.pending = False              # a tile in view was left for a later redraw (MAX_NEW)
+        self.disc = (None, [])            # ((tile x, tile y, S rounded), [(tx, ty), ...]) tile set around the aircraft
         self.mat = unreal.load_asset(MAT)        # (EditorAssetLibrary refuses during PIE: plain load)
         self.ok = self.mat is not None and os.path.isdir(os.path.join(TILES, str(Z)))
         self.white = unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture")
@@ -79,6 +88,55 @@ class MfdMap:
         self.tiles[key] = mid
         return mid
 
+    @staticmethod
+    def _scale(lat):
+        return PX_KM * EARTH_C * math.cos(math.radians(lat)) / 2 ** Z / 1000.0      # logical px per tile
+
+    def _disc(self, mx, my, S):
+        """tiles within reach of the display around (mx, my) (tile units); recomputed only when the aircraft enters
+        another tile (radius + 1 tile so it covers the whole tile it is in)."""
+        key = (int(math.floor(mx)), int(math.floor(my)), round(S))
+        if self.disc[0] != key:
+            rmax = math.hypot(512.0, OWN[1]) / S + 0.75 + 1.0
+            cx, cy = key[0] + 0.5, key[1] + 0.5
+            ts = [(tx, ty) for ty in range(int(math.floor(cy - rmax)), int(math.floor(cy + rmax)) + 1)
+                  for tx in range(int(math.floor(cx - rmax)), int(math.floor(cx + rmax)) + 1)
+                  if math.hypot(tx + 0.5 - cx, ty + 0.5 - cy) <= rmax]
+            ts.sort(key=lambda t: math.hypot(t[0] + 0.5 - cx, t[1] + 0.5 - cy))     # nearest first (preload order)
+            self.disc = (key, ts)
+        return self.disc[1]
+
+    def changed(self, s, key, now):
+        """True when a redraw would look different from the last one (and then remembers this state as drawn)."""
+        lat, lon, psi = float(s.get("lat", 0.0)), float(s.get("lon", 0.0)), float(s.get("psi", 0.0))
+        mx, my = merc(lat, lon)
+        S = self._scale(lat)
+        x, y = mx * 2 ** Z * S, my * 2 ** Z * S
+        key = (key, round(float(s.get("chair_roll", 0.0)) * 2), round(float(s.get("chair_pitch", 0.0)) * 2))
+        L = self.last
+        if (L is None or self.pending or key != L[3] or now - L[4] >= REDRAW_MAX_S or math.hypot(x - L[0], y - L[1]) > REDRAW_PX
+                or abs((psi - L[2] + 180.0) % 360.0 - 180.0) > REDRAW_DEG):
+            self.last = (x, y, psi, key, now)
+            return True
+        return False
+
+    def preload(self, s, n):
+        """import up to n not yet loaded tiles of the disc around the aircraft (nearest first), no drawing."""
+        if not self.ok or "lat" not in s:
+            return 0
+        lat, lon = float(s["lat"]), float(s["lon"])
+        mx, my = merc(lat, lon)
+        k = 0
+        for tx, ty in self._disc(mx * 2 ** Z, my * 2 ** Z, self._scale(lat)):
+            if (tx, ty) in self.tiles:
+                continue
+            if k >= n:
+                break
+            self.new = 0
+            self._tile(tx, ty)
+            k += 1
+        return k
+
     def _label(self, c, k, key, x, y, h, col, anchor="c"):
         r = self.rects.get(key)
         if not r or self.atlas is None:
@@ -101,24 +159,26 @@ class MfdMap:
         n = 2 ** Z
         mx, my = merc(lat, lon)
         mx, my = mx * n, my * n
-        S = PX_KM * EARTH_C * math.cos(math.radians(lat)) / n / 1000.0       # logical px per tile
+        S = self._scale(lat)                     # logical px per tile
 
         def to_screen(dx_t, dy_t):               # tile units east / south of the own-ship -> display px
             e, no = dx_t * S, -dy_t * S
             return OWN[0] + e * cp - no * sp, OWN[1] - (e * sp + no * cp)
+        self.pending = False
         if self.ok:
-            rmax = math.hypot(512.0, OWN[1]) / S + 0.75
-            for ty in range(int(math.floor(my - rmax)), int(math.floor(my + rmax)) + 1):
-                for tx in range(int(math.floor(mx - rmax)), int(math.floor(mx + rmax)) + 1):
-                    dx, dy = tx + 0.5 - mx, ty + 0.5 - my
-                    if math.hypot(dx, dy) > rmax:
-                        continue
-                    mid = self._tile(tx, ty)
-                    if mid is None:
-                        continue
-                    cx, cy = to_screen(dx, dy)
-                    z = S + 1.5                  # a hair of overlap: no seams between rotated tiles
-                    c.draw_material(mid, V2((cx - z / 2) * k, (cy - z / 2) * k), V2(z * k, z * k), V2(0, 0), V2(1, 1), -psi, V2(0.5, 0.5))
+            z = S + 1.5                          # a hair of overlap: no seams between rotated tiles
+            h = 0.7072 * z                       # half diagonal: a rotated tile outside this margin is off the display
+            for tx, ty in self._disc(mx, my, S):     # 11-15: cached tile set, off-display tiles neither drawn nor imported
+                dx, dy = tx + 0.5 - mx, ty + 0.5 - my
+                cx, cy = to_screen(dx, dy)
+                if cx < -h or cx > 1024.0 + h or cy < -h or cy > 1024.0 + h:
+                    continue
+                mid = self._tile(tx, ty)
+                if mid is None:
+                    if (tx, ty) not in self.tiles:
+                        self.pending = True      # left for the next redraw (MAX_NEW)
+                    continue
+                c.draw_material(mid, V2((cx - z / 2) * k, (cy - z / 2) * k), V2(z * k, z * k), V2(0, 0), V2(1, 1), -psi, V2(0.5, 0.5))
         # range rings + their distances, 'N' on the outer ring
         for i, rk in enumerate(RINGS_KM):
             P.circle(OWN[0], OWN[1], rk * PX_KM, green if i == len(RINGS_KM) - 1 else dim, 72, 3.0)
