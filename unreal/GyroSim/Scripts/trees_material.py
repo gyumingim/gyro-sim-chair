@@ -191,8 +191,8 @@ def build2(name=NAME2, wind=False):
 NAME_C, TEX_C = "M_GyroTreeCard", "T_GyroTreeCards"
 ATLAS_C = r"C:/GyroSimTiles/veg/cards_atlas.png"
 HLSL_C = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trees_card.hlsl")
-PARAMS_C = dict(Gain=1.15, VarAmt=1.0, AoBase=0.6, AoAmb=0.85, SssAmt=0.4, RimAmt=0.25, TexLum=0.0589, TexChroma=0.3,
-                OakSat=0.8, MipScale=0.3, UpBias=0.3)
+PARAMS_C = dict(Gain=1.15, VarAmt=1.0, AoBase=0.6, AoAmb=0.85, SssAmt=0.4, RimAmt=0.25, TexLum=0.0589, TexChroma=0.1,
+                OakSat=1.0, MipScale=0.3, UpBias=0.3)
 
 
 def import_atlas():

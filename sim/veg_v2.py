@@ -56,7 +56,7 @@ NBIN = 2                                                  # colour bins per shap
 # 25 sample blocks: photo under the trees sRGB (40, 64, 52) for 'pine' and 'broad' trees alike, broadleaf tint after the
 # card material (78, 101, 64)). GYROSIM_VEG_PHOTO=1:
 #   - crown colour = the V-World photo under the tree (sim/veg_photo.py, ~3 m Gaussian mean, finest cached zoom) x PHOTO_GAIN
-#     (1.9 = the mean luminance of the species tints before: brightness level unchanged, only the colour follows the photo),
+#     (round 1: 1.9 = the species tints' brightness; round 2 11-16: fitted to the photo, PHOTO_GAIN / PHOTO_RGB below),
 #     species only a small tilt (PHOTO_SPECIES) + the material's per-tree variation; the card material's own green push
 #     (atlas TexChroma, OakSat, SSS tint) is divided out in the vertex colour (photo_correct);
 #   - instanced tiles carry one colour per (tile, prototype, bin): bins are re-split per C tile at the median photo
@@ -65,17 +65,25 @@ NBIN = 2                                                  # colour bins per shap
 #     (EDGE_SIZE .. 1), neighbour blocks included so block borders are no edge.
 # Default 0 = the build before. The photo itself is never written; only per-tile mean colours end up in the tiles.
 PHOTO = os.environ.get("GYROSIM_VEG_PHOTO", "0") == "1"
-PHOTO_GAIN = float(os.environ.get("GYROSIM_VEG_PHOTO_GAIN", "1.9"))
+# 11-16 round 2 (owner: trees much brighter / greener than the photo, r1 chroma ratio 2.2, dE 15): gain and per-channel
+# factor fitted on offscreen shots (rendered crown linear mean / the photo ground under it, 4 views, no cloud shadows):
+# 1.9 -> 0.744 x (1, 0.861, 0.861). The material's own green push is now neutral too (trees_material.py / trees_card.hlsl).
+PHOTO_GAIN = float(os.environ.get("GYROSIM_VEG_PHOTO_GAIN", "0.744"))
+PHOTO_RGB = np.array([float(x) for x in os.environ.get("GYROSIM_VEG_PHOTO_RGB", "1,0.861,0.861").split(",")])
 PHOTO_SPECIES = dict(pine=(0.97, 0.98, 1.03), bpine=(0.95, 0.97, 1.04), broad=(1.04, 1.03, 0.95), shrub=(1.03, 1.02, 0.97))
-PHOTO_CHROMA = float(os.environ.get("GYROSIM_VEG_PHOTO_CHROMA", "1.0"))   # x the photo's own chroma (1 = as photographed)
+PHOTO_CHROMA = float(os.environ.get("GYROSIM_VEG_PHOTO_CHROMA", "1.25"))  # x the photo's own chroma (11-16: 1.0 -> 1.25, rendered chroma ratio 0.74-0.92 -> 0.93-1.16)
 # lower zooms of the cache read darker than z17 on the same trees (audit 11-15, 3 blocks: z14 ~0.91, z13 ~0.93 linear)
 ZOOM_GAIN = {14: 1.09, 13: 1.07, 12: 1.07}
 EDGE_M = float(os.environ.get("GYROSIM_VEG_EDGE_M", "12.0"))
 EDGE_KEEP, EDGE_SIZE = 0.6, 0.85                           # at the very edge: 60 % of the trees, 85 % size
-CARD_DET = np.array([0.855, 1.06, 0.823])               # mean atlas detail of M_GyroTreeCard (TexChroma 0.3, atlas mean rgb)
-SSS_TILT = np.array([1.0, 0.99, 1.05])                  # ~ undo a little of the SSS (1.2, 1.4, 0.9) green tilt (estimate, shots)
-OAK_SAT = 0.8                                           # material OakSat (kind >= 2)
-R_FAC = 0.78
+# 11-16 round 2: M_GyroTreeCard pushed toward neutral (TexChroma 0.3 -> 0.1, OakSat 0.8 -> 1.0, SSS tint (1.2, 1.4, 0.9) -> 1)
+CARD_DET = np.array([0.952, 1.020, 0.941])              # mean atlas detail of M_GyroTreeCard (TexChroma 0.1, atlas mean rgb)
+SSS_TILT = np.array([1.0, 1.0, 1.0])                    # SSS tint now neutral (was (1.0, 0.99, 1.05) against the old (1.2, 1.4, 0.9))
+OAK_SAT = 1.0                                           # material OakSat (kind >= 2)
+# crown radius / local spacing and its cap x max(1.2, 1.5 + 0.3 h) m. 11-16 (owner: trees look hollow): photo build 0.9 / 1.45
+# (was 0.78 / 1.25; the cap clamped most crowns) -> crown cover in closed forest ~0.85 -> ~0.89, GPU +0.06 ms at 300 m (shots)
+R_FAC = float(os.environ.get("GYROSIM_VEG_R_FAC", "0.9" if PHOTO else "0.78"))
+R_CAP = float(os.environ.get("GYROSIM_VEG_R_CAP", "1.45" if PHOTO else "1.25"))
 KIND = dict(bark=0, pine=1, broad=2, shrub=3)
 # linear summer albedo of the sunlit crown (before the per-vertex AO); 소나무 dark olive-green, 곰솔 darker / bluer,
 # 참나무 brighter yellow-green, shrubs in between. Starting values from leaf / canopy albedo (~0.04-0.12 green), tuned
@@ -631,7 +639,7 @@ def block_attrs(f):
     keep = ~seaside
     r0 = np.asarray(z["r"], np.float64)
     r = r0 * (R_FAC / 0.6) * rng.uniform(0.6, 1.4, n)                     # crown size 0.6-1.4 x, overlapping
-    r = np.minimum(r, np.maximum(1.2, 1.5 + 0.3 * h) * 1.25)
+    r = np.minimum(r, np.maximum(1.2, 1.5 + 0.3 * h) * R_CAP)
     r = np.where(tor, np.clip(r0 * 1.2, 2.5, 6.0), r)
     r = np.where(scrub, np.clip(r0 * 0.7, 1.0, 2.5), r)
     yaw = z["yaw"].astype(np.float64)
@@ -748,7 +756,7 @@ def photo_block(f, out, rng):
     if PHOTO_CHROMA != 1.0:
         c = Y[:, None] + PHOTO_CHROMA * (c - Y[:, None])
     sp = np.array([PHOTO_SPECIES.get(g, (1.0, 1.0, 1.0)) for g in GROUPS])[grp]
-    pt = np.clip(c, 1e-4, 1.0) * PHOTO_GAIN * sp
+    pt = np.clip(c, 1e-4, 1.0) * PHOTO_GAIN * PHOTO_RGB * sp
     nophoto = zu == 0
     pt = np.where((nophoto | (grp == 4))[:, None], out["tint"], pt)
     out["ptint"] = pt.astype(np.float32)
@@ -937,8 +945,8 @@ def tiles2(args):
                triangles=ntris, nodes_per_tile=dict(near_mean=round(float(np.mean(nodes_per["near"])), 1), near_max=int(max(nodes_per["near"])),
                                                     far_mean=round(float(np.mean(nodes_per["far"])), 1)),
                prototype_triangles=dict(near=[tri[pidx[(p, True, 0)]] for p in range(len(PROTOS))], far=[tri[pidx[(p, False, 0)]] for p in range(len(PROTOS))]),
-               palettes={GROUPS[k]: np.asarray(v).round(4).tolist() for k, v in pals.items()}, tint=TINT, r_fac=R_FAC, ge=GE2,
-               photo=dict(on=True, gain=PHOTO_GAIN, chroma=PHOTO_CHROMA, species=PHOTO_SPECIES, edge_m=EDGE_M, edge_keep=EDGE_KEEP,
+               palettes={GROUPS[k]: np.asarray(v).round(4).tolist() for k, v in pals.items()}, tint=TINT, r_fac=R_FAC, r_cap=R_CAP, ge=GE2,
+               photo=dict(on=True, gain=PHOTO_GAIN, rgb=PHOTO_RGB.tolist(), oak_sat=OAK_SAT, chroma=PHOTO_CHROMA, species=PHOTO_SPECIES, edge_m=EDGE_M, edge_keep=EDGE_KEEP,
                           edge_size=EDGE_SIZE, sigma_m=__import__("veg_photo").SIGMA_M, card_det=CARD_DET.tolist(), sss_tilt=SSS_TILT.tolist(),
                           note="per-tile mean photo colours only; no imagery stored") if PHOTO else False,
                dropin=dict(dir=PROTOS_DIR, glb={k: len(v) for k, v in drop.items()}, proxies={g: [os.path.basename(f) for f in proxy_files(g)] for g in ("pine", "broad")},

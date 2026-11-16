@@ -45,5 +45,5 @@ if (kind > 1.5)
 c *= lerp(1.0, ao, AoBase);
 float rim = pow(1.0 - saturate(abs(dot(NormalWS, normalize(V)))), 3.0);
 c *= 1.0 + RimAmt * rim * (0.5 + 0.5 * ao);
-SSS = c * float3(1.2, 1.4, 0.9) * SssAmt * (0.4 + 0.6 * ao);
+SSS = c * SssAmt * (0.4 + 0.6 * ao);              // neutral (11-16; was x (1.2, 1.4, 0.9): crowns greener than the photo)
 return c;
