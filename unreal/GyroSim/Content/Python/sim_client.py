@@ -34,6 +34,8 @@ import mfd_map                         # right MFD moving map (11-15)
 importlib.reload(mfd_map)
 import cockpit_v2                      # F-16 style cockpit v2: mesh swap at Play (GYROSIM_COCKPIT_V2=0 = v1)
 importlib.reload(cockpit_v2)
+import pilot_manny                     # Manny pilot body at Play (11-15)
+importlib.reload(pilot_manny)
 import pie_fullscreen                 # not reloaded: it defines a UObject class (PIE full screen, F11 / Alt+Enter)
 # Play started by GyroSim_Busan.bat (-GyroSimPlay): PIE window in true full screen (borderless, whole main monitor) on a
 # monitor (not VR). GYROSIM_FULLSCREEN=0 keeps the old maximized window, =1 forces it for a Play pressed by hand too.
@@ -480,6 +482,9 @@ class SimClient:
         self.adi = self._find("ADIBall")
         self.gear_lights = self._find("GearLights")
         self.pilot_body, self.pilot_head, self.pilot_view = self._find("PilotBody"), self._find("PilotHead"), None   # Scripts/pilot
+        self.pilot_manny = pilot_manny.apply(world, self.pilot_body)   # Manny pilot (GYROSIM_PILOT=old = the old body)
+        if self.pilot_manny is not None:
+            self.pilot_body = None                     # static pose: no control morphs
         self.gear_lit = None
         self.gauge_vals = {}
         self.lights = {k: self._find("Light_" + k) for k in ("MC", "WARN", "BRAKE", "ASSIST", "SLOW", "VOICE")}
