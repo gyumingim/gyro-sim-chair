@@ -128,6 +128,8 @@ SPOT_H, SPOT_W_MAX, SPOT_VR_CM = 0.80, 0.80, 110.0      # monitor: height / max 
 RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
+# 11-18: the rate checks use 0.9 x the period - at 60 / 90 Hz the period is exactly 2 / 3 frames, so frame jitter made the
+# redraw alternate between 2 and 3 frames (HUD 20-30 Hz, MFD falling back to 50-83 ms).
 MFD_HZ = 5.0
 KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "key_panel.png"))
 
@@ -1707,7 +1709,7 @@ class SimClient:
                 self.ladder_on = on
                 mid.set_scalar_parameter_value("LadderOn", on)
         hud_now = False
-        if P and hv and "HUD" in self.screens and now - self.hud_t >= 1.0 / HUD_HZ:
+        if P and hv and "HUD" in self.screens and now - self.hud_t >= 0.9 / HUD_HZ:
             self.hud_t = now
             hud_now = True                                          # 11-15: no MFD redraw on this frame (stagger)
             t0 = time.perf_counter()
@@ -1733,7 +1735,7 @@ class SimClient:
                     self.last_log = now
                     _log("hud draw", repr(e))
         # one display per call, in turn (spreads the cost); 11-15: never on the frame the HUD drew (HUD / MFD alternate frames)
-        if P and fresh and now - self.mfd_t >= (1.0 if not hud_now else 2.0) / DISP_HZ:     # (below 30 fps: both)
+        if P and fresh and now - self.mfd_t >= (0.9 if not hud_now else 1.8) / DISP_HZ:     # (below 30 fps: both)
             self.mfd_t = now
             try:
                 self.mfd_i = (getattr(self, "mfd_i", 0) + 1) % len(DISP_ORDER)
@@ -1755,7 +1757,7 @@ class SimClient:
                 if now - self.last_log > 2:
                     self.last_log = now
                     _log("display draw", repr(e))
-        if now - self.txt_t < 1 / 15:
+        if now - self.txt_t < 0.9 / 15:
             return
         self.txt_t = now
         # tutorial panel (Korean text rendered to PNG by sim/tutorial.py), H toggles
