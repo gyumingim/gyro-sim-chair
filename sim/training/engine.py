@@ -891,8 +891,9 @@ class Trainer:
         with self._render_lock:
             if ver < self.ver:                      # 11-18: a newer panel is queued: skip this stale one (newest always draws)
                 return
+            self._rn = getattr(self, "_rn", 0) + 1  # render count: names the files (ver % 4 could repeat after skips)
             try:
-                p, l = fn(d, ver)
+                p, l = fn(d, self._rn)
             except Exception as e:                  # never let a drawing problem stop the lesson
                 print("training: render failed", repr(e), flush=True)
                 return

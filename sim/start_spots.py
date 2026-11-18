@@ -360,8 +360,9 @@ class Picker:
         with self._lock:
             if ver < self.ver:                 # 11-18: a newer render is queued (key held down): skip this stale one
                 return
-            try:
-                fn = os.path.join(self.out_dir, "spot_%d.png" % (ver % 4))
+            self._slot = (getattr(self, "_slot", 0) + 1) % 4     # file slot per render done (not per version): with skips,
+            try:                                                  # a file is still reused only 4 renders later
+                fn = os.path.join(self.out_dir, "spot_%d.png" % self._slot)
                 self.render().save(fn, compress_level=1)
             except Exception as e:
                 print("spot picker: render failed", repr(e), flush=True)
