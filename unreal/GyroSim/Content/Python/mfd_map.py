@@ -38,6 +38,14 @@ V2 = unreal.Vector2D
 RL = unreal.RenderingLibrary
 EARTH_C = 40075016.686
 log = lambda *a: unreal.log("[mfd_map] " + " ".join(str(x) for x in a))
+# 11-18: constant structs made once (passed by value to the canvas calls, never changed) instead of per tile / name / redraw
+_V0, _V1, _VC = V2(0, 0), V2(1, 1), V2(0.5, 0.5)
+_BL_T, _BL_O = unreal.BlendMode.BLEND_TRANSLUCENT, unreal.BlendMode.BLEND_OPAQUE
+SHADOW = unreal.LinearColor(0, 0, 0, 0.9)
+DOT = unreal.LinearColor(1.0, 0.86, 0.35, 1.0)
+TRI = ((unreal.LinearColor(0, 0, 0, 1), 10.0), (unreal.LinearColor(1.0, 0.9, 0.2, 1), 5.0))
+CREDIT = unreal.LinearColor(0.85, 0.88, 0.9, 1.0)
+RING_N, RING_W = 72, 3.0
 
 
 def merc(lat, lon):
@@ -57,12 +65,15 @@ class MfdMap:
         self.ok = self.mat is not None and os.path.isdir(os.path.join(TILES, str(Z)))
         self.white = unreal.load_asset("/Engine/EngineResources/WhiteSquareTexture")
         self.atlas, self.rects, self.size, self.places, self.credit = None, {}, (1, 1), [], None
+        self.rings = (None, [])           # (canvas scale k, [[(V2, V2), ...] per ring]) - constant geometry, cached per k
         try:
             j = json.load(open(os.path.join(LBL_DIR, "mapnames.json"), encoding="utf-8"))
             self.rects, self.size, self.places, self.credit = j["rects"], tuple(j["size"]), j["places"], j.get("credit")
             self.atlas = RL.import_file_as_texture2d(world, os.path.join(LBL_DIR, "T_MapNames.png"))
         except Exception as e:
             log("name atlas missing", repr(e))
+        n = 2 ** Z                        # place positions in tile units (constant): no merc per place per redraw
+        self.places_t = [(name, merc(plat, plon)[0] * n, merc(plat, plon)[1] * n) for name, plat, plon in self.places]
         log("ready" if self.ok else "off (no M_MfdMap or no z%d tile cache)" % Z, TILES)
 
     def _tile(self, x, y):
@@ -145,9 +156,9 @@ class MfdMap:
         W, H = self.size
         w = r[2] * h / r[3]
         x0 = x - w / 2 if anchor == "c" else x - w if anchor == "r" else x
-        for dx, dy, cc in ((2.5, 2.5, unreal.LinearColor(0, 0, 0, 0.9)), (0, 0, col)):     # dark drop shadow, then the name
+        for dx, dy, cc in ((2.5, 2.5, SHADOW), (0, 0, col)):     # dark drop shadow, then the name
             c.draw_texture(self.atlas, V2((x0 + dx) * k, (y - h / 2 + dy) * k), V2(w * k, h * k), V2(r[0] / W, r[1] / H),
-                           V2(r[2] / W, r[3] / H), cc, unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
+                           V2(r[2] / W, r[3] / H), cc, _BL_T, 0.0, _V0)
         return w
 
     def draw(self, P, s, green, dim, white):
@@ -179,27 +190,36 @@ class MfdMap:
                     if (tx, ty) not in self.tiles:
                         self.pending = True      # left for the next redraw (MAX_NEW)
                     continue
-                c.draw_material(mid, V2((cx - z / 2) * k, (cy - z / 2) * k), V2(z * k, z * k), V2(0, 0), V2(1, 1), -psi, V2(0.5, 0.5))
+                c.draw_material(mid, V2((cx - z / 2) * k, (cy - z / 2) * k), V2(z * k, z * k), _V0, _V1, -psi, _VC)
         # range rings + their distances, 'N' on the outer ring
+        if self.rings[0] != k:                   # = P.circle(OWN, rk * PX_KM, col, RING_N, RING_W), points made once per k
+            segs = []
+            for rk in RINGS_KM:
+                r = rk * PX_KM
+                p = [V2((OWN[0] + r * math.cos(2 * math.pi * i / RING_N)) * k, (OWN[1] + r * math.sin(2 * math.pi * i / RING_N)) * k)
+                     for i in range(RING_N + 1)]
+                segs.append([(p[i], p[i + 1]) for i in range(RING_N)])
+            self.rings = (k, segs)
+        rw = max(1.0, RING_W * k)
         for i, rk in enumerate(RINGS_KM):
-            P.circle(OWN[0], OWN[1], rk * PX_KM, green if i == len(RINGS_KM) - 1 else dim, 72, 3.0)
+            col = green if i == len(RINGS_KM) - 1 else dim
+            for a, b in self.rings[1][i]:
+                c.draw_line(a, b, rw, col)
             P.text("%g" % rk, OWN[0] + rk * PX_KM * 0.71 + 18, OWN[1] - rk * PX_KM * 0.71 - 4, 2.0, green, center=False)
         rN = RINGS_KM[-1] * PX_KM
         P.text("N", OWN[0] - sp * rN, OWN[1] - cp * rN, 2.6, white)
         # place names: upright, one size, dot at the place
-        for name, plat, plon in self.places:
-            px, py = merc(plat, plon)
-            x, y = to_screen(px * n - mx, py * n - my)
+        for name, px, py in self.places_t:
+            x, y = to_screen(px - mx, py - my)
             if not (40 < x < 984 and 120 < y < 980):
                 continue
-            c.draw_texture(self.white, V2((x - 6) * k, (y - 6) * k), V2(12 * k, 12 * k), V2(0, 0), V2(1, 1),
-                           unreal.LinearColor(1.0, 0.86, 0.35, 1.0), unreal.BlendMode.BLEND_OPAQUE, 0.0, V2(0, 0))
+            c.draw_texture(self.white, V2((x - 6) * k, (y - 6) * k), V2(12 * k, 12 * k), _V0, _V1, DOT, _BL_O, 0.0, _V0)
             self._label(c, k, name, x, y - 32, NAME_H, white)
         # own-ship triangle (points up = the heading), black outline under a white one
         tri = ((OWN[0], OWN[1] - 30), (OWN[0] + 18, OWN[1] + 18), (OWN[0] - 18, OWN[1] + 18))
-        for col, w in ((unreal.LinearColor(0, 0, 0, 1), 10.0), (unreal.LinearColor(1.0, 0.9, 0.2, 1), 5.0)):
+        for col, w in TRI:
             for a, b in ((tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])):
                 P.line(a, b, col, w)
         P.text("HDG %03d" % (int(round(psi)) % 360), 512, 76, 2.6, green)
         if self.credit:
-            self._label(c, k, self.credit, 1000, 962, 30.0, unreal.LinearColor(0.85, 0.88, 0.9, 1.0), "r")
+            self._label(c, k, self.credit, 1000, 962, 30.0, CREDIT, "r")
