@@ -440,6 +440,7 @@ class SimClient:
         self.disp = dict(ail=0.0, elev=0.0, rud=0.0, thr=0.0, brk_l=0.0, brk_r=0.0)
         self.txt_t = 0.0
         self.tut_ver = -1
+        self.mfdc_key = None                           # training display: last static picture drawn (_overlay)
         self.gear_shown = None
         self.last_pose = None
         self.panel_on = True          # H: tutorial panel on/off
@@ -567,6 +568,7 @@ class SimClient:
             except Exception as e:
                 _log("key panel", repr(e))
         self.tut_ver = -1
+        self.mfdc_key = None                           # training display: last static picture drawn (_overlay)
         self.gear_shown = None
         self.interp.reset()
         self.preset = None
@@ -1755,12 +1757,21 @@ class SimClient:
                     tag = None                                      # map page: nothing moved since the last draw, keep it
                 elif tag == "MFD_R" and mp is None and getattr(self, "mfd_map_obj", None) is not None:
                     self.mfd_map_obj.last = None                    # chair page drawn over it: the next map page redraws
+                ckey = None
+                if tag == "MFD_C" and not (tut.get("phase") in ("practice", "solo") and tut.get("targets")):
+                    # 11-18: outside practice / solo the training display is only the lesson picture -> redraw it when
+                    # the picture (tut_ver) or the phase changed, not 15 times a second (same skip as the map page)
+                    ckey = (self.tut_ver, self.panel_tex is None, tut.get("phase"))
+                    if ckey == self.mfdc_key:
+                        tag = None
                 if tag in self.screens:
                     t0 = time.perf_counter()
                     P.draw_display(tag, s, dict(beginner=beg, radar_m=self.radar_m, gmax=self.gmax,
                                                 warnings=self.warnings, panel_tex=self.panel_tex, loading=not self.startup_done,
                                                 map=mp))
                     self.disp_ms += ((time.perf_counter() - t0) * 1000 - self.disp_ms) * 0.05
+                    if tag == "MFD_C":
+                        self.mfdc_key = ckey                        # None (live rows) = draw every slot
             except Exception as e:
                 self._err(now, "display draw", repr(e))
         if now - self.txt_t < 0.9 / 15:
@@ -1787,7 +1798,7 @@ class SimClient:
                 self.tut_ver = tut.get("ver")
                 self.mfd_t = 0.0
             except Exception as e:
-                _log("tut image", repr(e))
+                self._err(now, "tut image", repr(e))        # 11-18: throttled (retried every panel slot until it loads)
         # world-space lesson panel (lower left): VR only (11-05: on the monitor it floated over the view; the centre
         # training display shows the same picture there)
         show = bool(tut.get("on")) and self.panel_tex is not None and self.panel_on and self.hmd
