@@ -29,9 +29,7 @@ DIM = unreal.LinearColor(0.05, 0.55, 0.12, 1.0)
 AMBER = unreal.LinearColor(1.0, 0.75, 0.15, 1.0)
 RED = unreal.LinearColor(1.0, 0.2, 0.15, 1.0)
 WHITE = unreal.LinearColor(0.9, 0.95, 1.0, 1.0)
-GREY = unreal.LinearColor(0.45, 0.5, 0.55, 1.0)
 CYAN = unreal.LinearColor(0.45, 0.8, 1.0, 1.0)
-DARK = unreal.LinearColor(0.02, 0.03, 0.035, 1.0)
 CLEAR = unreal.LinearColor(0, 0, 0, 0)
 ST_COL = (GREEN, AMBER, RED)
 # readability pass (11-05, user: "values are clear but hard to read"): one small type scale per surface, sized for the
@@ -51,20 +49,22 @@ D_TITLE, D_LBL, D_VAL, D_SUB = 84, 72, 5.6, 2.4    # displays: title / row label
 LBL_COL = unreal.LinearColor(0.72, 0.78, 0.84, 1.0)    # row labels (was GREY 0.45 - too dim)
 V2 = unreal.Vector2D
 RL = unreal.RenderingLibrary
+# 11-18: constant structs made once (passed by value to the canvas calls, never changed) instead of per primitive / draw
+_V0, _V1 = V2(0, 0), V2(1, 1)
+_BL_T, _BL_A = unreal.BlendMode.BLEND_TRANSLUCENT, unreal.BlendMode.BLEND_ADDITIVE
+LBL_HUD = unreal.LinearColor(0.5, 1.0, 0.6, 1.0)
+DISP_BG = unreal.LinearColor(0.004, 0.008, 0.01, 1.0)
+EDGE = unreal.LinearColor(0.16, 0.2, 0.25, 1.0)
+BAND_BG = unreal.LinearColor(0.0, 0.02, 0.03, 0.9)
+TOL = unreal.LinearColor(0.05, 0.35, 0.14, 1.0)
+NONE_COL = unreal.LinearColor(0.35, 0.4, 0.45, 1.0)
 _T = math.tan(math.radians(HUD_HALF))
 _T0 = math.tan(math.radians(HUD_EL0))
 PROJ = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir())
 LBL_DIR = os.path.join(PROJ, "Art", "Cockpit", "tex")
 WARN_TXT = {"pullup": ("PULL UP", "w_pullup", RED), "terrain": ("TERRAIN", "w_terrain", RED), "overg": ("OVER-G", "w_overg", RED),
             "stall": ("STALL", "w_stall", RED), "gear": ("GEAR", "w_gear", AMBER)}
-
-
-def level_to_body(v, phi, th):
-    """vector in the heading-aligned level frame (x fwd horizontal, y right, z up) -> body frame (x fwd, y right, z up)."""
-    x, y, z = v
-    ct, st, cp, sp = math.cos(th), math.sin(th), math.cos(phi), math.sin(phi)
-    x1, z1 = x * ct + z * st, -x * st + z * ct
-    return x1, y * cp - z1 * sp, y * sp + z1 * cp
+WARN_BG = {k: unreal.LinearColor(c.r * 0.28, c.g * 0.28, c.b * 0.28, 1.0) for k, (_e, _k, c) in WARN_TXT.items()}
 
 
 def _rt(world, w, h, clear):
@@ -108,12 +108,12 @@ class Painter:
 
     def text(self, s, x, y, size=1.0, col=GREEN, center=True, vcenter=True, plate=False):
         k = size * self.ts * self.k
-        if plate:
+        if plate and HUD_PLATES:                # 11-18: no text measuring for a plate fill() would skip
             w, h = self.tsize(s, size)
             x0 = x - w / 2 if center else x
             self.fill(x0 - 8, y - h * 0.5 - 4 if vcenter else y - 4, w + 16, h + 8, PLATE)
         # outlined in its own colour = a bolder stroke (the canvas distance-field font is thin)
-        self.c.draw_text(self.font, s, V2(x * self.k, y * self.k), V2(k, k), col, 0.0, CLEAR, V2(0, 0), center, vcenter, BOLD, col)
+        self.c.draw_text(self.font, s, V2(x * self.k, y * self.k), V2(k, k), col, 0.0, CLEAR, _V0, center, vcenter, BOLD, col)
 
     def tsize(self, s, size):
         """text extent in logical px."""
@@ -133,7 +133,7 @@ class Painter:
             return
         if w > 0 and h > 0:
             k = self.k
-            self.c.draw_texture(self.white, V2(x * k, y * k), V2(w * k, h * k), V2(0, 0), V2(1, 1), col, unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
+            self.c.draw_texture(self.white, V2(x * k, y * k), V2(w * k, h * k), _V0, _V1, col, _BL_T, 0.0, _V0)
 
     def circle(self, x, y, r, col=GREEN, n=16, w=4.0):
         p = [(x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n)) for i in range(n + 1)]
@@ -154,14 +154,13 @@ class Painter:
         if plate:
             self.fill(x0, y - h * 0.4, w, h * 0.8, PLATE)
         self.c.draw_texture(self.lbl, V2(x0 * k, (y - h / 2) * k), V2(w * k, h * k), V2(r[0] / W, r[1] / H), V2(r[2] / W, r[3] / H), col,
-                            unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
+                            _BL_T, 0.0, _V0)
         return w
 
     def image(self, tex, x, y, w, h, col=WHITE, additive=False):
         if tex is not None:
             k = self.k
-            self.c.draw_texture(tex, V2(x * k, y * k), V2(w * k, h * k), V2(0, 0), V2(1, 1), col,
-                                unreal.BlendMode.BLEND_ADDITIVE if additive else unreal.BlendMode.BLEND_TRANSLUCENT, 0.0, V2(0, 0))
+            self.c.draw_texture(tex, V2(x * k, y * k), V2(w * k, h * k), _V0, _V1, col, _BL_A if additive else _BL_T, 0.0, _V0)
 
     @staticmethod
     def proj(v):
@@ -214,7 +213,7 @@ class Painter:
         # Korean captions on the HUD only with GYROSIM_HUD_LABELS=1 (review 11-10: F-16 style symbology by default;
         # the beginner names stay on the panel callouts and the displays)
         beg = ex.get("beginner") and HUD_LABELS
-        lc = unreal.LinearColor(0.5, 1.0, 0.6, 1.0)
+        lc = LBL_HUD
         lh = HUD_LBL
         # boresight (gun cross) at body X
         b = self.proj((1, 0, 0))
@@ -315,7 +314,7 @@ class Painter:
 
     # ---- displays ---------------------------------------------------------------------------------------------------
     def draw_display(self, tag, s, ex):
-        self._begin(self.rt_disp[tag], unreal.LinearColor(0.004, 0.008, 0.01, 1.0))
+        self._begin(self.rt_disp[tag], DISP_BG)
         self.ts = 1.0
         self.k = DISP_SCALE
         try:
@@ -344,7 +343,7 @@ class Painter:
 
     def _tile(self, x, y, w, h, en, ko, val, col, ex, size=D_VAL):
         """framed value tile: name (with unit) on top, big value below."""
-        self.box(x, y, w, h, unreal.LinearColor(0.16, 0.2, 0.25, 1.0), 2)
+        self.box(x, y, w, h, EDGE, 2)
         self._name(en, ko, x + 18, y + 40, ex)
         if val:
             self.text(val, x + w / 2, y + 40 + (h - 40) / 2 + 4, size, col)
@@ -416,7 +415,7 @@ class Painter:
         # band y 430..690 (render.py keeps server y 344..552 free in practice / solo): up to 3 rows + the trend
         y0, rh = 476, 86
         n = min(3, len(tg))
-        self.fill(14, y0 - 46, W - 28, rh * n + 8, unreal.LinearColor(0.0, 0.02, 0.03, 0.9))
+        self.fill(14, y0 - 46, W - 28, rh * n + 8, BAND_BG)
         for i, t in enumerate(tg[:3]):
             y = y0 + i * rh
             col = ST_COL[min(2, max(0, int(t.get("st", 0))))]
@@ -431,7 +430,7 @@ class Painter:
             tol = max(1e-6, float(t.get("tol", 1)))
             k = bw / 2 / (3 * tol)
             self.box(bx, y - 16, bw, 32, LBL_COL, 2)
-            self.fill(bx + bw / 2 - tol * k, y - 13, 2 * tol * k, 26, unreal.LinearColor(0.05, 0.35, 0.14, 1.0))
+            self.fill(bx + bw / 2 - tol * k, y - 13, 2 * tol * k, 26, TOL)
             d = max(-3 * tol, min(3 * tol, float(t.get("dev", 0))))
             mx = bx + bw / 2 + d * k
             self.fill(mx - 7, y - 24, 14, 48, col)
@@ -447,7 +446,7 @@ class Painter:
         gx, gy, gw, gh = 1030, y0 - 36, 230, rh * n - 12
         self.box(gx, gy, gw, gh, LBL_COL, 2)
         mid = gy + gh / 2
-        self.fill(gx + 2, mid - gh / 6, gw - 4, gh / 3, unreal.LinearColor(0.05, 0.35, 0.14, 1.0))
+        self.fill(gx + 2, mid - gh / 6, gw - 4, gh / 3, TOL)
         pts = [(gx + gw - (t0 - t) / 30.0 * gw, mid - max(-3.0, min(3.0, v)) / 3.0 * gh / 2) for t, v in self.hist]
         for a, b in zip(pts, pts[1:]):
             self.line(a, b, AMBER, 4)
@@ -460,7 +459,7 @@ class Painter:
         y = 112
         for key in act[:2]:
             en, _ko, col = WARN_TXT[key]
-            self.fill(12, y, 1000, 150, unreal.LinearColor(col.r * 0.28, col.g * 0.28, col.b * 0.28, 1.0))
+            self.fill(12, y, 1000, 150, WARN_BG[key])
             self.text(en, 28, y + 46, 4.2, col, center=False)
             if ex.get("beginner"):
                 self.label("wd_" + key, 28, y + 112, 60, WHITE)
@@ -479,7 +478,7 @@ class Painter:
         tgt = s.get("chair_tgt") or (0.0, 0.0)
         for en, ko, val, tv, L in (("CHAIR ROLL", "d_croll", s.get("chair_roll", 0.0), tgt[0], lim[0]),
                                    ("CHAIR PITCH", "d_cpitch", s.get("chair_pitch", 0.0), tgt[1], lim[1])):
-            self.box(12, y, 1000, 196, unreal.LinearColor(0.16, 0.2, 0.25, 1.0), 2)
+            self.box(12, y, 1000, 196, EDGE, 2)
             self._name(en, ko, 28, y + 44, ex)
             near = abs(val) > 0.9 * L
             self.text("%+.1f" % val, 880, y + 48, 4.2, AMBER if near else GREEN)
@@ -514,10 +513,10 @@ class Painter:
         act = [k for k in WARN_TXT if k in (ex.get("warnings") or [])]
         y += 10
         if not act:
-            self._name("NO WARNINGS", "wd_none", 512, y + 60, ex, unreal.LinearColor(0.35, 0.4, 0.45, 1.0), "c")
+            self._name("NO WARNINGS", "wd_none", 512, y + 60, ex, NONE_COL, "c")
         for key in act[:2]:
             en, _ko, col = WARN_TXT[key]
-            self.fill(12, y, 1000, 168, unreal.LinearColor(col.r * 0.28, col.g * 0.28, col.b * 0.28, 1.0))
+            self.fill(12, y, 1000, 168, WARN_BG[key])
             self.text(en, 28, y + 48, 4.2, col, center=False)
             if beg:
                 self.label("wd_" + key, 28, y + 122, 68, WHITE)
