@@ -10,7 +10,8 @@ Drawn by hud.Painter into the MFD_R render target (so it is a cockpit display on
     the canvas font has no Hangul); positions = sim/minimap_build.PLACES (approximate, orientation only).
   - the V-World credit line on the map itself (the screen plate stays too).
 Missing tiles (sea / outside the cache) stay the dark display background. A few tiles are imported per redraw
-(MAX_NEW), so flying into new ground fills in over ~1 s instead of one long hitch.
+(MAX_NEW), so flying into new ground fills in over ~1 s instead of one long hitch (a cold start with no pause - map
+first switched on, or a jump in flight - takes several seconds: ~50 tiles on the display at one per map redraw).
 """
 import json, math, os
 import unreal
