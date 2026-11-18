@@ -35,8 +35,12 @@ class Profiles:
         self.dir = d
         os.makedirs(d, exist_ok=True)
         self.cur = None
+        self._names = None                # (time, names): cached 2 s - the trainee menu page asks every step (60 Hz)
 
     def names(self):
+        now = time.monotonic()
+        if self._names is not None and now - self._names[0] < 2.0:
+            return list(self._names[1])
         out = []
         for f in sorted(os.listdir(self.dir)):
             if f.endswith(".json"):
@@ -44,7 +48,8 @@ class Profiles:
                     out.append(json.load(open(os.path.join(self.dir, f), encoding="utf-8"))["name"])
                 except (OSError, ValueError, KeyError):
                     pass
-        return out
+        self._names = (now, out)
+        return list(out)
 
     def _path(self, name):
         return os.path.join(self.dir, re.sub(r"[^\w가-힣-]", "_", name) + ".json")
@@ -72,6 +77,7 @@ class Profiles:
             tmp = self._path(self.cur["name"]) + ".tmp"
             json.dump(self.cur, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
             os.replace(tmp, self._path(self.cur["name"]))
+            self._names = None                # a new trainee shows at once
 
     def lesson(self, i):
         return self.cur["lessons"].setdefault(str(i), dict(attempts=0, passes=0, best=None, last=None, history=[]))
