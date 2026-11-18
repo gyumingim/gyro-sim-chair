@@ -380,6 +380,16 @@ def _realism_v2(name, world):
 apply_look._realism_v2 = True          # realism_v2.install_hook: already built in, nothing to wrap
 
 
+_PLATE_ROT = []
+
+
+def plate_rot():
+    """make_rot_from_zx((-1, 0, 0), (0, 1, 0)): the overlay plates face the camera (made once, lazily)."""
+    if not _PLATE_ROT:
+        _PLATE_ROT.append(unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0)))
+    return _PLATE_ROT[0]
+
+
 def apply_preset(name, world=None):
     p = PRESETS.get(name)
     if not p:
@@ -426,6 +436,7 @@ class SimClient:
         self.mouse_prev = None
         self.fov_set = None
         self.last_log = 0.0                # 5 s status line + fps window (tick)
+        self.ues = None                    # UnrealEditorSubsystem (tick)
         self.err_t = 0.0                   # 11-18: error log throttle (was last_log: errors skewed the fps, some never throttled)
         self.frames = 0
         self.handle = None
@@ -1463,11 +1474,11 @@ class SimClient:
         self.last_pose = (loc, rot)
         # teleport=False keeps the previous transform for motion vectors (TSR / TAA would smear the panel / aircraft)
         self.aircraft.set_actor_location_and_rotation(loc, rot, False, False)
-        fwd, right, up = rot.get_forward_vector(), rot.get_right_vector(), rot.get_up_vector()
         if self.view not in VIEWS:
             self.view = "cockpit"
         (hx, hy, hz), (fp, fy, fr) = self.fx.update(self.s, dt, self.hmd, self.view, now)   # head motion (0 in VR / chair / eye view)
         if self.view in ("cockpit", "eye"):
+            fwd, right, up = rot.get_forward_vector(), rot.get_right_vector(), rot.get_up_vector()   # 11-18: only here
             eye = loc + fwd * (EYE[0] + hx) + right * (EYE[1] + hy) + up * (EYE[2] + hz)
             self.camera.set_actor_location_and_rotation(eye, rot, False, False)
             self._fov(VIEW_FOV)
@@ -1878,7 +1889,7 @@ class SimClient:
             pos = unreal.Vector(D, hw - m - w / 2, -(hh - m - h / 2))
         h = w / getattr(self, "attrib_aspect", 1024 / 96)
         # plane local X = picture right, local Y = picture down (same rotation as the crash panel: normal toward the eye)
-        r = unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0))
+        r = plate_rot()
         a.set_actor_relative_location(pos, False, True)
         a.set_actor_relative_rotation(r, False, True)
         a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, h / 100.0, 1.0))
@@ -1981,7 +1992,7 @@ class SimClient:
             w = min(2 * hw * MINIMAP_W, 2 * hh * 0.45)
             m = 0.02 * 2 * hw
             pos = unreal.Vector(D, hw - m - w / 2, hh - m - w / 2)
-        r = unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0))
+        r = plate_rot()
         a = mm["actor"]
         a.set_actor_relative_location(pos, False, True)
         a.set_actor_relative_rotation(r, False, True)
@@ -2103,7 +2114,7 @@ class SimClient:
             w = min(2 * hh * SPOT_H * SPOT_ASPECT, 2 * hw * SPOT_W_MAX)
         h = w / SPOT_ASPECT
         a.set_actor_relative_location(unreal.Vector(D, 0.0, 0.0), False, True)
-        a.set_actor_relative_rotation(unreal.MathLibrary.make_rot_from_zx(unreal.Vector(-1, 0, 0), unreal.Vector(0, 1, 0)), False, True)
+        a.set_actor_relative_rotation(plate_rot(), False, True)
         a.set_actor_relative_scale3d(unreal.Vector(w / 100.0, h / 100.0, 1.0))
         self.spot_cm = (w, h)
 
@@ -2181,7 +2192,9 @@ class SimClient:
         try:
             now = time.perf_counter()
             self._recv()
-            world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+            if self.ues is None:                                    # 11-18: subsystem looked up once, not every frame
+                self.ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+            world = self.ues.get_game_world()
             if world is None:
                 if self.world is not None:
                     self._pacing_restore()
