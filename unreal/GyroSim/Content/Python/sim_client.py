@@ -2004,12 +2004,14 @@ class SimClient:
                 return
             self._minimap_init()
             mm = self.mm
-        if not mm["ok"] or getattr(self, "spot_shown", False):     # the start picker has the plate
+        if getattr(self, "spot_shown", False):           # the start picker has the plate
             return
-        if self.kb.focused() and self.kb.pressed("J"):
+        if self.kb.focused() and self.kb.pressed("J"):   # 11-18: before the mm['ok'] check - the MFD map needs no minimap picture
             self.minimap_on = not getattr(self, "minimap_on", True)
             self.mfd_map_on = not getattr(self, "mfd_map_on", True)
             self.mfd_t = 0.0
+        if not mm["ok"]:
+            return
         s = self.s
         show = False
         if not MINIMAP_PLATE:                            # 11-15: the map is on the right MFD; the plate stays hidden
