@@ -1576,10 +1576,15 @@ class SimClient:
                 if self.view == "cockpit" and self.view_cam:
                     h.attach_to_actor(self.view_cam, unreal.Name(""), R.SNAP_TO_TARGET, R.SNAP_TO_TARGET, R.KEEP_WORLD, False)
                     c.set_render_in_main_pass(False)
+                    # 11-18: not drawn at all inside the eye (out of the main pass it still showed as a black notch at the
+                    # bottom of wide views); the hidden mesh keeps casting its shadow
+                    c.set_editor_property("cast_hidden_shadow", True)
+                    c.set_visibility(False, False)
                 elif self.aircraft:
                     h.attach_to_actor(self.aircraft, unreal.Name(""), R.SNAP_TO_TARGET, R.SNAP_TO_TARGET, R.KEEP_WORLD, False)
                     h.set_actor_relative_location(unreal.Vector(*EYE), False, True)
                     c.set_render_in_main_pass(True)
+                    c.set_visibility(True, False)
             except Exception as e:
                 _log("pilot head", repr(e))
 

@@ -25,8 +25,8 @@ sys.path.insert(0, HERE)
 import ck2_layout as L          # noqa: E402
 
 ARGV = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-OUT = ARGV[ARGV.index("--out") + 1] if "--out" in ARGV else r"C:\GyroSimTiles\assets\cockpit\export"
-TEX = r"C:\GyroSimTiles\assets\cockpit\tex"
+OUT = ARGV[ARGV.index("--out") + 1] if "--out" in ARGV else os.path.join(L.ASSET_DIR, "export")
+TEX = os.path.join(L.ASSET_DIR, "tex")
 os.makedirs(OUT, exist_ok=True)
 PLATES = {p["name"]: p for p in L.pack()}
 T0 = time.time()
@@ -417,10 +417,10 @@ def build_panel_structure():
         v0 = L.WELL_V1
         v1 = L.lip_z(u) - 0.5
         return L.panel_pt(u, v0 + (v1 - v0) * t)
-    grid(P, paint, upper, 24, 4)
+    grid(P, "CK2_PanelFace", upper, 24, 4)
     # column face (|u| < COL_HALF + 0.6) from COL_V0 to WELL_V1
     ch = L.COL_HALF + 0.6
-    grid(P, paint, lambda s, t: L.panel_pt(-ch + 2 * ch * s, L.COL_V0 + (L.WELL_V1 - L.COL_V0) * t), 2, 4)
+    grid(P, "CK2_PanelFace", lambda s, t: L.panel_pt(-ch + 2 * ch * s, L.COL_V0 + (L.WELL_V1 - L.COL_V0) * t), 2, 4)
     # aux panels faces (|u| AUX_U0..AUX_U1, v 18..41) and the leg wells
     for sd in (-1, 1):
         a0, a1 = sorted((sd * L.AUX_U0, sd * L.AUX_U1))
@@ -539,42 +539,23 @@ def build_consoles():
             yy = y0 + (y1 - y0) * (t ** 0.7)
             return (x, sd * yy, zz)
         grid(P, "CK2_Wall", wall, 16, 6, flip=sd > 0)
-        # canopy sill rail / frame (black, along the glass bottom edge) with rivet heads
-        rail_in, rail_top = [], []
-        xs = [376.0 + 4.0 * i for i in range(40)]
-        xs = [x for x in xs if x <= 532.0]
-        for x in xs:
-            gy, gz = L.glass_bottom(max(392.0, x))
-            rail_in.append((x, sd * (gy - 2.6), gz - 2.0))
-        for i in range(len(xs) - 1):
-            pass
-        def rail(s, t):
-            x = xs[0] + (xs[-1] - xs[0]) * s
-            gy, gz = L.glass_bottom(max(392.0, x))
-            # section: inner face (gy - 2.6, gz - 2 .. gz + 3.2), top out to the glass (gy + 0.4, gz + 3.2)
-            if t < 0.5:
-                tt = t / 0.5
-                return (x, sd * (gy - 2.6), gz - 2.0 + 5.2 * tt)
-            tt = (t - 0.5) / 0.5
-            return (x, sd * (gy - 2.6 + 3.0 * tt), gz + 3.2)
-        grid(P, "CK2_Frame", rail, 24, 2, flip=sd < 0)
-        for x in xs[1:-1]:
-            gy, gz = L.glass_bottom(max(392.0, x))
-            c = (x + 2.0, sd * (gy - 2.62), gz + 0.6)
-            if int(x) % 8 == 0:              # sparser, small, dark flush fasteners (review: chrome domes)
-                lathe(P, "CK2_Frame", (c, (1, 0, 0), (0, 0, 1), (0, -sd, 0)), [(0.22, 0.0), (0.2, 0.05), (0.0, 0.07)], seg=6)
+        build_sill(P, sd)
+        build_wall_details(P, sd)
     # console plates
     for p in PLATES.values():
         if p["kind"] in ("console", "placard", "pod"):
             build_plate(p)
     # throttle quadrant housing (left), slot strip
     x0, x1 = 424.0, 470.0
-    box(P, "CK2_Paint", ((x0 + x1) / 2, -41.5, z + 2.2), (x1 - x0, 9.5, 4.4))
-    box(P, "CK2_Paint", ((x0 + x1) / 2, -27.6, z + 1.5), (x1 - x0, 5.0, 3.0))
+    box(P, "CK2_Plate0", ((x0 + x1) / 2, -41.5, z + 2.2), (x1 - x0, 9.5, 4.4))       # 11-18: black quadrant (was structure grey bars)
+    box(P, "CK2_Plate0", ((x0 + x1) / 2, -27.6, z + 1.5), (x1 - x0, 5.0, 3.0))
+    for xx in (x0 + 1.2, (x0 + x1) / 2, x1 - 1.2):
+        for yy, zz in ((-45.2, z + 4.4), (-37.8, z + 4.4), (-27.6, z + 3.0)):
+            screwhead(P, (xx, yy, zz), (0.0, 0.0, 1.0), 0.28)
     box(P, "CK2_Rubber", ((x0 + x1) / 2, -33.4, z + 0.4), (x1 - x0 - 2.0, 6.0, 0.6))
     # sidestick base area: black round base plate + vent grille frame
     s = L.STICK_SIDE["pivot"]
-    lathe(P, "CK2_Knob", ((s[0], s[1], z), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(4.6, 0.0), (4.6, 0.6), (4.0, 1.2), (3.0, 1.4), (0.0, 1.4)], seg=32)
+    lathe(P, "CK2_Bezel", ((s[0], s[1], z), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(4.6, 0.0), (4.6, 0.6), (4.0, 1.2), (3.0, 1.4), (0.0, 1.4)], seg=32)
     # forearm rest, outboard of the stick (swing-up pad)
     box(P, "CK2_Rubber", (446.0, 44.0, z + 3.0), (22.0, 5.5, 3.0))
 
@@ -619,22 +600,30 @@ def build_seat():
     ex = (math.sin(rec) * 0, 1.0, 0.0)
     up = (-math.sin(rec), 0.0, math.cos(rec))
     fw = (math.cos(rec), 0.0, math.sin(rec))
-    for dx, sz, m in ((4.0, (27.0, hz1 - hz0, 8.0), "CK2_Headrest"), (-2.0, (30.0, hz1 - hz0 + 4.0, 8.0), "CK2_SeatPaint")):
-        box(P, m, tuple(c[i] + fw[i] * dx for i in range(3)), sz, ex, up, fw)
-    # ejection loop: yellow / black striped D-handle at the seat front
-    ej = L.EJECT
-    path = []
-    for i in range(17):
-        t = math.pi * i / 16
-        path.append((457.5 + 6.0 * math.sin(t), -ej["w"] / 2 * math.cos(t), ej["z"] + 1.5 * math.sin(t)))
-    tube(P, "CK2_Plate", path, 0.65, seg=10, uv_len=5.0)
+    # 11-18: rounded black pad on a grey headbox (was two flat boxes), seat rails with bolts behind it, canopy breakers,
+    # data placard on the headbox sides, inertia reel bar
+    blob(P, "CK2_Fleece", tuple(c[i] + fw[i] * 6.0 for i in range(3)), (12.5, (hz1 - hz0) / 2 - 1.0, 3.6), ex, up, fw, e=0.5, nu=8, nv=5)
+    box(P, "CK2_SeatPaint", tuple(c[i] - fw[i] * 2.0 for i in range(3)), (30.0, hz1 - hz0 + 4.0, 9.0), ex, up, fw)
     for sd in (-1, 1):
-        box(P, "CK2_Metal", (456.0, sd * ej["w"] / 2, ej["z"] - 0.5), (3.0, 1.6, 2.0))
+        rc = tuple(c[i] - fw[i] * 9.5 + ex[i] * sd * 12.0 - up[i] * 20.0 for i in range(3))
+        box(P, "CK2_SeatPaint", rc, (5.0, 78.0, 3.6), ex, up, fw)
+        box(P, "CK2_Sill", tuple(rc[i] + fw[i] * 1.85 for i in range(3)), (2.4, 78.0, 0.3), ex, up, fw)
+        for k in range(9):
+            screwhead(P, tuple(rc[i] + ex[i] * sd * 2.52 + up[i] * (-32.0 + 8.0 * k) for i in range(3)), tuple(e * sd for e in ex), 0.4)
+        bk = tuple(c[i] + ex[i] * sd * 9.0 + up[i] * ((hz1 - hz0) / 2 + 3.2) - fw[i] * 2.0 for i in range(3))
+        lathe(P, "CK2_Screw", (bk, ex, fw, up), [(1.5, -1.2), (1.3, 0.6), (0.5, 3.2), (0.0, 3.6)], seg=6, keep=True)
+        pl = tuple(c[i] + ex[i] * sd * 15.05 - fw[i] * 2.0 + up[i] * 2.0 for i in range(3))
+        box(P, "CK2_Kneeboard", pl, (0.12, 9.0, 6.0), ex, up, fw)
+        box(P, "CK2_White", tuple(pl[i] + ex[i] * sd * 0.08 + up[i] * 2.4 for i in range(3)), (0.06, 1.0, 4.6), ex, up, fw)
+        box(P, "CK2_White", tuple(pl[i] + ex[i] * sd * 0.08 + up[i] * 0.6 for i in range(3)), (0.06, 0.5, 4.0), ex, up, fw)
+        box(P, "CK2_White", tuple(pl[i] + ex[i] * sd * 0.08 - up[i] * 0.8 for i in range(3)), (0.06, 0.5, 3.2), ex, up, fw)
+    box(P, "CK2_Screw", tuple(c[i] + fw[i] * 3.0 - up[i] * ((hz1 - hz0) / 2 + 2.2) for i in range(3)), (22.0, 3.0, 4.0), ex, up, fw)
+    build_eject_ring(P)
     # lap belt webbing over the cushion (grey), right-side emergency manual chute handle (yellow / black)
     for sd in (-1, 1):
         path = [(back(30.0, 2.0) + 2.0, sd * 21.5, 30.5), (430.0, sd * 15.0, 32.4), (446.0, sd * 7.0, 33.2), (452.0, sd * 2.0, 33.0)]
         tube(P, "CK2_Strap", path, 0.9, seg=6, rscale=[1.0, 1.0, 1.0, 1.0])
-    box(P, "CK2_Metal", (452.5, 0.0, 33.2), (3.6, 4.4, 0.8))
+    box(P, "CK2_Screw", (452.5, 0.0, 33.2), (3.6, 4.4, 0.8))
     # shoulder harness straps draped over the seat edges (pilot body is a separate asset: straps kept outboard)
     for sd in (-1, 1):
         path = [(back(98.0, 3.0), sd * 12.5, 98.0), (back(80.0, 6.0), sd * 17.5, 80.0), (back(55.0, 8.0), sd * 21.0, 55.0), (432.0, sd * 22.2, 36.0),
@@ -669,18 +658,259 @@ def build_seat():
     tube(P, "CK2_Plate", [(446.0, 25.2, 36.0), (452.0, 25.2, 37.0), (452.0, 25.2, 31.0)], 0.7, seg=8, uv_len=4.0)
 
 
+# =====================================================================================================================
+# 11-18 realism round 1 (scratchpad cockpit_1118; critics: the sill / side walls were bare slabs, white pedal blocks,
+# light leaks behind the panel, no indexers, ejection handle unreadable)
+def screwhead(P, c, n, r=0.3, mat="CK2_Screw"):
+    ref = (1.0, 0.0, 0.0) if abs(n[0]) < 0.9 else (0.0, 0.0, 1.0)
+    ex = norm(cross(ref, n))
+    lathe(P, mat, (c, ex, cross(n, ex), n), [(r, -0.02), (r * 0.95, 0.06), (r * 0.6, 0.11), (0.0, 0.13)], seg=12, keep=True)
+
+
+def _sec_fn(sd, x0, x1, pts):
+    """section points (dy from the glass bottom edge, + = outboard; dz from it) swept along x"""
+    def fn(s, t):
+        x = x0 + (x1 - x0) * s
+        gy, gz = L.glass_bottom(max(392.0, x))
+        q = t * (len(pts) - 1)
+        i = min(int(q), len(pts) - 2)
+        f = q - i
+        k = sill_k(x)
+        dy, dz = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f
+        return (x, sd * (gy + dy * k), gz + (dz if dz < 0.9 else 0.9 + (dz - 0.9) * k))
+    return fn
+
+
+SILL_X0, SILL_X1 = 376.0, 532.0
+
+
+def sill_k(x):
+    """frame / sill section scale: full size beside the pilot, slimmer forward of x 468 (0.4 from x 505)"""
+    return 1.0 if x < 468.0 else max(0.4, 1.0 - 0.6 * (x - 468.0) / 37.0)
+
+
+def build_sill(P, sd):
+    """canopy sill (fixed, dark grey) + the canopy frame member lying on it (black), bolt rows, latch hooks, cover plate"""
+    sill = [(-3.6, -3.2), (-3.6, 0.3), (-3.1, 0.9), (-0.2, 0.9)]
+    frame = [(-0.9, 0.9), (-2.8, 1.25), (-2.8, 6.4), (-2.3, 7.3), (0.4, 7.5)]
+    for pts, mat in ((sill, "CK2_Sill"), (frame, "CK2_Frame")):
+        for j in range(len(pts) - 1):                       # one strip per facet (hard edges between the facets)
+            grid(P, mat, _sec_fn(sd, SILL_X0, SILL_X1, pts[j:j + 2]), 26, 1, flip=sd < 0)
+    x = SILL_X0 + 3.0
+    k = 0
+    while x < SILL_X1 - 1.0:
+        gy, gz = L.glass_bottom(max(392.0, x))
+        kk = sill_k(x)
+        screwhead(P, (x, sd * (gy - 2.82 * kk), gz + 0.9 + 4.3 * kk), (0.0, -sd, 0.0), 0.3)   # frame bolt row, 4 cm pitch
+        if k % 2 == 0:
+            screwhead(P, (x + 2.0, sd * (gy - 3.62 * kk), gz - 1.6), (0.0, -sd, 0.0), 0.26)      # sill row, 8 cm pitch
+        x += 4.0
+        k += 1
+    for x in ((402.0, 430.0, 458.0) if sd < 0 else (402.0, 430.0)):      # canopy latch: hook on the frame, receptacle on the sill
+        gy, gz = L.glass_bottom(x)                                         # (none forward: MFD sight line; none over the stick hand)
+        box(P, "CK2_Sill", (x, sd * (gy - 3.85), gz - 0.9), (4.6, 0.6, 2.0))
+        box(P, "CK2_Dark", (x, sd * (gy - 4.0), gz - 0.9), (2.8, 0.4, 0.7))
+        box(P, "CK2_Frame", (x, sd * (gy - 3.05), gz + 2.2), (2.2, 0.7, 2.0))
+        for dx in (-1.8, 1.8):
+            screwhead(P, (x + dx, sd * (gy - 4.16), gz - 0.9), (0.0, -sd, 0.0), 0.2)
+    for x, w in ((444.0, 16.0),):                           # lock mechanism cover plate on the frame
+        gy, gz = L.glass_bottom(x)
+        box(P, "CK2_Sill", (x, sd * (gy - 2.93), gz + 3.4), (w, 0.35, 1.8))
+        for dx in (-w / 2 + 0.8, w / 2 - 0.8):
+            screwhead(P, (x + dx, sd * (gy - 3.11), gz + 3.4), (0.0, -sd, 0.0), 0.2)
+
+
+def wall_pt(sd, x, t):
+    """the sloped side wall of build_consoles: t 0 = console outer edge, 1 = under the sill"""
+    z = L.CONSOLE_Z
+    gy, gz = L.glass_bottom(max(392.0, x))
+    zz = z + (gz - 2.0 - z) * t
+    y1 = min(L.wall_y(x, zz), gy - 0.5)
+    return (x, sd * (L.CONSOLE_OUT + (y1 - L.CONSOLE_OUT) * (t ** 0.7)), zz)
+
+
+def wall_frame(sd, x, t):
+    """(point, ex along the wall as the pilot reads it (left wall: forward, right wall: aft), ey up the wall, n inboard)"""
+    p = wall_pt(sd, x, t)
+    ey = norm(sub(wall_pt(sd, x, min(1.0, t + 0.03)), wall_pt(sd, x, max(0.0, t - 0.03))))
+    fw = norm(sub(wall_pt(sd, x + 1.0, t), wall_pt(sd, x - 1.0, t)))
+    ex = fw if sd < 0 else tuple(-c for c in fw)
+    n = norm(cross(ex, ey))
+    if n[1] * -sd < 0:
+        n = tuple(-c for c in n)
+    ex = norm(cross(ey, n))
+    if (ex[0] > 0) != (sd < 0):
+        ex = tuple(-c for c in ex)
+    return (p, ex, ey, n)
+
+
+def wall_at(sd, x, t, a=0.0, b=0.0, c=0.0):
+    p, ex, ey, n = wall_frame(sd, x, t)
+    return frame_pt(p, ex, ey, n, a, b, c)
+
+
+def wall_box(P, mat, sd, x, t, size, off=0.0):
+    p, ex, ey, n = wall_frame(sd, x, t)
+    c = frame_pt(p, ex, ey, n, 0.0, 0.0, off + size[2] / 2)
+    box(P, mat, c, size, ex, ey, n)
+    return c, ex, ey, n
+
+
+def wall_panel(P, sd, x, t, w, h, mat="CK2_Paint", th=0.35):
+    """raised access panel with corner screws"""
+    p, ex, ey, n = wall_frame(sd, x, t)
+    fr = (frame_pt(p, ex, ey, n, -w / 2, -h / 2, 0.0), ex, ey, n)
+    slab(P, mat, fr, 0, 0, w, h, -0.1, th, None, None, bevel=0.1)
+    for a in (0.7, w - 0.7):
+        for b in (0.7, h - 0.7):
+            screwhead(P, frame_pt(fr[0], ex, ey, n, a, b, th), n, 0.24)
+    return fr
+
+
+def build_wall_details(P, sd):
+    xs = [384.0 + 6.0 * i for i in range(17)]                # 384 .. 480 (not forward: MFD sight line)
+    # stringers (hat sections) along the wall and a cable loom with clamps under the sill
+    for t, r in ((0.30, 0.75), (0.74, 0.75)):
+        tube(P, "CK2_Wall", [wall_at(sd, x, t, 0.0, 0.0, 0.25) for x in xs], r, seg=1)
+    tube(P, "CK2_Rubber", [wall_at(sd, x, 0.90, 0.0, 0.0, 0.8) for x in xs], 0.7, seg=2)
+    tube(P, "CK2_Rubber", [wall_at(sd, x, 0.86, 0.0, 0.0, 0.5) for x in xs[2:15]], 0.38, seg=1)
+    for x in xs[1::3]:
+        p, ex, ey, n = wall_frame(sd, x, 0.885)
+        box(P, "CK2_Screw", frame_pt(p, ex, ey, n, 0.0, 0.0, 0.85), (1.0, 3.4, 1.9), ex, ey, n)
+    # access panels between the stringers (different sizes, not mirrored)
+    plan = ((398.0, 0.52, 15.0, 8.0), (421.0, 0.52, 11.0, 8.0), (474.0, 0.50, 11.0, 7.0)) if sd < 0 else \
+           ((394.0, 0.52, 11.0, 8.0), (410.0, 0.52, 14.0, 8.0), (474.0, 0.50, 9.0, 7.0))
+    for x, t, w, h in plan:
+        wall_panel(P, sd, x, t, w, h)
+    if sd < 0:
+        # canopy jettison T-handle (yellow / black) in a black recess box, flood light
+        c, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 452.0, 0.53, (9.0, 7.0, 1.2))
+        top = frame_pt(c, ex, ey, n, 0.0, 0.0, 0.6)
+        tube(P, "CK2_Screw", [top, frame_pt(top, ex, ey, n, 0.0, 0.0, 2.2)], 0.45, seg=2)
+        tube(P, "CK2_Plate", [frame_pt(top, ex, ey, n, -3.0, 0.0, 2.6), frame_pt(top, ex, ey, n, 0.0, 0.0, 2.6), frame_pt(top, ex, ey, n, 3.0, 0.0, 2.6)], 0.62, seg=2,
+             uv_len=3.0)
+        lc, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 436.0, 0.60, (3.4, 3.4, 1.0))
+        lathe(P, "CK2_Knob", (frame_pt(lc, ex, ey, n, 0.0, 0.0, 0.5), ex, ey, n), [(1.5, 0.0), (1.5, 1.6), (1.25, 2.2), (1.1, 2.2)], seg=4)
+        lathe(P, "CK2_LensW", (frame_pt(lc, ex, ey, n, 0.0, 0.0, 2.55), ex, ey, n), [(1.1, 0.0), (0.7, 0.25), (0.0, 0.32)], seg=4)
+    else:
+        # utility light on a bracket with a coiled cord, canopy handle (grey bracket, black grip)
+        lc, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 432.0, 0.56, (5.0, 3.6, 1.4))
+        a0 = frame_pt(lc, ex, ey, n, 0.0, 0.0, 0.7)
+        lathe(P, "CK2_Knob", (frame_pt(a0, ex, ey, n, -3.6, 0.0, 1.5), n, ey, ex), [(1.55, 0.0), (1.55, 5.2), (1.9, 6.0), (1.9, 7.2), (1.6, 7.2)], seg=4)
+        lathe(P, "CK2_LensW", (frame_pt(a0, ex, ey, n, 3.62, 0.0, 1.5), n, ey, ex), [(1.6, 0.0), (0.0, 0.05)], seg=4)
+        coil = []
+        for i in range(97):
+            q = i / 96.0
+            coil.append(frame_pt(a0, ex, ey, n, -4.2 - 9.0 * q, -1.2 - 2.2 * math.sin(math.pi * q) + 0.55 * math.sin(2 * math.pi * 12 * q),
+                                 1.3 + 0.55 * math.cos(2 * math.pi * 12 * q)))
+        tube(P, "CK2_Rubber", coil, 0.16, seg=1)
+        hc, ex, ey, n = wall_box(P, "CK2_Paint", sd, 446.0, 0.66, (3.0, 5.0, 2.2))
+        g0 = frame_pt(hc, ex, ey, n, 0.0, 0.0, 1.3)
+        tube(P, "CK2_Paint", [g0, frame_pt(g0, ex, ey, n, 0.0, 0.0, 2.2), frame_pt(g0, ex, ey, n, 1.6, 0.0, 3.0)], 0.6, seg=2)
+        tube(P, "CK2_Grip", [frame_pt(g0, ex, ey, n, 1.6, 0.0, 3.0), frame_pt(g0, ex, ey, n, 10.5, 0.0, 3.2)], 1.1, seg=3)
+
+
+def build_eject_ring(P):
+    """ACES II style centre pull handle: yellow / black loop standing between the thighs on a black bracket"""
+    x0, z0, w, h = 459.0, 31.0, 8.6, 9.5
+    path = [(x0, -w / 2, z0 - 1.0)]
+    for i in range(21):
+        t = math.pi * i / 20
+        path.append((x0 + 1.2 * math.sin(t), -w / 2 * math.cos(t), z0 + h * (0.35 + 0.65 * math.sin(t))))
+    path.append((x0, w / 2, z0 - 1.0))
+    tube(P, "CK2_Plate", path, 0.85, seg=2, uv_len=4.2)
+    box(P, "CK2_Bezel", (x0 - 0.5, 0.0, z0 - 0.6), (4.5, w + 3.4, 2.6))
+    box(P, "CK2_Screw", (x0 + 0.2, 0.0, z0 + 1.2), (2.2, 3.0, 1.4))
+
+
+def build_backstop():
+    """dark bulkhead behind the panel and inside the footwell: the gaps round the wings / MFD surround showed the bright
+    outside; also closes the footwell sides"""
+    P = part(SH)
+    for sd in (-1, 1):
+        # from the wing's outer edge straight outboard to the wall, v WING_V0 .. lip
+        def fill(s, t, sd=sd):
+            v = L.WING_V0 - 1.0 + (L.lip_z(L.LIP_HALF) + 1.5 - L.WING_V0) * t
+            p0 = L.wing_pt(sd, L.WING_W, v)
+            yw = L.wall_y(p0[0], p0[2]) + 1.0
+            return (p0[0] + 5.0 * s, sd * (abs(p0[1]) + (yw - abs(p0[1])) * s), p0[2])
+        grid(P, "CK2_Well", fill, 2, 3, flip=sd < 0)
+    def bs(s, t):
+        z = -10.0 + 69.0 * t
+        w = min(46.0, L.wall_y(526.0, max(z, 0.0)) - 1.0) if z > 40.0 else 46.0
+        return (526.0, -w + 2.0 * w * s, z)
+    grid(P, "CK2_Dark", bs, 2, 8)
+
+
+def build_hud_extras():
+    """AOA indexer (left) and NWS / AR indexer (right) on short posts beside the HUD, glare shield lip roll + fasteners"""
+    P = part(SH)
+    hb = L.HUD_BODY
+    w0 = hb["w"] / 2
+    for sd, cols in ((-1, ("CK2_LensR", "CK2_LensG", "CK2_LensA")), (1, ("CK2_LensG", "CK2_LensA"))):
+        c = (hb["x0"] + 1.6, sd * (w0 + 2.6), hb["z1"] + 3.4)
+        tube(P, "CK2_Bezel", [(c[0] + 0.5, c[1], hb["z0"] - 1.5), (c[0] + 0.5, c[1], c[2] - 2.0)], 0.35, seg=2)
+        box(P, "CK2_Bezel", c, (1.8, 1.9, 1.5 * len(cols) + 0.5))
+        for k, m in enumerate(cols):
+            box(P, m, (c[0] - 0.92, c[1], c[2] + 0.75 * (len(cols) - 1) - 1.5 * k), (0.1, 1.2, 0.95))
+
+    # rolled lip along the pilot-side edge of the glare shield and a fastener row behind it
+    def edge(s):
+        u = (-1.0 + 2.0 * s) * L.LIP_HALF
+        x = L.panel_x(L.LIP_ZC) - L.LIP_OVER
+        z = L.lip_z(u) + 0.4
+        return (x - (L.lip_z(0) - L.lip_z(u)) * 0.25, u, z)
+    n = 40
+    tube(P, "CK2_Rubber", [(edge(i / n)[0] - 0.2, edge(i / n)[1], edge(i / n)[2] - 0.75) for i in range(n + 1)], 1.15, seg=2)
+    for i in range(1, 12):
+        if i == 6:
+            continue
+        p = edge(i / 12.0)
+        screwhead(P, (p[0] + 3.2, p[1], p[2] + 0.02), (0.0, 0.0, 1.0), 0.3)
+
+
+# 11-18: hung pedals raised to the pilot's feet (v1 hinge (489.9, 13.5, -12) = the rig; Manny's feet ended 15 cm above the
+# plates): hinge so that the ball of the foot of Scripts/pilot/manny_pose.py (489.3, 13.9, 18.4) lies on the plate
+PEDAL = dict(hinge_x=486.3, hinge_z=2.5, y=13.9, lean=20.0, w=9.0, h=20.0)
+
+
+def build_pedals():
+    """rudder pedals (were the v1 light blocks): dark pressed-metal plates with tread ribs on hanger tubes; origin = hinge"""
+    out = {}
+    lean = math.radians(PEDAL["lean"])
+    up = (math.sin(lean), 0.0, math.cos(lean))
+    n = (-math.cos(lean), 0.0, math.sin(lean))             # toward the pilot
+    ex = (0.0, 1.0, 0.0)
+    for tag, sd in (("PedalL", -1), ("PedalR", 1)):
+        P = part("ck2_pedal_l" if sd < 0 else "ck2_pedal_r")
+        pv = (PEDAL["hinge_x"], sd * PEDAL["y"], PEDAL["hinge_z"])
+        w, h = PEDAL["w"], PEDAL["h"]
+        fr = (frame_pt(pv, ex, up, n, -w / 2, 1.0, 0.0), ex, up, n)
+        slab(P, "CK2_Pedal", fr, 0, 0, w, h, -0.7, 0.0, None, None, bevel=0.15)
+        for k in range(8):
+            box(P, "CK2_Rubber", frame_pt(fr[0], ex, up, n, w / 2, 2.2 + 2.1 * k, 0.12), (w - 1.6, 0.7, 0.24), ex, up, n)
+        for a in (0.25, w - 0.25):                           # side flanges, rolled top lip
+            box(P, "CK2_Pedal", frame_pt(fr[0], ex, up, n, a, h / 2, 0.35), (0.5, h, 1.6), ex, up, n)
+        tube(P, "CK2_Pedal", [frame_pt(fr[0], ex, up, n, 0.0, h, 0.3), frame_pt(fr[0], ex, up, n, w, h, 0.3)], 0.6, seg=2)
+        tube(P, "CK2_Screw", [frame_pt(pv, ex, up, n, -w / 2 - 0.8, 0.6, -0.4), frame_pt(pv, ex, up, n, w / 2 + 0.8, 0.6, -0.4)], 0.7, seg=2)
+        for a in (-w / 2 + 1.2, w / 2 - 1.2):                # hanger tubes up into the dark behind the panel
+            tube(P, "CK2_Pedal", [frame_pt(pv, ex, up, n, a, h * 0.55, -0.9), (pv[0] + 9.0, pv[1] + a, pv[2] + 26.0)], 0.7, seg=2)
+        out[tag] = pv
+    return out
+
+
 # ---- moving / live parts -------------------------------------------------------------------------------------------
 def build_stick():
     P = part("ck2_stick")
     s = L.STICK_SIDE["pivot"]
     z0 = s[2]
     # small fixed force-sensor base (round 4: the real stick is a short grip on a small base, short grey boot)
-    lathe(P, "CK2_Metal", ((s[0], s[1], z0 - 2.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(2.3, 0.0), (2.3, 1.0), (2.0, 1.3), (1.8, 1.3)], seg=24)
+    lathe(P, "CK2_Bezel", ((s[0], s[1], z0 - 2.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(2.3, 0.0), (2.3, 1.0), (2.0, 1.3), (1.8, 1.3)], seg=24)
     prof = [(1.8, z0 - 0.7)]
     for k in range(4):
         prof.append((1.75 - 0.06 * k + (0.18 if k % 2 else 0.0), z0 - 0.4 + 0.45 * k))
     prof += [(1.45, z0 + 1.5), (1.35, z0 + 1.7)]
-    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24, reg=L.RUBBER_SW, rep=(6.0, 2.0))
+    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24)
     z0 = z0 - 2.7                              # grip starts right above the short boot
     # grip: sections swept along a forward-leaning curve
     lean = math.radians(L.STICK_SIDE["lean"])
@@ -731,7 +961,7 @@ def build_throttle():
     tube(P, "CK2_Metal", [pv, (pv[0] + 0.5, pv[1] - 1.4, pv[2] + 6.0)], 0.9, seg=10)
     # grip: rounded body shaped to the left hand, top bending inboard, thumb shelf on the inboard face (photos / diagram)
     c = (pv[0] + 0.8, pv[1] - 1.6, pv[2] + 10.5)
-    blob(P, "CK2_Grip", c, (5.2, 2.9, 4.2), e=0.45, reg=L.RUBBER_SW)
+    blob(P, "CK2_Grip", c, (5.2, 2.9, 4.2), e=0.45)
     blob(P, "CK2_Grip", (c[0] + 0.6, c[1] + 1.4, c[2] + 3.6), (4.4, 2.4, 1.4), e=0.5)
     blob(P, "CK2_Grip", (c[0] - 3.4, c[1] - 0.2, c[2] - 3.4), (2.0, 2.9, 2.4), e=0.5)
     # switches: speed brake slider, antenna elevation knob, cursor, dogfight switch, red IFF button
@@ -1023,7 +1253,7 @@ def render_previews(objs):
         cam.rotation_euler = (tb - eb).to_track_quat("-Z", "Y").to_euler()
         cam.data.angle = math.radians(fov)
         cam.data.clip_start = 0.01
-        sc.render.filepath = os.path.join(r"C:\GyroSimTiles\assets\cockpit\preview", "bl_%s.png" % k)
+        sc.render.filepath = os.path.join(L.ASSET_DIR, "preview", "bl_%s.png" % k)
         bpy.ops.render.render(write_still=True)
     log("previews rendered")
 
@@ -1041,7 +1271,10 @@ def main():
     gpv = build_gearhandle()
     lights = build_lit()
     knee = build_kneeboard()
-    origins = {"ck2_stick": spv, "ck2_throttle": tpv, "ck2_gearhandle": gpv}
+    build_backstop()
+    build_hud_extras()
+    ppv = build_pedals()
+    origins = {"ck2_stick": spv, "ck2_throttle": tpv, "ck2_gearhandle": gpv, "ck2_pedal_l": ppv["PedalL"], "ck2_pedal_r": ppv["PedalR"]}
     obs, tris = {}, {}
     for n, P in PARTS.items():
         ob = to_blender(P, origins.get(n, (0.0, 0.0, 0.0)))
@@ -1057,7 +1290,8 @@ def main():
     for n, o in origins.items():            # previews / .blend: pivoted parts back in place
         obs[n].location = (o[0] / 100.0, -o[1] / 100.0, o[2] / 100.0)
     obs["ck2_glass"].hide_render = True
-    bpy.ops.wm.save_as_mainfile(filepath=r"C:\GyroSimTiles\assets\cockpit\blend\cockpit_v2.blend")
+    os.makedirs(os.path.join(L.ASSET_DIR, "blend"), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(L.ASSET_DIR, "blend", "cockpit_v2.blend"))
     # manifest (UE body cm)
     PN, PU = L.PANEL_N, L.PANEL_UP
     needles = {}
@@ -1078,7 +1312,7 @@ def main():
            "gear": plate_point("AUX_L", 14.0, 13.0, 1.0)[0], "wheels": plate_point("AUX_L", 19.5, 15.8, 1.0)[0], "lights": plate_point("AUX_L", 5.6, 7.4, 1.0)[0]}
     man = dict(made=time.strftime("%Y-%m-%d %H:%M:%S"), frame="UE body cm, X fwd, Y right, Z up; eye (430, 0, 100)", version="cockpit v2 (F-16 Block 50/52 style)",
                parts={n: dict(fbx=n + ".fbx", tris=tris[n], origin=list(origins.get(n, (0, 0, 0))), slots=PARTS[n].slots) for n in PARTS},
-               pivots=dict(StickPivot=list(spv), ThrottlePivot=list(tpv), GearHandle=list(gpv),
+               pivots=dict(StickPivot=list(spv), ThrottlePivot=list(tpv), GearHandle=list(gpv), PedalL=list(ppv["PedalL"]), PedalR=list(ppv["PedalR"]),
                            ADIBall=dict(center=L.panel_pt(0.0, 38.6, -0.6), x_axis=[-1.0, 0.0, 0.0], z_axis=[0.0, 0.0, 1.0])),
                needles=needles, screens=screens, lights=lights, gearlights="ck2_gearlights",
                callouts={k: dict(center=v, normal=(PN if k not in ("gear", "wheels", "lights") else (0.0, 0.0, 1.0))) for k, v in cal.items()}, hud_combiner=L.HUD, kneeboard=knee,

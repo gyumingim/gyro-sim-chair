@@ -39,7 +39,11 @@ THIGH_CLEAR = 1.2                                 # cm between the thigh top and
 PEDAL_HINGE_X, PEDAL_HINGE_Z, PEDAL_Y, PEDAL_LEAN = 489.9, -12.0, 13.5, 20.0
 STICK = L.STICK_SIDE                              # sidestick (cockpit_v2 default GYROSIM_CK2_STICK=side)
 THR = L.THR
-HEAD_BONES = ("head",)                            # triangles skinned mostly to these are dropped
+# triangles skinned mostly to these are dropped. 11-18: the neck too - its stump + flat cap sat 14 cm under the eye (a black
+# notch at the bottom of every look-down view, a fan of facets when looking back); the hole is now at the collar
+HEAD_BONES = ("head", "neck_01", "neck_02")
+NECK_CUT = 4.5                                    # cm below the neck_01 joint (reference pose): where the collar hole is cut
+CAP_DROP = 4.0                                    # cm: cap centre pushed down into the collar (reads as the suit's neck opening)
 
 
 # ---- small rotation helpers (3x3 matrices) ---------------------------------------------------------------------------
@@ -285,6 +289,8 @@ def classify(S, W, bone_names_mesh, Pref, T):
         bi, _ = max(W[v], key=lambda x: x[1])
         dom.append(bone_names_mesh[bi])
     head = np.array([d in HEAD_BONES for d in dom])
+    # the neck stump is skinned to head / spine_05 (no neck-dominant vertices): cut by reference height near the centre line
+    head |= (Pref[:, 2] > S.r("neck_01")[2] - NECK_CUT) & (np.abs(Pref[:, 1]) < 9.0 * SCALE)
     hand = np.array([d.startswith(("hand_", "index", "middle", "ring", "pinky", "thumb")) for d in dom])
     foot = np.array([d.startswith(("foot_", "ball_")) for d in dom]) | (Pref[:, 2] < 13.0 * SCALE)
     legs = np.array([d.startswith(("thigh", "calf")) for d in dom])
@@ -333,12 +339,12 @@ def cap_holes(X, T, keep, cls):
         if len(loop) >= 3:
             loops.append(loop)
     for loop in loops:
-        c = np.mean([X[v] for v in loop], axis=0)
+        c = np.mean([X[v] for v in loop], axis=0) - np.array([0.0, 0.0, CAP_DROP])
         ci = len(X)
         X.append(list(c))
         for i in range(len(loop)):
             T.append([loop[i], loop[(i + 1) % len(loop)], ci])
-            cls.append(0)
+            cls.append(3)                          # dark (boot black): the inside of the collar
             keep.append(True)
     return np.array(X), T, cls, np.array(keep), len(loops)
 

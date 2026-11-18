@@ -451,32 +451,38 @@ class ViewFx:
                     acts += [a for a in ac[0].get_attached_actors(True, True) if a not in acts]
                 self.sweep_smcs = [smc for a in acts for smc in a.get_components_by_class(unreal.StaticMeshComponent)]
                 self.sweep_world, self.sweep_list_t = world, now
-            n, names = 0, set()
+            n, names, dead = 0, set(), []
             for smc in (self.sweep_smcs if sweep else ()):
-                for i in range(smc.get_num_materials()):
-                    m = smc.get_material(i)
-                    if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
-                        continue
-                    key = (smc, i, m)                     # a new part or a re-set material is a new key: examined again
-                    if key in self.look_skip:
-                        continue
-                    name = m.get_name()
-                    vals = self._canopy_vals(name) if "Canopy" in name else COCKPIT_LOOK.get(name)
-                    if vals is None:
-                        self.look_skip.add(key)
-                        continue
-                    src = m
-                    if V4_ON and name == "M_CkCanopyV3" and not rt_available():   # inner shell -> transmission only
-                        src = unreal.load_asset(TRANS_MAT) or m
-                    mid = smc.create_dynamic_material_instance(i, src)
-                    if not mid:
-                        continue
-                    old = {k: (mid.get_scalar_parameter_value(k) if not isinstance(v, tuple) else mid.get_vector_parameter_value(k))
-                           for k, v in vals.items()}
-                    self.look_mids.append((mid, vals, old))
-                    self._apply(mid, vals if self.look_on else old)
-                    n += 1
-                    names.add(name)
+                try:                                      # 11-18 (audit): one dead component must not skip the rest of the tick
+                    for i in range(smc.get_num_materials()):
+                        m = smc.get_material(i)
+                        if m is None or isinstance(m, unreal.MaterialInstanceDynamic):
+                            continue
+                        key = (smc, i, m)                     # a new part or a re-set material is a new key: examined again
+                        if key in self.look_skip:
+                            continue
+                        name = m.get_name()
+                        vals = self._canopy_vals(name) if "Canopy" in name else COCKPIT_LOOK.get(name)
+                        if vals is None:
+                            self.look_skip.add(key)
+                            continue
+                        src = m
+                        if V4_ON and name == "M_CkCanopyV3" and not rt_available():   # inner shell -> transmission only
+                            src = unreal.load_asset(TRANS_MAT) or m
+                        mid = smc.create_dynamic_material_instance(i, src)
+                        if not mid:
+                            continue
+                        old = {k: (mid.get_scalar_parameter_value(k) if not isinstance(v, tuple) else mid.get_vector_parameter_value(k))
+                               for k, v in vals.items()}
+                        self.look_mids.append((mid, vals, old))
+                        self._apply(mid, vals if self.look_on else old)
+                        n += 1
+                        names.add(name)
+                except Exception as e:
+                    dead.append(smc)
+                    _log("canopy sweep: component dropped", repr(e))
+            if dead:
+                self.sweep_smcs = [c for c in self.sweep_smcs if not any(c is d for d in dead)]
             if n:
                 _log("look: %d material slots (canopy glints / cockpit paint), on=%s" % (n, self.look_on), sorted(names))
             self.rt_mode(world)

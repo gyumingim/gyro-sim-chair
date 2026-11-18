@@ -34,8 +34,8 @@ log = lambda *a: unreal.log("[ue_manny] " + " ".join(str(x) for x in a))
 # the look-down view (chest sRGB ~190 at exp_min 1.0) -> about 1/4
 NO_MASKS = dict(AOAmt=0.0, EdgeGain=0.0, Dirt=0.0, Wear=0.0, Cavity=0.0, NormalAmt=0.0)
 SLOTS = [
-    ("PM_Suit", dict(Tint=(0.022, 0.025, 0.017), Rough=0.8, RoughVar=0.1, Sheen=0.0, Polish=0.0)),      # olive-grey flight suit
-    ("PM_GSuit", dict(Tint=(0.016, 0.018, 0.012), Rough=0.82, RoughVar=0.1, Sheen=0.0, Polish=0.0)),    # darker G-suit trousers
+    ("PM_Suit", dict(Tint=(0.015, 0.0175, 0.0105), Rough=0.85, RoughVar=0.1, Sheen=0.0, Polish=0.0, NormalAmt=0.8, NormalTile=60.0)),      # olive-grey flight suit
+    ("PM_GSuit", dict(Tint=(0.011, 0.013, 0.008), Rough=0.85, RoughVar=0.1, Sheen=0.0, Polish=0.0, NormalAmt=0.8, NormalTile=60.0)),    # darker G-suit trousers
     ("PM_Glove", dict(Tint=(0.006, 0.006, 0.006), Rough=0.75, RoughVar=0.1, Sheen=0.0, Polish=0.0)),    # black matte gloves
     ("PM_Boot", dict(Tint=(0.006, 0.006, 0.006), Rough=0.6, RoughVar=0.1, Sheen=0.0, Polish=0.0)),      # black boots
     ("PM_Harness", dict(Tint=(0.03, 0.03, 0.028), Rough=0.7, RoughVar=0.1, Sheen=0.0, Polish=0.0)),     # (unused for now)
@@ -106,7 +106,7 @@ def materials():
             "MI_" + name, DEST, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
         MEL.set_material_instance_parent(mi, master)
         MEL.clear_all_material_instance_parameters(mi)
-        for k, v in list(prm.items()) + list(NO_MASKS.items()):
+        for k, v in list(NO_MASKS.items()) + list(prm.items()):      # slot values win (11-18: fabric normal on the suit)
             if isinstance(v, tuple):
                 MEL.set_material_instance_vector_parameter_value(mi, k, unreal.LinearColor(v[0], v[1], v[2], 1.0))
             else:

@@ -1,7 +1,7 @@
 """Cockpit v2 -> Unreal assets (run in a SECOND, off-screen editor commandlet; never the user's editor):
   UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<repo>/unreal/GyroSim/Scripts/cockpit_blender/ck2_ue_import.py
       -unattended -nosplash -nullrhi
-Imports C:/GyroSimTiles/assets/cockpit/{export,tex} (ck2_model.py / ck2_textures.py output) into /Game/ThirdParty/Cockpit2
+Imports <ck2_layout.ASSET_DIR>/{export,tex} (ck2_model.py / ck2_textures.py output) into ck2_layout.UE_DST (/Game/ThirdParty/Cockpit3)
 (gitignored like all generated texture content; rebuild any time from the scripts), builds the materials:
   M_Ck2Surface  master: atlas x Tint, baked masks on UV1 (R AO, G convex edge, B wide cavity), tiling grunge, edge wear to
                 primer, dust on up-facing cavities, panel-line / screw / engraving normal map, backlit legends (atlas alpha)
@@ -10,13 +10,17 @@ and one instance per Blender slot. FlightMap is NOT touched: Content/Python/cock
 """
 import json
 import os
+import sys
 import time
 
 import unreal
 
-SRC = r"C:\GyroSimTiles\assets\cockpit"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ck2_layout as L          # noqa: E402
+
+SRC = L.ASSET_DIR
 EXP, TEXD = os.path.join(SRC, "export"), os.path.join(SRC, "tex")
-DST = "/Game/ThirdParty/Cockpit2"
+DST = L.UE_DST
 EAL, MEL = unreal.EditorAssetLibrary, unreal.MaterialEditingLibrary
 AT = unreal.AssetToolsHelpers.get_asset_tools()
 
@@ -216,17 +220,17 @@ SLOTS = {
     "CK2_Plate": dict(Rough=0.52, EdgeWear=1, Dust=0.7, NormalAmt=1.0, Spec=0.45, EdgeLift=0.03, WearColor=(0.42, 0.43, 0.4), WearMetal=0.3),
     "CK2_Plate0": dict(Tint=DARK, Rough=0.55, NormalAmt=0.0, Spec=0.35),
     "CK2_PlateSide": dict(Tint=(0.05, 0.052, 0.054), Rough=0.6, NormalAmt=0.0, Spec=0.35),
-    "CK2_Paint": dict(Tint=(0.1, 0.105, 0.105), Rough=0.55, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.45, EdgeLift=0.05, WearColor=(0.42, 0.43, 0.4), WearMetal=0.3),
-    "CK2_Well": dict(Tint=(0.115, 0.118, 0.115), Rough=0.6, EdgeWear=0.7, Dust=1.1, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
-    "CK2_Wall": dict(Tint=(0.075, 0.078, 0.078), Rough=0.58, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
+    "CK2_Paint": dict(Tint=(0.095, 0.102, 0.108), Rough=0.55, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.45, EdgeLift=0.05, WearColor=(0.42, 0.43, 0.4), WearMetal=0.3),
+    "CK2_Well": dict(Tint=(0.05, 0.054, 0.058), Rough=0.6, EdgeWear=0.7, Dust=1.1, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
+    "CK2_Wall": dict(Tint=(0.07, 0.075, 0.08), Rough=0.58, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
     "CK2_Glare": dict(Tint=(0.022, 0.022, 0.024), Rough=0.95, RoughVar=0.22, EdgeWear=0.10, Dust=1, NormalAmt=0.0, Spec=0.2, GrungeTile=14),
     "CK2_Rubber": dict(Tint=(0.01, 0.01, 0.01), Rough=0.92, EdgeWear=0.00, NormalAmt=0.0, Spec=0.25),
     "CK2_HUDBody": dict(Tint=(0.03, 0.031, 0.033), Rough=0.6, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
-    "CK2_Frame": dict(Tint=(0.03, 0.031, 0.033), Rough=0.5, EdgeWear=0.9, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
-    "CK2_Metal": dict(Tint=(0.55, 0.55, 0.56), Rough=0.3, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
-    "CK2_Chrome": dict(Tint=(0.8, 0.8, 0.8), Rough=0.15, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
-    "CK2_Knob": dict(Tint=(0.008, 0.008, 0.009), Rough=0.32, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0, Spec=0.5),
+    "CK2_Frame": dict(Tint=(0.014, 0.015, 0.016), Rough=0.45, EdgeWear=0.7, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
+    "CK2_Metal": dict(Tint=(0.2, 0.2, 0.21), Rough=0.45, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
+    "CK2_Chrome": dict(Tint=(0.5, 0.5, 0.5), Rough=0.28, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
+    "CK2_Knob": dict(Tint=(0.008, 0.008, 0.009), Rough=0.42, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0, Spec=0.5),
     "CK2_White": dict(Tint=(0.8, 0.8, 0.78), Rough=0.5, NormalAmt=0.0, EdgeWear=0.00, Backlight=0.0),
     "CK2_Bezel": dict(Tint=(0.03, 0.031, 0.033), Rough=0.4, EdgeWear=0.6, NormalAmt=0.0, Spec=0.5, WearColor=(0.42, 0.43, 0.4)),
     "CK2_Red": dict(Tint=(0.42, 0.02, 0.015), Rough=0.4, EdgeWear=0.25, NormalAmt=0.0),
@@ -239,13 +243,23 @@ SLOTS = {
     "CK2_SeatPaint": dict(Tint=(0.075, 0.085, 0.065), Rough=0.78, EdgeWear=0.40, NormalAmt=0.0, Spec=0.35),
     "CK2_Fleece": dict(Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.00, Dust=0.2, NormalAmt=0.0, Spec=0.2),
     "CK2_Headrest": dict(Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
-    "CK2_Boot": dict(Tint=(0.17, 0.18, 0.18), Rough=0.7, EdgeWear=0.00, NormalAmt=1),
-    "CK2_Grip": dict(Tint=(0.012, 0.012, 0.013), Rough=0.62, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
+    "CK2_Boot": dict(Tint=(0.10, 0.105, 0.11), Rough=0.85, Spec=0.25, EdgeWear=0.00, NormalAmt=0.0),
+    "CK2_Grip": dict(Tint=(0.028, 0.028, 0.03), Rough=0.55, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
     "CK2_GearKnob": dict(Tint=(0.7, 0.7, 0.68), Rough=0.35, EdgeWear=0.00, NormalAmt=0.0),
     "CK2_Kneeboard": dict(Tint=(0.03, 0.03, 0.032), Rough=0.5, NormalAmt=0.0),
     "CK2_HUDEdge": dict(Tint=(0.32, 0.36, 0.16), Rough=0.25, Metal=0.7, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Hose": dict(Tint=(0.07, 0.08, 0.045), Rough=0.75, NormalAmt=0.0, EdgeWear=0.0, Dust=0.4),
-    "CK2_Strap": dict(Tint=(0.07, 0.08, 0.05), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
+    "CK2_Strap": dict(Tint=(0.03, 0.034, 0.024), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
+    # 11-18 round 1: canopy sill (dark grey, chipped to metal), dull dark fasteners, pedals, unlit indexer / lamp lenses, black backstop
+    "CK2_PanelFace": dict(Tint=(0.03, 0.031, 0.033), Rough=0.55, EdgeWear=0.5, Dust=0.6, NormalAmt=0.0, Spec=0.4, WearColor=(0.42, 0.43, 0.4)),
+    "CK2_Sill": dict(Tint=(0.035, 0.037, 0.04), Rough=0.55, EdgeWear=0.8, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
+    "CK2_Screw": dict(Tint=(0.04, 0.041, 0.044), Rough=0.6, Metal=0.0, Spec=0.4, NormalAmt=0.0, EdgeWear=0.0),
+    "CK2_Dark": dict(Tint=(0.008, 0.008, 0.009), Rough=0.9, Spec=0.1, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
+    "CK2_Pedal": dict(Tint=(0.014, 0.0145, 0.015), Rough=0.6, Metal=0.0, EdgeWear=0.4, WearMetal=0, WearColor=(0.12, 0.12, 0.12), NormalAmt=0.0, Dust=0.8),
+    "CK2_LensR": dict(Tint=(0.03, 0.004, 0.004), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
+    "CK2_LensG": dict(Tint=(0.004, 0.022, 0.007), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
+    "CK2_LensA": dict(Tint=(0.03, 0.016, 0.003), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
+    "CK2_LensW": dict(Tint=(0.35, 0.35, 0.3), Rough=0.15, Spec=0.6, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
 }
 GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.03, FresnelOp=0.55, Rough=0.04), "CK2_HUDGlass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.018, FresnelOp=0.3, Rough=0.03, EdgeTint=(0.0, 0.0, 0.0))}
 # 11-13 HUD combiner: was Tint (0.10, 0.14, 0.05) / Opacity 0.16 / FresnelOp 0.6 / EdgeTint (0.05, 0.07, 0.015) -> the lit

@@ -21,6 +21,10 @@ sys.path.insert(0, os.path.join(HERE, "..", "cockpit"))
 import layout as OLD          # noqa: E402  (exterior fit tables, rig positions; read only)
 
 EYE = OLD.EYE
+# generated files (textures, FBX export, manifest, .blend): outside git. 11-18: "cockpit3" = the realism rounds of 11-18;
+# the earlier build stays in ...\assets\cockpit + /Game/ThirdParty/Cockpit2 (GYROSIM_COCKPIT_V=old shows it)
+ASSET_DIR = os.environ.get("GYROSIM_CK2_DIR", r"C:\GyroSimTiles\assets\cockpit3")
+UE_DST = "/Game/ThirdParty/Cockpit3"
 skin_half_width, glass_bottom, glass_top = OLD.skin_half_width, OLD.glass_bottom, OLD.glass_top
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -407,6 +411,7 @@ def swatch_uv(sw=SWATCH):
 
 
 # colours (sRGB 0..255) sampled from the reference photos (003 / 005 / 010, hangar light, approximate)
-COL = dict(panel=(84, 88, 90),       # dark gull grey (photo 003 hangar ~#4A4D4A, FS 36231 ~ (96, 96, 94)); review: v2 was near-black
-            panel_light=(64, 67, 69), legend=(232, 232, 226), structure=(78, 82, 84), glare=(22, 22, 23),
-           well=(70, 73, 75), dial=(16, 16, 17))
+# 11-18: console panels black, front panel plates dark grey, structure cool gull grey (critic: photos 003 / 009 / 010)
+COL = dict(panel=(64, 67, 70), console=(42, 43, 45),       # dark gull grey (photo 003 hangar ~#4A4D4A, FS 36231 ~ (96, 96, 94)); review: v2 was near-black
+            panel_light=(64, 67, 69), legend=(218, 218, 212), structure=(78, 82, 84), glare=(22, 22, 23),
+           well=(78, 81, 84), dial=(16, 16, 17))

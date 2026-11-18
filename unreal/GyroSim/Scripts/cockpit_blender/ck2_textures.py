@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "Content", "Python"))
 import cockpit_gauges as G      # noqa: E402   (needle scales shared with the sim)
 
 ARGS = sys.argv[1:]
-OUT = ARGS[ARGS.index("--out") + 1] if "--out" in ARGS else r"C:\GyroSimTiles\assets\cockpit\tex"
+OUT = ARGS[ARGS.index("--out") + 1] if "--out" in ARGS else os.path.join(L.ASSET_DIR, "tex")
 os.makedirs(OUT, exist_ok=True)
 FD = r"C:\Windows\Fonts"
 _fc = {}
@@ -221,7 +221,7 @@ def lamp(c, a, b, w, h, colr, txt):
 
 def plate_base(c):
     p = c.p
-    col = {"well": L.COL["well"], "placard": (18, 18, 18), "icp": (34, 35, 36), "mfd": (32, 33, 34), "pod": (20, 20, 21)}.get(p["kind"], L.COL["panel"])
+    col = {"well": L.COL["well"], "placard": (18, 18, 18), "icp": (34, 35, 36), "mfd": (32, 33, 34), "pod": (20, 20, 21)}.get(p["kind"], L.COL["console"] if p["kind"] == "console" else L.COL["panel"])
     c.rect(0, 0, p["w"], p["h"], fill=col)
     # subtle mottling (paint), stronger on wells / structure
     x0, y0, w, h = p["px"]

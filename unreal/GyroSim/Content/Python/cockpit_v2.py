@@ -11,8 +11,9 @@ meshes and move them:
   MFD_L / MFD_R screen planes     -> the 4 in class MFD windows;  MFD_C (training display) -> kneeboard on the left thigh
   BeginnerLabel planes            -> next to the v2 instruments
   HUD clip (C_Wd / C_H1 params)   -> the narrower v2 combiner glass
-Assets: /Game/ThirdParty/Cockpit2 (Scripts/cockpit_blender/ck2_ue_import.py, gitignored), positions: the export
-manifest (C:/GyroSimTiles/assets/cockpit/export/manifest.json). Anything missing -> v1 stays. GYROSIM_COCKPIT_V2=0 = v1.
+Assets: /Game/ThirdParty/Cockpit3 (Scripts/cockpit_blender/ck2_ue_import.py, gitignored), positions: the export
+manifest (C:/GyroSimTiles/assets/cockpit3/export/manifest.json). GYROSIM_COCKPIT_V=old = the build before the 11-18
+realism rounds (/Game/ThirdParty/Cockpit2). Anything missing -> v1 stays. GYROSIM_COCKPIT_V2=0 = v1.
 set_mode(False / True) switches back and forth at runtime (A/B shots).
 """
 import json
@@ -22,8 +23,16 @@ import unreal
 
 ON = os.environ.get("GYROSIM_COCKPIT_V2", "1") != "0"
 STICK = os.environ.get("GYROSIM_CK2_STICK", "side")
-MAN_PATH = os.environ.get("GYROSIM_CK2_MANIFEST", r"C:\GyroSimTiles\assets\cockpit\export\manifest.json")
-MESH = "/Game/ThirdParty/Cockpit2/Meshes/"
+# 11-18 realism rounds: the new build lives in /Game/ThirdParty/Cockpit3 (+ its own export manifest); the build before
+# it stays in Cockpit2. GYROSIM_COCKPIT_V=old shows the old one; a missing new build falls back to it as well.
+VARIANTS = {"new": ("/Game/ThirdParty/Cockpit3/Meshes/", "C:/GyroSimTiles/assets/cockpit3/export/manifest.json"),
+            "old": ("/Game/ThirdParty/Cockpit2/Meshes/", "C:/GyroSimTiles/assets/cockpit/export/manifest.json")}
+VARIANT = "old" if os.environ.get("GYROSIM_COCKPIT_V", "").strip().lower() == "old" else "new"
+MESH, MAN_PATH = VARIANTS[VARIANT]
+if VARIANT == "new" and not (os.path.exists(MAN_PATH) and unreal.EditorAssetLibrary.does_asset_exist(MESH + "ck2_shell")):
+    VARIANT = "old"
+    MESH, MAN_PATH = VARIANTS[VARIANT]
+MAN_PATH = os.environ.get("GYROSIM_CK2_MANIFEST", MAN_PATH)
 V1_SIZE = 7.2                     # v1 dial bezel the needles were made for
 HUD_V1 = dict(C_Wd=27.8, C_H1=31.03357749110842)
 # the real F-16 sidestick is force-sensing and barely moves: the v2 stick mesh follows the sim's StickPivot rotation
@@ -141,11 +150,12 @@ def _do(world, man, shell, glass):
             if os.environ.get("GYROSIM_CK2_GLASS", "1") == "0":       # debug: no instrument / HUD glass
                 a.static_mesh_component.set_visibility(False, False)
     PV = man["pivots"]
-    for tag, part in (("StickPivot", "ck2_stick"), ("ThrottlePivot", "ck2_throttle"), ("GearHandle", "ck2_gearhandle")):
+    for tag, part in (("StickPivot", "ck2_stick"), ("ThrottlePivot", "ck2_throttle"), ("GearHandle", "ck2_gearhandle"),
+                      ("PedalL", "ck2_pedal_l"), ("PedalR", "ck2_pedal_r")):
         if tag == "StickPivot" and STICK == "center":
             continue
         piv = _tag(world, tag)
-        m = _mesh(part)
+        m = _mesh(part) if tag in PV else None          # pedals: only builds that have them (11-18)
         if not piv or not m:
             continue
         piv = piv[0]
@@ -269,6 +279,20 @@ def set_mode(on):
         if mid and hc:
             mid.set_scalar_parameter_value("C_Wd", float(hc["w"]))
             mid.set_scalar_parameter_value("C_H1", float(hc["h1"]))
+
+
+def use(variant):
+    """switch between the "new" and "old" cockpit build in a running Play world (A/B shots). Returns the variant in use."""
+    global MESH, MAN_PATH, VARIANT
+    if variant not in VARIANTS or _st["world"] is None:
+        return VARIANT
+    set_mode(False)
+    VARIANT = variant
+    MESH, MAN_PATH = VARIANTS[variant]
+    _st["man"] = json.load(open(MAN_PATH, encoding="utf-8"))
+    _st["saved"] = []
+    set_mode(True)
+    return VARIANT
 
 
 def stick_follow():
