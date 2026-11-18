@@ -427,7 +427,8 @@ class SimClient:
         self.inject = None                 # tests: dict(dx, dy, wheel) as if from the mouse, consumed once
         self.mouse_prev = None
         self.fov_set = None
-        self.last_log = 0.0
+        self.last_log = 0.0                # 5 s status line + fps window (tick)
+        self.err_t = 0.0                   # 11-18: error log throttle (was last_log: errors skewed the fps, some never throttled)
         self.frames = 0
         self.handle = None
         self.override = None          # dict of ctrl values to force (sent even without focus), None = keyboard
@@ -1188,8 +1189,7 @@ class SimClient:
                     wheel = (1.0 if pc.was_input_key_just_pressed(keys["MouseScrollUp"]) else 0.0) - \
                             (1.0 if pc.was_input_key_just_pressed(keys["MouseScrollDown"]) else 0.0)
         except Exception as e:
-            if time.perf_counter() - self.last_log > 2:
-                _log("mouse", repr(e))
+            self._err(time.perf_counter(), "mouse", repr(e))
         cur = kb.cursor() if (kb.down("LBUTTON") or kb.down("RBUTTON")) else None
         if cur and self.mouse_prev:
             wx, wy = cur[0] - self.mouse_prev[0], cur[1] - self.mouse_prev[1]
@@ -1433,6 +1433,12 @@ class SimClient:
             if self.view_cam:                                       # in VR the HMD owns the camera
                 self.view_cam.set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=0.0, yaw=0.0), False, True)
 
+    def _err(self, now, *a):
+        """error log, at most one line per 2 s (all error sites share it)."""
+        if now - self.err_t > 2.0:
+            self.err_t = now
+            _log(*a)
+
     def _pacing_restore(self):
         """Play ended: put t.MaxFPS / r.VSync / r.VSyncEditor back to the editor's values from before the first Play (the
         monitor preset left the editor capped at 60 fps with vsync). The quality cvars of the preset stay as before."""
@@ -1646,8 +1652,7 @@ class SimClient:
                 self.fog.set_actor_location(unreal.Vector(x, y, z), False, True)
                 self.fog_z = z
         except Exception as e:
-            if now - self.last_log > 2:
-                _log("fog follow", repr(e))
+            self._err(now, "fog follow", repr(e))
 
     def _trace(self, now):
         """Height of the wheels above whatever is under the aircraft (Cesium terrain tiles have collision), 10 Hz.
@@ -1676,8 +1681,7 @@ class SimClient:
                     self._cesium_fallback("no terrain tiles 20 s after Play (token rejected / offline?)")
         except Exception as e:
             self.radar_m = s.get("agl_m")
-            if now - self.last_log > 2:
-                _log("trace", repr(e))
+            self._err(now, "trace", repr(e))
         # DEM ground (server terrain="dem"): the server sees the same terrain and owns the crash (red screen) - no pause here
         if (not self.crashed and self.radar_m is not None and self.radar_m < -1.0 and not s.get("wow") and s.get("agl_m", 0) > 15
                 and not s.get("paused") and s.get("terrain") != "dem"):
@@ -1759,9 +1763,7 @@ class SimClient:
                     self.hud_n = max(0, self.hud_n) + 1
                     self.hud_ms += ((time.perf_counter() - t0) * 1000 - self.hud_ms) * 0.05
             except Exception as e:
-                if now - self.last_log > 2:
-                    self.last_log = now
-                    _log("hud draw", repr(e))
+                self._err(now, "hud draw", repr(e))
         # one display per call, in turn (spreads the cost); 11-15: never on the frame the HUD drew (HUD / MFD alternate frames)
         if P and fresh and now - self.mfd_t >= (0.9 if not hud_now else 1.8) / DISP_HZ:     # (below 30 fps: both)
             self.mfd_t = now
@@ -1782,9 +1784,7 @@ class SimClient:
                                                 map=mp))
                     self.disp_ms += ((time.perf_counter() - t0) * 1000 - self.disp_ms) * 0.05
             except Exception as e:
-                if now - self.last_log > 2:
-                    self.last_log = now
-                    _log("display draw", repr(e))
+                self._err(now, "display draw", repr(e))
         if now - self.txt_t < 0.9 / 15:
             return
         self.txt_t = now
@@ -2065,9 +2065,7 @@ class SimClient:
                 RL.end_draw_canvas_to_render_target(self.world, ctx)
             mm["pos"] = (round(u, 4), round(v, 4), round(s.get("psi", 0.0), 1))
         except Exception as e:
-            if now - self.last_log > 2:
-                self.last_log = now
-                _log("minimap draw", repr(e))
+            self._err(now, "minimap draw", repr(e))
 
     # ---- Busan start picker (sim/start_spots.py) -------------------------------------------------------------------
     def _spot_keys(self, kb):
@@ -2235,9 +2233,7 @@ class SimClient:
                     self.view, self.hmd, fps))
         except Exception as e:
             now = time.perf_counter()
-            if now - self.last_log > 2.0:
-                self.last_log = now
-                _log("tick error:", repr(e))
+            self._err(now, "tick error:", repr(e))
 
     def status(self):
         s = self.s or {}
