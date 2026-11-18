@@ -490,6 +490,7 @@ class SimClient:
         self.view_cam = self._find("SimView") or self.camera   # CameraActor = view target (HMD / head look rotate it)
         self.gear_parts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Gear"))
         self.pivots = {}
+        self.applied = {}                              # _controls: last values set on the throttle / pedals / gear handle
         for tag in ("StickPivot", "ThrottlePivot", "PedalL", "PedalR", "GearHandle"):
             a = self._find(tag)
             if a:
@@ -1501,6 +1502,14 @@ class SimClient:
             if changed or self.frames < 3:
                 self.view_cam.set_actor_relative_rotation(unreal.Rotator(roll=fr, pitch=self.look[0] + fp, yaw=self.look[1] + fy), False, True)
 
+    def _moved(self, tag, v, eps=1e-4):
+        """True (and remembers v) when any value differs from the last applied one by more than eps."""
+        last = self.applied.get(tag)
+        if last is not None and all(abs(a - b) <= eps for a, b in zip(v, last)):
+            return False
+        self.applied[tag] = v
+        return True
+
     def _controls(self, dt):
         s = self.s
         src = s if "ail" in s else self.ctrl
@@ -1513,17 +1522,18 @@ class SimClient:
         if "StickPivot" in P:
             P["StickPivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=STICK_ROLL * d["ail"], pitch=-STICK_PITCH * d["elev"], yaw=0.0), False, True)
             cockpit_v2.stick_follow()                  # v2 sidestick: a few degrees only (the real one barely moves)
-        if "ThrottlePivot" in P:
+        # 11-18: throttle / pedals / gear handle set only when the value moved (> 1e-4; they sit still most of the time)
+        if "ThrottlePivot" in P and self._moved("ThrottlePivot", (d["thr"],)):
             P["ThrottlePivot"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=-THR_SWING * (2.0 * d["thr"] - 1.0), yaw=0.0), False, True)
         for tag, sign, bk in (("PedalL", -1.0, "brk_l"), ("PedalR", 1.0, "brk_r")):
-            if tag in P:
+            if tag in P and self._moved(tag, (d["rud"], d[bk])):
                 a, base = P[tag]
                 a.root_component.set_relative_location_and_rotation(base + unreal.Vector(PEDAL_CM * sign * d["rud"], 0, 0),
                                                                     unreal.Rotator(roll=0.0, pitch=-TOE_DEG * d[bk], yaw=0.0), False, True)
         gv = self.gauge_vals
         cmd = float(s.get("gear_cmd", self.ctrl.get("gear", 1.0)) or 0.0)
         gv["gh"] = gv.get("gh", cmd) + (cmd - gv.get("gh", cmd)) * min(1.0, 8.0 * dt)
-        if "GearHandle" in P:
+        if "GearHandle" in P and self._moved("GearHandle", (gv["gh"],)):
             P["GearHandle"][0].set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=GEAR_HANDLE_DEG * (2.0 * gv["gh"] - 1.0), yaw=0.0), False, True)
         g = s.get("gear", 1.0) > 0.05
         if g != self.gear_shown:
