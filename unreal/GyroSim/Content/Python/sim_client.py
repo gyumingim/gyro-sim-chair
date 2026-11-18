@@ -1932,6 +1932,7 @@ class SimClient:
         # 11-15 bug fix: the client outlives a Play; a start picker left 'shown' by the last Play kept the new Play's
         # (hidden) plate from ever showing -> picker invisible, only the preview jumps visible. Reset per world.
         self.spot_shown, self.spot_ver, self.spot_tex = False, None, None
+        self.spot_hide = False                           # 11-18: a TAB-hidden picker at the last Play's end stayed hidden
         try:
             a = self._find("Minimap")
             if a is None:
