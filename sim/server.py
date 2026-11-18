@@ -220,12 +220,16 @@ def snapshot(dt_sim):
         if state["errors"] < 20:
             print("sim: training error", repr(e), flush=True)
         s["tut"] = dict(on=False, phase="error", error=repr(e))
-    for payload, addr in ((dict(roll=round(s["chair_roll"], 2), pitch=round(s["chair_pitch"], 2)), CHAIR_UDP), (s, UNREAL_UDP)):
+    # 11-18: the state is serialised once (UDP + every browser client), as UTF-8 instead of escapes (Korean lesson text
+    # was 6 bytes a character; the client json.loads the bytes either way)
+    txt = json.dumps(s, ensure_ascii=False)
+    for data, addr in ((json.dumps(dict(roll=round(s["chair_roll"], 2), pitch=round(s["chair_pitch"], 2))).encode(), CHAIR_UDP),
+                       (txt.encode(), UNREAL_UDP)):
         try:
-            udp.sendto(json.dumps(payload).encode(), addr)
+            udp.sendto(data, addr)
         except OSError:
             pass
-    state["snap"] = s
+    state["snap"], state["snap_json"] = s, txt
     return s
 
 
@@ -425,8 +429,8 @@ async def handler(ws):
     task = asyncio.create_task(rx())
     try:
         while True:
-            if state["snap"] is not None:
-                await ws.send(json.dumps(state["snap"]))
+            if state.get("snap_json") is not None:
+                await ws.send(state["snap_json"])
             await asyncio.sleep(1 / 60)
     except Exception:
         pass
