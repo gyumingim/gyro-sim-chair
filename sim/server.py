@@ -222,13 +222,20 @@ def snapshot(dt_sim):
         s["tut"] = dict(on=False, phase="error", error=repr(e))
     # 11-18: the state is serialised once (UDP + every browser client), as UTF-8 instead of escapes (Korean lesson text
     # was 6 bytes a character; the client json.loads the bytes either way)
+    try:
+        udp.sendto(json.dumps(dict(roll=round(s["chair_roll"], 2), pitch=round(s["chair_pitch"], 2))).encode(), CHAIR_UDP)
+    except OSError:
+        pass
     txt = json.dumps(s, ensure_ascii=False)
-    for data, addr in ((json.dumps(dict(roll=round(s["chair_roll"], 2), pitch=round(s["chair_pitch"], 2))).encode(), CHAIR_UDP),
-                       (txt.encode(), UNREAL_UDP)):
-        try:
-            udp.sendto(data, addr)
-        except OSError:
-            pass
+    try:
+        data = txt.encode()
+    except UnicodeEncodeError:                               # a lone surrogate (odd joystick name / path): old escaped form
+        txt = json.dumps(s)
+        data = txt.encode()
+    try:
+        udp.sendto(data, UNREAL_UDP)
+    except OSError:
+        pass
     state["snap"], state["snap_json"] = s, txt
     return s
 
