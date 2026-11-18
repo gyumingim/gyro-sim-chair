@@ -73,7 +73,10 @@ class MfdMap:
         except Exception as e:
             log("name atlas missing", repr(e))
         n = 2 ** Z                        # place positions in tile units (constant): no merc per place per redraw
-        self.places_t = [(name, merc(plat, plon)[0] * n, merc(plat, plon)[1] * n) for name, plat, plon in self.places]
+        self.places_t = []
+        for name, plat, plon in self.places:
+            px, py = merc(plat, plon)
+            self.places_t.append((name, px * n, py * n))
         log("ready" if self.ok else "off (no M_MfdMap or no z%d tile cache)" % Z, TILES)
 
     def _tile(self, x, y):
