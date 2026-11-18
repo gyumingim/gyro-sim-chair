@@ -712,7 +712,8 @@ class Trainer:
     # =================================================================================================================
     def update(self, s, dt):
         self.s = s
-        self.clock += dt if dt > 0 else 1 / 60.0 * 0.0
+        if dt > 0:
+            self.clock += dt
         mode = self.mode_force or ("rig" if (s.get("joystick") or s.get("hmd")) else "kbd")
         if mode != self.mode:
             self.mode = mode
@@ -882,6 +883,8 @@ class Trainer:
 
     def _render(self, fn, d, ver):
         with self._render_lock:
+            if ver < self.ver:                      # 11-18: a newer panel is queued: skip this stale one (newest always draws)
+                return
             try:
                 p, l = fn(d, ver)
             except Exception as e:                  # never let a drawing problem stop the lesson

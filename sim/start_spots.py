@@ -358,6 +358,8 @@ class Picker:
 
     def _render(self, ver):
         with self._lock:
+            if ver < self.ver:                 # 11-18: a newer render is queued (key held down): skip this stale one
+                return
             try:
                 fn = os.path.join(self.out_dir, "spot_%d.png" % (ver % 4))
                 self.render().save(fn, compress_level=1)
