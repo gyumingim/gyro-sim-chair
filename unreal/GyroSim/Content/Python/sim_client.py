@@ -303,7 +303,13 @@ PRESETS = {
 # 11-15 (stutter fix): frame pacing on the monitor. It ran uncapped without vsync (~94 fps on a 60 Hz screen -> uneven frame
 # times on screen = judder). Monitor: cap + vsync. GYROSIM_MAXFPS=0 = uncapped and no vsync (old behaviour), other value = that
 # cap; GYROSIM_VSYNC=0 keeps the cap but no vsync. Not in PRESETS["vr"]: VR clears our cap (the HMD runtime paces itself).
-MAXFPS = float(os.environ.get("GYROSIM_MAXFPS", "60") or 0)
+# 11-18: a bad value (GYROSIM_MAXFPS=abc) no longer stops the client loading -> 60. The 60 is assumed (not read from the display).
+try:
+    MAXFPS = max(0.0, float(os.environ.get("GYROSIM_MAXFPS", "60") or 0))
+except ValueError:
+    MAXFPS = 60.0
+if not math.isfinite(MAXFPS):
+    MAXFPS = 0.0
 VSYNC = MAXFPS > 0 and os.environ.get("GYROSIM_VSYNC", "1") != "0"
 PACING = {"monitor": {"t.MaxFPS": MAXFPS, "r.VSync": int(VSYNC), "r.VSyncEditor": int(VSYNC)},
           "vr": {"t.MaxFPS": 0, "r.VSync": 0, "r.VSyncEditor": 0}}
@@ -1414,10 +1420,32 @@ class SimClient:
                     recenter()
                 except Exception as e:
                     _log("tracking origin", e)
+            if getattr(self, "pacing_saved", None) is None:      # 11-18: editor values before the first Play, put back at Play end
+                try:
+                    SL = unreal.SystemLibrary
+                    self.pacing_saved = {"t.MaxFPS": SL.get_console_variable_float_value("t.MaxFPS"),
+                                         "r.VSync": SL.get_console_variable_int_value("r.VSync"),
+                                         "r.VSyncEditor": SL.get_console_variable_int_value("r.VSyncEditor")}
+                except Exception as e:
+                    _log("pacing save", repr(e))
             apply_preset(want, self.world)
             self.preset = want
             if self.view_cam:                                       # in VR the HMD owns the camera
                 self.view_cam.set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=0.0, yaw=0.0), False, True)
+
+    def _pacing_restore(self):
+        """Play ended: put t.MaxFPS / r.VSync / r.VSyncEditor back to the editor's values from before the first Play (the
+        monitor preset left the editor capped at 60 fps with vsync). The quality cvars of the preset stay as before."""
+        saved, self.pacing_saved = getattr(self, "pacing_saved", None), None
+        if not saved:
+            return
+        try:
+            ew = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+            for k, v in saved.items():
+                unreal.SystemLibrary.execute_console_command(ew, "%s %s" % (k, v))
+            _log("pacing restored", saved)
+        except Exception as e:
+            _log("pacing restore", repr(e))
 
     def _pose(self, now):
         s = self.s
@@ -2165,6 +2193,8 @@ class SimClient:
             self._recv()
             world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
             if world is None:
+                if self.world is not None:
+                    self._pacing_restore()
                 self.world = self.aircraft = self.camera = None
                 return
             if world != self.world or self.aircraft is None:
