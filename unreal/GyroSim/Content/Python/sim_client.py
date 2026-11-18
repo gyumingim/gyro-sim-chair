@@ -438,7 +438,7 @@ class SimClient:
         self.last_log = 0.0                # 5 s status line + fps window (tick)
         self.bind_retry_t = 0.0
         self.ues = None                    # UnrealEditorSubsystem (tick)
-        self.err_t = 0.0                   # 11-18: error log throttle (was last_log: errors skewed the fps, some never throttled)
+        self.err_t = {}                    # 11-18: error log throttle per site (was last_log: errors skewed the fps, some never throttled)
         self.frames = 0
         self.handle = None
         self.override = None          # dict of ctrl values to force (sent even without focus), None = keyboard
@@ -1441,9 +1441,9 @@ class SimClient:
                 self.view_cam.set_actor_relative_rotation(unreal.Rotator(roll=0.0, pitch=0.0, yaw=0.0), False, True)
 
     def _err(self, now, *a):
-        """error log, at most one line per 2 s (all error sites share it)."""
-        if now - self.err_t > 2.0:
-            self.err_t = now
+        """error log, at most one line per 2 s per site (a[0] = the site name)."""
+        if now - self.err_t.get(a[0], 0.0) > 2.0:
+            self.err_t[a[0]] = now
             _log(*a)
 
     def _pacing_restore(self):
@@ -1783,7 +1783,7 @@ class SimClient:
                 if tag == "MFD_C" and not (tut.get("phase") in ("practice", "solo") and tut.get("targets")):
                     # 11-18: outside practice / solo the training display is only the lesson picture -> redraw it when
                     # the picture (tut_ver) or the phase changed, not 15 times a second (same skip as the map page)
-                    ckey = (self.tut_ver, self.panel_tex is None, tut.get("phase"))
+                    ckey = (self.tut_ver, self.panel_tex, tut.get("phase"))
                     if ckey == self.mfdc_key:
                         tag = None
                 if tag in self.screens:
