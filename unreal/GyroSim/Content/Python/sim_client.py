@@ -2310,6 +2310,10 @@ def stop():
     c = getattr(builtins, "_gyrosim_client", None)
     if c is None:
         return
+    try:
+        c._pacing_restore()                          # stopped during Play: editor pacing back now (next start() saves again)
+    except Exception as e:
+        _log("pacing restore", repr(e))
     if c.handle is not None:
         unreal.unregister_slate_post_tick_callback(c.handle)
     c.sock.close()
