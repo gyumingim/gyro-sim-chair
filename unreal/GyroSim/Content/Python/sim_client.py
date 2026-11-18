@@ -138,6 +138,7 @@ VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0
           LBUTTON=0x01, RBUTTON=0x02, SHIFT=0x10, PRIOR=0x21, NEXT=0x22, HOME=0x24, PLUS=0xBB, MINUS=0xBD, ADD=0x6B, SUBTRACT=0x6D,
           K=0x4B, J=0x4A, TAB=0x09, MENU=0x12, F1=0x70, F2=0x71, F3=0x72, F9=0x78, F11=0x7A, RETURN=0x0D, SPACE=0x20, BACK=0x08, Z=0x5A, I=0x49, Y=0x59, L=0x4C,
           **{"K%d" % i: 0x30 + i for i in range(0, 10)})
+NUM_KEYS = tuple("K%d" % i for i in range(10))     # "K0" .. "K9"
 
 # keyboard "stick" feel: rate toward the held direction (per s), spring back to centre, slower start (ease-in)
 RAMP = dict(ail=1.8, elev=1.3, rud=1.6)
@@ -1034,8 +1035,8 @@ class SimClient:
 
         if tut.get("phase") == "crash":                     # red crash screen: sim frozen, only retry / menu
             op = None
-            if kb.pressed("RETURN") or kb.pressed("SPACE") or kb.pressed("R") or kb.pressed("N") or kb.pressed("M"):
-                op = "retry"
+            if any([kb.pressed(k) for k in ("RETURN", "SPACE", "R", "N", "M")]):    # 11-18: all read (no short-circuit):
+                op = "retry"                                 # an unread held key gave a false edge after the crash screen
             if kb.pressed("F1"):
                 op = "menu"
             if kb.pressed("LBUTTON"):
@@ -1106,7 +1107,7 @@ class SimClient:
             if tut.get("phase") in ("brief", "debrief", "crash"):
                 self._send({"cmd": "tut", "op": "next"})
         for i in range(0, 10):
-            if kb.pressed("K%d" % i):
+            if kb.pressed(NUM_KEYS[i]):
                 self._send({"cmd": "tut", "op": "start", "lesson": i})
         # VR
         if kb.pressed("F3"):
@@ -2081,7 +2082,7 @@ class SimClient:
             if kb.pressed(k):
                 send("alt", d=d)
         for i in range(1, 10):                               # 1 - 9: presets 1 - 9
-            if kb.pressed("K%d" % i):
+            if kb.pressed(NUM_KEYS[i]):
                 send("sel", i=i - 1)
         if kb.pressed("TAB"):
             self.spot_hide = not getattr(self, "spot_hide", False)
