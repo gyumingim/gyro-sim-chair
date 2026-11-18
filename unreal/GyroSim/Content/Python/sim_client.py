@@ -125,12 +125,10 @@ MINIMAP_HZ, MINIMAP_NEAR = 10.0, 0.25                   # redraw rate; shown up 
 # -> {"cmd": "spot", ...}. Tab hides the picture to look at the preview (the aircraft is already put at the selection).
 SPOT_ASPECT = 1.6
 SPOT_H, SPOT_W_MAX, SPOT_VR_CM = 0.80, 0.80, 110.0      # monitor: height / max width as fractions of the view (the width cap also keeps it inside a 16:9 view if the viewport size reads wrong); VR width cm
-RUNWAYS = ((36.7078737, 127.4874876, 36.7229393, 127.5117932), (36.7100557, 127.4868159, 36.7251153, 127.5111227))   # RKTU (airfield.py)
 DISP_HZ, DISP_ORDER = 30.0, ("MFD_C", "MFD_L", "MFD_C", "MFD_R")   # one display per call: training 15 Hz, flight / chair 7.5 Hz
 HUD_HZ = 30.0                      # HUD text / FPM / tapes redraw rate (Python canvas ~1 ms); the pitch ladder moves every frame (material)
 # 11-18: the rate checks use 0.9 x the period - at 60 / 90 Hz the period is exactly 2 / 3 frames, so frame jitter made the
 # redraw alternate between 2 and 3 frames (HUD 20-30 Hz, MFD falling back to 50-83 ms).
-MFD_HZ = 5.0
 KEY_PNG = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "..", "sim", "key_panel.png"))
 
 VK = dict(LEFT=0x25, UP=0x26, RIGHT=0x27, DOWN=0x28, A=0x41, D=0x44, W=0x57, S=0x53, B=0x42, G=0x47,
@@ -425,7 +423,6 @@ class SimClient:
         self.orbit_world_yaw = None
         self.view_pt = None                # flyby / tower: fixed camera point (+ VR fixed rotation)
         self.view_zoom = dict(flyby=1.0, tower=1.0)
-        self.inject = None                 # tests: dict(dx, dy, wheel) as if from the mouse, consumed once
         self.mouse_prev = None
         self.fov_set = None
         self.last_log = 0.0                # 5 s status line + fps window (tick)
@@ -442,7 +439,6 @@ class SimClient:
         self.hmd_check_t = 0.0
         self.disp = dict(ail=0.0, elev=0.0, rud=0.0, thr=0.0, brk_l=0.0, brk_r=0.0)
         self.txt_t = 0.0
-        self.txt_cache = {}
         self.tut_ver = -1
         self.gear_shown = None
         self.last_pose = None
@@ -479,7 +475,6 @@ class SimClient:
         self.aircraft = self._find("Aircraft")
         self.camera = self._find("SimCamera")          # rig: moved by us, carries the overlays
         self.view_cam = self._find("SimView") or self.camera   # CameraActor = view target (HMD / head look rotate it)
-        self.canopy = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Canopy"))
         self.gear_parts = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "Gear"))
         self.pivots = {}
         for tag in ("StickPivot", "ThrottlePivot", "PedalL", "PedalR", "GearHandle"):
@@ -504,7 +499,6 @@ class SimClient:
         self.beg_shown = None
         self.panel_tex = self.line_tex = None
         self.warnings, self.gmax, self.gmax_rid = [], 1.0, None
-        self.texts = {}
         self.panel = self._find("TutorPanel")
         self.key_panel = self._find("KeyPanel")
         self.painter = None
@@ -572,7 +566,6 @@ class SimClient:
                     _log("key panel image missing", KEY_PNG)
             except Exception as e:
                 _log("key panel", repr(e))
-        self.txt_cache.clear()
         self.tut_ver = -1
         self.gear_shown = None
         self.interp.reset()
@@ -602,8 +595,6 @@ class SimClient:
         if mode in ("terrain", "photoreal") and not token:
             mode = "grid"
         return token, mode       # 'vworld' works with or without a token (token = real terrain + OSM buildings)
-
-    read_token = read_ground_cfg
 
     def _ground(self, mode, token=None):
         """Switch the ground: grid mesh, or the Cesium tileset (photo / terrain / photoreal)."""
@@ -1709,20 +1700,6 @@ class SimClient:
         elif self.cesium_mode == "vworld" and self.vw_note:
             ex["note"] = self.vw_note
         return ex
-
-    def _mfd_extra(self):
-        s = self.s
-        lat, lon = s["lat"], s["lon"]
-        ml, mo = 110950.0, 111320.0 * math.cos(math.radians(lat))
-        rws = []
-        for rw in s.get("runways") or RUNWAYS:
-            rws.append(((rw[0] - lat) * ml, (rw[1] - lon) * mo, (rw[2] - lat) * ml, (rw[3] - lon) * mo))
-        n, e = rws[0][0], rws[0][1]
-        line = {"terrain": "MAP: CESIUM WORLD TERRAIN", "photoreal": "MAP: GOOGLE 3D TILES", "photo": "MAP: SATELLITE PHOTO (FLAT)",
-                "grid": "MAP: GRID (FLAT, 1 KM)", "fields": "MAP: FIELDS (FLAT, DRAWN)",
-                "vworld": "MAP: V-WORLD PHOTO " + ("+ DEM 30 M" + (" + BLDG" if getattr(self, "vw_bldg", False) else "") if getattr(self, "vw_local", False) else "+ TERRAIN" if getattr(self, "vw_terrain", False) else "(FLAT)"),
-                "none": "NO CESIUM PLUGIN", "error": "CESIUM ERROR - SEE LOG"}.get(self.cesium_mode, "")
-        return dict(runways=rws, rkt_dist_m=math.hypot(n, e), rkt_brg=math.degrees(math.atan2(e, n)), cesium_line=line)
 
     def _overlay(self, now):
         s = self.s
