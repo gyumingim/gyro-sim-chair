@@ -436,6 +436,7 @@ class SimClient:
         self.mouse_prev = None
         self.fov_set = None
         self.last_log = 0.0                # 5 s status line + fps window (tick)
+        self.bind_retry_t = 0.0
         self.ues = None                    # UnrealEditorSubsystem (tick)
         self.err_t = 0.0                   # 11-18: error log throttle (was last_log: errors skewed the fps, some never throttled)
         self.frames = 0
@@ -2200,10 +2201,13 @@ class SimClient:
                     self._pacing_restore()
                 self.world = self.aircraft = self.camera = None
                 return
-            if world != self.world or self.aircraft is None:
+            if world != self.world or (self.aircraft is None and now >= self.bind_retry_t):
                 self._bind_world(world)
-                if self.aircraft is None:
+                if self.aircraft is None:                   # 11-18: map without an 'Aircraft' actor: retry once a second,
+                    self.bind_retry_t = now + 1.0           # not a full bind (render targets, imports) every frame
                     return
+            elif self.aircraft is None:
+                return
             self._window_mode(now)
             self._check_hmd(now)
             self._startup(now, dt)
