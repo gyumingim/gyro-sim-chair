@@ -39,7 +39,7 @@ AO_TEX = PATH + "/T_GyroBldgAO"
 
 def _defaults():
     return {**atmos_look.GROUND, **getattr(atmos_look, "SEA_COAST_DEF", {}), **getattr(atmos_look, "GD_GROUND_DEF", {}),
-            **getattr(atmos_look, "PHOTO_DEF", {})}
+            **getattr(atmos_look, "PHOTO_DEF", {}), **getattr(atmos_look, "SEA_V3_DEF", {})}
 
 
 def _scalar_names():
@@ -283,7 +283,8 @@ def build():
     atmos_look.write_ground_params(mi, {**atmos_look.GROUND, **atmos_look.SEA_NEW, **atmos_look.SEA_ART,
                                         **(getattr(atmos_look, "SEA_COAST", {}) if ctex else {}),
                                         **(getattr(atmos_look, "GD_GROUND", {}) if (ctex and aotex) else {}),
-                                        **getattr(atmos_look, "PHOTO_V2", {})})
+                                        **getattr(atmos_look, "PHOTO_V2", {}),
+                                        **(getattr(atmos_look, "SEA_V3", {}) if ctex else {})})
     EAL.save_asset(MI, only_if_is_dirty=False)
     # the sea before the 11-10 pass (GYROSIM_SEA_LOOK=0): the 11-09 values, waves without the grazing fix
     if EAL.does_asset_exist(atmos_look.GROUND_MI_SEA0):

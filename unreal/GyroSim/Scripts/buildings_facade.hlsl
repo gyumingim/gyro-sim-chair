@@ -68,7 +68,30 @@ if (R > 0.9)
         // 11-14 (review scene_realism 3, scratchpad fixes_1114): green / teal roof photos read as moss over whole blocks;
         // green-to-teal hues (g above r, b at most ~1.25 g) keep 60 % of their chroma
         float gt = saturate((c.g - c.r) * 12.0) * saturate((c.g * 1.25 - c.b) * 12.0);
-        c = lerp(dot(c, float3(0.3, 0.59, 0.11)).xxx, c, lerp(1.0, 0.6, gt));
+        if (RoofV2 < 0.5)
+            c = lerp(dot(c, float3(0.3, 0.59, 0.11)).xxx, c, lerp(1.0, 0.6, gt));
+        // roof v2 (11-18, RoofV2 1; GYROSIM_ROOF_V2=0 -> 0 = before; critic round map_1118): the ~0.5 m photo of a small roof is a
+        // blurry mottle on a sharp box ("mould"). Real low-rise roofs are flat coats of paint / concrete: most of the photo's
+        // mid-frequency mottle is replaced by its own ~3 m mean (RoofKeep = share of the photo detail kept), painted green /
+        // blue roofs get their chroma back (flat paint, not moss), and crisp procedural marks (joints, patch repairs) give the
+        // surface the sharpness of the geometry. Render-time only: the tile keeps the plain photo cut.
+        if (RoofV2 > 0.5)
+        {
+            float3 flat = Texture2DSampleLevel(TexObj, TexObjSampler, UV, 2.5).rgb;
+            float3 cs = c0 + mag * 0.6 * (c0 - bl);
+            c = lerp(flat, cs, RoofKeep);
+            float fl = dot(flat, float3(0.3, 0.59, 0.11));
+            float paint = saturate((max(flat.g, flat.b) - flat.r) / max(fl, 0.02) * 4.0 - 0.2);      // green / blue waterproof paint
+            c = lerp(dot(c, float3(0.3, 0.59, 0.11)).xxx, c, lerp(1.0, RoofPaintSat, paint));
+            green = paint;
+            float sd0 = HSH(dot(floor(ap / 48.0), float2(1, 57)));                    // changes every ~25 m: per-roof-ish seed
+            float2 jq2 = ap * (0.07 + 0.03 * sd0) + sd0 * 7.0;                          // joints every ~6 m
+            float2 jf2 = max(abs(ddx(jq2)) + abs(ddy(jq2)), 1e-5);
+            float jn = max(PULSE(frac(jq2.x), 0.0, 0.03, jf2.x), PULSE(frac(jq2.y), 0.0, 0.03, jf2.y)) * dg;
+            c *= 1.0 - 0.18 * jn * (1.0 - 0.5 * paint);
+            float pr = step(0.86, HSH(dot(floor(ap * 0.17), float2(1, 57)) + 2.0)) * dg;
+            c *= 1.0 + 0.12 * pr;
+        }
         c *= 1.0 + dg * (0.16 * (n1 - 0.5) * (1.0 - 0.4 * green) + 0.10 * (n2 - 0.5)) + 0.06 * (n3 - 0.5);
         Rough = lerp(0.9, 0.55, green) + 0.08 * (n2 - 0.5);
         Spec = 0.4;

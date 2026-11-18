@@ -47,10 +47,18 @@ if (CoastOn > 0.5)
         float footC = max(max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01, 0.05);     // m per screen pixel
         float seaC = saturate(0.5 - sd / footC)                                     // crisp, 1 px anti-aliased edge
                    * (1.0 - smoothstep(2.0, 4.0, h));                               // islets OSM has no coastline for (the coast terrain keeps them)
-        float guard = lerp(1.0, mC * mB, (1.0 - smoothstep(0.7 * CoastGuardM, CoastGuardM, far)) * (1.0 - bin));   // full near shore
+        float mBq = lerp(mB, 1.0, SeaV3 * smoothstep(0.75, 0.95, cm.a));            // sea v3: off a quay (man-made shore) grey / brown photo
+                                                                                    // water is silt / fill, not a rock islet -> sea
+        float tanW = saturate(((C.r - C.b) / max(lum, 1e-3) - 0.12) * 8.0);          // bright AND tan = a silt plume, not a (white / grey) boat
+        float mCq = lerp(mC, max(mC, tanW), SeaV3 * smoothstep(0.75, 0.95, cm.a));
+        float guard = lerp(1.0, mCq * mBq, (1.0 - smoothstep(0.7 * CoastGuardM, CoastGuardM, far)) * (1.0 - bin));   // full near shore
                                                                                     // (moored boats / pontoons stay photo, no pale half-blend)
         float inland = saturate((sd - CoastInlandM) / 20.0) * mH * mC * mB;         // rivers / ponds well inside the OSM land
         m = saturate(WaterOn * max(seaC * guard, inland));
+        // sea v3: on beaches the photo's waterline lies up to ~20-30 m inside the OSM coastline; the dark blue-green photo
+        // water in between was drawn as 'land' (a dark strip between the sand and the sea) -> sea (sand is bright, stays)
+        m = max(m, WaterOn * SeaV3 * saturate(1.0 - abs(cm.a - 0.5) * 4.0) * (1.0 - smoothstep(0.10, 0.17, lum)) * smoothstep(0.0, 0.008, C.b - C.r)
+                   * step(0.0, sd) * (1.0 - smoothstep(22.0, 30.0, sd)) * (1.0 - smoothstep(2.0, 4.0, h)));
         photoW = (1.0 - smoothstep(SeaPhotoNear, SeaPhotoFar, far)) * (1.0 - bin);
         coastSd = sd;
         coastCls = cm.a;
@@ -239,6 +247,58 @@ if (CoastOn > 0.5)
 float detail = lerp(1.0, clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, 1.8), photoW);   // keep the photo's own variation (wakes, swell) near shore
 float3 desat = lerp(lum.xxx, C, ShallowSat);
 float3 body = lerp(DeepColor * detail, desat * ShallowGain, ShallowMix * photoW * saturate((lum - PhotoSeaLum) / max(PhotoSeaLum, 1e-4)));
+// ---- sea v3 (11-18, SeaV3 1; GYROSIM_SEA_V3=0 -> 0 = the sea before; critic round map_1118): (a) the near-shore photo mix
+// only for blue / turquoise photo water - tan / brown photo pixels (silt, mosaic fill at the North Port quays) made cream
+// blobs in the sea; (b) the swell is a sum of six sines of unrelated lengths / directions instead of the tiling texture
+// octave n3 (a regular brick lattice from 300 m up); (c) gust patches (~1 km noise) vary wave strength and glint roughness;
+// (d) shore foam from the coast distance field: surf lines rolling onto beaches, a broken white fringe on rock and quays,
+// paler turquoise shallows off beaches. Render-time only.
+float foamW = 0.0, gust = 0.5;
+float2 swl = float2(0.0, 0.0);
+if (SeaV3 > 0.5)
+{
+    float hueW = saturate((min(C.g, C.b) - C.r) / max(lum, 1e-3) * 3.0);
+    float pW3 = photoW * (1.0 - 0.85 * smoothstep(0.75, 0.95, coastCls));             // dredged water off a quay: no pale 'shallows' from photo silt
+    detail = lerp(1.0, clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, lerp(1.0, 1.8, hueW)), pW3);
+    body = lerp(DeepColor * detail, desat * ShallowGain, ShallowMix * pW3 * hueW * saturate((lum - PhotoSeaLum) / max(PhotoSeaLum, 1e-4)));
+    float2 pm = P.xy * 0.01;                                                          // m
+    float fs = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;                    // m per screen pixel
+    #define S3_H(a) frac(sin(dot((a), float2(127.1, 311.7))) * 43758.5453)
+    #define S3_N(q) lerp(lerp(S3_H(floor(q)), S3_H(floor(q) + float2(1, 0)), smoothstep(0.0, 1.0, frac(q).x)), lerp(S3_H(floor(q) + float2(0, 1)), S3_H(floor(q) + float2(1, 1)), smoothstep(0.0, 1.0, frac(q).x)), smoothstep(0.0, 1.0, frac(q).y))
+    // swell: slope of sum a sin(k d.x - w t), w = sqrt(g k) (deep water); each sine fades when a pixel is > 1/4 of its length
+    // (first try: 29-171 m at equal slope read as long oily corduroy bands -> shorter, wider spread, long ones weaker)
+    #define S3_W(dx, dy, L, w, ph, a) swl += (a) * float2(dx, dy) * cos(dot(float2(dx, dy), pm) * (6.2832 / (L)) - T * (w) + (ph)) * saturate(1.5 - fs / ((L) / 6.0));
+    S3_W(0.766, -0.643, 43.0, 1.20, 0.0, 1.0)
+    S3_W(0.966, -0.259, 61.0, 1.01, 1.7, 0.8)
+    S3_W(0.423, -0.906, 89.0, 0.83, 4.1, 0.6)
+    S3_W(0.839, -0.545, 131.0, 0.69, 2.9, 0.4)
+    S3_W(0.996, 0.087, 19.0, 1.80, 5.3, 1.0)
+    S3_W(0.574, -0.819, 29.0, 1.46, 0.8, 1.0)
+    S3_W(0.259, -0.966, 23.0, 1.64, 3.3, 0.8)
+    #undef S3_W
+    float2 gq = float2(pm.x * 0.83 + pm.y * 0.56, -pm.x * 0.56 + pm.y * 0.83) / SeaGustM;
+    gust = 0.65 * S3_N(gq) + 0.35 * S3_N(gq * 2.7 + float2(13.1, 7.7));
+    if (coastSd < 1e3)
+    {
+        float sOut = -coastSd;                                                        // m out from the shore line
+        float beach = saturate(1.0 - abs(coastCls - 0.5) * 4.0);
+        float f1 = S3_N(pm / 11.0), f2 = S3_N(pm / 2.3 + T * float2(0.05, 0.03));
+        float fr = frac(sOut / 11.0 + T * 0.10 + f1 * 1.3);
+        float crest = pow(saturate(1.0 - abs(fr - 0.8) / 0.2), 1.5);
+        crest = lerp(crest, 0.5, saturate(fs / 3.0 - 0.5));                           // far away: the mean cover, no aliasing lines
+        float sB = sOut + 22.0;                                                       // surf zone starts at the photo waterline (see the mask)
+        float edgeF = smoothstep(0.07, 0.12, lum) * (1.0 - smoothstep(0.17, 0.25, lum)) * step(-30.0, sOut) * step(sOut, 10.0);   // swash at the sand edge
+        float surf = max(crest * saturate(1.0 - sB / 50.0) * (0.55 + 0.75 * f2), edgeF * (0.6 + 0.4 * f2)) * step(-30.0, sOut);
+        float fringe = saturate(1.0 - sOut / lerp(5.0, 2.5, coastCls)) * smoothstep(0.35, 0.75, 0.6 * f2 + 0.4 * f1 + 0.15 * sin(T * 0.8 + f1 * 6.0))
+                     * lerp(0.75, 0.3, coastCls);
+        foamW = saturate(lerp(fringe * step(0.0, sOut), surf, beach) * FoamAmt);
+        g = lerp(g, FoamColor, foamW * beach);                                        // the swash also where the mask is still sand
+        body = lerp(body, ShoreTint, beach * exp(-max(sOut, 0.0) / 25.0) * 0.55);     // pale turquoise shallows off a beach
+    }
+    #undef S3_N
+    #undef S3_H
+    body = lerp(body, FoamColor, foamW);
+}
 float fade = saturate(dist / WaveFadeM);
 // three octaves at unrelated scales / directions (no visible repeat), the small ones fade out with distance (they would
 // alias into a grid); far away only the long swell octave and the growing roughness remain
@@ -298,6 +358,8 @@ if (SeaArt > 0.5)
 // 11-14: the swell octave n3 kept half its strength at full distance fade -> a regular weave / grid over the far sea
 // (review scene_realism 2.5, scratchpad fixes_1114 a15_open_sea_300). It now keeps 15 %.
 float2 nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStrength * 0.5 * (1.0 - 0.85 * fade)) * macroW;
+if (SeaV3 > 0.5)
+    nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength * macroW + swl * SwellAmp) * (0.7 + 0.6 * gust) * (1.0 - foamW);
 float3 tx = normalize(cross(float3(0.0, 1.0, 0.0), up));                          // ~ north on the sea plane
 float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);
@@ -347,6 +409,11 @@ if (GdOn > 0.5)
             g *= lerp(1.0, lerp(1.0, BcDark, zone) * (1.0 - band), land);
         }
     }
+}
+if (SeaV3 > 0.5)
+{
+    wRough = lerp(wRough * (0.8 + 0.45 * gust), 0.85, foamW);                         // calm slicks glint sharper than gusty patches
+    wSpec = lerp(wSpec, 0.1, foamW);
 }
 Rough = lerp(Rg, wRough, m);
 Spec = lerp(Sp, saturate(wSpec), m);

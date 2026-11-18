@@ -199,6 +199,19 @@ SEA_COAST_DEF = dict(CoastOn=0.0, CoastD=40.0, BridgeD=40.0, FarD=1000.0, Bridge
                      SeaFarArt=0.0, SeaWarpM=700.0, SeaWarpAmp=0.35, SeaRoughGraze=0.06, SeaSpecGraze=1.5)
 SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0, CoastFaceOn=1.0, SeaWallColor=(0.17, 0.17, 0.16))    # SeaFarArt stays 0: blind A/B 11-11 04:25 preferred the sea without it in 5 of 6
                                                 # views (stronger diamond grid + mirror-like far sea); kept as an off switch
+# Sea v3 (11-18, ground_look.hlsl 'sea v3'; scratchpad map_1118 critic rounds): no cream photo blobs in the harbour water,
+# swell from summed sines (no tiling lattice), gust patches, shore foam / surf from the coast distance field.
+# SEA_V3_DEF = material defaults (off, also MI_GyroGround_Sea0); SEA_V3 = MI_GyroGround. GYROSIM_SEA_V3=0 at Play -> SeaV3 0.
+SEA_V3_DEF = dict(SeaV3=0.0, SwellAmp=0.016, SeaGustM=1100.0, FoamAmt=1.0, FoamColor=(0.74, 0.78, 0.78),
+                  ShoreTint=(0.050, 0.150, 0.140))
+SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0)
+# Cloud base (11-18, map_1118 critic): the map's cloud layer starts 1.0 km up, so every view from ~1.1-3.5 km sat inside a
+# cloud more often than not (a flat brown murk over half the frame at 1500 m). Fair-weather cumulus bases over Busan are
+# ~1-2 km: the layer bottom goes to CLOUD_BASE_KM at Play (the layer height stays). GYROSIM_CLOUD_BASE_KM=0 = the map value.
+try:
+    CLOUD_BASE_KM = float(os.environ.get("GYROSIM_CLOUD_BASE_KM", "1.8") or 0.0)
+except ValueError:
+    CLOUD_BASE_KM = 1.8
 # Grounded day (11-11, docs/grounded-day-busan.md): building occlusion field T_GyroBldgAO (sim/bldg_ao_build.py, same grid
 # and world -> UV rows as the coast mask). Lumen sees no Cesium mesh, so sky light filled street canyons unoccluded and the
 # ground at a tower's foot was as bright as an open square. GdAO = share of the sky-view factor put into the ground's
@@ -302,6 +315,13 @@ def apply(world, preset="monitor", on=None):
                     for k, v0 in orig[tag].items():
                         if k not in AIR[tag] and v0 is not None:
                             _set(c, k, v0, tag)
+        for a in _actors(world, unreal.VolumetricCloud):
+            c = a.get_component_by_class(unreal.VolumetricCloudComponent)
+            if "cloud_base" not in orig:
+                orig["cloud_base"] = _get(c, "layer_bottom_altitude")
+            want = CLOUD_BASE_KM if (on and CLOUD_BASE_KM > 0.0) else orig["cloud_base"]
+            if want is not None:
+                _set(c, "layer_bottom_altitude", float(want), "cloud")
         rot = SUN_ROT if on else orig["sun"]
         if rot:
             for a, _ in cs.get("light", []):
@@ -382,6 +402,8 @@ def apply_ground(tileset, on=None):
             relief_look.start(tileset)
         except Exception as e:
             log("relief look", repr(e))
+    if m is not None and os.environ.get("GYROSIM_SEA_V3", "1") == "0":
+        off["SeaV3"] = 0.0                       # sea v3 (11-18): swell sines / gusts / shore foam off (A/B)
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
         off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
     if m is not None and bldg_contact_on():

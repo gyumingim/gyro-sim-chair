@@ -30,6 +30,10 @@ MPC = "/Game/Materials/Ground/MPC_GyroCoast"
 log = lambda *a: unreal.log("[bldg_mat] " + " ".join(str(x) for x in a))
 
 
+# roof v2 (buildings_facade.hlsl 'roof v2'): flat-paint photo roofs. GYROSIM_ROOF_V2=0 at Play -> RoofV2 0 (buildings_look)
+MAP_1118 = (("RoofV2", 1.0), ("RoofKeep", 0.35), ("RoofPaintSat", 0.9))
+
+
 def gd_inputs(m, X):
     """grounded day inputs of the Custom node: absolute position, AO field texture, coast UV rows, Gd* scalars."""
     pa = X(unreal.MaterialExpressionWorldPosition, -1100, 1500)                     # absolute world position (cm) for the AO field
@@ -56,6 +60,11 @@ def gd_inputs(m, X):
         gds.append((mk3, n))
     for i, (pn, dv) in enumerate(GD):
         e = X(unreal.MaterialExpressionScalarParameter, -1100, 2100 + 80 * i)
+        e.set_editor_property("parameter_name", pn)
+        e.set_editor_property("default_value", dv)
+        gds.append((e, pn))
+    for i, (pn, dv) in enumerate(MAP_1118):                     # 11-18 map realism rounds (buildings_look toggles)
+        e = X(unreal.MaterialExpressionScalarParameter, -1500, 2100 + 80 * i)
         e.set_editor_property("parameter_name", pn)
         e.set_editor_property("default_value", dv)
         gds.append((e, pn))

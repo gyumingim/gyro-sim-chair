@@ -66,13 +66,16 @@ def apply(tileset, log=unreal.log):
         bc_on = atmos_look.bldg_contact_on()
     except Exception:
         bc_on = False
-    if m is not None and (art_off or roof_photo or backlit_off or gd_off or bc_on):
+    roof_v2_off = os.environ.get("GYROSIM_ROOF_V2", "1") == "0"                 # 11-18: flat-paint photo roofs off (look before)
+    if m is not None and (art_off or roof_photo or backlit_off or gd_off or bc_on or roof_v2_off):
         try:
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
             if art_off:
                 m.set_scalar_parameter_value("ArtFix", 0.0)
             if roof_photo:
                 m.set_scalar_parameter_value("RoofPhoto", 1.0)
+            if roof_v2_off:
+                m.set_scalar_parameter_value("RoofV2", 0.0)
             if backlit_off:
                 m.set_scalar_parameter_value("BacklitV2", 0.0)
             if gd_off:
