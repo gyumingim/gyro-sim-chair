@@ -123,18 +123,23 @@ class Sim:
         # (lat, lon) -> MSL height in m (server.py, vworld ground mode: Copernicus DEM, terrain_dem.py) applied every frame
         self.terrain = terrain
         self.terrain_m = None
+        self.chair = Chair()                     # kept across resets: the cue moves on from where the real chair is
         self.reset(mode)
 
     def reset(self, mode, at=None):
         mode = mode if mode in MODES else "air"
         self.fdm = new_fdm(mode, at if mode == "air" else None)     # may raise (trim): nothing of this Sim changed yet
         self.mode = mode
-        self.chair = Chair()
         self.ctrl.update(ail=0.0, elev=0.0, rud=0.0, brk_l=0.0, brk_r=0.0)
         self.ctrl["gear"] = 1.0 if self.mode == "runway" else 0.0
         self.ctrl["thr"] = self.thr_init = self.fdm["fcs/throttle-cmd-norm"]
         self.applied = dict(self.ctrl)
         self.set_terrain()
+        if self.mode == "runway":                # the IC (h-agl 4 ft) has the gear springs compressed: the first frames
+            try:                                 # read 5-7 g and +300 ft/min (lesson 0 froze that frame on the HUD)
+                self.fdm["simulation/do_simple_trim"] = 2     # ground trim on the final (DEM) ground: settled, 1.0 g
+            except RuntimeError as e:
+                print("simcore: runway ground trim failed (%s) - unsettled start" % (str(e).strip() or type(e).__name__), flush=True)
 
     def apply(self, assist=False):
         f, c = self.fdm, dict(self.ctrl)

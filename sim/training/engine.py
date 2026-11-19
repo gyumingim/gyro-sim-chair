@@ -315,6 +315,7 @@ class Trainer:
                       vars={}, timeout_said=False, attempt=rec["attempts"] + 1)
         self.crash, self.debrief = None, None
         self.phase = "brief"
+        self.want_pause = True                   # paused before the next physics frame (update() sets it only after it)
         self.reset_fn(d["mode"])
         self.ap.reset()
         self._enter_brief_page()
