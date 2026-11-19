@@ -54,7 +54,11 @@ if (R > 0.9)
     }
     float dg = saturate(1.4 - 0.35 * max(tpp.x, tpp.y));
     float ra = round(VC.a * 255.0);
-    if (RP > 0.5 || ra >= 254.5)                                                  // photo roof (old tiles / GYROSIM_BLDG_ROOF_PHOTO=1)
+    // roof v3 tiles (11-19, buildings_build ROOF_MEAN): alpha 240..253 = a photo roof whose vertex colour is the roof's own
+    // median photo colour (linear), seed = alpha - 240
+    bool rMean = ra >= 239.5 && ra < 254.5;
+    float3 vcR = rMean ? 1.0.xxx : VC.rgb;
+    if (RP > 0.5 || ra >= 239.5)                                                  // photo roof (old tiles / GYROSIM_BLDG_ROOF_PHOTO=1)
     {
         float3 c0 = Tex;
         float3 bl = 0.25 * (Texture2DSample(TexObj, TexObjSampler, UV + float2(ts.x, 0)).rgb + Texture2DSample(TexObj, TexObjSampler, UV - float2(ts.x, 0)).rgb
@@ -92,11 +96,82 @@ if (R > 0.9)
             float pr = step(0.86, HSH(dot(floor(ap * 0.17), float2(1, 57)) + 2.0)) * dg;
             c *= 1.0 + 0.12 * pr;
         }
-        c *= 1.0 + dg * (0.16 * (n1 - 0.5) * (1.0 - 0.4 * green) + 0.10 * (n2 - 0.5)) + 0.06 * (n3 - 0.5);
+        // roof v3 (11-19, RoofV3 1; GYROSIM_ROOF_V3=0 -> 0 = roof v2; map_1118 round 7, critic: 'blurry mint-green smears, soft
+        // and cloudy, nearly empty'): the roof is ONE flat coat of its own median photo colour; of the photo only a share
+        // (RoofKeep3) of its brightness detail stays (hut shadows, big marks), no colour clouds. Per-roof tone step, very
+        // bright roofs compressed (sunlit concrete read paper-white), crisp joints / patches as in v2, and RoofDecal x small
+        // crisp painted-on roof clutter (outdoor units, round tanks, hatches) so a roof is not an empty sheet from the air.
+        float decalM = 0.0;
+        if (rMean && RoofV3 > 0.5)
+        {
+            float sdR = ra - 240.0;
+            float3 mean = VC.rgb;
+            float ml = max(dot(mean, float3(0.3, 0.59, 0.11)), 0.01);
+            mean *= min(1.0, (RoofWhite + 0.45 * max(ml - RoofWhite, 0.0)) / ml);    // paper-white roofs down (blind r7: 0.42 still near paper white -> 0.36)
+            ml = max(dot(mean, float3(0.3, 0.59, 0.11)), 0.01);
+            float paint3 = saturate((max(mean.g, mean.b) - mean.r) / ml * 4.0 - 0.2);
+            mean = lerp(ml.xxx, mean, lerp(1.0, 1.25, paint3));                      // flat paint, not a grey-green wash
+            mean *= 0.90 + 0.20 * HSH(sdR * 3.7 + 1.3);
+            float rel = clamp(dot(c0, float3(0.3, 0.59, 0.11)) / max(dot(Texture2DSampleLevel(TexObj, TexObjSampler, UV, 4.0).rgb, float3(0.3, 0.59, 0.11)), 0.02), 0.6, 1.3);
+            c = mean * lerp(1.0, rel, RoofKeep3);
+            green = paint3;
+            float2 jq3 = ap * (0.07 + 0.03 * HSH(sdR)) + sdR * 7.0;                    // joints every ~6 m
+            float2 jf3 = max(abs(ddx(jq3)) + abs(ddy(jq3)), 1e-5);
+            c *= 1.0 - 0.16 * max(PULSE(frac(jq3.x), 0.0, 0.03, jf3.x), PULSE(frac(jq3.y), 0.0, 0.03, jf3.y)) * dg * (1.0 - 0.5 * paint3);
+            c *= 1.0 + 0.10 * step(0.86, HSH(dot(floor(ap * 0.17), float2(1, 57)) + 2.0 + sdR)) * dg;
+            if (RoofDecal > 0.0)
+            {
+                float2 cq = ap / 13.0 + sdR * 0.37;                                    // ~6.5 m cells
+                float2 ci = floor(cq);
+                float hc = HSH(dot(ci, float2(1, 57)) + sdR * 1.7);
+                float2 ctr = ci + 0.5 + (float2(HSH(hc * 91.0), HSH(hc * 37.0 + 5.0)) - 0.5) * 0.5;
+                float2 dd = (cq - ctr) * 13.0;                                         // texels (~0.5 m) from the item centre
+                float aaD = max(length(ddx(ap)) + length(ddy(ap)), 1e-3) * 0.7;
+                float kind = HSH(hc * 13.0 + 2.0);
+                if (hc < 0.30 * RoofDecal)
+                {
+                    float3 ic = 0.4.xxx;
+                    float sh = 0.0;
+                    if (kind < 0.55)                                                 // outdoor unit(s): light grey box, dark fan disc
+                    {
+                        float2 hb2 = float2(1.1 + 1.2 * step(0.3, kind), 0.8);
+                        float bx = max(abs(dd.x) - hb2.x, abs(dd.y) - hb2.y);
+                        sh = saturate(0.5 - bx / aaD);
+                        float fan = saturate(0.5 - (length(float2(frac(dd.x / 1.2 + 0.5) - 0.5, dd.y / 1.2)) * 1.2 - 0.45) / aaD);
+                        ic = lerp(float3(0.42, 0.42, 0.40), float3(0.10, 0.10, 0.10), fan * saturate(1.5 - aaD));
+                    }
+                    else if (kind < lerp(0.85, 0.70, RoofTank2))                     // round tank: yellow / blue / stainless
+                    {
+                        float rr = length(dd) - (1.5 + 0.6 * HSH(hc * 7.0)) * lerp(1.0, 0.75, RoofTank2);
+                        sh = saturate(0.5 - rr / aaD);
+                        float tk = HSH(hc * 29.0);
+                        ic = tk < 0.4 ? float3(0.50, 0.36, 0.05) : (tk < 0.75 ? float3(0.05, 0.14, 0.36) : float3(0.45, 0.46, 0.47));
+                        ic *= 1.0 - 0.25 * saturate(-rr / 1.5 - 0.3);                   // darker lid centre
+                        // blind r7: 'yellow ovals / blue blobs read as paint spots, too saturated, soft' -> RoofTank2: 40 % less
+                        // chroma, smaller, fewer (more hatches instead)
+                        ic = lerp(ic, dot(ic, float3(0.3, 0.59, 0.11)).xxx * 1.1, 0.4 * RoofTank2);
+                    }
+                    else                                                             // hatch / skylight: dark frame, pale pane
+                    {
+                        float bx = max(abs(dd.x) - 1.3, abs(dd.y) - 1.3);
+                        sh = saturate(0.5 - bx / aaD);
+                        ic = lerp(float3(0.08, 0.08, 0.08), float3(0.30, 0.34, 0.36), saturate(0.5 - (bx + 0.5) / aaD));
+                    }
+                    // contact shadow toward the north-east of the item (the default sun is in the south-west), ~1 texel
+                    float2 ds = dd - float2(0.8, -0.8);
+                    float shd = saturate(0.5 - (max(abs(ds.x), abs(ds.y)) - 1.9) / aaD) * (1.0 - sh);
+                    float fadeD = saturate(2.5 - aaD);                               // gone when an item is < ~1 px
+                    c *= 1.0 - 0.45 * shd * fadeD;
+                    c = lerp(c, ic, sh * fadeD);
+                    decalM = sh * fadeD;
+                }
+            }
+        }
+        c *= 1.0 + dg * (0.16 * (n1 - 0.5) * (1.0 - 0.4 * green) + 0.10 * (n2 - 0.5)) * (1.0 - decalM) + 0.06 * (n3 - 0.5);
         Rough = lerp(0.9, 0.55, green) + 0.08 * (n2 - 0.5);
         Spec = 0.4;
         NormalWS = normalize(Nn + float3(n1 - n2, n2 - n3, 0.0) * 0.06 * dg * mag);
-        return c * VC.rgb;
+        return c * vcR;
     }
     // round 2 (11-10): procedural roof by default. The ortho photo of a roof is smeared (building lean: walls, cars and the
     // neighbours land on it), so it is only a low-frequency tint (mip ~4 m) here; the surface is drawn: green urethane paint

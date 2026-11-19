@@ -450,6 +450,13 @@ def build_glb(D, sel, center):
     # PARAPET_W m thick: a light cap strip on top + the inner face on the inset ring; small low flat-roofed houses get a low
     # rim too.
     CAP = V3 and os.environ.get("GYROSIM_BLDG_PARAPET_CAP", "1") != "0"
+    # 11-19 (map_1118 round 7): CAP_LITE = low rims (< 0.6 m) get the cap strip only, no inner face (vertex cost of the caps);
+    # ROOF_MEAN = photo roofs carry the roof's own median photo colour in the vertex colour (alpha 240 + seed % 14): the
+    # material paints the roof as one flat coat of that colour (roof v3) instead of the blurry photo's cloudy mottle.
+    # A single derived colour per roof; the photo cut in the atlas is unchanged. GYROSIM_BLDG_ROOF_MEAN=0 = the tiles before.
+    # blind r7: CAP_LITE lost (low rims read as a razor-thin paper edge; roofs_down 5.5 vs 6.0) and saved only ~0.02 ms -> opt-in
+    CAP_LITE = CAP and os.environ.get("GYROSIM_BLDG_CAP_LITE", "0") == "1"
+    ROOF_MEAN = V3 and os.environ.get("GYROSIM_BLDG_ROOF_MEAN", "1") != "0"
 
     def inset(P2, w):
         """ring (n x 2, counter-clockwise = solid on the left) moved w m into the solid, mitred corners (clamped at 2.5 w);
@@ -741,7 +748,8 @@ def build_glb(D, sel, center):
                     quads(BT.ST_PLAIN, Pt[j1], Pt[j], Pp[j1] - Pt[j1], Pp[j] - Pt[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
                 else:
                     It, Ip = np.column_stack((Qi, Pt[:, 2])), np.column_stack((Qi, Pp[:, 2]))
-                    quads(BT.ST_PLAIN, It[j1], It[j], Ip[j1] - It[j1], Ip[j] - It[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
+                    if not (CAP_LITE and ph < 0.6):
+                        quads(BT.ST_PLAIN, It[j1], It[j], Ip[j1] - It[j1], Ip[j] - It[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
                     capc = wla.copy()                     # cap: lighter (mortar / coping), faces up
                     capc[:, :3] = np.clip(capc[:, :3] * 1.12 + 0.03, 0.0, 1.0)
                     quads(BT.ST_PLAIN, Pp[j], Pp[j1], Ip[j] - Pp[j], Ip[j1] - Pp[j1], 0.0, 1.0, u0, u1, -vp, -vp - 0.02,
@@ -884,6 +892,10 @@ def build_glb(D, sel, center):
                 lowrise = cls in (BT.HOUSE,) or upper == BT.ST_VILLA
                 gr = greenish or (hb[5] < (0.45 if lowrise else 0.2))
                 ra = (128 + 64 * int(gr) + seed) / 255.0
+            elif ROOF_MEAN and smp is not None and smp.get("color") is not None:
+                col = BT.srgb_to_lin(np.asarray(smp["color"], np.float64))
+                ra = (240 + seed % 14) / 255.0
+                st["roof_mean"] = st.get("roof_mean", 0) + 1
             RF["C"].append(np.repeat(np.append(np.asarray(col, np.float64), ra)[None], len(verts), axis=0))
             RF["UV"].append(uv)
             RF["I"].append(tri.reshape(-1) + RF["n"])
@@ -1104,7 +1116,7 @@ def tiles(args):
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
-                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "caps", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar", "pitched"):
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "caps", "roof_mean", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar", "pitched"):
                     tex[k_] = tex.get(k_, 0) + ts_.get(k_, 0)
                 for s_, c_ in ts_["styles"].items():
                     tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_

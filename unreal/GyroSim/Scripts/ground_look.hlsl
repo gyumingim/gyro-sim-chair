@@ -32,7 +32,7 @@ float m = saturate(WaterOn * mH * mC * mB);
 //    so the rectangular photo-tile seams on the open sea vanish; under the bridge masks (BridgeMaskOn) never;
 //  - inland water (rivers, ponds) more than CoastInlandM from the coast keeps the old height / colour rule.
 // Render-time only: the V-World photo is not modified or stored.
-float photoW = 1.0, coastSteep = 0.0, coastCls = 0.0, coastSd = 1e4, coastFar = 1e4;
+float photoW = 1.0, coastSteep = 0.0, coastCls = 0.0, coastSd = 1e4, coastFar = 1e4, shipHump = 0.0;
 if (CoastOn > 0.5)
 {
     float2 ck = P.xy * 1e-5;                                                       // km (quadratic fit: meridian convergence)
@@ -51,13 +51,22 @@ if (CoastOn > 0.5)
                                                                                     // water is silt / fill, not a rock islet -> sea
         float tanW = saturate(((C.r - C.b) / max(lum, 1e-3) - 0.12) * 8.0);          // bright AND tan = a silt plume, not a (white / grey) boat
         float mCq = lerp(mC, max(mC, tanW), SeaV3 * smoothstep(0.75, 0.95, cm.a));
-        float guard = lerp(1.0, mCq * mBq, (1.0 - smoothstep(0.7 * CoastGuardM, CoastGuardM, far)) * (1.0 - bin));   // full near shore
+        // harbour v2, part 2: 3-15 m humps of the terrain off a quay (ships / censor artefacts in the DSM that the coast terrain
+        // keeps as 'DEM land at sea') are sea too, with a flat normal; real islets (> 15 m, or off a natural shore) stay
+        shipHump = HarbV2 * smoothstep(0.75, 0.95, cm.a) * smoothstep(2.0, 4.0, h) * (1.0 - smoothstep(15.0, 20.0, h)) * saturate(0.5 - sd / footC);
+        seaC = max(seaC, shipHump);
+        // harbour v2 (11-19, HarbV2 1; GYROSIM_HARBOUR_V2=0 -> 0; map_1118 round 6): the V-World photo is blur-censored around some
+        // port / navy quays (감만 / 우암: soft beige and grey blobs painted over the water up to ~120 m off the quay); as 'bright =
+        // ship / pier' they stayed photo = pale shoals in a dredged basin. Off a man-made shore the photo guard now ends
+        // HarbGuardM (28 m; 55 m left four tan cores) out instead of CoastGuardM (150 m): moored boats lie alongside, the blobs mostly beyond.
+        float guardM = lerp(CoastGuardM, min(CoastGuardM, HarbGuardM), HarbV2 * smoothstep(0.75, 0.95, cm.a));
+        float guard = lerp(1.0, mCq * mBq, (1.0 - smoothstep(0.7 * guardM, guardM, far)) * (1.0 - bin));   // full near shore
                                                                                     // (moored boats / pontoons stay photo, no pale half-blend)
         float inland = saturate((sd - CoastInlandM) / 20.0) * mH * mC * mB;         // rivers / ponds well inside the OSM land
         m = saturate(WaterOn * max(seaC * guard, inland));
         // sea v3: on beaches the photo's waterline lies up to ~20-30 m inside the OSM coastline; the dark blue-green photo
         // water in between was drawn as 'land' (a dark strip between the sand and the sea) -> sea (sand is bright, stays)
-        m = max(m, WaterOn * SeaV3 * saturate(1.0 - abs(cm.a - 0.5) * 4.0) * (1.0 - smoothstep(0.10, 0.17, lum)) * smoothstep(0.0, 0.008, C.b - C.r)
+        m = max(m, WaterOn * SeaV3 * (1.0 - BeachV3) * saturate(1.0 - abs(cm.a - 0.5) * 4.0) * (1.0 - smoothstep(0.10, 0.17, lum)) * smoothstep(0.0, 0.008, C.b - C.r)
                    * step(0.0, sd) * (1.0 - smoothstep(22.0, 30.0, sd)) * (1.0 - smoothstep(2.0, 4.0, h)));
         photoW = (1.0 - smoothstep(SeaPhotoNear, SeaPhotoFar, far)) * (1.0 - bin);
         coastSd = sd;
@@ -264,6 +273,13 @@ float2 swl = float2(0.0, 0.0);
 //     out (distance / pixel footprint) goes into the roughness (SeaGlVar; Cox & Munk: unresolved slopes widen the glitter)
 //     instead of leaving a dim banded reflection of the swell sines alone; (d) FoamV2: the swash is a
 //     little translucent (was a solid white band). Render-time only. SunL = direction to the sun (SkyAtmosphereLightDirection).
+// ---- beach v3 (11-19, BeachV3 1; GYROSIM_BEACH_V3=0 -> 0 = the beach before; map_1118 round 6): the swash was drawn where the
+// photo's luminance fell in a window (0.07..0.25) = white contour lines on every darker mark on the dry sand (tyre tracks, tide
+// marks; worst at 광안리), and photo water inside the OSM line was switched to sea by another luminance rule (hard dark strip).
+// Checked against the photo (scratchpad map_1118/wl): the OSM line is the dry-sand edge within ~+-7 m on the big beaches, so the
+// distance field alone places everything: (a) a swash front that runs up / down the sand around the line (thin, noisy,
+// translucent), (b) the first metres of water are see-through (the photo's own wet sand / shallows show, tinted) = no hard
+// edge and no dark strip, (c) a damp strand just above the line. No luminance windows.
 float fsS = 1.0, selM = 0.5, lane = 0.0, lostVar = 0.0, w2f = 1.0;
 if (SeaV3 > 0.5)
 {
@@ -312,7 +328,7 @@ if (SeaV3 > 0.5)
         float fr = frac(sOut / 11.0 + T * 0.10 + f1 * 1.3);
         float crest = pow(saturate(1.0 - abs(fr - 0.8) / 0.2), 1.5);
         crest = lerp(crest, 0.5, saturate(fs / 3.0 - 0.5));                           // far away: the mean cover, no aliasing lines
-        float sB = sOut + 22.0;                                                       // surf zone starts at the photo waterline (see the mask)
+        float sB = sOut + lerp(22.0, 16.0, BeachV3);                                  // surf zone starts at the photo waterline (see the mask)
         // swash at the sand edge. Tried and judged worse in blind rounds 2 / 3 (not kept): a lacy / holed swash ('marble
         // texture'), whitecaps on open water ('confetti'), a narrower luminance window (thin contour lines on the sand).
         float edgeF = smoothstep(0.07, 0.12, lum) * (1.0 - smoothstep(0.17, 0.25, lum)) * step(-30.0, sOut) * step(sOut, 10.0);
@@ -320,6 +336,24 @@ if (SeaV3 > 0.5)
         // profile peaking at one photo luminance (= thin contour lines on the sand again), wet sand from the luminance window.
         // The swash only near the photo waterline (~22 m inside the OSM line): further up the window drew contour lines on dry sand.
         edgeF *= lerp(1.0, 0.7 * smoothstep(-28.0, -22.0, sOut), FoamV2);
+        if (BeachV3 > 0.5)
+        {
+            float fl = S3_N(pm / 37.0);
+            float run = -1.0 + 2.5 * sin(T * 0.45 + f1 * 6.2832) + (fl - 0.5) * 5.0;  // m: the swash front moves up / down the sand
+            float sw = sOut - run;                                                    // > 0 seaward of the front
+            float aa = max(fs, 0.3);
+            float lace = smoothstep(-aa, aa, sw) * (1.0 - smoothstep(0.8, 4.5 + 2.0 * f2, sw)) * (0.35 + 0.65 * f2)
+                       * (0.3 + 0.7 * smoothstep(0.25, 0.6, S3_N(pm / 9.0 + T * float2(0.02, -0.03))));   // blind r6d: 'a continuous drawn ribbon' -> broken along the shore
+            edgeF = lerp(lace, 0.3 * saturate(1.0 - abs(sOut - 1.0) / max(4.0, 2.0 * fs)), saturate(fs / 3.0 - 0.5));   // far: a soft mean band
+            // thin water film behind the front + the damp strand above the line (only where the photo sand is dry-bright)
+            float damp = max(smoothstep(-aa, aa, sw) * 0.30, 0.20 * smoothstep(-9.0, -2.0, sOut + (fl - 0.5) * 5.0))
+                       * smoothstep(0.18, 0.40, lum) * beach * step(sOut, 0.5);
+            g *= 1.0 - damp * float3(0.90, 1.0, 1.10);
+        }
+        float3 gBed = g;
+        // r6b: the old 'white lines on the sand' were these crest lines, drawn up to 30 m inland (not the luminance window):
+        // beach v3 keeps them in the water only, and weaker
+        crest *= lerp(1.0, 0.7 * smoothstep(0.0, 5.0, sOut), BeachV3);
         float surf = max(crest * saturate(1.0 - sB / 50.0) * (0.55 + 0.75 * f2), edgeF * (0.6 + 0.4 * f2)) * step(-30.0, sOut);
         float fringe = saturate(1.0 - sOut / lerp(5.0, 2.5, coastCls)) * smoothstep(0.35, 0.75, 0.6 * f2 + 0.4 * f1 + 0.15 * sin(T * 0.8 + f1 * 6.0))
                      * lerp(0.75, 0.3, coastCls);
@@ -329,6 +363,12 @@ if (SeaV3 > 0.5)
         // cell of the class field out to its straight borders (the faint diagonal seam across the bay): decay on with the far distance
         // and the shallows are paler (ShoreTint2): the photo's dark waterline x the dark tint was a near-black strip between foam and sea
         body = lerp(body, lerp(ShoreTint, ShoreTint2, SeaV4), beach * exp(-max(lerp(sOut, max(sOut, coastFar), SeaV4), 0.0) / lerp(25.0, 40.0, SeaV4)) * lerp(0.55, 0.85, SeaV4));
+        // blind r6d: the first 10-25 m read as a dark olive band (bed tint too dark; real shallows are the LIGHTEST water): paler bed,
+        // plus a milky turquoise shoal colour that fades over ~20 m
+        body = lerp(body, lerp(gBed, float3(0.42, 0.40, 0.30), 0.6) * float3(0.66, 0.96, 0.92), BeachV3 * beach * 0.85 * exp(-max(max(sOut, coastFar), 0.0) / 11.0));
+        // (fin6 blind: with sOut alone - it stops at CoastD 40 m - the shoal colour kept 7 % over the whole 'nearest shore = beach' cell =
+        // a pale wedge with straight / stair-stepped borders across the bay; the far distance makes it decay on, as in sea v4)
+        body = lerp(body, float3(0.17, 0.31, 0.27), BeachV3 * beach * 0.5 * exp(-max(max(sOut, coastFar), 0.0) / 20.0));
     }
     #undef S3_N
     #undef S3_H
@@ -411,6 +451,7 @@ if (SeaV3 > 0.5)
     lostVar = 0.09 * WaveStrength * WaveStrength * gA * gA * 1.5625
             * ((1.0 - n4) + 0.49 * (1.0 - near * near * w2f * w2f) + 0.36 * SeaGl * (1.0 - wmf * wmf));
 }
+up = normalize(lerp(up, float3(0.0, 0.0, 1.0), shipHump));                         // harbour v2: no lit mound where a terrain hump is sea
 float3 tx = normalize(cross(float3(0.0, 1.0, 0.0), up));                          // ~ north on the sea plane
 float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);

@@ -129,6 +129,15 @@ if HAZE_V2:
 if HAZE_V3:
     AIR["fog"].update(HAZE_FOG_V3)
     AIR["sky"] = dict(AIR["sky"], mie_scattering=(0.62, 0.78, 1.0))
+# Haze v4 (11-19, map_1118 round 6; GYROSIM_HAZE_V4=0 = the v3 values): critic 'far land neutral grey and too defined, lilac
+# strip / fog wall at the sea horizon'. Same-run sweep r6h (6 views, 2 blind critics, 4 variants): slightly blue-grey fog
+# in-scatter + max opacity 0.8 (the horizon is never fully painted over) + aerial perspective x1.3 scored 6.17 vs 5.75
+# (v3); better on far land at 180 / 700 / 1500 m and into the sun, a little worse over the open sea at 300 m (5.5 -> 4.75).
+# Stronger (x1.6, bluer 0.36 / 0.43 / 0.52) lost at 1500 m and over the sea (5.62); opacity 0.8 alone 5.96.
+HAZE_V4 = HAZE_V3 and os.environ.get("GYROSIM_HAZE_V4", "1") != "0"
+if HAZE_V4:
+    AIR["fog"].update(fog_inscattering_luminance=(0.40, 0.44, 0.49), fog_max_opacity=0.8)
+    AIR["sky"] = dict(AIR["sky"], aerial_pespective_view_distance_scale=1.3)
 
 # ---- ground material parameters (MI_GyroGround; defaults of M_GyroGround) ---------------------------------------------
 GROUND = dict(
@@ -208,9 +217,16 @@ SEA_V3_DEF = dict(SeaV3=0.0, SwellAmp=0.016, SeaGustM=1100.0, FoamAmt=1.0, FoamC
                   # sea v4 (11-19, ground_look.hlsl 'sea v4'; GYROSIM_SEA_V4=0 at Play -> these five back to 0 = sea v3):
                   # beach tint decays (no straight seam across the bay), warped gust noise, wind lanes, glitter (mid wave
                   # octave toward the sun + faded slopes -> roughness), translucent swash
-                  SeaV4=0.0, SeaStreak=0.0, SeaGl=0.0, SeaGlVar=0.0, FoamV2=0.0, ShoreTint2=(0.075, 0.21, 0.19))
+                  SeaV4=0.0, SeaStreak=0.0, SeaGl=0.0, SeaGlVar=0.0, FoamV2=0.0, ShoreTint2=(0.075, 0.21, 0.19),
+                  # beach v3 (11-19 round 6; GYROSIM_BEACH_V3=0 at Play -> 0): swash / damp strand / see-through shallows from the
+                  # coast distance field alone (no photo-luminance windows = no white lines on the dry sand)
+                  BeachV3=0.0,
+                  # harbour v2 (11-19 round 6; GYROSIM_HARBOUR_V2=0 at Play -> 0): off man-made shores the 'bright photo = ship' guard
+                  # ends HarbGuardM out (the photo's blur-censored blobs off the port quays were drawn as pale shoals)
+                  HarbV2=0.0, HarbGuardM=28.0)
 SEA_V4 = dict(SeaV4=1.0, SeaStreak=0.6, SeaGl=1.0, SeaGlVar=0.5, FoamV2=1.0)
-SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0, SeaR2=1.0, **SEA_V4)
+BEACH_V3 = dict(BeachV3=1.0, HarbV2=1.0)
+SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0, SeaR2=1.0, **SEA_V4, **BEACH_V3)
 # Cloud base (11-18, map_1118 critic): the map's cloud layer starts 1.0 km up, so every view from ~1.1-3.5 km sat inside a
 # cloud more often than not (a flat brown murk over half the frame at 1500 m). Fair-weather cumulus bases over Busan are
 # ~1-2 km: the layer bottom goes to CLOUD_BASE_KM at Play (the layer height stays). GYROSIM_CLOUD_BASE_KM=0 = the map value.
@@ -420,6 +436,10 @@ def apply_ground(tileset, on=None):
         off["SeaV3"] = 0.0                       # sea v3 (11-18): swell sines / gusts / shore foam off (A/B)
     if m is not None and os.environ.get("GYROSIM_SEA_V4", "1") == "0":
         off.update({k: 0.0 for k in SEA_V4})     # sea v4 (11-19): glitter / wind lanes / soft swash + wet sand off (A/B)
+    if m is not None and os.environ.get("GYROSIM_BEACH_V3", "1") == "0":
+        off["BeachV3"] = 0.0                     # beach v3 (11-19): distance-field swash / damp strand / see-through shallows off (A/B)
+    if m is not None and os.environ.get("GYROSIM_HARBOUR_V2", "1") == "0":
+        off["HarbV2"] = 0.0                      # harbour v2 (11-19): short photo guard off man-made shores off (A/B)
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
         off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
     if m is not None and bldg_contact_on():

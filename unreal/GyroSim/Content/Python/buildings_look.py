@@ -69,7 +69,8 @@ def apply(tileset, log=unreal.log):
     except Exception:
         bc_on = False
     roof_v2_off = os.environ.get("GYROSIM_ROOF_V2", "1") == "0"                 # 11-18: flat-paint photo roofs off (look before)
-    if m is not None and (art_off or roof_photo or backlit_off or gd_off or bc_on or roof_v2_off):
+    roof_v3_off = os.environ.get("GYROSIM_ROOF_V3", "1") == "0"                 # 11-19: flat one-coat roofs + roof clutter off (roof v2)
+    if m is not None and (art_off or roof_photo or backlit_off or gd_off or bc_on or roof_v2_off or roof_v3_off):
         try:
             m = unreal.MaterialLibrary.create_dynamic_material_instance(tileset.get_world(), m)
             if art_off:
@@ -78,6 +79,8 @@ def apply(tileset, log=unreal.log):
                 m.set_scalar_parameter_value("RoofPhoto", 1.0)
             if roof_v2_off:
                 m.set_scalar_parameter_value("RoofV2", 0.0)
+            if roof_v3_off:
+                m.set_scalar_parameter_value("RoofV3", 0.0)
             if backlit_off:
                 m.set_scalar_parameter_value("BacklitV2", 0.0)
             if gd_off:

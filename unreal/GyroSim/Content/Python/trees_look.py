@@ -71,6 +71,7 @@ def config(v2=None):
 
 
 V2, TILES, MAT = config()
+CARD_PRE_PHOTO = dict(TexChroma=0.3, OakSat=0.8)   # M_GyroTreeCard values before the photo-matched trees (0e6c5c7)
 
 
 def url(tiles=None):
@@ -185,3 +186,12 @@ def hide(world):
     a = find(world)
     if a is not None:
         a.set_actor_hidden_in_game(True)
+        if m is not None and MAT == _CARD_MAT and TILES == _CARD_TILES and not isinstance(m, unreal.MaterialInstanceDynamic):
+            # 11-19: GYROSIM_TREES_PHOTO=0 gave the old tiles but the card material tuned for the photo tiles (7a99b8e) ->
+            # the values before on a dynamic instance. Not restored: the old green SSS tint x (1.2, 1.4, 0.9) (in the HLSL).
+            try:
+                m = unreal.MaterialLibrary.create_dynamic_material_instance(world, m)
+                for k, v in CARD_PRE_PHOTO.items():
+                    m.set_scalar_parameter_value(k, v)
+            except Exception as e:
+                log("[trees] pre-photo card values %r" % (e,))
