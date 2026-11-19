@@ -114,6 +114,16 @@ class Chair:
         self.pitch = max(-CHAIR_LIM[1], min(CHAIR_LIM[1], self.pitch))
         return self.roll, self.pitch
 
+    def level(self, dt):
+        """paused for a lesson brief: ease the chair back to level within the rate / accel limits (the cue is kept
+        across resets, so without this the chair stayed tilted for the whole brief)"""
+        k = min(1.0, dt / CHAIR_LP)
+        self.tr -= self.tr * k
+        self.tp -= self.tp * k
+        self.roll, self.vr = self._follow(self.roll, self.vr, self.tr, CHAIR_RATE[0], CHAIR_ACC[0], dt)
+        self.pitch, self.vp = self._follow(self.pitch, self.vp, self.tp, CHAIR_RATE[1], CHAIR_ACC[1], dt)
+        return self.roll, self.pitch
+
 
 class Sim:
     """one flight: fdm + controls + chair. frame() = 1/60 s of real time (2 fdm steps, 1 with the slow-motion assist)."""
@@ -179,12 +189,12 @@ class Sim:
         for _ in range(1 if slow else 2):
             self.fdm.run()
 
-    def packet(self, dt=1 / 60):
+    def packet(self, dt=1 / 60, level_dt=0.0):
         f = self.fdm
         g = 32.174
         ax, ay = f["accelerations/a-pilot-x-ft_sec2"] / g, f["accelerations/a-pilot-y-ft_sec2"] / g
         phi, th, psi = math.degrees(f["attitude/phi-rad"]), math.degrees(f["attitude/theta-rad"]), math.degrees(f["attitude/psi-rad"])
-        cr, cp = self.chair.update(phi, th, ax, ay, dt)
+        cr, cp = self.chair.level(level_dt) if level_dt > 0 else self.chair.update(phi, th, ax, ay, dt)
         c = self.ctrl
         lat, lon = f["position/lat-geod-deg"], f["position/long-gc-deg"]
         n, e = (lat - START["lat"]) * 110950.0, (lon - START["lon"]) * 111320.0 * math.cos(math.radians(START["lat"]))

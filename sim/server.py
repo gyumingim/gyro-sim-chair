@@ -201,7 +201,8 @@ def terrain_check(s, dt_sim):
 
 
 def snapshot(dt_sim):
-    s = sim.packet(1 / 60 if dt_sim > 0 else 0.0)
+    # trainer pause (lesson brief / debrief): the chair eases back to level; user pause / crash hold it as before
+    s = sim.packet(1 / 60 if dt_sim > 0 else 0.0, level_dt=1 / 60 if dt_sim <= 0 and trainer.want_pause and not state["crashed"] else 0.0)
     if DEM:
         terrain_check(s, dt_sim)
     s.update(APT_INFO)
