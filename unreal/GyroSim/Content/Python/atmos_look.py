@@ -203,8 +203,9 @@ SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0, CoastFaceOn=1.0, SeaWallColor=(0.17
 # swell from summed sines (no tiling lattice), gust patches, shore foam / surf from the coast distance field.
 # SEA_V3_DEF = material defaults (off, also MI_GyroGround_Sea0); SEA_V3 = MI_GyroGround. GYROSIM_SEA_V3=0 at Play -> SeaV3 0.
 SEA_V3_DEF = dict(SeaV3=0.0, SwellAmp=0.016, SeaGustM=1100.0, FoamAmt=1.0, FoamColor=(0.74, 0.78, 0.78),
-                  ShoreTint=(0.050, 0.150, 0.140))
-SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0)
+                  ShoreTint=(0.050, 0.150, 0.140),
+                  SeaR2=0.0)                         # round 2: SeaR2 = no mirror-smooth slicks (wider, softer sun glitter)
+SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0, SeaR2=1.0)
 # Cloud base (11-18, map_1118 critic): the map's cloud layer starts 1.0 km up, so every view from ~1.1-3.5 km sat inside a
 # cloud more often than not (a flat brown murk over half the frame at 1500 m). Fair-weather cumulus bases over Busan are
 # ~1-2 km: the layer bottom goes to CLOUD_BASE_KM at Play (the layer height stays). GYROSIM_CLOUD_BASE_KM=0 = the map value.
@@ -219,7 +220,10 @@ except ValueError:
 # ortho photo's lean zone at the foot of towers. GD_GROUND_DEF = material defaults (GdOn 0 = off, also MI_GyroGround_Sea0);
 # GD_GROUND = MI_GyroGround. GYROSIM_GROUNDED_DAY=0 at Play -> GdOn 0 (the look before).
 GD_GROUND_DEF = dict(GdOn=0.0, GdAO=1.0, GdCanyonAlb=0.0, GdLeanDark=0.0,
-                     BcOn=0.0, BcDark=0.3, BcMargin=2.0, BcK=0.7, BcW=8.0)
+                     BcOn=0.0, BcDark=0.3, BcMargin=2.0, BcK=0.7, BcW=8.0,
+                     GdMinMul=0.0)     # 11-18 round 3: floor of the stacked ground darkening (alleys between houses were pure black).
+                                       # OFF by default: blind round 3 = only a slight win at 0.15 (no side effects seen), and it
+                                       # lifts the user's own dark-ground slider values. Opt-in: GYROSIM_GROUND_FLOOR=0.15 (0..1)
 # Building contact (11-12, docs/research/building-grounding-study.md, needs GdOn): ground photo darkened under / around the
 # footprints + contact band (ground_look.hlsl), facade foot band (buildings_facade.hlsl). Set at Play on a dynamic instance:
 # GYROSIM_BLDG_CONTACT=1 / 0 (default BLDG_CONTACT_DEFAULT).
@@ -402,6 +406,11 @@ def apply_ground(tileset, on=None):
             relief_look.start(tileset)
         except Exception as e:
             log("relief look", repr(e))
+    if m is not None and os.environ.get("GYROSIM_GROUND_FLOOR"):
+        try:                                     # round 3 (11-18), opt-in: floor under the stacked ground darkening
+            off["GdMinMul"] = min(1.0, max(0.0, float(os.environ["GYROSIM_GROUND_FLOOR"])))
+        except ValueError:
+            pass
     if m is not None and os.environ.get("GYROSIM_SEA_V3", "1") == "0":
         off["SeaV3"] = 0.0                       # sea v3 (11-18): swell sines / gusts / shore foam off (A/B)
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":

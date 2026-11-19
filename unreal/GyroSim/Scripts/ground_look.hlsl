@@ -287,7 +287,9 @@ if (SeaV3 > 0.5)
         float crest = pow(saturate(1.0 - abs(fr - 0.8) / 0.2), 1.5);
         crest = lerp(crest, 0.5, saturate(fs / 3.0 - 0.5));                           // far away: the mean cover, no aliasing lines
         float sB = sOut + 22.0;                                                       // surf zone starts at the photo waterline (see the mask)
-        float edgeF = smoothstep(0.07, 0.12, lum) * (1.0 - smoothstep(0.17, 0.25, lum)) * step(-30.0, sOut) * step(sOut, 10.0);   // swash at the sand edge
+        // swash at the sand edge. Tried and judged worse in blind rounds 2 / 3 (not kept): a lacy / holed swash ('marble
+        // texture'), whitecaps on open water ('confetti'), a narrower luminance window (thin contour lines on the sand).
+        float edgeF = smoothstep(0.07, 0.12, lum) * (1.0 - smoothstep(0.17, 0.25, lum)) * step(-30.0, sOut) * step(sOut, 10.0);
         float surf = max(crest * saturate(1.0 - sB / 50.0) * (0.55 + 0.75 * f2), edgeF * (0.6 + 0.4 * f2)) * step(-30.0, sOut);
         float fringe = saturate(1.0 - sOut / lerp(5.0, 2.5, coastCls)) * smoothstep(0.35, 0.75, 0.6 * f2 + 0.4 * f1 + 0.15 * sin(T * 0.8 + f1 * 6.0))
                      * lerp(0.75, 0.3, coastCls);
@@ -395,7 +397,7 @@ if (GdOn > 0.5)
         float tOn = step(0.5, TuneA.x);                                             // live tuning (tune_look.py, MPC_GyroTune)
         float gAO = lerp(GdAO, TuneC.y, tOn), gCA = lerp(GdCanyonAlb, TuneC.z, tOn), gLD = lerp(GdLeanDark, TuneC.w, tOn);
         GdAOut = AOin * lerp(1.0, bo.r, saturate(gAO) * land);
-        g *= lerp(1.0, lerp(1.0, bo.r, gCA) * (1.0 - gLD * bo.b), land);
+        float gdMul = lerp(1.0, lerp(1.0, bo.r, gCA) * (1.0 - gLD * bo.b), land);
         // building contact (11-12, BcOn; GYROSIM_BLDG_CONTACT, docs/research/building-grounding-study.md): photogrammetry scans
         // show the ground next to a building 1-1.7 stop darker than open ground (baked shade / dirt), the V-World photo shows
         // it as bright or brighter (the off-nadir photo paints the building's own roof / wall there). (a') the photo inside
@@ -406,13 +408,18 @@ if (GdOn > 0.5)
             float sd = bo.a * 255.0 / 8.0 - 8.0;
             float zone = max(saturate(BcMargin + 1.0 - sd), bo.b);
             float band = BcK * exp(-max(sd, 0.0) / max(BcW, 0.1));
-            g *= lerp(1.0, lerp(1.0, BcDark, zone) * (1.0 - band), land);
+            gdMul *= lerp(1.0, lerp(1.0, BcDark, zone) * (1.0 - band), land);
         }
+        // round 3 (11-18, GdMinMul; 0 = off = default, opt-in GYROSIM_GROUND_FLOOR=0.15): canyon albedo x lean zone x contact zone x contact band stack up to ~x0.01 in
+        // narrow alleys = pure black gaps between the houses (critics: 'miniature' look; real alleys are dark grey-blue).
+        // The stacked albedo darkening is remapped from [0, 1] to [GdMinMul, 1] (the sky-light occlusion GdAOut is untouched).
+        g *= GdMinMul + (1.0 - GdMinMul) * gdMul;
     }
 }
 if (SeaV3 > 0.5)
 {
-    wRough = lerp(wRough * (0.8 + 0.45 * gust), 0.85, foamW);                         // calm slicks glint sharper than gusty patches
+    // calm slicks glint sharper than gusty patches; round 2: never smoother than before (mirror-sharp tower reflections far out)
+    wRough = lerp(wRough * lerp(0.8 + 0.45 * gust, 0.97 + 0.4 * gust, SeaR2), 0.85, foamW);
     wSpec = lerp(wSpec, 0.1, foamW);
 }
 Rough = lerp(Rg, wRough, m);
