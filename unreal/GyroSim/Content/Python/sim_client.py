@@ -501,8 +501,8 @@ class SimClient:
         self.gear_lights = self._find("GearLights")
         self.pilot_body, self.pilot_head, self.pilot_view = self._find("PilotBody"), self._find("PilotHead"), None   # Scripts/pilot
         self.pilot_manny = pilot_manny.apply(world, self.pilot_body)   # Manny pilot (GYROSIM_PILOT=old = the old body)
-        if self.pilot_manny is not None:
-            self.pilot_body = None                     # static pose: no control morphs
+        if self.pilot_manny is not None and not pilot_manny.has_morphs():
+            self.pilot_body = None                     # static pose: no control morphs (11-19: SKM_PilotMannyM has them)
         self.gear_lit = None
         self.gauge_vals = {}
         self.lights = {k: self._find("Light_" + k) for k in ("MC", "WARN", "BRAKE", "ASSIST", "SLOW", "VOICE")}

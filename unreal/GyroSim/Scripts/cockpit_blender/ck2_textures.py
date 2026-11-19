@@ -281,7 +281,7 @@ def draw_plate(p):
             a, b, w, h = it[1], it[2], it[3], it[4]
             txt = it[5] if len(it) > 5 else ""
             c.rect(a - w / 2 - 0.12, b - h / 2 - 0.12, a + w / 2 + 0.12, b + h / 2 + 0.12, fill=(10, 10, 10), h=112)
-            c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(104, 106, 108) if p["kind"] == "mfd" else (28, 28, 29))   # key top
+            c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(84, 86, 88) if p["kind"] == "mfd" else (28, 28, 29))   # key top
             if txt:
                 c.text(a, b, txt, min(0.34, h * 0.24), kind="bold", engrave=False)
             elif p["kind"] != "mfd" and li < len(labels):
@@ -370,7 +370,7 @@ sx, sy, sw, sh = L.SWATCH
 dA.rectangle((sx, sy, sx + sw, sy + sh), fill=(255, 255, 255))
 dH.rectangle((sx, sy, sx + sw, sy + sh), fill=128)
 sx, sy, sw, sh = L.STRIPE_SW
-dA.rectangle((sx, sy, sx + sw - 1, sy + sh - 1), fill=(225, 180, 25))
+dA.rectangle((sx, sy, sx + sw - 1, sy + sh - 1), fill=(150, 116, 16))        # 11-19: was (225, 180, 25) - read as glowing in the dark cockpit
 for i in range(-4, 8):
     x = sx + i * 32
     dA.polygon([(x, sy + sh), (x + 16, sy + sh), (x + 16 + sh, sy), (x + sh, sy)], fill=(14, 14, 14))

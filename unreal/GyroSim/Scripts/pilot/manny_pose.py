@@ -134,9 +134,13 @@ def two_bone(a, l1, l2, target, pole):
 
 
 # ---- the pose -------------------------------------------------------------------------------------------------------
-def pose(S, eye_local, verbose=True):
-    """S: Skel (reference scaled). eye_local: Manny's eye in the scaled aircraft-oriented ref frame."""
+def pose(S, eye_local, verbose=True, ctrl=None):
+    """S: Skel (reference scaled). eye_local: Manny's eye in the scaled aircraft-oriented ref frame.
+    ctrl (11-19, morph targets): the controls as they are drawn - sr / sp = sidestick mesh tilt right / forward (deg),
+    thr = throttle swing forward from the middle (deg), rud = pedal travel (cm, + = right pedal forward). The hands
+    ride rigidly on the grips (rotated about the control pivots), the feet on the pedals; arms / legs are re-solved."""
     info = {}
+    ctrl = ctrl or {}
     Y = np.array([0.0, 1.0, 0.0])
     # torso: lean each segment back about the aircraft Y axis (rot about +Y by +a moves +Z toward +X, so lean = -a)
     for n, a in LEAN.items():
@@ -177,6 +181,11 @@ def pose(S, eye_local, verbose=True):
         hinge = unit(np.cross(ankle - knee, knee - hip))
         if np.dot(hinge, lat_ref) < 0:
             hinge = -hinge
+        if ctrl.get("rud"):                                       # pedal moved: ankle follows, the knee bends in its own plane
+            ankle = ankle + np.array([s * ctrl["rud"], 0.0, 0.0])
+            knee, ankle, _ = two_bone(hip, l1, l2, ankle, knee - hip)
+            h2 = unit(np.cross(ankle - knee, knee - hip))
+            hinge = h2 if np.dot(h2, hinge) > 0 else -h2
         S.set("thigh_" + sd, map_frames(thigh_ref, lat_ref, knee - hip, hinge))
         S.set("calf_" + sd, map_frames(calf_ref, lat_ref, ankle - knee, hinge))
         S.set("foot_" + sd, Rf)
@@ -188,21 +197,25 @@ def pose(S, eye_local, verbose=True):
     g_axis = np.array([math.sin(lean), 0.0, math.cos(lean)])
     grip_r = sp + g_axis * (-2.7 + 5.2 + 4.2) + np.array([0.6, -0.2, 0.0])     # ck2_model.build_stick grip middle
     tp = np.array(THR["pivot"], float)
-    grip_l = tp + np.array([0.8, -1.6, 10.5])                                 # ck2_model.build_throttle grip body centre
+    grip_l = tp + np.array(L.THR_GRIP, float)                                 # ck2_model.build_throttle barrel centre
     targets = {
         # side: (grip centre, finger direction, palm normal (toward the grip), offset of the palm centre from the grip)
         "r": (grip_r, unit([1.0, 0.0, -0.25]), unit([0.0, -1.0, 0.15]), HAND_R_OFF),
-        "l": (grip_l, unit([1.0, 0.0, -0.25]), unit([0.0, 0.55, -1.0]), HAND_L_OFF),
+        "l": (grip_l, unit([1.0, 0.05, -0.42]), unit([0.0, 0.12, -1.0]), HAND_L_OFF),   # 11-19: palm on top of the barrel
     }
+    X_, Y_ = np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+    # control rotations about the pivots (rot(Y, +a) leans +Z toward +X = forward; rot(X, -a) leans +Z toward +Y = right)
+    Rc = {"r": rot(X_, -ctrl.get("sr", 0.0)) @ rot(Y_, ctrl.get("sp", 0.0)), "l": rot(Y_, ctrl.get("thr", 0.0))}
+    piv = {"r": sp, "l": tp}
     poles = {"r": unit([-0.4, 1.0, -0.9]), "l": unit([-0.4, -1.0, -0.9])}
     for sd, (g, fd_t, palm_t, off) in targets.items():
         h, m1 = S.r("hand_" + sd), S.r("middle_01_" + sd)
         fd0 = unit(m1 - h)
         tip = S.r("middle_03_" + sd) - m1
         palm0 = unit(tip - fd0 * np.dot(tip, fd0))                           # fingers curl toward the palm
-        Rh = map_frames(fd0, palm0, fd_t, palm_t)
+        Rh = Rc[sd] @ map_frames(fd0, palm0, fd_t, palm_t)
         palm_c = h + (m1 - h) * 0.55                                        # palm centre in the reference
-        wrist_t = g + np.asarray(off) - Rh @ (palm_c - h)
+        wrist_t = piv[sd] + Rc[sd] @ (g + np.asarray(off) - piv[sd]) - Rh @ (palm_c - h)
         sh = S.p("upperarm_" + sd)
         l1 = np.linalg.norm(S.r("lowerarm_" + sd) - S.r("upperarm_" + sd))
         l2 = np.linalg.norm(S.r("hand_" + sd) - S.r("lowerarm_" + sd))
@@ -232,9 +245,9 @@ def pose(S, eye_local, verbose=True):
                 acc += c
                 S.set(f + j + sd, Rh @ rot(axis_ref, acc))
         acc = 0.0
-        for j, c in zip(("_01_", "_02_", "_03_"), THUMB_CURL):
+        for j, c in zip(("_01_", "_02_", "_03_"), THUMB_CURL_L if sd == "l" else THUMB_CURL):
             acc += c
-            S.set("thumb" + j + sd, Rh @ rot(fd0, THUMB_ROLL[sd]) @ rot(axis_ref, acc))
+            S.set("thumb" + j + sd, Rh @ rot(palm0, THUMB_SWING[sd]) @ rot(fd0, THUMB_ROLL[sd]) @ rot(axis_ref, acc))
     S.solve(root)
     info["root"] = [round(float(x), 1) for x in root]
     for n in ("pelvis", "thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "ball_l", "upperarm_r", "lowerarm_r", "hand_r", "hand_l", "neck_01", "head"):
@@ -246,11 +259,31 @@ def pose(S, eye_local, verbose=True):
 KNEE_X, KNEE_Y, KNEE_Z = 470.0, 15.0, 48.0
 BALL_UP, FOOT_TILT = 16.0, 25.0
 HAND_R_OFF = (0.0, 3.6, 0.0)          # palm centre right of the grip axis (hand wraps it from the right)
-HAND_L_OFF = (-1.0, -2.5, 7.9)        # palm centre on top of the throttle grip body, a little outboard
+HAND_L_OFF = (-1.6, -0.4, 3.9)        # 11-19: palm centre on top of the throttle barrel (radius 2.5), a little aft
 FINGER_CURL = dict(index=(55.0, 60.0, 35.0), middle=(60.0, 65.0, 35.0), ring=(65.0, 65.0, 35.0), pinky=(70.0, 65.0, 35.0))
 THUMB_CURL = (35.0, 25.0, 15.0)
-THUMB_ROLL = dict(r=-20.0, l=15.0)    # thumb swung up over the grip head (deg about the finger direction)
-FINGER_CURL_L = dict(index=(35.0, 40.0, 25.0), middle=(40.0, 40.0, 25.0), ring=(45.0, 40.0, 25.0), pinky=(50.0, 40.0, 25.0))
+THUMB_ROLL = dict(r=-20.0, l=-10.0)   # thumb swung up over the grip head (deg about the finger direction)
+# 11-19: left thumb laid over the inboard end face of the throttle barrel (comm switch), found by a search on the tip position
+THUMB_SWING = dict(r=0.0, l=-10.0)    # deg about the palm normal
+THUMB_CURL_L = (-40.0, 20.0, 10.0)
+FINGER_CURL_L = dict(index=(42.0, 62.0, 35.0), middle=(46.0, 66.0, 35.0), ring=(50.0, 66.0, 35.0), pinky=(54.0, 64.0, 35.0))   # round the barrel
+# control poses -> morph targets (names = sim_client._pilot; angles as DRAWN: the v2 sidestick mesh tilts only
+# cockpit_v2.STICK_K x 12.75 deg = 2.55 deg, the throttle swings +-30 deg, the pedals travel +-4 cm)
+STICK_DRAWN, THR_DEG, PEDAL_CM = 2.55, 30.0, 4.0
+MORPHS = {"StickR": dict(sr=STICK_DRAWN), "StickL": dict(sr=-STICK_DRAWN), "StickF": dict(sp=STICK_DRAWN), "StickB": dict(sp=-STICK_DRAWN),
+          "ThrF": dict(thr=THR_DEG), "ThrB": dict(thr=-THR_DEG), "RudR": dict(rud=PEDAL_CM), "RudL": dict(rud=-PEDAL_CM)}
+
+
+# body segments for the UV unwrap: (name, bone-name prefixes) - first match wins, default 0 = torso; axis = joint -> joint
+SEGS = [("torso", ("~",)), ("upperarm_l", ("upperarm_l", "upperarm_twist_01_l", "upperarm_twist_02_l")), ("upperarm_r", ("upperarm_r", "upperarm_twist_01_r", "upperarm_twist_02_r")),
+        ("lowerarm_l", ("lowerarm_l", "lowerarm_twist_01_l", "lowerarm_twist_02_l")), ("lowerarm_r", ("lowerarm_r", "lowerarm_twist_01_r", "lowerarm_twist_02_r")),
+        ("hand_l", ("hand_l",)), ("hand_r", ("hand_r",)),
+        ("thigh_l", ("thigh_l", "thigh_twist_01_l", "thigh_twist_02_l")), ("thigh_r", ("thigh_r", "thigh_twist_01_r", "thigh_twist_02_r")),
+        ("calf_l", ("calf_l", "calf_twist_01_l", "calf_twist_02_l")), ("calf_r", ("calf_r", "calf_twist_01_r", "calf_twist_02_r")),
+        ("foot_l", ("foot_l", "ball_l")), ("foot_r", ("foot_r", "ball_r"))]
+SEG_AXIS = [("pelvis", "neck_01"), ("upperarm_l", "lowerarm_l"), ("upperarm_r", "lowerarm_r"), ("lowerarm_l", "hand_l"), ("lowerarm_r", "hand_r"),
+            ("hand_l", "middle_01_l"), ("hand_r", "middle_01_r"), ("thigh_l", "calf_l"), ("thigh_r", "calf_r"), ("calf_l", "foot_l"), ("calf_r", "foot_r"),
+            ("foot_l", "ball_l"), ("foot_r", "ball_r")]
 
 
 def back_pen(X):
@@ -398,13 +431,36 @@ def main():
     info["y_extent_hips"] = [round(float(X[used][(X[used][:, 2] < 45) & (X[used][:, 0] < 440), 1].min()), 1),
                              round(float(X[used][(X[used][:, 2] < 45) & (X[used][:, 0] < 440), 1].max()), 1)]
     info["n_tris"] = int(keep.sum())
+    # control poses: sparse vertex offsets from the base pose (Scripts/pilot/manny_fbx.py makes shape keys of them)
+    morphs = {}
+    for mn, ct in MORPHS.items():
+        mi = pose(S, eye_local, ctrl=ct)
+        dX = skin(S, P, Wm, names) - X
+        idx = np.nonzero(np.linalg.norm(dX, axis=1) > 0.01)[0]
+        morphs[mn] = dict(i=[int(v) for v in idx], d=[[round(float(c), 3) for c in dX[v]] for v in idx])
+        info["morph_" + mn] = dict(n=int(len(idx)), max_cm=round(float(np.linalg.norm(dX, axis=1).max()), 2),
+                                   wrist_miss=[mi.get("wrist_miss_r"), mi.get("wrist_miss_l")])
+    pose(S, eye_local)
+    # body segment per vertex + the posed segment axes (manny_fbx.py unwraps each limb as a cylinder: continuous UVs /
+    # tangents for the fabric normal map; a per-face box projection gave triangle-sized blotches)
+    seg_names = [k for k, _ in SEGS]
+    seg_of = {}
+    for bi, n in enumerate(names):
+        nn = ("hand_" + n[-1]) if n.split("_")[0] in ("index", "middle", "ring", "pinky", "thumb") else n
+        k = next((i for i, (_, pre) in enumerate(SEGS) if nn.startswith(pre)), 0)
+        seg_of[bi] = k
+    vseg = [seg_of[max(w, key=lambda x: x[1])[0]] for w in D["W"]]
+    seg_ax = []
+    for j0, j1 in SEG_AXIS:
+        seg_ax.append([[round(float(c), 2) for c in S.p(j0)], [round(float(c), 2) for c in S.p(j1)]])
     nt0 = len(T)
     X, T, cls, keep, nl = cap_holes(X, T, keep, cls)
     info["capped_loops"] = nl
     print(json.dumps(info, indent=1))
     if a.out:
         capT = [dict(v=[int(x) for x in T[i]], cls=int(cls[i])) for i in range(nt0, len(T))]
-        json.dump(dict(P=[[round(float(c), 3) for c in p] for p in X], cls=[int(c) for c in cls[:nt0]], drop=[int(d) for d in drop], capT=capT, info=info),
+        json.dump(dict(P=[[round(float(c), 3) for c in p] for p in X], cls=[int(c) for c in cls[:nt0]], drop=[int(d) for d in drop], capT=capT, info=info,
+                       T=[[int(x) for x in t] for t in T[:nt0]], morphs=morphs, vseg=vseg, seg_axis=seg_ax, seg_names=seg_names),
                   open(a.out, "w"))
     if a.obj:
         with open(a.obj, "w") as f:

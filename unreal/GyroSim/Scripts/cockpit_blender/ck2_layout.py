@@ -23,8 +23,9 @@ import layout as OLD          # noqa: E402  (exterior fit tables, rig positions;
 EYE = OLD.EYE
 # generated files (textures, FBX export, manifest, .blend): outside git. 11-18: "cockpit3" = the realism rounds of 11-18;
 # the earlier build stays in ...\assets\cockpit + /Game/ThirdParty/Cockpit2 (GYROSIM_COCKPIT_V=old shows it)
-ASSET_DIR = os.environ.get("GYROSIM_CK2_DIR", r"C:\GyroSimTiles\assets\cockpit3")
-UE_DST = "/Game/ThirdParty/Cockpit3"
+# 11-19 round 4: "cockpit4" (throttle / stick grips, sill); cockpit3 stays as GYROSIM_COCKPIT_V=prev
+ASSET_DIR = os.environ.get("GYROSIM_CK2_DIR", r"C:/GyroSimTiles/assets/cockpit4".replace("/", os.sep))
+UE_DST = os.environ.get("GYROSIM_CK2_UE", "/Game/ThirdParty/Cockpit4")
 skin_half_width, glass_bottom, glass_top = OLD.skin_half_width, OLD.glass_bottom, OLD.glass_top
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -135,6 +136,7 @@ CONSOLE_IN, CONSOLE_OUT = 24.5, 47.0
 CONSOLE_X0, CONSOLE_X1 = 382.0, 503.0
 STICK_SIDE = dict(pivot=(462.0, 33.5, 42.5), lean=12.0)   # sidestick pivot (boot top), grip leans forward
 THR = dict(pivot=(441.0, -32.0, 43.5), slot=(-35.5, 425.0, 470.0))   # same pivot as v1 (physical rig)
+THR_GRIP = (0.6, -0.6, 10.2)        # throttle grip barrel centre from the pivot (ck2_model.build_throttle, manny_pose left hand)
 ARMREST = dict(x0=414.0, x1=448.0, y0=29.0, y1=44.0, z1=47.0)
 
 

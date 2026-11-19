@@ -1,7 +1,7 @@
 """Cockpit v2 -> Unreal assets (run in a SECOND, off-screen editor commandlet; never the user's editor):
   UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<repo>/unreal/GyroSim/Scripts/cockpit_blender/ck2_ue_import.py
       -unattended -nosplash -nullrhi
-Imports <ck2_layout.ASSET_DIR>/{export,tex} (ck2_model.py / ck2_textures.py output) into ck2_layout.UE_DST (/Game/ThirdParty/Cockpit3)
+Imports <ck2_layout.ASSET_DIR>/{export,tex} (ck2_model.py / ck2_textures.py output) into ck2_layout.UE_DST (/Game/ThirdParty/Cockpit4)
 (gitignored like all generated texture content; rebuild any time from the scripts), builds the materials:
   M_Ck2Surface  master: atlas x Tint, baked masks on UV1 (R AO, G convex edge, B wide cavity), tiling grunge, edge wear to
                 primer, dust on up-facing cavities, panel-line / screw / engraving normal map, backlit legends (atlas alpha)
@@ -190,7 +190,7 @@ def master(tx):
     return m
 
 
-def glass_mat():
+def glass_mat(tx=None):
     m = new_mat("M_Ck2Glass")
     m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     m.set_editor_property("two_sided", True)
@@ -198,11 +198,32 @@ def glass_mat():
         m.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
     except Exception as e:
         log("glass lighting mode", e)
-    MEL.connect_material_property(VP(m, "Tint", (0.02, 0.025, 0.03), -600, 0), "", unreal.MaterialProperty.MP_BASE_COLOR)
-    MEL.connect_material_property(SP(m, "Rough", 0.05, -600, 200), "", unreal.MaterialProperty.MP_ROUGHNESS)
-    MEL.connect_material_property(SP(m, "Spec", 0.6, -600, 260), "", unreal.MaterialProperty.MP_SPECULAR)
+    base, rough = VP(m, "Tint", (0.02, 0.025, 0.03), -600, 0), SP(m, "Rough", 0.05, -600, 200)
     fr = X(m, unreal.MaterialExpressionFresnel, -800, 400, exponent=3.0)
     op = ADD(m, SP(m, "Opacity", 0.06, -800, 330), MUL(m, fr, SP(m, "FresnelOp", 0.5, -800, 480), -650, 430), -500, 360)
+    # 11-19 round 4: dust / smudge film so the instrument glass reads as glass (critic: dials look like printed decals).
+    # The grunge map projected along the aircraft X axis (mesh-local Y, Z; the glass has no usable UVs) adds a little
+    # grey, rough, slightly more opaque film in patches: it catches the sun and the sky light. Dust 0 = clear (HUD).
+    try:
+        wp = X(m, unreal.MaterialExpressionWorldPosition, -1700, 800)
+        lp = X(m, unreal.MaterialExpressionTransformPosition, -1500, 800)
+        lp.set_editor_property("transform_source_type", unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD)
+        lp.set_editor_property("transform_type", unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+        MEL.connect_material_expressions(wp, "", lp, "")
+        yz = X(m, unreal.MaterialExpressionComponentMask, -1350, 800, r=False, g=True, b=True, a=False)
+        MEL.connect_material_expressions(lp, "", yz, "")
+        g = TS(m, "Grunge", tx["T_Ck2Grunge"], MUL(m, yz, SP(m, "DustTile", 0.16, -1350, 900), -1200, 820), -1050, 800,
+               unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE)
+        dm = MUL(m, SAT(m, MUL(m, SUB(m, MASK(m, g, "r", -850, 800), C(m, 0.3, -850, 880), -700, 820), C(m, 1.4, -700, 900), -560, 820), -420, 820),
+                 SP(m, "Dust", 0.0, -560, 920), -280, 820)
+        base = LERP(m, base, VP(m, "DustColor", (0.22, 0.21, 0.19), -600, 80), dm, -300, 20)
+        rough = LERP(m, rough, C(m, 0.7, -600, 240), dm, -300, 200)
+        op = ADD(m, op, MUL(m, dm, SP(m, "DustOp", 0.04, -500, 600), -350, 600), -200, 420)
+    except Exception as e:
+        log("glass dust skipped", repr(e)[:200])
+    MEL.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    MEL.connect_material_property(SP(m, "Spec", 0.6, -600, 260), "", unreal.MaterialProperty.MP_SPECULAR)
     MEL.connect_material_property(MUL(m, VP(m, "EdgeTint", (0.0, 0.0, 0.0), -800, 560), fr, -650, 560), "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     MEL.connect_material_property(op, "", unreal.MaterialProperty.MP_OPACITY)
     MEL.recompile_material(m)
@@ -233,7 +254,7 @@ SLOTS = {
     "CK2_Rubber": dict(GrainAmt=0.45, Tint=(0.01, 0.01, 0.01), Rough=0.92, EdgeWear=0.00, NormalAmt=0.0, Spec=0.25),
     "CK2_HUDBody": dict(GrainAmt=0.15, Tint=(0.03, 0.031, 0.033), Rough=0.6, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
-    "CK2_Frame": dict(GrainAmt=0.12, Tint=(0.014, 0.015, 0.016), Rough=0.58, EdgeWear=0.3, WearMetal=0.4, WearColor=(0.25, 0.25, 0.25), NormalAmt=0.0, Spec=0.35, Dust=0.25),
+    "CK2_Frame": dict(GrainAmt=0.12, Tint=(0.009, 0.0095, 0.01), Rough=0.75, EdgeWear=0.3, WearMetal=0.4, WearColor=(0.25, 0.25, 0.25), NormalAmt=0.0, Spec=0.35, Dust=0.25),
     "CK2_Metal": dict(Tint=(0.2, 0.2, 0.21), Rough=0.45, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
     "CK2_Chrome": dict(Tint=(0.5, 0.5, 0.5), Rough=0.28, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
     "CK2_Knob": dict(Tint=(0.008, 0.008, 0.009), Rough=0.42, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0, Spec=0.5),
@@ -246,9 +267,9 @@ SLOTS = {
     "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
     "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
     "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
-    "CK2_SeatPaint": dict(GrainAmt=0.2, Tint=(0.075, 0.085, 0.065), Rough=0.78, EdgeWear=0.40, NormalAmt=0.0, Spec=0.35),
+    "CK2_SeatPaint": dict(GrainAmt=0.2, Tint=(0.028, 0.032, 0.026), Rough=0.78, EdgeWear=0.40, NormalAmt=0.0, Spec=0.35),
     "CK2_Fleece": dict(GrainAmt=0.6, GrainTile=26, Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.00, Dust=0.2, NormalAmt=0.0, Spec=0.2),
-    "CK2_Headrest": dict(GrainAmt=0.8, Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
+    "CK2_Headrest": dict(GrainAmt=0.8, Tint=(0.035, 0.038, 0.03), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
     "CK2_Boot": dict(GrainAmt=0.4, Tint=(0.05, 0.053, 0.055), Rough=0.85, Spec=0.25, EdgeWear=0.00, NormalAmt=0.0),
     "CK2_Grip": dict(GrainAmt=0.35, GrainTile=24, Tint=(0.007, 0.007, 0.0075), Rough=0.5, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
     "CK2_GearKnob": dict(Tint=(0.11, 0.11, 0.105), Rough=0.45, EdgeWear=0.00, NormalAmt=0.0),
@@ -260,8 +281,11 @@ SLOTS = {
     "CK2_PanelFace": dict(GrainAmt=0.15, Tint=(0.03, 0.031, 0.033), Rough=0.55, EdgeWear=0.5, Dust=0.6, NormalAmt=0.0, Spec=0.4, WearColor=(0.42, 0.43, 0.4)),
     "CK2_Harness": dict(Tint=(0.024, 0.028, 0.022), Rough=0.9, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0, Dust=0.2, GrainAmt=1.0, GrainTile=22),
     # 11-19: matte and darker (critic: glossy mid-grey with pale wear / dust bands), wear only on the edges
-    "CK2_Sill": dict(GrainAmt=0.2, Tint=(0.022, 0.023, 0.025), Rough=0.68, EdgeWear=0.25, WearMetal=0.4, WearColor=(0.25, 0.25, 0.25), NormalAmt=0.0, Spec=0.35, Dust=0.25),
-    "CK2_Screw": dict(Tint=(0.06, 0.061, 0.064), Rough=0.6, Metal=0.0, Spec=0.35, NormalAmt=0.0, EdgeWear=0.0),
+    # 11-19 round 4: darker again and flatter (critic: still a mid-grey sheet with a broad specular band; real = near black);
+    # fasteners near the sill tone (lighter ones read as white dots), throttle grip = matte black plastic
+    "CK2_Sill": dict(GrainAmt=0.25, Tint=(0.012, 0.0125, 0.0135), Rough=0.8, EdgeWear=0.2, WearMetal=0.3, WearColor=(0.12, 0.12, 0.12), NormalAmt=0.0, Spec=0.25, Dust=0.2),
+    "CK2_Screw": dict(Tint=(0.03, 0.031, 0.033), Rough=0.72, Metal=0.0, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0),
+    "CK2_ThrGrip": dict(Tint=(0.011, 0.011, 0.012), Rough=0.7, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Dark": dict(Tint=(0.008, 0.008, 0.009), Rough=0.9, Spec=0.1, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Pedal": dict(Tint=(0.014, 0.0145, 0.015), Rough=0.6, Metal=0.0, EdgeWear=0.4, WearMetal=0, WearColor=(0.12, 0.12, 0.12), NormalAmt=0.0, Dust=0.8),
     "CK2_LensR": dict(Tint=(0.03, 0.004, 0.004), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
@@ -269,7 +293,9 @@ SLOTS = {
     "CK2_LensA": dict(Tint=(0.03, 0.016, 0.003), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_LensW": dict(Tint=(0.35, 0.35, 0.3), Rough=0.15, Spec=0.6, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
 }
-GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.045, FresnelOp=0.7, Rough=0.04), "CK2_HUDGlass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.018, FresnelOp=0.3, Rough=0.03, EdgeTint=(0.0, 0.0, 0.0))}
+GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.045, FresnelOp=0.7, Rough=0.04, Dust=0.0),
+         # (Dust 0 = the dust film is OFF: at 1.0 the blind critic read it as dirty camouflage blotches on the MFDs / dials)
+         "CK2_HUDGlass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.018, FresnelOp=0.3, Rough=0.03, EdgeTint=(0.0, 0.0, 0.0))}
 # 11-13 HUD combiner: was Tint (0.10, 0.14, 0.05) / Opacity 0.16 / FresnelOp 0.6 / EdgeTint (0.05, 0.07, 0.015) -> the lit
 # yellow-green base colour over two panes (~30 % cover) read as an opaque plate; real combiner = near-clear, faint reflection.
 # Neutral (Tint / EdgeTint 0, Opacity 0.018 x 2 panes): mean colour behind the glass = the no-glass shot within 1 %
@@ -316,7 +342,7 @@ def main():
           "T_Ck2Grunge": import_tex(os.path.join(TEXD, "T_Ck2Grunge.png"), "gray"),
           "T_Ck2Grain": import_tex(os.path.join(TEXD, "T_Ck2Grain.png"), "normal"), "T_Ck2Masks": import_tex(os.path.join(EXP, "T_Ck2Masks.png"), "linear")}
     log("textures", {k: bool(v) for k, v in tx.items()})
-    ms, mg, ml = master(tx), glass_mat(), lamp_mat()
+    ms, mg, ml = master(tx), glass_mat(tx), lamp_mat()
     mats = {k: instance("MI_Ck2" + k[3:], ms, v) for k, v in SLOTS.items()}
     mats.update({k: instance("MI_Ck2" + k[3:], mg, v) for k, v in GLASS.items()})
     mats.update({"CK2_LampOn_" + c: instance("MI_Ck2_LampOn_" + c, ml, dict(Color=rgb, Intensity=1.4)) for c, rgb in LAMPS.items()})

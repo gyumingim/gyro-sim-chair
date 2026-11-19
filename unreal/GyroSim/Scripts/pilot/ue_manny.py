@@ -66,6 +66,57 @@ def install():
     return ok
 
 
+SMM = DEST + "/SKM_PilotMannyM"
+
+
+def import_fbx(fbx=None):
+    """11-19: the pilot with control morph targets: MANNY_DIR/manny_pilot.fbx (Scripts/pilot/manny_fbx.py) ->
+    SKM_PilotMannyM (+ its own one-bone skeleton), slots = the MI_PM_* instances. SKM_PilotManny (static) stays."""
+    fbx = fbx or os.path.join(MANNY_DIR, "manny_pilot.fbx")
+    o = unreal.FbxImportUI()
+    o.set_editor_property("import_mesh", True)
+    o.set_editor_property("import_as_skeletal", True)
+    o.set_editor_property("mesh_type_to_import", unreal.FBXImportType.FBXIT_SKELETAL_MESH)
+    o.set_editor_property("import_materials", False)
+    o.set_editor_property("import_textures", False)
+    o.set_editor_property("import_animations", False)
+    o.set_editor_property("create_physics_asset", False)
+    sd = o.get_editor_property("skeletal_mesh_import_data")
+    sd.set_editor_property("import_morph_targets", True)
+    sd.set_editor_property("normal_import_method", unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS)
+    t = unreal.AssetImportTask()
+    t.filename, t.destination_path, t.destination_name, t.automated, t.replace_existing, t.save = fbx, DEST, "SKM_PilotMannyM", True, True, True
+    t.options = o
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+    sk = unreal.load_asset(SMM)
+    if sk is None:
+        log("import_fbx failed", fbx)
+        return None
+    master = unreal.load_asset("/Game/Cockpit/Materials/M_CkSurface")
+    for u in ("MATUSAGE_SKELETAL_MESH", "MATUSAGE_MORPH_TARGETS"):
+        try:
+            MEL.set_material_usage(master, getattr(unreal.MaterialUsage, u))
+        except Exception as e:
+            log("material usage", u, repr(e)[:100])
+    mats = dict(materials())
+    sm = list(sk.get_editor_property("materials"))
+    for i, m in enumerate(sm):
+        n = str(m.get_editor_property("material_slot_name"))
+        key = next((k for k in mats if n.startswith(k)), None)
+        if key:
+            m.set_editor_property("material_interface", mats[key])
+            sm[i] = m
+    sk.set_editor_property("materials", sm)
+    EAL.save_loaded_asset(sk)
+    info = dict(slots=[str(m.material_slot_name) for m in sk.get_editor_property("materials")], bounds=str(sk.get_bounds()))
+    try:
+        info["morphs"] = [str(m.get_name()) for m in sk.get_editor_property("morph_targets")]
+    except Exception as e:
+        info["morphs"] = repr(e)[:120]
+    log("import_fbx", info)
+    return info
+
+
 def _tr(t):
     p = t.translation
     return [round(p.x, 4), round(p.y, 4), round(p.z, 4)]
