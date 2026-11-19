@@ -178,7 +178,13 @@ def master(tx):
     flat = X(m, unreal.MaterialExpressionConstant3Vector, -2400, 1600, constant=unreal.LinearColor(0, 0, 1, 1))
     nrgb = X(m, unreal.MaterialExpressionComponentMask, -2400, 1450, r=True, g=True, b=True, a=False)
     MEL.connect_material_expressions(nm, "", nrgb, "")
-    MEL.connect_material_property(LERP(m, flat, nrgb, SP(m, "NormalAmt", 1.0, -2400, 1700), -2100, 1500), "", unreal.MaterialProperty.MP_NORMAL)
+    nbase = LERP(m, flat, nrgb, SP(m, "NormalAmt", 1.0, -2400, 1700), -2100, 1500)
+    # 11-18: fine grain detail normal (tiles on UV1): pebbled glare shield, cloth, orange-peel paint
+    gs = TS(m, "Grain", tx["T_Ck2Grain"], MUL(m, uv1, SP(m, "GrainTile", 14.0, -3000, 2000), -2850, 1950), -2700, 1900, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+    grgb = X(m, unreal.MaterialExpressionComponentMask, -2400, 1900, r=True, g=True, b=True, a=False)
+    MEL.connect_material_expressions(gs, "", grgb, "")
+    det = MUL(m, SUB(m, grgb, flat, -2250, 1900), SP(m, "GrainAmt", 0.0, -2400, 2050), -2100, 1900)
+    MEL.connect_material_property(ADD(m, nbase, det, -1950, 1600), "", unreal.MaterialProperty.MP_NORMAL)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m)
     return m
@@ -218,16 +224,16 @@ def lamp_mat():
 DARK = (0.055, 0.058, 0.06)
 SLOTS = {
     "CK2_Plate": dict(Rough=0.52, EdgeWear=1, Dust=0.7, NormalAmt=1.0, Spec=0.45, EdgeLift=0.03, WearColor=(0.42, 0.43, 0.4), WearMetal=0.3),
-    "CK2_Plate0": dict(Tint=DARK, Rough=0.55, NormalAmt=0.0, Spec=0.35),
+    "CK2_Plate0": dict(GrainAmt=0.12, Tint=DARK, Rough=0.55, NormalAmt=0.0, Spec=0.35),
     "CK2_PlateSide": dict(Tint=(0.05, 0.052, 0.054), Rough=0.6, NormalAmt=0.0, Spec=0.35),
-    "CK2_Paint": dict(Tint=(0.095, 0.102, 0.108), Rough=0.55, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.45, EdgeLift=0.05, WearColor=(0.42, 0.43, 0.4), WearMetal=0.3),
-    "CK2_Well": dict(Tint=(0.05, 0.054, 0.058), Rough=0.6, EdgeWear=0.7, Dust=1.1, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
-    "CK2_Wall": dict(Tint=(0.07, 0.075, 0.08), Rough=0.58, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
-    "CK2_Glare": dict(Tint=(0.022, 0.022, 0.024), Rough=0.95, RoughVar=0.22, EdgeWear=0.10, Dust=1, NormalAmt=0.0, Spec=0.2, GrungeTile=14),
-    "CK2_Rubber": dict(Tint=(0.01, 0.01, 0.01), Rough=0.92, EdgeWear=0.00, NormalAmt=0.0, Spec=0.25),
-    "CK2_HUDBody": dict(Tint=(0.03, 0.031, 0.033), Rough=0.6, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
+    "CK2_Paint": dict(GrainAmt=0.08, Tint=(0.095, 0.102, 0.108), Rough=0.55, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.45, EdgeLift=0.05, WearColor=(0.42, 0.43, 0.4), WearMetal=0.3),
+    "CK2_Well": dict(GrainAmt=0.08, Tint=(0.05, 0.054, 0.058), Rough=0.6, EdgeWear=0.7, Dust=1.1, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
+    "CK2_Wall": dict(GrainAmt=0.08, Tint=(0.07, 0.075, 0.08), Rough=0.58, EdgeWear=0.8, Dust=0.8, NormalAmt=0.0, Spec=0.35, WearColor=(0.42, 0.43, 0.4)),
+    "CK2_Glare": dict(GrainAmt=0.6, GrainTile=18, Tint=(0.022, 0.022, 0.024), Rough=0.95, RoughVar=0.22, EdgeWear=0.10, Dust=1, NormalAmt=0.0, Spec=0.2, GrungeTile=14),
+    "CK2_Rubber": dict(GrainAmt=0.45, Tint=(0.01, 0.01, 0.01), Rough=0.92, EdgeWear=0.00, NormalAmt=0.0, Spec=0.25),
+    "CK2_HUDBody": dict(GrainAmt=0.15, Tint=(0.03, 0.031, 0.033), Rough=0.6, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
-    "CK2_Frame": dict(Tint=(0.014, 0.015, 0.016), Rough=0.45, EdgeWear=0.7, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
+    "CK2_Frame": dict(GrainAmt=0.12, Tint=(0.014, 0.015, 0.016), Rough=0.45, EdgeWear=0.7, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
     "CK2_Metal": dict(Tint=(0.2, 0.2, 0.21), Rough=0.45, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
     "CK2_Chrome": dict(Tint=(0.5, 0.5, 0.5), Rough=0.28, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
     "CK2_Knob": dict(Tint=(0.008, 0.008, 0.009), Rough=0.42, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0, Spec=0.5),
@@ -240,20 +246,21 @@ SLOTS = {
     "CK2_Lit": dict(Rough=0.1, Emissive=1.6, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0, AOAmt=0.0),
     "CK2_Screen_L": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
     "CK2_Screen_R": dict(Tint=(0.002, 0.003, 0.004), Rough=0.08, Spec=0.7, EdgeWear=0.00, Dust=0.0, NormalAmt=0.0),
-    "CK2_SeatPaint": dict(Tint=(0.075, 0.085, 0.065), Rough=0.78, EdgeWear=0.40, NormalAmt=0.0, Spec=0.35),
-    "CK2_Fleece": dict(Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.00, Dust=0.2, NormalAmt=0.0, Spec=0.2),
-    "CK2_Headrest": dict(Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
-    "CK2_Boot": dict(Tint=(0.10, 0.105, 0.11), Rough=0.85, Spec=0.25, EdgeWear=0.00, NormalAmt=0.0),
-    "CK2_Grip": dict(Tint=(0.028, 0.028, 0.03), Rough=0.55, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
-    "CK2_GearKnob": dict(Tint=(0.7, 0.7, 0.68), Rough=0.35, EdgeWear=0.00, NormalAmt=0.0),
-    "CK2_Kneeboard": dict(Tint=(0.03, 0.03, 0.032), Rough=0.5, NormalAmt=0.0),
+    "CK2_SeatPaint": dict(GrainAmt=0.2, Tint=(0.075, 0.085, 0.065), Rough=0.78, EdgeWear=0.40, NormalAmt=0.0, Spec=0.35),
+    "CK2_Fleece": dict(GrainAmt=0.6, GrainTile=26, Tint=(0.014, 0.014, 0.014), Rough=0.95, RoughVar=0.05, EdgeWear=0.00, Dust=0.2, NormalAmt=0.0, Spec=0.2),
+    "CK2_Headrest": dict(GrainAmt=0.8, Tint=(0.10, 0.11, 0.09), Rough=0.9, EdgeWear=0.00, NormalAmt=0.0, Spec=0.3),
+    "CK2_Boot": dict(GrainAmt=0.4, Tint=(0.05, 0.053, 0.055), Rough=0.85, Spec=0.25, EdgeWear=0.00, NormalAmt=0.0),
+    "CK2_Grip": dict(GrainAmt=0.35, GrainTile=24, Tint=(0.007, 0.007, 0.0075), Rough=0.5, EdgeWear=0.4, WearColor=(0.05, 0.05, 0.05), NormalAmt=1),
+    "CK2_GearKnob": dict(Tint=(0.11, 0.11, 0.105), Rough=0.45, EdgeWear=0.00, NormalAmt=0.0),
+    "CK2_Kneeboard": dict(GrainAmt=0.1, Tint=(0.03, 0.03, 0.032), Rough=0.5, NormalAmt=0.0),
     "CK2_HUDEdge": dict(Tint=(0.32, 0.36, 0.16), Rough=0.25, Metal=0.7, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Hose": dict(Tint=(0.07, 0.08, 0.045), Rough=0.75, NormalAmt=0.0, EdgeWear=0.0, Dust=0.4),
-    "CK2_Strap": dict(Tint=(0.03, 0.034, 0.024), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
+    "CK2_Strap": dict(GrainAmt=0.8, GrainTile=20, Tint=(0.03, 0.034, 0.024), Rough=0.9, NormalAmt=0.0, EdgeWear=0.00),
     # 11-18 round 1: canopy sill (dark grey, chipped to metal), dull dark fasteners, pedals, unlit indexer / lamp lenses, black backstop
-    "CK2_PanelFace": dict(Tint=(0.03, 0.031, 0.033), Rough=0.55, EdgeWear=0.5, Dust=0.6, NormalAmt=0.0, Spec=0.4, WearColor=(0.42, 0.43, 0.4)),
-    "CK2_Sill": dict(Tint=(0.035, 0.037, 0.04), Rough=0.55, EdgeWear=0.8, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
-    "CK2_Screw": dict(Tint=(0.04, 0.041, 0.044), Rough=0.6, Metal=0.0, Spec=0.4, NormalAmt=0.0, EdgeWear=0.0),
+    "CK2_PanelFace": dict(GrainAmt=0.15, Tint=(0.03, 0.031, 0.033), Rough=0.55, EdgeWear=0.5, Dust=0.6, NormalAmt=0.0, Spec=0.4, WearColor=(0.42, 0.43, 0.4)),
+    "CK2_Harness": dict(Tint=(0.024, 0.028, 0.022), Rough=0.9, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0, Dust=0.2, GrainAmt=1.0, GrainTile=22),
+    "CK2_Sill": dict(GrainAmt=0.2, Tint=(0.035, 0.037, 0.04), Rough=0.55, EdgeWear=0.8, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
+    "CK2_Screw": dict(Tint=(0.03, 0.031, 0.033), Rough=0.75, Metal=0.0, Spec=0.25, NormalAmt=0.0, EdgeWear=0.0),
     "CK2_Dark": dict(Tint=(0.008, 0.008, 0.009), Rough=0.9, Spec=0.1, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Pedal": dict(Tint=(0.014, 0.0145, 0.015), Rough=0.6, Metal=0.0, EdgeWear=0.4, WearMetal=0, WearColor=(0.12, 0.12, 0.12), NormalAmt=0.0, Dust=0.8),
     "CK2_LensR": dict(Tint=(0.03, 0.004, 0.004), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
@@ -261,7 +268,7 @@ SLOTS = {
     "CK2_LensA": dict(Tint=(0.03, 0.016, 0.003), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_LensW": dict(Tint=(0.35, 0.35, 0.3), Rough=0.15, Spec=0.6, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
 }
-GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.03, FresnelOp=0.55, Rough=0.04), "CK2_HUDGlass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.018, FresnelOp=0.3, Rough=0.03, EdgeTint=(0.0, 0.0, 0.0))}
+GLASS = {"CK2_Glass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.045, FresnelOp=0.7, Rough=0.04), "CK2_HUDGlass": dict(Tint=(0.0, 0.0, 0.0), Opacity=0.018, FresnelOp=0.3, Rough=0.03, EdgeTint=(0.0, 0.0, 0.0))}
 # 11-13 HUD combiner: was Tint (0.10, 0.14, 0.05) / Opacity 0.16 / FresnelOp 0.6 / EdgeTint (0.05, 0.07, 0.015) -> the lit
 # yellow-green base colour over two panes (~30 % cover) read as an opaque plate; real combiner = near-clear, faint reflection.
 # Neutral (Tint / EdgeTint 0, Opacity 0.018 x 2 panes): mean colour behind the glass = the no-glass shot within 1 %
@@ -305,12 +312,16 @@ def main():
     t0 = time.time()
     man = json.load(open(os.path.join(EXP, "manifest.json"), encoding="utf-8"))
     tx = {"T_Ck2Atlas": import_tex(os.path.join(TEXD, "T_Ck2Atlas.png")), "T_Ck2Normal": import_tex(os.path.join(TEXD, "T_Ck2Normal.png"), "normal"),
-          "T_Ck2Grunge": import_tex(os.path.join(TEXD, "T_Ck2Grunge.png"), "gray"), "T_Ck2Masks": import_tex(os.path.join(EXP, "T_Ck2Masks.png"), "linear")}
+          "T_Ck2Grunge": import_tex(os.path.join(TEXD, "T_Ck2Grunge.png"), "gray"),
+          "T_Ck2Grain": import_tex(os.path.join(TEXD, "T_Ck2Grain.png"), "normal"), "T_Ck2Masks": import_tex(os.path.join(EXP, "T_Ck2Masks.png"), "linear")}
     log("textures", {k: bool(v) for k, v in tx.items()})
     ms, mg, ml = master(tx), glass_mat(), lamp_mat()
     mats = {k: instance("MI_Ck2" + k[3:], ms, v) for k, v in SLOTS.items()}
     mats.update({k: instance("MI_Ck2" + k[3:], mg, v) for k, v in GLASS.items()})
     mats.update({"CK2_LampOn_" + c: instance("MI_Ck2_LampOn_" + c, ml, dict(Color=rgb, Intensity=1.4)) for c, rgb in LAMPS.items()})
+    # 11-19: only the shell has the baked masks on UV1; the moving parts (stick, throttle, pedals, gear handle) sampled
+    # them with no UV1 -> AO 0 = pure black grips. They get instances without the mask terms.
+    mats_nm = {k: instance("MI_Ck2" + k[3:] + "_NM", ms, dict(v, AOAmt=0.0, EdgeWear=0.0, Dust=0.0, GrainAmt=0.0)) for k, v in SLOTS.items()}
     res = {}
     for name, info in man["parts"].items():
         sm = import_mesh(os.path.join(EXP, info["fbx"]))
@@ -322,7 +333,7 @@ def main():
             sn = str(sl.material_slot_name)
             key = sn if sn in mats else next((k for k in sorted(mats, key=len, reverse=True) if sn.startswith(k)), None)
             if key:
-                sm.set_material(i, mats[key])
+                sm.set_material(i, mats_nm[key] if (name != "ck2_shell" and key in mats_nm) else mats[key])
             else:
                 miss.append(sn)
         try:   # distance field from all triangles, two-sided (thin open panels); rebuilt after the materials are set

@@ -281,7 +281,7 @@ def draw_plate(p):
             a, b, w, h = it[1], it[2], it[3], it[4]
             txt = it[5] if len(it) > 5 else ""
             c.rect(a - w / 2 - 0.12, b - h / 2 - 0.12, a + w / 2 + 0.12, b + h / 2 + 0.12, fill=(10, 10, 10), h=112)
-            c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(58, 59, 60) if p["kind"] == "mfd" else (28, 28, 29))   # key top
+            c.rect(a - w / 2, b - h / 2, a + w / 2, b + h / 2, fill=(104, 106, 108) if p["kind"] == "mfd" else (28, 28, 29))   # key top
             if txt:
                 c.text(a, b, txt, min(0.34, h * 0.24), kind="bold", engrave=False)
             elif p["kind"] != "mfd" and li < len(labels):
@@ -415,5 +415,19 @@ for oc, amp in ((8, 1.0), (16, 0.6), (32, 0.4), (64, 0.25), (128, 0.15), (256, 0
     g += amp * big[:1024, :1024] / 255.0
 g = (g - g.min()) / (g.max() - g.min())
 Image.fromarray((g * 255).astype(np.uint8)).save(os.path.join(OUT, "T_Ck2Grunge.png"))
+# 11-18 round 2: fine grain detail normal (tiles; UV1 x GrainTile in the material): two octaves of blurred noise
+gn = np.zeros((512, 512), np.float32)
+for oc, amp, blur in ((512, 1.0, 1.1), (128, 0.6, 0.0)):
+    sm = rng.random((oc, oc)).astype(np.float32)
+    big = np.array(Image.fromarray((sm * 255).astype(np.uint8)).resize((512, 512), Image.BICUBIC)).astype(np.float32) / 255.0
+    if blur:
+        pad = np.pad(big, 8, mode="wrap")
+        big = np.array(Image.fromarray((pad * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(blur))).astype(np.float32)[8:-8, 8:-8] / 255.0
+    gn += amp * big
+gx = (np.roll(gn, -1, 1) - np.roll(gn, 1, 1)) * 0.5
+gy = (np.roll(gn, -1, 0) - np.roll(gn, 1, 0)) * 0.5
+nx, ny, nz = -gx * 3.0, gy * 3.0, np.ones_like(gn)
+ln = np.sqrt(nx * nx + ny * ny + nz * nz)
+Image.fromarray(((np.stack([nx / ln, ny / ln, nz / ln], -1) * 0.5 + 0.5) * 255).clip(0, 255).astype(np.uint8)).save(os.path.join(OUT, "T_Ck2Grain.png"))
 alb.resize((1024, 1024), Image.LANCZOS).save(os.path.join(OUT, "atlas_preview.jpg"), quality=88)
 print("[ck2tex] %d plates, %.1f s -> %s" % (len(plates), time.time() - t0, OUT))

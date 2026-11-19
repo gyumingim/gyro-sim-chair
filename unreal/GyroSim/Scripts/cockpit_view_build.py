@@ -71,6 +71,16 @@ def build():
         eas.destroy_actor(a)
     import cockpit_v2                              # v2 meshes, as at Play
     log("cockpit_v2", cockpit_v2.apply(w))
+    # 11-18: the sim-driven lamp overlays (master caution, warning, brakes ..., the three gear greens) are shown by the sim
+    # only while their condition is true; with no sim here they were all lit at once (too bright) -> off in this level
+    n_off = 0
+    for a in eas.get_all_level_actors():
+        if any(t.startswith("Light_") or t == "GearLights" for t in tags(a)):
+            c = getattr(a, "static_mesh_component", None)
+            if c:
+                c.set_visibility(False, True)
+                n_off += 1
+    log("lamp overlays off", n_off)
     for a in eas.get_all_level_actors():           # lift the aircraft / rig / pilot roots
         if a.get_class().get_name() in ENV or a.get_class().get_name() in INFRA or parent(a) is not None:
             continue

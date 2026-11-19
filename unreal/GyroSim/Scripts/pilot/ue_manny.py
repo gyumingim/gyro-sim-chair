@@ -30,12 +30,14 @@ EAL, MEL = unreal.EditorAssetLibrary, unreal.MaterialEditingLibrary
 GA, GQ, GB, GL = unreal.GeometryScript_AssetUtils, unreal.GeometryScript_MeshQueries, unreal.GeometryScript_BoneWeights, unreal.GeometryScript_List
 log = lambda *a: unreal.log("[ue_manny] " + " ".join(str(x) for x in a))
 
+# 11-19: suit 0.022 -> 0.011 (half; user: the suit looks too bright in VR - sunlit albedo above ~0.03 reads near white at the
+# cockpit exposure), G-suit 0.016 -> 0.0085
 # material class (manny_pose.classify) -> M_CkSurface parameters (linear colours). 11-16: suit 0.085 rendered almost white in
 # the look-down view (chest sRGB ~190 at exp_min 1.0) -> about 1/4
 NO_MASKS = dict(AOAmt=0.0, EdgeGain=0.0, Dirt=0.0, Wear=0.0, Cavity=0.0, NormalAmt=0.0)
 SLOTS = [
-    ("PM_Suit", dict(Tint=(0.015, 0.0175, 0.0105), Rough=0.85, RoughVar=0.1, Sheen=0.0, Polish=0.0, NormalAmt=0.8, NormalTile=60.0)),      # olive-grey flight suit
-    ("PM_GSuit", dict(Tint=(0.011, 0.013, 0.008), Rough=0.85, RoughVar=0.1, Sheen=0.0, Polish=0.0, NormalAmt=0.8, NormalTile=60.0)),    # darker G-suit trousers
+    ("PM_Suit", dict(Tint=(0.011, 0.013, 0.0078), Rough=0.85, RoughVar=0.1, Sheen=0.0, Polish=0.0, NormalAmt=0.8, NormalTile=60.0)),      # olive-grey flight suit
+    ("PM_GSuit", dict(Tint=(0.0085, 0.010, 0.0062), Rough=0.85, RoughVar=0.1, Sheen=0.0, Polish=0.0, NormalAmt=0.8, NormalTile=60.0)),    # darker G-suit trousers
     ("PM_Glove", dict(Tint=(0.006, 0.006, 0.006), Rough=0.75, RoughVar=0.1, Sheen=0.0, Polish=0.0)),    # black matte gloves
     ("PM_Boot", dict(Tint=(0.006, 0.006, 0.006), Rough=0.6, RoughVar=0.1, Sheen=0.0, Polish=0.0)),      # black boots
     ("PM_Harness", dict(Tint=(0.03, 0.03, 0.028), Rough=0.7, RoughVar=0.1, Sheen=0.0, Polish=0.0)),     # (unused for now)

@@ -414,4 +414,4 @@ def swatch_uv(sw=SWATCH):
 # 11-18: console panels black, front panel plates dark grey, structure cool gull grey (critic: photos 003 / 009 / 010)
 COL = dict(panel=(64, 67, 70), console=(42, 43, 45),       # dark gull grey (photo 003 hangar ~#4A4D4A, FS 36231 ~ (96, 96, 94)); review: v2 was near-black
             panel_light=(64, 67, 69), legend=(218, 218, 212), structure=(78, 82, 84), glare=(22, 22, 23),
-           well=(78, 81, 84), dial=(16, 16, 17))
+           well=(100, 104, 107), dial=(16, 16, 17))

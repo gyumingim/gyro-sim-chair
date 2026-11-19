@@ -439,9 +439,9 @@ def build_panel_structure():
     # wing structure (angled faces) and the sides that close the gap to the MFD surround
     for sd in (-1, 1):
         ex, ey, n = L.wing_frame(sd)
-        grid(P, paint, lambda s, t, sd=sd: L.wing_pt(sd, L.WING_W * s, L.WING_V0 - 1.0 + (L.WING_V1 + 1.0 - L.WING_V0) * t), 3, 3, flip=sd < 0)
+        grid(P, "CK2_PanelFace", lambda s, t, sd=sd: L.wing_pt(sd, L.WING_W * s, L.WING_V0 - 1.0 + (L.WING_V1 + 1.0 - L.WING_V0) * t), 3, 3, flip=sd < 0)
         # top cap of the wing
-        grid(P, paint, lambda s, t, sd=sd: L.add(L.wing_pt(sd, L.WING_W * s, L.WING_V1 + 1.0), (6.0 * t, 0.0, 0.0)), 3, 1, flip=sd > 0)
+        grid(P, "CK2_PanelFace", lambda s, t, sd=sd: L.add(L.wing_pt(sd, L.WING_W * s, L.WING_V1 + 1.0), (6.0 * t, 0.0, 0.0)), 3, 1, flip=sd > 0)
     # plates
     for p in PLATES.values():
         if p["kind"] in ("panel", "wing", "well", "icp", "mfd"):
@@ -527,7 +527,7 @@ def build_consoles():
         ya, yb = sorted((yi, yo))
         # console top base under the plates, inner side wall down to the floor, aft end
         grid(P, "CK2_Plate0", lambda s, t: (L.CONSOLE_X0 + (L.CONSOLE_X1 - L.CONSOLE_X0) * t, ya + (yb - ya) * s, z - 0.3), 2, 6, flip=True)
-        grid(P, "CK2_Paint", lambda s, t: (L.CONSOLE_X0 + (L.CONSOLE_X1 + 6.0 - L.CONSOLE_X0) * s, yi, z - 0.3 - (z + 10.0) * t), 8, 3, flip=sd > 0)
+        grid(P, "CK2_Wall", lambda s, t: (L.CONSOLE_X0 + (L.CONSOLE_X1 + 6.0 - L.CONSOLE_X0) * s, yi, z - 0.3 - (z + 10.0) * t), 8, 3, flip=sd > 0)
         grid(P, "CK2_Paint", lambda s, t: (L.CONSOLE_X0, ya + (yb - ya) * s, z - 0.3 - (z + 10.0) * t), 2, 2, flip=sd < 0)
         # sloped side wall from the console outer edge up to the sill, then the sill top out to the skin
         def wall(s, t):
@@ -646,7 +646,7 @@ def build_seat():
         tube(P, mat, out, r, seg=8, rscale=rs)
     hose([(404.0, 26.5, 36.0), (418.0, 24.0, 30.0), (436.0, 18.0, 27.5), (452.0, 12.0, 29.0), (458.0, 6.0, 31.5)], 1.1, "CK2_Hose")
     hose([(420.0, -26.0, 34.0), (432.0, -23.5, 28.5), (446.0, -19.0, 27.0), (455.0, -15.0, 28.0)], 0.9, "CK2_Hose", n=44)
-    box(P, "CK2_Metal", (458.5, 6.0, 31.5), (2.4, 2.4, 1.6))
+    box(P, "CK2_Screw", (458.5, 6.0, 31.5), (2.4, 2.4, 1.6))
     # two cable runs along the leg-well walls and a map case on the left wall aft of the throttle
     for sd in (-1, 1):
         u = sd * (L.COL_HALF + 0.9)
@@ -819,7 +819,7 @@ def build_eject_ring(P):
         path.append((x0 + 1.2 * math.sin(t), -w / 2 * math.cos(t), z0 + h * (0.35 + 0.65 * math.sin(t))))
     path.append((x0, w / 2, z0 - 1.0))
     tube(P, "CK2_Plate", path, 0.85, seg=2, uv_len=4.2)
-    box(P, "CK2_Bezel", (x0 - 0.5, 0.0, z0 - 0.6), (4.5, w + 3.4, 2.6))
+    box(P, "CK2_Dark", (x0 - 0.5, 0.0, z0 - 0.6), (4.5, w + 3.4, 2.6))      # (small boxes with EdgeWear go pale: all edge)
     box(P, "CK2_Screw", (x0 + 0.2, 0.0, z0 + 1.2), (2.2, 3.0, 1.4))
 
 
@@ -834,12 +834,17 @@ def build_backstop():
             p0 = L.wing_pt(sd, L.WING_W, v)
             yw = L.wall_y(p0[0], p0[2]) + 1.0
             return (p0[0] + 5.0 * s, sd * (abs(p0[1]) + (yw - abs(p0[1])) * s), p0[2])
-        grid(P, "CK2_Well", fill, 2, 3, flip=sd < 0)
+        grid(P, "CK2_Dark", fill, 2, 3, flip=sd < 0)
     def bs(s, t):
         z = -10.0 + 69.0 * t
         w = min(46.0, L.wall_y(526.0, max(z, 0.0)) - 1.0) if z > 40.0 else 46.0
         return (526.0, -w + 2.0 * w * s, z)
     grid(P, "CK2_Dark", bs, 2, 8)
+    # 11-19: footwell side walls + wider floor ahead of the consoles (two holes beside the shins showed the white fuselage
+    # skin / the sea: the floor ended at the console inner edge and nothing closed the sides forward of the console wall)
+    for sd in (-1, 1):
+        grid(P, "CK2_Dark", lambda s, t, sd=sd: (500.0 + 27.0 * s, sd * L.CONSOLE_IN, -10.5 + 52.0 * t), 2, 2, flip=sd > 0)
+        grid(P, "CK2_Dark", lambda s, t, sd=sd: (500.0 + 27.0 * s, sd * (L.CONSOLE_IN - 0.5 + 22.0 * t), -10.2), 2, 2, flip=sd < 0)
 
 
 def build_hud_extras():
@@ -897,6 +902,132 @@ def build_pedals():
             tube(P, "CK2_Pedal", [frame_pt(pv, ex, up, n, a, h * 0.55, -0.9), (pv[0] + 9.0, pv[1] + a, pv[2] + 26.0)], 0.7, seg=2)
         out[tag] = pv
     return out
+
+
+# =====================================================================================================================
+# 11-18 realism round 2: pilot harness (shoulder straps, chest strap, lap belt with buckle) laid on the posed Manny body,
+# canopy frame grab handles ("towel racks")
+MANNY_POSED = os.environ.get("GYROSIM_MANNY_POSED", "C:/GyroSimParts/thirdparty/manny/manny_posed.json")
+
+
+def ribbon(P, mat, pts, nrm, w, th=0.3):
+    """flat strap: centre line pts (UE cm), surface normals nrm (one per point), width w, thickness th; box section"""
+    m = len(pts)
+    rings = []
+    for i in range(m):
+        t = norm(sub(pts[min(i + 1, m - 1)], pts[max(i - 1, 0)]))
+        n = norm(nrm[i])
+        s = norm(cross(t, n))
+        n = norm(cross(s, t))
+        p = pts[i]
+        rings.append([tuple(p[k] + s[k] * a * w / 2 + n[k] * b for k in range(3)) for a, b in ((-1, 0.0), (1, 0.0), (1, th), (-1, th))])
+    vs = [q for r in rings for q in r]
+    faces = []
+    for i in range(m - 1):
+        for j in range(4):
+            faces.append([i * 4 + j, i * 4 + (j + 1) % 4, (i + 1) * 4 + (j + 1) % 4, (i + 1) * 4 + j])
+    faces.append([0, 1, 2, 3][::-1])
+    faces.append([(m - 1) * 4 + j for j in range(4)])
+    P.add(vs, [f[::-1] for f in faces], mat)             # outward winding (inward faces baked AO 0 = black straps)
+
+
+def build_harness():
+    """straps on the pilot's torso. Needs the posed pilot (Scripts/pilot/manny_pose.py output, outside git); without it
+    (or with GYROSIM_PILOT=old at build time) nothing is built."""
+    # 11-19: OFF by default (GYROSIM_CK2_HARNESS=1 builds it). The straps are correct in size (4.4 cm) but lie 15 - 25 cm
+    # under the eye: in the look-down views they fill a quarter of the picture as pale sheets (r2c shots); a fresh critic
+    # round is needed before they become the default.
+    if os.environ.get("GYROSIM_CK2_HARNESS", "0") != "1":
+        return False
+    if not os.path.exists(MANNY_POSED) or os.environ.get("GYROSIM_PILOT", "").lower() == "old":
+        log("harness: no posed pilot - skipped")
+        return False
+    D = json.load(open(MANNY_POSED, encoding="utf-8"))
+    V3 = [tuple(p) for p in D["P"]]
+    # torso / lap vertices only (arms and thighs would steal the "front surface" lookups)
+    body = [p for p in V3 if 404.0 < p[0] < 452.0 and abs(p[1]) < 21.0 and 26.0 < p[2] < 96.0]
+
+    def front(y, z, r=1.6):
+        """front surface (max x) of the torso near (y, z); None when there is nothing"""
+        xs = [p[0] for p in body if abs(p[1] - y) < r and abs(p[2] - z) < r]
+        return max(xs) if xs else None
+
+    def top(x, y, r=1.6):
+        zs = [p[2] for p in body if abs(p[0] - x) < r and abs(p[1] - y) < r]
+        return max(zs) if zs else None
+
+    P = part(SH)
+    n_built = 0
+    # shoulder straps: from the collar bone down the chest to the lap buckle, converging
+    z_hi, z_lo = 84.0, 53.0
+    buckle = None
+    for sd in (-1, 1):
+        pts, nr = [], []
+        for i in range(15):
+            q = i / 14.0
+            z = z_hi + (z_lo - z_hi) * q
+            y = sd * (8.5 + (2.6 - 8.5) * q ** 1.3)
+            x = front(y, z)
+            if x is None:
+                continue
+            if pts and x - pts[-1][0] > 3.5:            # reached the thighs: the strap ends at the lap
+                break
+            pts.append((x + 0.25, y, z))
+        if len(pts) < 5:
+            continue
+        for i in range(len(pts)):                       # normal = perpendicular to the path in the x-z plane, facing forward
+            a, b = pts[max(i - 1, 0)], pts[min(i + 1, len(pts) - 1)]
+            nr.append(norm((abs(b[2] - a[2]) + 1e-3, 0.0, (b[0] - a[0]) * (1.0 if b[2] < a[2] else -1.0))))
+        ribbon(P, "CK2_Harness", pts, nr, 4.4, 0.32)
+        k = len(pts) * 2 // 5                          # adjuster buckle on the chest
+        box(P, "CK2_Knob", (pts[k][0] + 0.55, pts[k][1], pts[k][2]), (0.5, 5.0, 2.6), nr[k], (0.0, 1.0, 0.0), cross(nr[k], (0.0, 1.0, 0.0)))
+        buckle = pts[-1]
+        n_built += 1
+    # chest strap between the shoulder straps
+    zc = 71.0
+    pts = []
+    for i in range(9):
+        y = -8.0 + 16.0 * i / 8.0
+        x = front(y, zc)
+        if x is not None:
+            pts.append((x + 0.75, y, zc))
+    if len(pts) >= 5:
+        ribbon(P, "CK2_Harness", pts, [(1.0, 0.0, 0.25)] * len(pts), 2.6, 0.3)
+        c = pts[len(pts) // 2]
+        box(P, "CK2_Knob", (c[0] + 0.5, c[1], c[2]), (0.6, 3.4, 3.0))
+    # waist belt round the belly to a round quick-release buckle (11-19: the first version looked up the body's top
+    # surface and ran through the chest as flat black sheets)
+    if buckle is not None:
+        lap = []
+        for i in range(13):
+            y = -13.0 + 26.0 * i / 12.0
+            x = front(y, z_lo - 1.5)
+            if x is not None and abs(x - buckle[0]) < 6.0:
+                lap.append((x + 0.3, y, z_lo - 1.5))
+        if len(lap) >= 6:
+            nr = []
+            for i in range(len(lap)):
+                a_, b_ = lap[max(i - 1, 0)], lap[min(i + 1, len(lap) - 1)]
+                nr.append(norm((b_[1] - a_[1], -(b_[0] - a_[0]), 0.0)))
+            ribbon(P, "CK2_Harness", lap, nr, 4.4, 0.32)
+        bc = (buckle[0] + 0.5, 0.0, z_lo - 1.5)
+        lathe(P, "CK2_Screw", (bc, (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0)), [(3.1, 0.0), (3.1, 0.8), (2.6, 1.2), (1.2, 1.3), (0.0, 1.3)], seg=4)
+        lathe(P, "CK2_Knob", (tuple(bc[i] + (1.3, 0.0, 0.0)[i] for i in range(3)), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
+              [(1.2, 0.0), (1.1, 0.45), (0.0, 0.55)], seg=3)
+    log("harness: %d shoulder straps on the posed pilot" % n_built)
+    return n_built > 0
+
+
+def build_towel_racks():
+    """grab handles on the canopy frame, one each side beside the pilot's knees"""
+    P = part(SH)
+    for sd in (-1, 1):
+        pts = []
+        for x, off in ((470.0, 0.0), (470.5, 1.5), (474.0, 1.9), (480.0, 1.9), (483.5, 1.5), (484.0, 0.0)):
+            gy, gz = L.glass_bottom(x)
+            k = sill_k(x)
+            pts.append((x, sd * (gy - 2.8 * k - off), gz + 0.9 + 4.0 * k))
+        tube(P, "CK2_Frame", pts, 0.32, seg=2)
 
 
 # ---- moving / live parts -------------------------------------------------------------------------------------------
@@ -1273,6 +1404,8 @@ def main():
     knee = build_kneeboard()
     build_backstop()
     build_hud_extras()
+    build_harness()
+    build_towel_racks()
     ppv = build_pedals()
     origins = {"ck2_stick": spv, "ck2_throttle": tpv, "ck2_gearhandle": gpv, "ck2_pedal_l": ppv["PedalL"], "ck2_pedal_r": ppv["PedalR"]}
     obs, tris = {}, {}
