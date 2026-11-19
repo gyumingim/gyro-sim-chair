@@ -15,7 +15,7 @@ The pose is plain forward kinematics on Manny's reference skeleton: every bone g
 delta), children follow, vertices are linear-blend skinned with Manny's own weights. Arms and legs are two-bone IK with
 the elbow / knee hinge kept in Manny's own bend plane. Targets come from the cockpit layout (Scripts/cockpit_blender/
 ck2_layout.py and the level): eye (430, 0, 100), sidestick grip (right hand), throttle grip (left hand), left thigh
-under the kneeboard (454, -14, 53.2, ck2_model.KNEE), feet toward the rudder pedals (hinge 489.9, +-13.5, -12).
+under the kneeboard (454, -12.5, 53.2, ck2_model.KNEE), feet toward the rudder pedals (hinge 489.9, +-13.5, -12).
 """
 import argparse
 import json
@@ -34,7 +34,7 @@ SCALE = 0.92                                      # Manny is ~1.80 m; the rig ey
 # torso: pitch of each segment (deg, + = top leans back). The seat back is 15 deg; F-16 pilots sit a bit forward of it.
 LEAN = dict(pelvis=5.0, spine_01=5.0, spine_02=9.0, spine_03=18.0, spine_04=18.0, spine_05=18.0, neck_01=-30.0, neck_02=-30.0, head=0.0)
 PROTRACT = 14.0                                   # shoulders forward (deg about the vertical, at the clavicles)
-KNEE_BOARD = np.array((454.0, -14.0, 53.2))       # ck2_model.KNEE centre (board face); slab back 0.9 cm under it
+KNEE_BOARD = np.array((454.0, -12.5, 53.2))       # ck2_model.KNEE centre (board face); slab back 0.9 cm under it
 THIGH_CLEAR = 1.2                                 # cm between the thigh top and the board back
 PEDAL_HINGE_X, PEDAL_HINGE_Z, PEDAL_Y, PEDAL_LEAN = 489.9, -12.0, 13.5, 20.0
 STICK = L.STICK_SIDE                              # sidestick (cockpit_v2 default GYROSIM_CK2_STICK=side)
@@ -200,14 +200,15 @@ def pose(S, eye_local, verbose=True, ctrl=None):
     grip_l = tp + np.array(L.THR_GRIP, float)                                 # ck2_model.build_throttle barrel centre
     targets = {
         # side: (grip centre, finger direction, palm normal (toward the grip), offset of the palm centre from the grip)
-        "r": (grip_r, unit([1.0, 0.0, -0.25]), unit([0.0, -1.0, 0.15]), HAND_R_OFF),
-        "l": (grip_l, unit([1.0, 0.05, -0.42]), unit([0.0, 0.12, -1.0]), HAND_L_OFF),   # 11-19: palm on top of the barrel
+        "r": (grip_r, unit(HAND_R_FD), unit(HAND_R_PALM), HAND_R_OFF),
+        "l": (grip_l, unit(HAND_L_FD), unit(HAND_L_PALM), HAND_L_OFF),   # 11-19: palm on top / aft of the throttle grip
     }
     X_, Y_ = np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
     # control rotations about the pivots (rot(Y, +a) leans +Z toward +X = forward; rot(X, -a) leans +Z toward +Y = right)
     Rc = {"r": rot(X_, -ctrl.get("sr", 0.0)) @ rot(Y_, ctrl.get("sp", 0.0)), "l": rot(Y_, ctrl.get("thr", 0.0))}
     piv = {"r": sp, "l": tp}
-    poles = {"r": unit([-0.4, 1.0, -0.9]), "l": unit([-0.4, -1.0, -0.9])}
+    # 11-19 (hands): left elbow down beside the body (was out at y -35: the forearm went 4-5 cm through the side wall)
+    poles = {"r": unit([-0.4, 1.0, -0.9]), "l": unit([-0.4, -0.35, -1.0])}
     for sd, (g, fd_t, palm_t, off) in targets.items():
         h, m1 = S.r("hand_" + sd), S.r("middle_01_" + sd)
         fd0 = unit(m1 - h)
@@ -241,9 +242,10 @@ def pose(S, eye_local, verbose=True, ctrl=None):
         axis_ref = unit(np.cross(fd0, palm0))                                # rotating fd0 toward palm0 about this
         for f, curls in (FINGER_CURL if sd == "r" else FINGER_CURL_L).items():
             acc = 0.0
+            Rs = Rh @ rot(palm0, FINGER_SPREAD[sd].get(f, 0.0))               # splay about the palm normal (deg)
             for j, c in zip(("_01_", "_02_", "_03_"), curls):
                 acc += c
-                S.set(f + j + sd, Rh @ rot(axis_ref, acc))
+                S.set(f + j + sd, Rs @ rot(axis_ref, acc))
         acc = 0.0
         for j, c in zip(("_01_", "_02_", "_03_"), THUMB_CURL_L if sd == "l" else THUMB_CURL):
             acc += c
@@ -258,15 +260,25 @@ def pose(S, eye_local, verbose=True, ctrl=None):
 # tunables found with the previews (numbers in aircraft cm / deg)
 KNEE_X, KNEE_Y, KNEE_Z = 470.0, 15.0, 48.0
 BALL_UP, FOOT_TILT = 16.0, 25.0
-HAND_R_OFF = (0.0, 3.6, 0.0)          # palm centre right of the grip axis (hand wraps it from the right)
-HAND_L_OFF = (-1.6, -0.4, 3.9)        # 11-19: palm centre on top of the throttle barrel (radius 2.5), a little aft
-FINGER_CURL = dict(index=(55.0, 60.0, 35.0), middle=(60.0, 65.0, 35.0), ring=(65.0, 65.0, 35.0), pinky=(70.0, 65.0, 35.0))
-THUMB_CURL = (35.0, 25.0, 15.0)
-THUMB_ROLL = dict(r=-20.0, l=-10.0)   # thumb swung up over the grip head (deg about the finger direction)
-# 11-19: left thumb laid over the inboard end face of the throttle barrel (comm switch), found by a search on the tip position
-THUMB_SWING = dict(r=0.0, l=-10.0)    # deg about the palm normal
-THUMB_CURL_L = (-40.0, 20.0, 10.0)
-FINGER_CURL_L = dict(index=(42.0, 62.0, 35.0), middle=(46.0, 66.0, 35.0), ring=(50.0, 66.0, 35.0), pinky=(54.0, 64.0, 35.0))   # round the barrel
+# 11-19 (hands): both hands re-fitted against the real grip meshes (ck2_model.build_stick / build_throttle), grasp style:
+# hand placed from palm contact + where the knuckle row sits, then every finger joint closed until it touches, the
+# thumb by a small search (throttle: pad beside the comm hat on the inboard face; stick: over the trim hat). Fit and
+# gap numbers: scratchpad cockpit_1118/hands (opt2.py, look.py). Residual gaps / penetration <= 1 mm on the throttle.
+# If THR_GRIP / the grip shapes change, these must be re-fitted.
+# 11-20 (h5): right hand = the round-4 wrap again (palm on the outboard face, fd / palm normal as round 4, palm 1.9 cm
+# further outboard = just out of the grip), joints closed to contact, thumb on the trim hat. The 'back of the hand
+# toward the eye' placement of h4 lost the blind A/B (read as a hand behind the stick).
+HAND_R_FD, HAND_R_PALM = (0.9641, 0.1412, -0.2251), (0.1774, -0.9727, 0.1499)     # finger direction, palm normal (toward the grip)
+HAND_L_FD, HAND_L_PALM = (0.9994, 0.0098, -0.0326), (-0.0315, -0.1005, -0.9944)     # palm on top / aft of the throttle grip, fingers over the front
+FINGER_SPREAD = dict(r=dict(), l=dict())      # per finger: deg about the palm normal
+HAND_R_OFF = (-2.09, 4.6, 1.48)          # palm centre from the grip middle (hand wraps it from outboard; 0 wrist miss now)
+HAND_L_OFF = (-1.06, 0.26, 5.27)        # palm centre above the throttle body (radius 3.0), a little aft
+FINGER_CURL = dict(index=(42.7, -18.0, 61.1), middle=(51.8, -18.9, 67.2), ring=(45.9, 20.6, 33.1), pinky=(30.7, 47.3, 8.7))
+THUMB_CURL = (-15.6, 49.3, 41.8)
+THUMB_ROLL = dict(r=-3.5, l=-20.7)   # deg about the finger direction
+THUMB_SWING = dict(r=0.6, l=-14.6)    # deg about the palm normal
+THUMB_CURL_L = (-59.8, 49.1, 48.4)
+FINGER_CURL_L = dict(index=(40.3, 12.9, 24.3), middle=(40.0, 0.6, 31.4), ring=(36.9, 1.9, 22.7), pinky=(23.6, 2.4, 30.5))
 # control poses -> morph targets (names = sim_client._pilot; angles as DRAWN: the v2 sidestick mesh tilts only
 # cockpit_v2.STICK_K x 12.75 deg = 2.55 deg, the throttle swings +-30 deg, the pedals travel +-4 cm)
 STICK_DRAWN, THR_DEG, PEDAL_CM = 2.55, 30.0, 4.0
@@ -315,8 +327,145 @@ def skin(S, P, Wm, bone_names_mesh):
     return out
 
 
-def classify(S, W, bone_names_mesh, Pref, T):
-    """material class per triangle from the dominant bone of its vertices (+ reference-pose position)"""
+# 11-19 (hands): glove / sleeve boundary. It was the per-triangle dominant-bone boundary (hand vs lowerarm) = a sawtooth
+# of whole triangles. Now the wrist triangles are CUT along iso-distances on the forearm axis (reference pose, cm from
+# the wrist joint, + = toward the fingers): glove from CUFF_S0 on, then a raised knit cuff band CUFF_W wide (class 1,
+# the darker olive), then the sleeve. New vertices get interpolated skin weights, so poses / morphs / UVs just work.
+CUFF_S0, CUFF_W, CUFF_LIFT, CUFF_RISE, CUFF_FADE = -3.2, 2.0, 0.26, 0.12, 0.6
+
+
+# 11-20 (hands): slimmer fingers ("sausage fingers"): every finger vertex is pulled toward its bone axis, weighted by its
+# skin weights (reference pose, before skinning), so the palm blends in without a step. 1.0 = Manny's own fingers.
+FINGER_THIN = dict(_01_=0.93, _02_=0.86, _03_=0.84)
+THUMB_THIN = dict(_02_=0.92, _03_=0.90)
+
+
+def thin_fingers(S, names, P, W):
+    P = np.array(P, float)
+    idx = {n: i for i, n in enumerate(names)}
+    info = {}
+    for sd in ("l", "r"):
+        for f in ("index", "middle", "ring", "pinky", "thumb"):
+            js = [S.r("%s_0%d_%s" % (f, k, sd)) for k in (1, 2, 3)]
+            for k, j in enumerate(("_01_", "_02_", "_03_")):
+                sc = (THUMB_THIN if f == "thumb" else FINGER_THIN).get(j)
+                if sc is None:
+                    continue
+                a = js[k]
+                ax = unit(js[k + 1] - js[k]) if k < 2 else unit(js[2] - js[1])
+                info[idx[f + j + sd]] = (a, ax, sc)
+    out = P.copy()
+    for v, ws in enumerate(W):
+        d = np.zeros(3)
+        for bi, w in ws:
+            if bi in info:
+                a, ax, sc = info[bi]
+                q = P[v] - a
+                d += w * (sc - 1.0) * (q - ax * (q @ ax))
+        out[v] += d
+    return out
+
+
+# 11-20 (hands): keep-out around the eye. The collar / upper chest was 15.2 cm from the design eye; view_fx moves the eye
+# (head back up to 3 cm under acceleration, down under G, turbulence) and the camera near plane (10 cm, by depth) then
+# cut the suit open at full throttle = the "pale spiky facets" bottom-left in the lconsole view. Posed vertices nearer
+# than EYE_KEEP[1] are pushed away radially so the nearest ends up at EYE_KEEP[0] (smooth, nothing moves beyond [1]).
+EYE_KEEP = (15.0, 25.0)      # 11-20: OFF (nearest is 15.2). (19, 25) gave pale blotchy facets on the left shoulder in Unreal; the
+#                              full-throttle facets were head motion (view_fx), not the mesh
+
+
+def eye_keepout(X, used):
+    X = np.array(X, float)
+    q = X - EYE
+    d = np.linalg.norm(q, axis=1)
+    d0 = float(d[used].min())
+    r0, r1 = EYE_KEEP
+    if d0 >= r0:
+        return X, d0, d0
+    m = d < r1
+    nd = r0 + (d[m] - d0) * (r1 - r0) / (r1 - d0)
+    X[m] = EYE + q[m] * (np.maximum(nd, d[m]) / np.maximum(d[m], 1e-6))[:, None]
+    return X, d0, float(np.linalg.norm(X[used] - EYE, axis=1).min())
+
+
+def cuff_lift(s):
+    """outward lift (cm) of the sleeve end at axial position s"""
+    if s >= CUFF_S0 + CUFF_RISE or s <= CUFF_S0 - CUFF_W - CUFF_FADE:
+        return 0.0
+    if s > CUFF_S0:
+        return CUFF_LIFT * (CUFF_S0 + CUFF_RISE - s) / CUFF_RISE
+    if s >= CUFF_S0 - CUFF_W:
+        return CUFF_LIFT
+    return CUFF_LIFT * (0.35 + 0.65 * (s - (CUFF_S0 - CUFF_W - CUFF_FADE)) / CUFF_FADE) if s > CUFF_S0 - CUFF_W - CUFF_FADE + 1e-6 else 0.0
+
+
+def cuff_split(S, names, P, T, W):
+    """cut the wrist triangles along the cuff levels; returns P, T, W (extended) and the axial coordinate per vertex
+    (nan outside the wrist zones). Reference pose, before skinning."""
+    P = [np.array(p, float) for p in P]
+    W = [list(w) for w in W]
+    T = [list(t) for t in T]
+    dom = [names[max(w, key=lambda x: x[1])[0]] for w in W]
+    cs = [float("nan")] * len(P)
+    n_new = 0
+    for sd in ("l", "r"):
+        h, e = S.r("hand_" + sd), S.r("lowerarm_" + sd)
+        ax = unit(h - e)
+        zb = ("hand_" + sd, "lowerarm_" + sd, "lowerarm_twist_01_" + sd, "lowerarm_twist_02_" + sd)
+        zone = set(v for v, d in enumerate(dom) if d in zb)
+        for v in zone:
+            cs[v] = float((P[v] - h) @ ax)
+        for lev in (CUFF_S0 + CUFF_RISE, CUFF_S0, CUFF_S0 - CUFF_W, CUFF_S0 - CUFF_W - CUFF_FADE):
+            cut = {}
+
+            def mid(a, b):
+                k = (min(a, b), max(a, b))
+                if k not in cut:
+                    t = (lev - cs[a]) / (cs[b] - cs[a])
+                    w = {}
+                    for bi, x in W[a]:
+                        w[bi] = w.get(bi, 0.0) + x * (1 - t)
+                    for bi, x in W[b]:
+                        w[bi] = w.get(bi, 0.0) + x * t
+                    cut[k] = len(P)
+                    P.append(P[a] * (1 - t) + P[b] * t)
+                    W.append(sorted(w.items()))
+                    cs.append(lev)
+                    zone.add(cut[k])
+                return cut[k]
+            out = []
+            for t3 in T:
+                if not (t3[0] in zone and t3[1] in zone and t3[2] in zone):
+                    out.append(t3)
+                    continue
+                sg = [1 if cs[v] > lev + 1e-7 else -1 if cs[v] < lev - 1e-7 else 0 for v in t3]
+                if not (1 in sg and -1 in sg):
+                    out.append(t3)
+                    continue
+                if 0 in sg:                                   # one vertex on the level: cut the opposite edge only
+                    i = sg.index(0)
+                    a, b, c = t3[i], t3[(i + 1) % 3], t3[(i + 2) % 3]
+                    m = mid(b, c)
+                    out += [[a, b, m], [a, m, c]]
+                    continue
+                i = next(k for k in range(3) if sg[k] != sg[(k + 1) % 3] and sg[k] != sg[(k + 2) % 3])   # the lone vertex
+                a, b, c = t3[i], t3[(i + 1) % 3], t3[(i + 2) % 3]
+                ab, ac = mid(a, b), mid(a, c)
+                out += [[a, ab, ac], [ab, b, c], [ab, c, ac]]
+            T = out
+            n_new += len(cut)
+        for v in zone:                                        # the raised band: push out radially from the forearm axis
+            lf = cuff_lift(cs[v])
+            if lf > 0.0:
+                q = P[v] - h
+                r = q - ax * (q @ ax)
+                P[v] = P[v] + unit(r) * lf
+    return np.array(P), T, W, cs, n_new
+
+
+def classify(S, W, bone_names_mesh, Pref, T, cuff_s=None):
+    """material class per triangle from the dominant bone of its vertices (+ reference-pose position); the wrist zone
+    (cuff_s from cuff_split) is classified by the axial position of the triangle centre: clean rings"""
     dom = []
     for v in range(len(W)):
         bi, _ = max(W[v], key=lambda x: x[1])
@@ -334,7 +483,11 @@ def classify(S, W, bone_names_mesh, Pref, T):
             drop.append(ti)
             cls.append(0)
             continue
-        if sum(hand[v] for v in vs) >= 2:
+        sc = [cuff_s[v] for v in vs] if cuff_s is not None else [float("nan")]
+        if not any(math.isnan(x) for x in sc):
+            m = sum(sc) / 3.0
+            cls.append(2 if m > CUFF_S0 + CUFF_RISE - 1e-4 else 1 if m > CUFF_S0 - CUFF_W else 0)
+        elif sum(hand[v] for v in vs) >= 2:
             cls.append(2)
         elif sum(foot[v] for v in vs) >= 2:
             cls.append(3)
@@ -393,13 +546,15 @@ def main():
     parents = [b["parent"] for b in D["bones"]]
     S = Skel(names, parents, [D["ref_bones"][n] for n in names], SCALE)
     P = np.array([(p[1], -p[0], p[2]) for p in D["P"]], float) * SCALE
-    T = D["T"]
+    P = thin_fingers(S, names, P, D["W"])
+    P, T, D["W"], cuff_s, n_cuff = cuff_split(S, names, P, D["T"], D["W"])
+    D["T"] = T
     # Manny's eye: front of the face at eye height, 2.5 cm in from the surface
     hz = (S.r("head")[2] + 7.0 * SCALE)
     sel = (np.abs(P[:, 2] - hz) < 1.0 * SCALE) & (np.abs(P[:, 1]) < 2.0 * SCALE)
     eye_local = np.array([P[sel, 0].max() - 2.5 * SCALE, 0.0, hz])
     Wm = weight_matrix(D["W"], len(names))
-    cls, drop = classify(S, D["W"], names, P, T)
+    cls, drop = classify(S, D["W"], names, P, T, cuff_s)
     keep = np.ones(len(T), bool)
     keep[drop] = False
     used = np.unique(np.array(T)[keep].ravel())
@@ -431,6 +586,7 @@ def main():
     info["y_extent_hips"] = [round(float(X[used][(X[used][:, 2] < 45) & (X[used][:, 0] < 440), 1].min()), 1),
                              round(float(X[used][(X[used][:, 2] < 45) & (X[used][:, 0] < 440), 1].max()), 1)]
     info["n_tris"] = int(keep.sum())
+    info["cuff_new_verts"] = n_cuff
     # control poses: sparse vertex offsets from the base pose (Scripts/pilot/manny_fbx.py makes shape keys of them)
     morphs = {}
     for mn, ct in MORPHS.items():
@@ -453,6 +609,18 @@ def main():
     seg_ax = []
     for j0, j1 in SEG_AXIS:
         seg_ax.append([[round(float(c), 2) for c in S.p(j0)], [round(float(c), 2) for c in S.p(j1)]])
+    X, info["eye_nearest_before_cm"], info["eye_nearest_cm"] = eye_keepout(X, used)
+    # posed hand frames (manny_fbx.py lays the glove details on them: knuckle pad, wrist strap)
+    hands = {}
+    for sd in ("l", "r"):
+        h0, m0 = S.r("hand_" + sd), S.r("middle_01_" + sd)
+        fd0 = unit(m0 - h0)
+        tp0 = S.r("middle_03_" + sd) - m0
+        Rh = S.Dw[S.idx["hand_" + sd]]
+        rl = lambda v: [round(float(c), 3) for c in v]
+        hands[sd] = dict(hand=rl(S.p("hand_" + sd)), fd=rl(Rh @ fd0), palm_n=rl(Rh @ unit(tp0 - fd0 * np.dot(tp0, fd0))),
+                         mcp=[rl(S.p(f + "_01_" + sd)) for f in ("index", "middle", "ring", "pinky")],
+                         pip=[rl(S.p(f + "_02_" + sd)) for f in ("index", "middle", "ring", "pinky")])
     nt0 = len(T)
     X, T, cls, keep, nl = cap_holes(X, T, keep, cls)
     info["capped_loops"] = nl
@@ -460,7 +628,7 @@ def main():
     if a.out:
         capT = [dict(v=[int(x) for x in T[i]], cls=int(cls[i])) for i in range(nt0, len(T))]
         json.dump(dict(P=[[round(float(c), 3) for c in p] for p in X], cls=[int(c) for c in cls[:nt0]], drop=[int(d) for d in drop], capT=capT, info=info,
-                       T=[[int(x) for x in t] for t in T[:nt0]], morphs=morphs, vseg=vseg, seg_axis=seg_ax, seg_names=seg_names),
+                       T=[[int(x) for x in t] for t in T[:nt0]], morphs=morphs, vseg=vseg, seg_axis=seg_ax, seg_names=seg_names, hands=hands),
                   open(a.out, "w"))
     if a.obj:
         with open(a.obj, "w") as f:

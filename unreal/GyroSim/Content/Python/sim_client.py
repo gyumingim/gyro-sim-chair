@@ -1559,7 +1559,12 @@ class SimClient:
                 if "ThrottlePivot" in P:
                     u = unreal.MathLibrary.get_up_vector(P["ThrottlePivot"][0].root_component.get_editor_property("relative_rotation"))
                     t = math.degrees(math.atan2(u.x, u.z)) / THR_SWING
-                    w.update(ThrF=max(0.0, t), ThrB=max(0.0, -t))
+                    # 11-19 round 5: the two morphs are the +-30 deg end poses of a ROTATION about the pivot; linear weights
+                    # pull the hand toward the pivot between them (fingers 4 mm inside the grip at half travel). These weights
+                    # (one goes slightly negative) put the hand on the arc exactly.
+                    th = math.radians(30.0) * max(-1.0, min(1.0, t))
+                    ca, sb = (math.cos(th) - 1.0) / (2.0 * (math.cos(math.radians(30.0)) - 1.0)), math.sin(th) / (2.0 * math.sin(math.radians(30.0)))
+                    w.update(ThrF=ca + sb, ThrB=ca - sb)
                 w.update(RudR=max(0.0, d["rud"]), RudL=max(0.0, -d["rud"]), ToeL=d["brk_l"], ToeR=d["brk_r"])
                 sk = b.skeletal_mesh_component
                 for k, v in w.items():

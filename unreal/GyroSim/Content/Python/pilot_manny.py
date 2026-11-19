@@ -19,6 +19,7 @@ MESH = "/Game/ThirdParty/Mannequins/SKM_PilotManny"
 # 11-19: the same pilot with control morph targets (hands ride on the stick / throttle, feet on the pedals; built by
 # Scripts/pilot/manny_fbx.py + ue_manny.import_fbx). Missing asset or GYROSIM_PILOT_HANDS=0 -> the static one above.
 MESH_M = "/Game/ThirdParty/Mannequins/SKM_PilotMannyM"
+MESH_M_PREV = "/Game/ThirdParty/Mannequins/SKM_PilotMannyM4"       # round-4 hands (kept for A/B shots: set_mode 'hands_prev')
 _use = dict(path=None)
 SLOTS = ("PM_Suit", "PM_GSuit", "PM_Glove", "PM_Boot", "PM_Harness")
 _st = {}                                    # actor path -> (old mesh, old materials)
@@ -33,14 +34,17 @@ def wanted():
 
 
 def _pick():
-    if os.environ.get("GYROSIM_PILOT_HANDS", "1").strip() != "0" and unreal.load_asset(MESH_M) is not None:
+    h = os.environ.get("GYROSIM_PILOT_HANDS", "1").strip().lower()
+    if h == "prev" and unreal.load_asset(MESH_M_PREV) is not None:    # the round-4 hands (kept copy, only on the build PC)
+        return MESH_M_PREV
+    if h != "0" and unreal.load_asset(MESH_M) is not None:
         return MESH_M
     return MESH
 
 
 def has_morphs():
     """True when the mesh now on the PilotBody actor has the control morph targets (sim_client._pilot drives them)"""
-    return _use["path"] == MESH_M
+    return _use["path"] in (MESH_M, MESH_M_PREV)
 
 
 def _smc(actor):
@@ -101,4 +105,4 @@ def set_mode(world, mode):
     a = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "PilotBody"))
     if not a:
         return None
-    return _swap(a[0], mode != "old", {"static": MESH, "hands": MESH_M}.get(mode))
+    return _swap(a[0], mode != "old", {"static": MESH, "hands": MESH_M, "hands_prev": MESH_M_PREV}.get(mode))

@@ -626,6 +626,22 @@ def build_seat():
         box(P, "CK2_Screw", tuple(pl[i] + ex[i] * sd * 0.08 + up[i] * 2.4 for i in range(3)), (0.06, 1.0, 4.6), ex, up, fw)
         box(P, "CK2_Screw", tuple(pl[i] + ex[i] * sd * 0.08 + up[i] * 0.6 for i in range(3)), (0.06, 0.5, 4.0), ex, up, fw)
         box(P, "CK2_Screw", tuple(pl[i] + ex[i] * sd * 0.08 - up[i] * 0.8 for i in range(3)), (0.06, 0.5, 3.2), ex, up, fw)
+        # 11-19 round 5 (look-back view: the headbox side was a bare slab 20 cm from the eye): rivet columns on the side
+        # skin, a dull red warning placard under the data plate, the ACES II environmental sensor pitot on the top corner
+        nrm = tuple(e * sd for e in ex)
+        for df in (-5.9, 1.9):
+            for k in range(9):
+                screwhead(P, tuple(c[i] + ex[i] * sd * 15.0 + fw[i] * df + up[i] * (-13.0 + 3.25 * k) for i in range(3)), nrm, 0.2, "CK2_Bolt")
+        wp = tuple(c[i] + ex[i] * sd * 15.05 - fw[i] * 2.0 - up[i] * 6.5 for i in range(3))
+        box(P, "CK2_Red", wp, (0.1, 4.2, 5.4), ex, up, fw)
+        box(P, "CK2_Kneeboard", tuple(wp[i] + ex[i] * sd * 0.04 for i in range(3)), (0.1, 3.4, 4.6), ex, up, fw)
+        for q in range(3):
+            box(P, "CK2_Screw", tuple(wp[i] + ex[i] * sd * 0.1 + up[i] * (1.0 - 1.0 * q) for i in range(3)), (0.06, 0.35, 3.6 - 0.6 * q), ex, up, fw)
+        pt0 = tuple(c[i] + ex[i] * sd * 13.2 + up[i] * ((hz1 - hz0) / 2 + 2.0) - fw[i] * 4.0 for i in range(3))
+        pt1 = tuple(pt0[i] + up[i] * 2.4 for i in range(3))
+        pt2 = tuple(pt1[i] + fw[i] * 7.5 + up[i] * 0.6 for i in range(3))
+        tube(P, "CK2_Bezel", [pt0, pt1, pt2], 0.55, seg=2)
+        tube(P, "CK2_Bolt", [pt2, tuple(pt2[i] + fw[i] * 1.6 for i in range(3))], 0.42, seg=2)
     box(P, "CK2_Frame", tuple(c[i] + fw[i] * 3.0 - up[i] * ((hz1 - hz0) / 2 + 2.2) for i in range(3)), (22.0, 3.0, 4.0), ex, up, fw)   # 11-19: was a pale slab
     build_eject_ring(P)
     # lap belt webbing over the cushion (grey), right-side emergency manual chute handle (yellow / black)
@@ -719,9 +735,10 @@ def build_sill(P, sd):
     while x < SILL_X1 - 1.0:
         gy, gz = L.glass_bottom(max(392.0, x))
         kk = sill_k(x)
-        screwhead(P, (x, sd * (gy - 2.82 * kk), gz + 0.9 + 4.3 * kk), (0.0, -sd, 0.0), 0.3)   # frame bolt row, 4 cm pitch
+        # 11-19 round 5: CK2_Bolt = dull cad-plated heads, no baked AO (critic: the dark heads read as black holes)
+        screwhead(P, (x, sd * (gy - 2.82 * kk), gz + 0.9 + 4.3 * kk), (0.0, -sd, 0.0), 0.3, "CK2_Bolt")   # frame bolt row, 4 cm pitch
         if k % 2 == 0:
-            screwhead(P, (x + 2.0, sd * (gy - 3.62 * kk), gz - 1.6), (0.0, -sd, 0.0), 0.26)      # sill row, 8 cm pitch
+            screwhead(P, (x + 2.0, sd * (gy - 3.62 * kk), gz - 1.6), (0.0, -sd, 0.0), 0.26, "CK2_Bolt")      # sill row, 8 cm pitch
         x += 4.0
         k += 1
     for x in ((402.0, 430.0, 458.0) if sd < 0 else (402.0, 430.0)):      # canopy latch: hook on the frame, receptacle on the sill
@@ -802,12 +819,12 @@ def build_wall_details(P, sd):
         wall_panel(P, sd, x, t, w, h)
     if sd < 0:
         # canopy jettison T-handle (yellow / black) in a black recess box, flood light
-        c, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 452.0, 0.53, (9.0, 7.0, 1.2))
+        c, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 463.0, 0.55, (9.0, 7.0, 1.2))     # 11-19 round 5: out of the throttle hand sweep (x 423..452)
         top = frame_pt(c, ex, ey, n, 0.0, 0.0, 0.6)
         tube(P, "CK2_Screw", [top, frame_pt(top, ex, ey, n, 0.0, 0.0, 2.2)], 0.45, seg=2)
         tube(P, "CK2_Plate", [frame_pt(top, ex, ey, n, -3.0, 0.0, 2.6), frame_pt(top, ex, ey, n, 0.0, 0.0, 2.6), frame_pt(top, ex, ey, n, 3.0, 0.0, 2.6)], 0.62, seg=2,
              uv_len=3.0)
-        lc, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 436.0, 0.60, (3.4, 3.4, 1.0))
+        lc, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 410.5, 0.66, (3.4, 3.4, 1.0))     # (was x 436: inside the hand)
         lathe(P, "CK2_Knob", (frame_pt(lc, ex, ey, n, 0.0, 0.0, 0.5), ex, ey, n), [(1.5, 0.0), (1.5, 1.6), (1.25, 2.2), (1.1, 2.2)], seg=4)
         lathe(P, "CK2_LensW", (frame_pt(lc, ex, ey, n, 0.0, 0.0, 2.55), ex, ey, n), [(1.1, 0.0), (0.7, 0.25), (0.0, 0.32)], seg=4)
     else:
@@ -1121,55 +1138,73 @@ def build_stick():
 
 
 def build_throttle():
-    """11-19 round 4: F-16 style grip (was three rounded boxes): a barrel lying across the arm (axis spanwise), finger
-    scallops, the thumb switch cluster on the inboard end face (comm hat, speed brake, dogfight, cursor), antenna
-    elevation wheel + range knob + uncage on the front, cutoff release behind. Scripts/pilot/manny_pose.py puts the
-    left hand on THR_GRIP (palm on top, fingers over the front)."""
+    """11-19 round 5 (hands): chunky F-16 style grip, 11.1 cm wide (spanwise), 6 cm thick, 7 cm deep - ONE closed body
+    (front half round for the wrapped fingers, aft half a longer palm heel), shallow finger scallops on the front, a
+    slightly larger switch head inboard with the thumb switches on its end face (comm hat, speed brake, dogfight,
+    cursor), antenna elevation wheel + uncage + range knob on the head's front, cutoff release behind.
+    Scripts/pilot/manny_pose.py puts the left hand on THR_GRIP (palm on top / aft, fingers down over the front, thumb
+    on the inboard face) - change THR_BODY / THR_GRIP together with HAND_L_OFF / FINGER_CURL_L there."""
     P = part("ck2_throttle")
     pv = L.THR["pivot"]
     c = (pv[0] + L.THR_GRIP[0], pv[1] + L.THR_GRIP[1], pv[2] + L.THR_GRIP[2])
     G, K, S_ = "CK2_ThrGrip", "CK2_Knob", "CK2_Screw"
-    # arm from the pivot up through the slot (dark painted steel), neck block under the barrel
-    tube(P, "CK2_Bezel", [pv, (pv[0] + 0.3, pv[1] - 0.6, pv[2] + 4.0), (c[0], c[1] - 0.6, c[2] - 2.2)], 0.85, seg=3)
-    blob(P, G, (c[0], c[1] - 0.6, c[2] - 2.3), (1.9, 1.7, 1.3), e=0.6, nu=8, nv=5)
-    fr = (c, (0, 0, 1), (1, 0, 0), (0, 1, 0))                   # lathe axis = +Y (inboard)
-    prof = [(0.0, -4.9), (1.5, -4.9), (2.1, -4.65), (2.4, -4.0)]
-    for i in range(25):                                         # four finger scallops between y -3.6 and +2.2
-        y = -3.6 + 5.8 * i / 24.0
-        prof.append((2.52 - 0.11 * (0.5 - 0.5 * math.cos(2 * math.pi * (y + 3.6) / 1.45)), y))
-    prof += [(2.6, 2.6), (2.8, 3.3), (2.8, 4.5), (2.62, 4.8), (0.0, 4.8)]
-    lathe(P, G, fr, prof, seg=10, caps=False)
-    # palm heel swell on the aft / top side
-    blob(P, G, (c[0] - 1.5, c[1] - 0.3, c[2] + 0.7), (1.9, 4.2, 2.1), e=0.7, nu=8, nv=5)
-    yf = c[1] + 4.8                                            # inboard end face
+    R, HEEL, Y0, Y1 = 3.0, 1.0, -5.9, 5.2                       # radius, extra aft length, outboard end, inboard face
+    # arm from the pivot up through the slot (dark painted steel), neck block under the body
+    tube(P, "CK2_Bezel", [pv, (pv[0] + 0.3, pv[1] - 0.2, pv[2] + 4.0), (c[0], pv[1] - 0.2, c[2] - 2.4)], 0.85, seg=3)
+    blob(P, G, (c[0] - 0.2, pv[1] - 0.2, c[2] - 2.7), (1.9, 1.6, 1.3), e=0.6, nu=6, nv=4)
+    prof = [(Y0, 0.0), (Y0 + 0.02, 0.42), (Y0 + 0.2, 0.68), (Y0 + 0.55, 0.87), (Y0 + 1.0, 0.96), (Y0 + 1.5, 1.0)]
+    NY = 20
+    prof += [(Y0 + 1.5 + (Y1 - 1.5 - Y0 - 1.5) * i / NY, 1.0) for i in range(1, NY + 1)]
+    prof += [(Y1 - 1.2, 1.035), (Y1 - 0.95, 1.06), (Y1 - 0.25, 1.06), (Y1 - 0.08, 1.035), (Y1, 0.98), (Y1, 0.0)]
+    nv = len(prof) - 1
+
+    def body(s, t):
+        y, k = prof[int(round(t * nv))]
+        ph = 2 * math.pi * s                                    # from the top (+Z) toward the front (+X)
+        sx, cz = math.sin(ph), math.cos(ph)
+        w = max(0.0, min(1.0, (y - Y0 - 0.8) / 1.5)) * max(0.0, min(1.0, (Y1 - 0.7 - y) / 1.2))
+        w = w * w * (3 - 2 * w)
+        rx = R if sx >= 0 else R + HEEL * w                     # aft half: longer (palm heel)
+        if sx > 0 and Y0 + 1.5 < y < Y1 - 1.5:                  # four finger scallops, pitch 2.1 cm
+            rx_s = 0.09 * (0.5 - 0.5 * math.cos(2 * math.pi * (y - Y0 - 1.5) / 2.1)) * sx
+        else:
+            rx_s = 0.0
+        return (c[0] + (rx - rx_s) * k * sx, c[1] + y, c[2] + (R - rx_s) * k * cz)
+    grid(P, G, body, 44, nv)
+    yf = c[1] + Y1                                             # inboard end face
     inb = (0.0, 1.0, 0.0)
 
     def face(dx, dz, off=0.0):
         return (c[0] + dx, yf + off, c[2] + dz)
     # switch plate (slightly proud) with 4 screws
-    lathe(P, "CK2_Bezel", (face(0.0, 0.0), (1, 0, 0), (0, 0, 1), inb), [(2.45, 0.0), (2.45, 0.12), (2.3, 0.2), (0.0, 0.2)], seg=8)
+    lathe(P, "CK2_Bezel", (face(-0.1, 0.0), (1, 0, 0), (0, 0, 1), inb), [(2.6, 0.0), (2.6, 0.12), (2.45, 0.2), (0.0, 0.2)], seg=8)
     for q in range(4):
-        screwhead(P, face(2.05 * math.cos(q * math.pi / 2 + 0.6), 2.05 * math.sin(q * math.pi / 2 + 0.6), 0.2), inb, 0.13)
+        screwhead(P, face(-0.1 + 2.2 * math.cos(q * math.pi / 2 + 0.6), 2.2 * math.sin(q * math.pi / 2 + 0.6), 0.2), inb, 0.13)
     # comm switch: 4-way castle hat on a short stalk
-    lathe(P, K, (face(0.9, 0.75, 0.2), (1, 0, 0), (0, 0, 1), inb), [(0.3, 0.0), (0.3, 0.35), (0.62, 0.4), (0.62, 0.75), (0.45, 0.85), (0.0, 0.85)], seg=4)
+    lathe(P, K, (face(1.0, 0.85, 0.2), (1, 0, 0), (0, 0, 1), inb), [(0.3, 0.0), (0.3, 0.35), (0.62, 0.4), (0.62, 0.75), (0.45, 0.85), (0.0, 0.85)], seg=4)
     for q in range(4):
-        box(P, K, face(0.9 + 0.5 * math.cos(q * math.pi / 2), 0.75 + 0.5 * math.sin(q * math.pi / 2), 1.05), (0.22, 0.22, 0.2), (1, 0, 0), (0, 0, 1), inb)
+        box(P, K, face(1.0 + 0.5 * math.cos(q * math.pi / 2), 0.85 + 0.5 * math.sin(q * math.pi / 2), 1.05), (0.22, 0.22, 0.2), (1, 0, 0), (0, 0, 1), inb)
     # speed brake thumb slider (ribbed), aft top
-    box(P, S_, face(-1.0, 1.05, 0.3), (1.5, 0.9, 0.3), (1, 0, 0), (0, 0, 1), inb)
+    box(P, S_, face(-1.25, 1.1, 0.3), (1.5, 0.9, 0.3), (1, 0, 0), (0, 0, 1), inb)
     for q in range(4):
-        box(P, K, face(-1.45 + 0.3 * q, 1.05, 0.62), (0.14, 0.75, 0.45), (1, 0, 0), (0, 0, 1), inb)
+        box(P, K, face(-1.7 + 0.3 * q, 1.1, 0.62), (0.14, 0.75, 0.45), (1, 0, 0), (0, 0, 1), inb)
     # dogfight / missile override 3-position slider, bottom
-    box(P, K, face(-0.2, -1.25, 0.3), (2.0, 0.55, 0.25), (1, 0, 0), (0, 0, 1), inb)
-    box(P, S_, face(0.1, -1.25, 0.6), (0.6, 0.5, 0.5), (1, 0, 0), (0, 0, 1), inb)
+    box(P, K, face(-0.3, -1.4, 0.3), (2.0, 0.55, 0.25), (1, 0, 0), (0, 0, 1), inb)
+    box(P, S_, face(0.0, -1.4, 0.6), (0.6, 0.5, 0.5), (1, 0, 0), (0, 0, 1), inb)
     # radar cursor / enable: dished round button, front bottom
-    lathe(P, S_, (face(1.45, -0.55, 0.2), (1, 0, 0), (0, 0, 1), inb), [(0.42, 0.0), (0.42, 0.3), (0.3, 0.36), (0.0, 0.28)], seg=6)
-    # front face: antenna elevation wheel (knurled, half sunk), manual range knob, uncage button
-    lathe(P, K, ((c[0] + 2.15, c[1] + 2.0, c[2] + 0.5), (0, 0, 1), (1, 0, 0), (0, 1, 0)),
-          [(0.0, -0.32), (0.95, -0.32), (1.0, -0.2), (1.0, 0.2), (0.95, 0.32), (0.0, 0.32)], seg=8, knurl=0.06)
-    lathe(P, S_, ((c[0] + 2.35, c[1] - 0.6, c[2] + 0.6), (0, 1, 0), (0, 0, 1), (1, 0, 0)), [(0.5, 0.0), (0.5, 0.65), (0.42, 0.75), (0.0, 0.75)], seg=6, knurl=0.04)
-    lathe(P, K, ((c[0] + 2.3, c[1] - 2.6, c[2] + 0.2), (0, 1, 0), (0, 0, 1), (1, 0, 0)), [(0.36, 0.0), (0.36, 0.4), (0.0, 0.46)], seg=4)
+    lathe(P, S_, (face(1.6, -0.6, 0.2), (1, 0, 0), (0, 0, 1), inb), [(0.42, 0.0), (0.42, 0.3), (0.3, 0.36), (0.0, 0.28)], seg=6)
+    # head, front side (inboard of the index finger): antenna elevation wheel (knurled, half sunk), uncage, range knob
+    yh, rh = c[1] + Y1 - 0.62, R * 1.06
+
+    def front(deg, r):                                         # deg from the top toward the front
+        return (c[0] + r * math.sin(math.radians(deg)), yh, c[2] + r * math.cos(math.radians(deg)))
+    lathe(P, K, (front(52.0, rh - 0.45), (0, 0, 1), (1, 0, 0), (0, 1, 0)),
+          [(0.0, -0.3), (0.95, -0.3), (1.0, -0.18), (1.0, 0.18), (0.95, 0.3), (0.0, 0.3)], seg=8, knurl=0.06)
+    for deg, r, h, mat in ((98.0, 0.36, 0.42, K), (138.0, 0.46, 0.6, S_)):
+        n = (math.sin(math.radians(deg)), 0.0, math.cos(math.radians(deg)))
+        lathe(P, mat, (front(deg, rh - 0.05), (0, 1, 0), cross(n, (0, 1, 0)), n), [(r, 0.0), (r, h), (r * 0.8, h + 0.08), (0.0, h + 0.08)], seg=5)
     # cutoff release lever behind the grip (outboard)
-    tube(P, "CK2_Bezel", [(c[0] - 2.2, c[1] - 3.6, c[2] - 1.2), (c[0] - 3.4, c[1] - 3.9, c[2] - 2.6), (c[0] - 3.6, c[1] - 3.9, c[2] - 4.4)], 0.42, seg=2)
+    tube(P, "CK2_Bezel", [(c[0] - 3.3, c[1] - 4.3, c[2] - 1.5), (c[0] - 4.6, c[1] - 4.6, c[2] - 2.9), (c[0] - 4.8, c[1] - 4.6, c[2] - 4.7)], 0.42, seg=2)
     return pv
 
 
@@ -1215,7 +1250,7 @@ def build_lit():
 # (pilot_body.fbx: flat top z ~52 for x 442..457, y -22..-6) came up through it and ~65 % of the screen was hidden from the
 # eye. Now it lies on the thigh top like a strapped kneeboard: tilt 0 = flat (normal up), 1 = facing the eye; the eye sees
 # it ~30 deg off its normal. Thigh top 1.3 cm under the screen face (slab back 0.9 cm), ~4 % of the screen behind the body.
-KNEE = dict(center=(454.0, -14.0, 53.2), size=(20.0, 12.5), tilt=0.0)
+KNEE = dict(center=(454.0, -12.5, 53.2), size=(20.0, 12.5), tilt=0.0)      # 11-20: y -14 -> -12.5 (the throttle hand hit its corner at full throttle)
 
 
 def build_kneeboard():
