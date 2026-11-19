@@ -32,7 +32,7 @@ float m = saturate(WaterOn * mH * mC * mB);
 //    so the rectangular photo-tile seams on the open sea vanish; under the bridge masks (BridgeMaskOn) never;
 //  - inland water (rivers, ponds) more than CoastInlandM from the coast keeps the old height / colour rule.
 // Render-time only: the V-World photo is not modified or stored.
-float photoW = 1.0, coastSteep = 0.0, coastCls = 0.0, coastSd = 1e4;
+float photoW = 1.0, coastSteep = 0.0, coastCls = 0.0, coastSd = 1e4, coastFar = 1e4;
 if (CoastOn > 0.5)
 {
     float2 ck = P.xy * 1e-5;                                                       // km (quadratic fit: meridian convergence)
@@ -61,6 +61,7 @@ if (CoastOn > 0.5)
                    * step(0.0, sd) * (1.0 - smoothstep(22.0, 30.0, sd)) * (1.0 - smoothstep(2.0, 4.0, h)));
         photoW = (1.0 - smoothstep(SeaPhotoNear, SeaPhotoFar, far)) * (1.0 - bin);
         coastSd = sd;
+        coastFar = far;
         coastCls = cm.a;
         coastSteep = saturate((0.75 - up.z) * 4.0);                                  // > ~45 deg terrain faces (sea walls)
     }
@@ -255,6 +256,15 @@ float3 body = lerp(DeepColor * detail, desat * ShallowGain, ShallowMix * photoW 
 // paler turquoise shallows off beaches. Render-time only.
 float foamW = 0.0, gust = 0.5;
 float2 swl = float2(0.0, 0.0);
+// ---- sea v4 (11-19, SeaV4 1; GYROSIM_SEA_V4=0 -> SeaV4 / SeaGl / SeaStreak / FoamV2 0 = sea v3; critic rounds map_1118):
+// (a) SeaV4: the beach tint decays on with the far distance (it filled the whole 'nearest shore = beach' cell of the class
+//     field = a faint straight diagonal seam across the bay), the ~1 km gust value noise is domain-warped; (b) SeaStreak: wind streaks - long narrow calmer lanes along the wind
+//     (anisotropic noise) folded into the gust field; (c) SeaGl: sun glitter - a mid-scale wave texture octave (two rotated
+//     copies, ~41 / 70 m) between the small ripples and the swell sines, and the slope variance of every octave that has faded
+//     out (distance / pixel footprint) goes into the roughness (SeaGlVar; Cox & Munk: unresolved slopes widen the glitter)
+//     instead of leaving a dim banded reflection of the swell sines alone; (d) FoamV2: the swash is a
+//     little translucent (was a solid white band). Render-time only. SunL = direction to the sun (SkyAtmosphereLightDirection).
+float fsS = 1.0, selM = 0.5, lane = 0.0, lostVar = 0.0, w2f = 1.0;
 if (SeaV3 > 0.5)
 {
     float hueW = saturate((min(C.g, C.b) - C.r) / max(lum, 1e-3) * 3.0);
@@ -277,7 +287,23 @@ if (SeaV3 > 0.5)
     S3_W(0.259, -0.966, 23.0, 1.64, 3.3, 0.8)
     #undef S3_W
     float2 gq = float2(pm.x * 0.83 + pm.y * 0.56, -pm.x * 0.56 + pm.y * 0.83) / SeaGustM;
-    gust = 0.65 * S3_N(gq) + 0.35 * S3_N(gq * 2.7 + float2(13.1, 7.7));
+    gq += SeaV4 * 0.45 * float2(sin(gq.y * 2.1 + 1.3) + 0.5 * sin(gq.y * 4.7 + gq.x * 1.9), sin(gq.x * 1.7 + 4.1) + 0.5 * sin(gq.x * 5.3 - gq.y * 2.3));
+    float2 gq2 = lerp(gq * 2.7 + float2(13.1, 7.7), float2(gq.x * 0.34 - gq.y * 0.94, gq.x * 0.94 + gq.y * 0.34) * 2.7 + float2(13.1, 7.7), SeaV4);
+    gust = 0.65 * S3_N(gq) + 0.35 * S3_N(gq2);
+    fsS = fs;
+    selM = smoothstep(0.3, 0.7, S3_N(gq * 4.3 + float2(3.7, 21.9)));
+    if (SeaStreak > 0.0)
+    {
+        // wind lanes: along the wind (the main swell direction) ~1 km long, 40-110 m wide, meandering; fade when a lane < ~3 px
+        float al = pm.x * 0.766 - pm.y * 0.643, ac = pm.x * 0.643 + pm.y * 0.766;
+        ac += 60.0 * sin(al / 310.0 + 1.9) + 35.0 * sin(al / 127.0 + ac / 900.0);
+        float s1 = smoothstep(0.62, 0.92, S3_N(float2(al / 900.0, ac / 42.0))) * saturate(1.5 - fs / 14.0);
+        float s2 = smoothstep(0.66, 0.96, S3_N(float2(al / 1700.0 + 7.3, ac / 115.0 + 3.1))) * saturate(1.5 - fs / 38.0);
+        // blind round r4b: lanes won over open water (open sea 4.5 -> 6) but near land they read as a pattern tied to the coast
+        // (fan off the beach, contour bands in the harbour) -> only > ~0.4 km from the shore, fewer, softer edges
+        lane = SeaStreak * saturate(0.8 * s1 + 0.7 * s2) * smoothstep(350.0, 900.0, coastFar);
+        gust *= 1.0 - lane;
+    }
     if (coastSd < 1e3)
     {
         float sOut = -coastSd;                                                        // m out from the shore line
@@ -290,12 +316,19 @@ if (SeaV3 > 0.5)
         // swash at the sand edge. Tried and judged worse in blind rounds 2 / 3 (not kept): a lacy / holed swash ('marble
         // texture'), whitecaps on open water ('confetti'), a narrower luminance window (thin contour lines on the sand).
         float edgeF = smoothstep(0.07, 0.12, lum) * (1.0 - smoothstep(0.17, 0.25, lum)) * step(-30.0, sOut) * step(sOut, 10.0);
+        // sea v4 FoamV2: the swash a little translucent (the solid white band read too wide / white). Tried and not kept: a
+        // profile peaking at one photo luminance (= thin contour lines on the sand again), wet sand from the luminance window.
+        // The swash only near the photo waterline (~22 m inside the OSM line): further up the window drew contour lines on dry sand.
+        edgeF *= lerp(1.0, 0.7 * smoothstep(-28.0, -22.0, sOut), FoamV2);
         float surf = max(crest * saturate(1.0 - sB / 50.0) * (0.55 + 0.75 * f2), edgeF * (0.6 + 0.4 * f2)) * step(-30.0, sOut);
         float fringe = saturate(1.0 - sOut / lerp(5.0, 2.5, coastCls)) * smoothstep(0.35, 0.75, 0.6 * f2 + 0.4 * f1 + 0.15 * sin(T * 0.8 + f1 * 6.0))
                      * lerp(0.75, 0.3, coastCls);
         foamW = saturate(lerp(fringe * step(0.0, sOut), surf, beach) * FoamAmt);
         g = lerp(g, FoamColor, foamW * beach);                                        // the swash also where the mask is still sand
-        body = lerp(body, ShoreTint, beach * exp(-max(sOut, 0.0) / 25.0) * 0.55);     // pale turquoise shallows off a beach
+        // sea v4: coastSd stops at CoastD (40 m), so the tint never fell below ~11 % and filled the whole 'nearest shore = beach'
+        // cell of the class field out to its straight borders (the faint diagonal seam across the bay): decay on with the far distance
+        // and the shallows are paler (ShoreTint2): the photo's dark waterline x the dark tint was a near-black strip between foam and sea
+        body = lerp(body, lerp(ShoreTint, ShoreTint2, SeaV4), beach * exp(-max(lerp(sOut, max(sOut, coastFar), SeaV4), 0.0) / lerp(25.0, 40.0, SeaV4)) * lerp(0.55, 0.85, SeaV4));
     }
     #undef S3_N
     #undef S3_H
@@ -355,13 +388,29 @@ if (SeaArt > 0.5)
     float footS = max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01;                    // m per pixel
     near *= saturate(1.5 - footS / (WaveScale * 0.01 / 8.0));                          // octave 1 (WaveScale)
     macroW = 1.0 + SeaMacroAmp * (mv * 2.0 - 1.0);
-    n2 *= saturate(1.5 - footS / (WaveScale * 0.01 * 0.37 / 8.0));                     // octave 2, own footprint
+    w2f = saturate(1.5 - footS / (WaveScale * 0.01 * 0.37 / 8.0));
+    n2 *= w2f;                                                                         // octave 2, own footprint
 }
 // 11-14: the swell octave n3 kept half its strength at full distance fade -> a regular weave / grid over the far sea
 // (review scene_realism 2.5, scratchpad fixes_1114 a15_open_sea_300). It now keeps 15 %.
 float2 nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength + n3 * WaveStrength * 0.5 * (1.0 - 0.85 * fade)) * macroW;
 if (SeaV3 > 0.5)
-    nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength * macroW + swl * SwellAmp) * (0.7 + 0.6 * gust) * (1.0 - foamW);
+{
+    // sea v4 glitter: mid octave (two rotated copies blended by a ~250 m noise: no visible period), faded by pixel footprint
+    float2 uvm1 = float2(P.x * 0.71 + P.y * 0.70, -P.x * 0.70 + P.y * 0.71) / (WaveScale * 2.3) + T * float2(0.006, -0.004);
+    float2 uvm2 = float2(P.x * 0.17 - P.y * 0.98, P.x * 0.98 + P.y * 0.17) / (WaveScale * 3.9) + T * float2(-0.004, 0.005);
+    float2 nm = lerp(Texture2DSample(WaveTex, WaveTexSampler, uvm1).xy, Texture2DSample(WaveTex, WaveTexSampler, uvm2).xy, selM) * 2.0 - 1.0;
+    float wmf = saturate(1.5 - fsS / (WaveScale * 0.01 * 2.3 / 10.0));
+    // only toward the sun's mirror direction at full strength (there it is the sparkle structure of the glitter); elsewhere
+    // the texture at this scale read as a blobby cobble pattern over the whole bay (first try, coast / beach views) -> 30 %
+    wmf *= lerp(0.3, 1.0, smoothstep(0.72, 0.95, dot(reflect(normalize(Q), up), normalize(SunL + float3(0.0, 0.0, 1e-4)))));
+    float gA = 0.7 + 0.6 * gust;
+    nxy = ((n1 * near * near + n2 * near * 0.7) * WaveStrength * macroW + nm * (1.25 * 0.6 * SeaGl * wmf * WaveStrength) + swl * SwellAmp) * gA * (1.0 - foamW);
+    // slope variance no longer in the normal (texture slope rms ~0.3 per axis): 2 sigma^2 is added to the GGX alpha^2 below
+    float n4 = near * near * near * near;
+    lostVar = 0.09 * WaveStrength * WaveStrength * gA * gA * 1.5625
+            * ((1.0 - n4) + 0.49 * (1.0 - near * near * w2f * w2f) + 0.36 * SeaGl * (1.0 - wmf * wmf));
+}
 float3 tx = normalize(cross(float3(0.0, 1.0, 0.0), up));                          // ~ north on the sea plane
 float3 ty = cross(up, tx);
 float3 nw = normalize(nxy.x * tx + nxy.y * ty + up);
@@ -419,7 +468,10 @@ if (GdOn > 0.5)
 if (SeaV3 > 0.5)
 {
     // calm slicks glint sharper than gusty patches; round 2: never smoother than before (mirror-sharp tower reflections far out)
-    wRough = lerp(wRough * lerp(0.8 + 0.45 * gust, 0.97 + 0.4 * gust, SeaR2), 0.85, foamW);
+    float wr0 = wRough * lerp(0.8 + 0.45 * gust, 0.97 + 0.4 * gust, SeaR2);
+    wr0 = sqrt(sqrt(wr0 * wr0 * wr0 * wr0 + 2.0 * SeaGlVar * lostVar));              // sea v4: faded wave slopes -> roughness
+    wr0 *= 1.0 - 0.25 * lane;                                                       // calm wind lanes mirror the sky more sharply
+    wRough = lerp(wr0, 0.85, foamW);
     wSpec = lerp(wSpec, 0.1, foamW);
 }
 Rough = lerp(Rg, wRough, m);

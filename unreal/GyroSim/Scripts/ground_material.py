@@ -209,6 +209,8 @@ def build():
     at.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
     srcs.append(("BldgAOTex", at, ""))
     srcs.append(("AOin", brk, "AmbientOcclusion"))
+    sun = X(unreal.MaterialExpressionSkyAtmosphereLightDirection, 150, 1400)     # sea v4 (11-19): direction to the sun (light 0)
+    srcs.append(("SunL", sun, ""))
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # live tuning (tune_look.py): MPC_GyroTune TuneA / TuneC
     import tune_mpc
     srcs += [(n, e, "") for e, n in tune_mpc.inputs(m, X, 150, 1500, names=("TuneA", "TuneC", "TuneD"))]

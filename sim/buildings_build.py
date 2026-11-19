@@ -445,6 +445,36 @@ def build_glb(D, sel, center):
 
     V3 = BT.V3
     BASE_AO = 0.45                                        # foot of the walls (1 floor band; walls start 1 m below the ground)
+    # 11-19 (map_1118 round 5, GYROSIM_BLDG_PARAPET_CAP=0 = the geometry before): the parapet was a zero-thickness wall, so
+    # from above a roof had no rim at all (blind critics: 'blurry photo on a sharp box, no parapet rims'). Now it is
+    # PARAPET_W m thick: a light cap strip on top + the inner face on the inset ring; small low flat-roofed houses get a low
+    # rim too.
+    CAP = V3 and os.environ.get("GYROSIM_BLDG_PARAPET_CAP", "1") != "0"
+
+    def inset(P2, w):
+        """ring (n x 2, counter-clockwise = solid on the left) moved w m into the solid, mitred corners (clamped at 2.5 w);
+        None when the result is degenerate (tiny / very thin footprints)."""
+        n = len(P2)
+        if n < 3:
+            return None
+        e = np.roll(P2, -1, axis=0) - P2
+        ln = np.hypot(e[:, 0], e[:, 1])
+        okE = ln > 1e-3
+        if okE.sum() < 3:
+            return None
+        idx = np.where(okE)[0]
+        nxt = idx[np.searchsorted(idx, np.arange(n)) % len(idx)]            # first valid edge at or after each vertex
+        prv = idx[(np.searchsorted(idx, np.arange(n), side="left") - 1) % len(idx)]   # last valid edge before it
+        d1, d0 = e[nxt] / ln[nxt][:, None], e[prv] / ln[prv][:, None]
+        n1, n0 = np.stack((-d1[:, 1], d1[:, 0]), 1), np.stack((-d0[:, 1], d0[:, 0]), 1)
+        k = 1.0 + (n0 * n1).sum(1)
+        m = (n0 + n1) / np.maximum(k, 0.16)[:, None]
+        Q = P2 + w * m
+        a0 = 0.5 * float(np.sum(P2[:, 0] * np.roll(P2[:, 1], -1) - np.roll(P2[:, 0], -1) * P2[:, 1]))
+        a1 = 0.5 * float(np.sum(Q[:, 0] * np.roll(Q[:, 1], -1) - np.roll(Q[:, 0], -1) * Q[:, 1]))
+        if not (abs(a1) > 0.35 * abs(a0) and a0 * a1 > 0 and abs(a1) < abs(a0)):
+            return None
+        return Q
 
     def quads(t, A0, A1, D0, D1, fa, fb, u0, u1, va, vb, n2, wl):
         """one quad per edge between height fractions fa..fb (of bot..top), v = va (bottom) .. vb (top)."""
@@ -651,6 +681,9 @@ def build_glb(D, sel, center):
                     pitch = (ob_, terra)
         if V3 and ph == 0.0 and pitch is None and cls in (BT.HOUSE, BT.APT, BT.SHOP) and nf >= 2 and area_b >= 80:
             ph = 0.9                                      # v3: flat-roofed 2-storey houses have a parapet too (roof edge reads)
+        if CAP and ph == 0.0 and pitch is None and (cls == BT.HOUSE or upper == BT.ST_VILLA) and area_b >= 35:
+            ph = 0.45                                     # 11-19: low slab-roof houses: a low rim (the roof edge reads from above)
+        capw = 0.0 if not (CAP and ph > 0) else (0.2 if ph < 0.6 else (0.25 if nf < 8 else 0.35))
         # v3 gable walls: only the two ends of a slab block (min-area box long / short >= 1.7), not every shorter edge -
         # 11-10 the old rule (edge < 0.5 x longest) made whole faces of stepped / faceted blocks into blank gables (Seomyeon)
         gab = None
@@ -703,7 +736,17 @@ def build_glb(D, sel, center):
                 k_ = (top - bot) / (top + ph - bot)
                 for t, fa, fb, va, vb in bands:
                     quads(t, A0, A1, Pp[j] - A0, Pp[j1] - A1, fa * k_, 1.0 if fb >= 1.0 else fb * k_, u0, u1, va, -vp if fb >= 1.0 else vb, n2, wla)
-                quads(BT.ST_PLAIN, Pt[j1], Pt[j], Pp[j1] - Pt[j1], Pp[j] - Pt[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
+                Qi = inset(Pt[:, :2], capw) if capw > 0 else None
+                if Qi is None:
+                    quads(BT.ST_PLAIN, Pt[j1], Pt[j], Pp[j1] - Pt[j1], Pp[j] - Pt[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
+                else:
+                    It, Ip = np.column_stack((Qi, Pt[:, 2])), np.column_stack((Qi, Pp[:, 2]))
+                    quads(BT.ST_PLAIN, It[j1], It[j], Ip[j1] - It[j1], Ip[j] - It[j], 0.0, 1.0, u1, u0, 0.0, -vp, -n2, wla)
+                    capc = wla.copy()                     # cap: lighter (mortar / coping), faces up
+                    capc[:, :3] = np.clip(capc[:, :3] * 1.12 + 0.03, 0.0, 1.0)
+                    quads(BT.ST_PLAIN, Pp[j], Pp[j1], Ip[j] - Pp[j], Ip[j1] - Pp[j1], 0.0, 1.0, u0, u1, -vp, -vp - 0.02,
+                          np.tile([0.0, 0.0, 1.0], (len(j), 1)), capc)
+                    st["caps"] = st.get("caps", 0) + 1
             else:
                 for t, fa, fb, va, vb in bands:
                     quads(t, A0, A1, Pt[j] - A0, Pt[j1] - A1, fa, fb, u0, u1, va, vb, n2, wla)
@@ -1061,7 +1104,7 @@ def tiles(args):
         for n_done, (key, nb, ts_) in enumerate(pool.imap_unordered(_tile_job, jobs, chunksize=1), 1):
             if nb:
                 sizes[key] = nb
-                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar", "pitched"):
+                for k_ in ("buildings", "color_photo", "palette", "floors_data", "verts", "parapets", "caps", "cores", "tanks", "laundry", "ground_bands", "podiums", "roof_rooms", "tarps", "solar", "pitched"):
                     tex[k_] = tex.get(k_, 0) + ts_.get(k_, 0)
                 for s_, c_ in ts_["styles"].items():
                     tex["styles"][BT_STYLE[s_]] = tex["styles"].get(BT_STYLE[s_], 0) + c_

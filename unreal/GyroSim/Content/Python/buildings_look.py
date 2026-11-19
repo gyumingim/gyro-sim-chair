@@ -8,6 +8,8 @@ ArtFix 0; Cesium copies its parameter values onto every tile's material).
 v3 (11-10 evening): building-type detail (gables with dong numbers, stair cores, AC units / louvres, shops, pilotis,
 brick / stone, rooftop tanks / machine rooms / laundry, sharpened roof photo). GYROSIM_BLDG_V3=0 = the look before v3:
 material M_GyroBuilding_v2 and, when it exists, the tile folder kept at the v3 swap (buildings/tiles_prev_<date>_v3, newest).
+11-19 (map_1118 round 5): the tiles have parapet caps (sim/buildings_build.py, GYROSIM_BLDG_PARAPET_CAP); the tiles before are
+kept as buildings/tiles_prev_20261119_cap: GYROSIM_BLDG_TILES_DIR=tiles_prev_20261119_cap = the look before.
 GYROSIM_BLDG_TILES_DIR = a tile folder name under C:/GyroSimTiles/buildings (or a full path) to load instead of the URL the
 caller set (offscreen before / after shots of a tiles_new build).
 Round 2 (11-10 night): roofs procedural by default (photo = low-frequency tint), GYROSIM_BLDG_ROOF_PHOTO=1 = the photo roofs.

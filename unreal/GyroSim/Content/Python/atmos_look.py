@@ -204,8 +204,13 @@ SEA_COAST = dict(SEA_COAST_DEF, CoastOn=1.0, CoastFaceOn=1.0, SeaWallColor=(0.17
 # SEA_V3_DEF = material defaults (off, also MI_GyroGround_Sea0); SEA_V3 = MI_GyroGround. GYROSIM_SEA_V3=0 at Play -> SeaV3 0.
 SEA_V3_DEF = dict(SeaV3=0.0, SwellAmp=0.016, SeaGustM=1100.0, FoamAmt=1.0, FoamColor=(0.74, 0.78, 0.78),
                   ShoreTint=(0.050, 0.150, 0.140),
-                  SeaR2=0.0)                         # round 2: SeaR2 = no mirror-smooth slicks (wider, softer sun glitter)
-SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0, SeaR2=1.0)
+                  SeaR2=0.0,                         # round 2: SeaR2 = no mirror-smooth slicks (wider, softer sun glitter)
+                  # sea v4 (11-19, ground_look.hlsl 'sea v4'; GYROSIM_SEA_V4=0 at Play -> these five back to 0 = sea v3):
+                  # beach tint decays (no straight seam across the bay), warped gust noise, wind lanes, glitter (mid wave
+                  # octave toward the sun + faded slopes -> roughness), translucent swash
+                  SeaV4=0.0, SeaStreak=0.0, SeaGl=0.0, SeaGlVar=0.0, FoamV2=0.0, ShoreTint2=(0.075, 0.21, 0.19))
+SEA_V4 = dict(SeaV4=1.0, SeaStreak=0.6, SeaGl=1.0, SeaGlVar=0.5, FoamV2=1.0)
+SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0, SeaR2=1.0, **SEA_V4)
 # Cloud base (11-18, map_1118 critic): the map's cloud layer starts 1.0 km up, so every view from ~1.1-3.5 km sat inside a
 # cloud more often than not (a flat brown murk over half the frame at 1500 m). Fair-weather cumulus bases over Busan are
 # ~1-2 km: the layer bottom goes to CLOUD_BASE_KM at Play (the layer height stays). GYROSIM_CLOUD_BASE_KM=0 = the map value.
@@ -413,6 +418,8 @@ def apply_ground(tileset, on=None):
             pass
     if m is not None and os.environ.get("GYROSIM_SEA_V3", "1") == "0":
         off["SeaV3"] = 0.0                       # sea v3 (11-18): swell sines / gusts / shore foam off (A/B)
+    if m is not None and os.environ.get("GYROSIM_SEA_V4", "1") == "0":
+        off.update({k: 0.0 for k in SEA_V4})     # sea v4 (11-19): glitter / wind lanes / soft swash + wet sand off (A/B)
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":
         off["GdOn"] = 0.0                        # grounded day (11-11): building occlusion on the ground off (A/B)
     if m is not None and bldg_contact_on():
