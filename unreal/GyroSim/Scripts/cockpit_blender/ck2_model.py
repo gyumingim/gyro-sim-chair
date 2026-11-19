@@ -424,7 +424,7 @@ def build_panel_structure():
     # aux panels faces (|u| AUX_U0..AUX_U1, v 18..41) and the leg wells
     for sd in (-1, 1):
         a0, a1 = sorted((sd * L.AUX_U0, sd * L.AUX_U1))
-        grid(P, paint, lambda s, t, a0=a0, a1=a1: L.panel_pt(a0 + (a1 - a0) * s, 18.0 + (L.WELL_V1 - 18.0) * t), 2, 2)
+        grid(P, "CK2_PanelFace", lambda s, t, a0=a0, a1=a1: L.panel_pt(a0 + (a1 - a0) * s, 18.0 + (L.WELL_V1 - 18.0) * t), 2, 2)
         # well: back wall (WELL_DEPTH forward), walls
         u0, u1 = sorted((sd * ch, sd * L.AUX_U0))
         D = L.WELL_DEPTH

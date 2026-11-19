@@ -233,7 +233,7 @@ SLOTS = {
     "CK2_Rubber": dict(GrainAmt=0.45, Tint=(0.01, 0.01, 0.01), Rough=0.92, EdgeWear=0.00, NormalAmt=0.0, Spec=0.25),
     "CK2_HUDBody": dict(GrainAmt=0.15, Tint=(0.03, 0.031, 0.033), Rough=0.6, EdgeWear=0.30, NormalAmt=0.0, Spec=0.35),
     "CK2_HUDFrame": dict(Tint=(0.05, 0.05, 0.052), Rough=0.4, Metal=0.6, EdgeWear=0.20, NormalAmt=0.0),
-    "CK2_Frame": dict(GrainAmt=0.12, Tint=(0.014, 0.015, 0.016), Rough=0.45, EdgeWear=0.7, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
+    "CK2_Frame": dict(GrainAmt=0.12, Tint=(0.014, 0.015, 0.016), Rough=0.58, EdgeWear=0.3, WearMetal=0.4, WearColor=(0.25, 0.25, 0.25), NormalAmt=0.0, Spec=0.35, Dust=0.25),
     "CK2_Metal": dict(Tint=(0.2, 0.2, 0.21), Rough=0.45, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00),
     "CK2_Chrome": dict(Tint=(0.5, 0.5, 0.5), Rough=0.28, Metal=1.0, WearMetal=1.0, NormalAmt=0.0, EdgeWear=0.00, Dust=0.0),
     "CK2_Knob": dict(Tint=(0.008, 0.008, 0.009), Rough=0.42, EdgeWear=0.15, WearColor=(0.08, 0.08, 0.08), NormalAmt=0.0, Spec=0.5),
@@ -259,8 +259,9 @@ SLOTS = {
     # 11-18 round 1: canopy sill (dark grey, chipped to metal), dull dark fasteners, pedals, unlit indexer / lamp lenses, black backstop
     "CK2_PanelFace": dict(GrainAmt=0.15, Tint=(0.03, 0.031, 0.033), Rough=0.55, EdgeWear=0.5, Dust=0.6, NormalAmt=0.0, Spec=0.4, WearColor=(0.42, 0.43, 0.4)),
     "CK2_Harness": dict(Tint=(0.024, 0.028, 0.022), Rough=0.9, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0, Dust=0.2, GrainAmt=1.0, GrainTile=22),
-    "CK2_Sill": dict(GrainAmt=0.2, Tint=(0.035, 0.037, 0.04), Rough=0.55, EdgeWear=0.8, WearMetal=1, WearColor=(0.5, 0.5, 0.5), NormalAmt=0.0, Spec=0.35, Dust=0.6),
-    "CK2_Screw": dict(Tint=(0.03, 0.031, 0.033), Rough=0.75, Metal=0.0, Spec=0.25, NormalAmt=0.0, EdgeWear=0.0),
+    # 11-19: matte and darker (critic: glossy mid-grey with pale wear / dust bands), wear only on the edges
+    "CK2_Sill": dict(GrainAmt=0.2, Tint=(0.022, 0.023, 0.025), Rough=0.68, EdgeWear=0.25, WearMetal=0.4, WearColor=(0.25, 0.25, 0.25), NormalAmt=0.0, Spec=0.35, Dust=0.25),
+    "CK2_Screw": dict(Tint=(0.06, 0.061, 0.064), Rough=0.6, Metal=0.0, Spec=0.35, NormalAmt=0.0, EdgeWear=0.0),
     "CK2_Dark": dict(Tint=(0.008, 0.008, 0.009), Rough=0.9, Spec=0.1, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Pedal": dict(Tint=(0.014, 0.0145, 0.015), Rough=0.6, Metal=0.0, EdgeWear=0.4, WearMetal=0, WearColor=(0.12, 0.12, 0.12), NormalAmt=0.0, Dust=0.8),
     "CK2_LensR": dict(Tint=(0.03, 0.004, 0.004), Rough=0.2, Spec=0.5, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
