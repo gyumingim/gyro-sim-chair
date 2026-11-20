@@ -33,7 +33,10 @@ log = lambda *a: unreal.log("[bldg_mat] " + " ".join(str(x) for x in a))
 # roof v2 (buildings_facade.hlsl 'roof v2'): flat-paint photo roofs. GYROSIM_ROOF_V2=0 at Play -> RoofV2 0 (buildings_look)
 # roof v3 (11-19 round 7, tiles with the roof mean colour): one flat coat per roof + painted roof clutter. GYROSIM_ROOF_V3=0 -> RoofV3 0
 MAP_1118 = (("RoofV2", 1.0), ("RoofKeep", 0.35), ("RoofPaintSat", 0.9), ("RoofV3", 1.0), ("RoofKeep3", 0.3), ("RoofDecal", 1.0),
-            ("RoofWhite", 0.30), ("RoofTank2", 1.0))
+            ("RoofWhite", 0.30), ("RoofTank2", 1.0),
+            # round 8 (11-20): big-roof clutter / calmer stains (kept: city_low 5.5 -> 6.5 twice); glass v3 (smooth fake sky reflection) is
+            # OPT-IN (GYROSIM_GLASS_V3=1): two blind rounds were mixed (+0.5 on some glass towers, -0.5 'stains' on distant office towers)
+            ("RoofBig", 1.0), ("GlassV3", 0.0))
 
 
 def gd_inputs(m, X):

@@ -223,9 +223,11 @@ SEA_V3_DEF = dict(SeaV3=0.0, SwellAmp=0.016, SeaGustM=1100.0, FoamAmt=1.0, FoamC
                   BeachV3=0.0,
                   # harbour v2 (11-19 round 6; GYROSIM_HARBOUR_V2=0 at Play -> 0): off man-made shores the 'bright photo = ship' guard
                   # ends HarbGuardM out (the photo's blur-censored blobs off the port quays were drawn as pale shoals)
-                  HarbV2=0.0, HarbGuardM=28.0)
+                  HarbV2=0.0, HarbGuardM=28.0,
+                  # round 8 (11-20) parts of beach v3 / harbour v2 (A/B switch; they are off anyway when BeachV3 / HarbV2 are 0)
+                  SeaR8=0.0)
 SEA_V4 = dict(SeaV4=1.0, SeaStreak=0.6, SeaGl=1.0, SeaGlVar=0.5, FoamV2=1.0)
-BEACH_V3 = dict(BeachV3=1.0, HarbV2=1.0)
+BEACH_V3 = dict(BeachV3=1.0, HarbV2=1.0, SeaR8=1.0)
 SEA_V3 = dict(SEA_V3_DEF, SeaV3=1.0, SeaR2=1.0, **SEA_V4, **BEACH_V3)
 # Cloud base (11-18, map_1118 critic): the map's cloud layer starts 1.0 km up, so every view from ~1.1-3.5 km sat inside a
 # cloud more often than not (a flat brown murk over half the frame at 1500 m). Fair-weather cumulus bases over Busan are
@@ -438,6 +440,8 @@ def apply_ground(tileset, on=None):
         off.update({k: 0.0 for k in SEA_V4})     # sea v4 (11-19): glitter / wind lanes / soft swash + wet sand off (A/B)
     if m is not None and os.environ.get("GYROSIM_BEACH_V3", "1") == "0":
         off["BeachV3"] = 0.0                     # beach v3 (11-19): distance-field swash / damp strand / see-through shallows off (A/B)
+    if m is not None and os.environ.get("GYROSIM_SEA_R8", "1") == "0":
+        off["SeaR8"] = 0.0                       # round 8 (11-20): pale near-shore beach water / no photo ghosts off quays off (A/B)
     if m is not None and os.environ.get("GYROSIM_HARBOUR_V2", "1") == "0":
         off["HarbV2"] = 0.0                      # harbour v2 (11-19): short photo guard off man-made shores off (A/B)
     if m is not None and os.environ.get("GYROSIM_GROUNDED_DAY", "1") == "0":

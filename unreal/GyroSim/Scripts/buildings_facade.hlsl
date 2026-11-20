@@ -190,7 +190,7 @@ if (R > 0.9)
         float recoat = step(0.55, HSH(dot(rc, float2(1, 57)) + rs * 3.1));
         base = lerp(base, gp[(int)fmod(rs + 1.0, 4.0)] * 1.08, recoat * 0.8);
         float worn = smoothstep(0.55 + 0.2 * frac(rs * 0.37), 0.85, n2 * 0.5 + n3 * 0.5);   // worn patches, amount per building
-        base = lerp(base, float3(0.32, 0.31, 0.29), worn * (0.3 + 0.4 * frac(rs * 0.61)));
+        base = lerp(base, float3(0.32, 0.31, 0.29), worn * (0.3 + 0.4 * frac(rs * 0.61)) * lerp(1.0, 0.4, RoofV3 * RoofBig));
         Rough = lerp(0.5, 0.85, worn);
     }
     else
@@ -207,7 +207,36 @@ if (R > 0.9)
     base = lerp(dot(base, float3(0.3, 0.59, 0.11)).xxx, base, 0.5);
     // stains / puddle marks / grain, expansion joints (~6 m), patch repairs
     float st = smoothstep(0.6, 0.9, n2) * 0.15 + smoothstep(0.65, 0.95, n3) * 0.12;
-    base *= 1.0 - st;
+    // roof v3b (11-20, round 8; RoofBig 1, off with RoofV3 0): the big roofs' soft stain / worn blotches were the 'mouldy green
+    // smear' of the foreground towers -> a third of the stains, and roof plant drawn on (rows of outdoor units / chillers with a
+    // contact shadow, hatches), larger than on the houses
+    float rb = RoofV3 * RoofBig;
+    base *= 1.0 - st * lerp(1.0, 0.35, rb);
+    if (rb > 0.0)
+    {
+        float2 cq = ap / 22.0 + rs * 0.37;                                        // ~11 m cells
+        float2 ci = floor(cq);
+        float hc = HSH(dot(ci, float2(1, 57)) + rs * 1.7);
+        if (hc < 0.34)
+        {
+            float2 ctr = ci + 0.5 + (float2(HSH(hc * 91.0), HSH(hc * 37.0 + 5.0)) - 0.5) * 0.4;
+            float2 dd = (cq - ctr) * 22.0;                                         // texels (~0.5 m)
+            float aaD = max(length(ddx(ap)) + length(ddy(ap)), 1e-3) * 0.7;
+            float kind = HSH(hc * 13.0 + 2.0);
+            float2 hb2 = kind < 0.6 ? float2(2.0 + 3.0 * HSH(hc * 7.0), 1.1) : float2(1.6, 1.6);
+            if (HSH(hc * 3.0) < 0.5) { dd = dd.yx; }
+            float bx = max(abs(dd.x) - hb2.x, abs(dd.y) - hb2.y);
+            float sh = saturate(0.5 - bx / aaD);
+            float fan = saturate(0.5 - (length(float2(frac(dd.x / 2.2 + 0.5) - 0.5, dd.y / 2.2)) * 2.2 - 0.8) / aaD);
+            float3 ic = kind < 0.6 ? lerp(float3(0.40, 0.40, 0.38), float3(0.09, 0.09, 0.09), fan * saturate(1.5 - aaD))
+                                   : lerp(float3(0.08, 0.08, 0.08), float3(0.28, 0.31, 0.33), saturate(0.5 - (bx + 0.6) / aaD));
+            float2 ds = dd - float2(1.0, -1.0);
+            float shd = saturate(0.5 - (max(abs(ds.x) - hb2.x, abs(ds.y) - hb2.y)) / aaD) * (1.0 - sh);
+            float fadeD = saturate(2.5 - aaD) * rb;
+            base *= 1.0 - 0.45 * shd * fadeD;
+            base = lerp(base, ic, sh * fadeD);
+        }
+    }
     base *= 1.0 + dg * 0.10 * (n1 - 0.5);
     float2 jq = ap * 0.08 + rs * 0.37;                                            // ~1 joint per 12 atlas texels
     float2 jfw = max(abs(ddx(jq)) + abs(ddy(jq)), 1e-5);
@@ -580,7 +609,48 @@ float bkG = bkV * (1.0 - bkKeep);
 gMetal *= lerp(1.0, BkMetal, bkG);
 glass *= lerp(1.0, BkDark, bkG);
 gRough += BkRough * bkG;
-float3 gN = normalize(Nn + T * (bayH - 0.5) * 0.035 + up * (bayH2 - 0.5) * 0.035);
+// glass v3 (11-20, OPT-IN: GlassV3 0 by default, GYROSIM_GLASS_V3=1 -> 1; blind rounds r10b / r11 mixed; map_1118 round 8, critics: 'glass towers = matte tiled paper, one flat tone
+// per face, no reflected sky gradient or clouds'). A flat mirror facade reflects one small patch of the (blurred) sky light, so
+// a face is one tone. Cheap fake of what the real sky would put there, SMOOTH over the facade (a function of the mirror
+// direction of the flat wall, no per-pane hashes - those read as a pixel mosaic in round 5): brighter toward the horizon,
+// darker where the mirror direction points below it (the city), soft cloud-sized patches in direction space (~10 deg) that
+// continue from tower to tower. It scales the glass / spandrel tint (= the reflection colour of the metallic glass).
+// The per-pane normal jitter (the visible tile grid) is cut to a third on the glass styles.
+// blind r10b: + on the blue glass towers, but 'damp stains' on grey / brown office cladding (style 6) and ring-shaped patches ->
+// style 6 at 40 %, lower contrast, patches stretched vertically (~4 bays x 20 floors)
+float gv3 = GlassV3 * ((style == 7) ? 1.0 : ((style == 6) ? 0.4 : 0.0));
+float skyM = 1.0;
+if (gv3 > 0.0)
+{
+    float3 rf = reflect(rd, Nn);
+    float2 dq = rf.xy / (abs(rf.z) + 0.45) * 2.2;
+    // r10: with the flat wall's mirror direction alone a face stayed one tone (it barely changes over a facade). Real curtain
+    // walls are not flat at the scale of a few storeys (panes sag / bow), so the reflected sky wanders over the face: a smooth
+    // warp of the direction in facade coordinates (bays x floors, blobs of ~4 bays x 8 floors; stable, no per-pane steps)
+    {
+        float2 wq = float2(UV.x * 0.25, UV.y * 0.05) + seed * 0.37;
+        float2 wi = floor(wq), wf = wq - wi; wf = wf * wf * (3.0 - 2.0 * wf);
+        float wa = lerp(lerp(HSH(dot(wi, float2(1, 57))), HSH(dot(wi + float2(1, 0), float2(1, 57))), wf.x),
+                        lerp(HSH(dot(wi + float2(0, 1), float2(1, 57))), HSH(dot(wi + float2(1, 1), float2(1, 57))), wf.x), wf.y);
+        float wb = lerp(lerp(HSH(dot(wi, float2(1, 57)) + 9.0), HSH(dot(wi + float2(1, 0), float2(1, 57)) + 9.0), wf.x),
+                        lerp(HSH(dot(wi + float2(0, 1), float2(1, 57)) + 9.0), HSH(dot(wi + float2(1, 1), float2(1, 57)) + 9.0), wf.x), wf.y);
+        dq += (float2(wa, wb) - 0.5) * float2(1.2, 1.8);
+    }
+    float2 di = floor(dq), df = dq - di; df = df * df * (3.0 - 2.0 * df);
+    float c1 = lerp(lerp(HSH(dot(di, float2(1, 57))), HSH(dot(di + float2(1, 0), float2(1, 57))), df.x),
+                    lerp(HSH(dot(di + float2(0, 1), float2(1, 57))), HSH(dot(di + float2(1, 1), float2(1, 57))), df.x), df.y);
+    float2 dq2 = dq * 2.3 + 17.0; di = floor(dq2); df = dq2 - di; df = df * df * (3.0 - 2.0 * df);
+    float c2 = lerp(lerp(HSH(dot(di, float2(1, 57))), HSH(dot(di + float2(1, 0), float2(1, 57))), df.x),
+                    lerp(HSH(dot(di + float2(0, 1), float2(1, 57))), HSH(dot(di + float2(1, 1), float2(1, 57))), df.x), df.y);
+    float cl = smoothstep(0.42, 0.72, 0.65 * c1 + 0.35 * c2);                      // reflected cumulus (bright) vs blue gaps
+    float hz = 1.0 - saturate(rf.z * 2.2);                                         // 1 at the horizon, 0 from ~27 deg up
+    float skyUp = lerp(0.80, 1.12, hz * hz) * lerp(0.86, 1.30, cl);
+    float below = lerp(0.50, 0.62, c1);                                            // the city / ground in the mirror
+    skyM = lerp(1.0, lerp(below, skyUp, smoothstep(-0.10, 0.04, rf.z)), gv3);
+    glass *= skyM;
+}
+float gN_j = lerp(0.035, 0.012, gv3);
+float3 gN = normalize(Nn + T * (bayH - 0.5) * gN_j + up * (bayH2 - 0.5) * gN_j);
 float fm = frac(pg.x * max(mull, 1.0));
 float frame = (mull > 0.0) ? (1.0 - step(0.03, fm) * step(fm, 0.97)) : 0.0;
 float frameH = 1.0 - step(W.z + 0.025, pg.y) * step(pg.y, W.w - 0.025);              // sash at the glass edges
@@ -792,6 +862,7 @@ if (style == 6 || style == 7)                                // backlit v2: the 
 {
     wallMetal *= lerp(1.0, BkMetal, bkV);
     w *= lerp(1.0, BkDark, bkV);
+    w *= lerp(1.0, skyM, 0.6);                                // glass v3: the metallic spandrels carry the same reflection
     wr += BkRough * bkV;
 }
 float3 insC = onGlass ? glass : rev;

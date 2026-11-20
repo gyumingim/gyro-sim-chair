@@ -47,7 +47,12 @@ if (CoastOn > 0.5)
         float footC = max(max(length(ddx(P.xyz)), length(ddy(P.xyz))) * 0.01, 0.05);     // m per screen pixel
         float seaC = saturate(0.5 - sd / footC)                                     // crisp, 1 px anti-aliased edge
                    * (1.0 - smoothstep(2.0, 4.0, h));                               // islets OSM has no coastline for (the coast terrain keeps them)
-        float mBq = lerp(mB, 1.0, SeaV3 * smoothstep(0.75, 0.95, cm.a));            // sea v3: off a quay (man-made shore) grey / brown photo
+        // round 8 (SeaR8; found with toggle runs rdiag / rdiag2: the band stayed with flat waves, no sun shadows, no reflections, no
+        // photo mix - and its speckle is the photo's): the dark band in the first 10-100 m off a beach is the raw PHOTO. Near-shore
+        // photo water over sand / weed is green-brown, not blue, so the 'grey / brown = rock' guard kept it as land. Off a beach
+        // that guard is off as well (the bright 'boat / buoy' guard stays).
+        float beachG = BeachV3 * SeaR8 * saturate(1.0 - abs(cm.a - 0.5) * 4.0);
+        float mBq = lerp(mB, 1.0, max(beachG, SeaV3 * smoothstep(0.75, 0.95, cm.a)));   // sea v3: off a quay (man-made shore) grey / brown photo
                                                                                     // water is silt / fill, not a rock islet -> sea
         float tanW = saturate(((C.r - C.b) / max(lum, 1e-3) - 0.12) * 8.0);          // bright AND tan = a silt plume, not a (white / grey) boat
         float mCq = lerp(mC, max(mC, tanW), SeaV3 * smoothstep(0.75, 0.95, cm.a));
@@ -284,7 +289,7 @@ float fsS = 1.0, selM = 0.5, lane = 0.0, lostVar = 0.0, w2f = 1.0;
 if (SeaV3 > 0.5)
 {
     float hueW = saturate((min(C.g, C.b) - C.r) / max(lum, 1e-3) * 3.0);
-    float pW3 = photoW * (1.0 - 0.85 * smoothstep(0.75, 0.95, coastCls));             // dredged water off a quay: no pale 'shallows' from photo silt
+    float pW3 = photoW * (1.0 - lerp(0.85, 1.0, HarbV2 * SeaR8) * smoothstep(0.75, 0.95, coastCls));   // harbour v2 (round 8): no photo left at all (ghost outlines of the censor blobs)             // dredged water off a quay: no pale 'shallows' from photo silt
     detail = lerp(1.0, clamp(lum / max(PhotoSeaLum, 1e-4), 0.55, lerp(1.0, 1.8, hueW)), pW3);
     body = lerp(DeepColor * detail, desat * ShallowGain, ShallowMix * pW3 * hueW * saturate((lum - PhotoSeaLum) / max(PhotoSeaLum, 1e-4)));
     float2 pm = P.xy * 0.01;                                                          // m
