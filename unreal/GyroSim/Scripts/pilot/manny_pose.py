@@ -265,18 +265,18 @@ BALL_UP, FOOT_TILT = 16.0, 25.0
 # thumb by a small search (throttle: pad beside the comm hat on the inboard face; stick: over the trim hat). Fit and
 # gap numbers: scratchpad cockpit_1118/hands (opt2.py, look.py). Residual gaps / penetration <= 1 mm on the throttle.
 # If THR_GRIP / the grip shapes change, these must be re-fitted.
-# 11-20 (h5): right hand = the round-4 wrap again (palm on the outboard face, fd / palm normal as round 4, palm 1.9 cm
-# further outboard = just out of the grip), joints closed to contact, thumb on the trim hat. The 'back of the hand
-# toward the eye' placement of h4 lost the blind A/B (read as a hand behind the stick).
-HAND_R_FD, HAND_R_PALM = (0.9641, 0.1412, -0.2251), (0.1774, -0.9727, 0.1499)     # finger direction, palm normal (toward the grip)
+# 11-20 round 6 (h6): right hand re-fitted on the thicker stick grip (ck2_model.build_stick, radius 2.0): palm on the
+# outboard / aft-outboard face just under the head, fingers closed to contact round the front, THUMB laid across the aft
+# face toward the pilot (that band + the finger tips are what the eye sees of the grasp).
+HAND_R_FD, HAND_R_PALM = (0.9736, 0.2182, -0.0677), (0.187, -0.9314, -0.3123)     # finger direction, palm normal (toward the grip)
 HAND_L_FD, HAND_L_PALM = (0.9994, 0.0098, -0.0326), (-0.0315, -0.1005, -0.9944)     # palm on top / aft of the throttle grip, fingers over the front
 FINGER_SPREAD = dict(r=dict(), l=dict())      # per finger: deg about the palm normal
-HAND_R_OFF = (-2.09, 4.6, 1.48)          # palm centre from the grip middle (hand wraps it from outboard; 0 wrist miss now)
+HAND_R_OFF = (-3.66, 4.66, 1.03)          # palm centre from the grip middle (hand wraps it from outboard; 0 wrist miss now)
 HAND_L_OFF = (-1.06, 0.26, 5.27)        # palm centre above the throttle body (radius 3.0), a little aft
-FINGER_CURL = dict(index=(42.7, -18.0, 61.1), middle=(51.8, -18.9, 67.2), ring=(45.9, 20.6, 33.1), pinky=(30.7, 47.3, 8.7))
-THUMB_CURL = (-15.6, 49.3, 41.8)
-THUMB_ROLL = dict(r=-3.5, l=-20.7)   # deg about the finger direction
-THUMB_SWING = dict(r=0.6, l=-14.6)    # deg about the palm normal
+FINGER_CURL = dict(index=(15.8, 44.5, 22.0), middle=(40.1, -19.5, 74.0), ring=(46.4, -20.0, 52.1), pinky=(48.0, 90.0, 48.0))
+THUMB_CURL = (-7.7, 53.2, 51.3)
+THUMB_ROLL = dict(r=55.7, l=-20.7)   # deg about the finger direction
+THUMB_SWING = dict(r=66.6, l=-14.6)    # deg about the palm normal
 THUMB_CURL_L = (-59.8, 49.1, 48.4)
 FINGER_CURL_L = dict(index=(40.3, 12.9, 24.3), middle=(40.0, 0.6, 31.4), ring=(36.9, 1.9, 22.7), pinky=(23.6, 2.4, 30.5))
 # control poses -> morph targets (names = sim_client._pilot; angles as DRAWN: the v2 sidestick mesh tilts only

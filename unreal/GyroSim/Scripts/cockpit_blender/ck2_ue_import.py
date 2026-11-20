@@ -285,6 +285,7 @@ SLOTS = {
     # fasteners near the sill tone (lighter ones read as white dots), throttle grip = matte black plastic
     "CK2_Sill": dict(GrainAmt=0.25, Tint=(0.012, 0.0125, 0.0135), Rough=0.8, EdgeWear=0.2, WearMetal=0.3, WearColor=(0.12, 0.12, 0.12), NormalAmt=0.0, Spec=0.25, Dust=0.2),
     "CK2_Screw": dict(Tint=(0.03, 0.031, 0.033), Rough=0.72, Metal=0.0, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0),
+    "CK2_SeatBox": dict(GrainAmt=0.2, Tint=(0.05, 0.056, 0.047), Rough=0.7, EdgeWear=0.7, WearMetal=0.2, WearColor=(0.3, 0.31, 0.28), Dust=0.5, NormalAmt=0.0, Spec=0.35, EdgeLift=0.04),
     "CK2_Bolt": dict(Tint=(0.026, 0.026, 0.025), Rough=0.6, Metal=0.0, Spec=0.4, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0, AOAmt=0.4),
     "CK2_ThrGrip": dict(Tint=(0.011, 0.011, 0.012), Rough=0.7, Spec=0.3, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),
     "CK2_Dark": dict(Tint=(0.008, 0.008, 0.009), Rough=0.9, Spec=0.1, NormalAmt=0.0, EdgeWear=0.0, Dust=0.0),

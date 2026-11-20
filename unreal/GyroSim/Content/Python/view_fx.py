@@ -363,7 +363,10 @@ class ViewFx:
         k = 2 * math.pi * 1.6
         if live:
             ax, ay, nz = _f(s, "ax"), _f(s, "ay"), _f(s, "nz", 1.0)
-            tgt = [_cl(-2.0 * ax, -3.0, 3.0), _cl(-2.5 * ay, -3.0, 3.0), _cl(-1.2 * (nz - 1.0), -5.0, 2.0)]
+            # 11-20: backward travel 3 -> 1.2 cm. With the eye 3 cm back the pilot's own collar / shoulder (15 cm from the
+            # design eye) crossed the camera near plane in the frame corners = pale shards at full throttle (looking at
+            # the left console). Sideways, forward and vertical travel showed nothing (forced-offset shots, scratchpad d9).
+            tgt = [_cl(-2.0 * ax, -1.2, 3.0), _cl(-2.5 * ay, -3.0, 3.0), _cl(-1.2 * (nz - 1.0), -5.0, 2.0)]
         else:
             tgt = [0.0, 0.0, 0.0]
         for i in range(3):                                    # damped spring (semi-implicit Euler)
@@ -431,6 +434,14 @@ class ViewFx:
     def canopy(self, world, now):
         """every 1 s: canopy and cockpit materials that are not our dynamic instances (a preset change re-sets them)
         get one with our values (CANOPY / COCKPIT_LOOK); set_look(False) puts the old values back (A/B shots)."""
+        if not getattr(self, "near_set", False) and world is not None:
+            # 11-20: camera near plane 10 -> 5 cm (GYROSIM_NEARCLIP, 10 = engine default). The pilot's own collar / shoulder is
+            # ~15 cm from the eye and the corners of a 90 deg frame cut at 15 cm with the default = pale shards at the edge.
+            self.near_set = True
+            try:
+                unreal.SystemLibrary.execute_console_command(world, "r.SetNearClipPlane %g" % max(1.0, float(os.environ.get("GYROSIM_NEARCLIP", "5") or 5)))
+            except Exception as e:
+                _log("near clip", repr(e))
         if world is None or now - getattr(self, "ck_t", -1e9) < 1.0:
             return
         self.ck_t = now

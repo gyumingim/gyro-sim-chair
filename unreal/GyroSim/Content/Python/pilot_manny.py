@@ -19,7 +19,10 @@ MESH = "/Game/ThirdParty/Mannequins/SKM_PilotManny"
 # 11-19: the same pilot with control morph targets (hands ride on the stick / throttle, feet on the pedals; built by
 # Scripts/pilot/manny_fbx.py + ue_manny.import_fbx). Missing asset or GYROSIM_PILOT_HANDS=0 -> the static one above.
 MESH_M = "/Game/ThirdParty/Mannequins/SKM_PilotMannyM"
-MESH_M_PREV = "/Game/ThirdParty/Mannequins/SKM_PilotMannyM4"       # round-4 hands (kept for A/B shots: set_mode 'hands_prev')
+MESH_M_PREV = "/Game/ThirdParty/Mannequins/SKM_PilotMannyM5"       # round-5 hands (kept on the build PC for A/B shots: set_mode hands_prev)
+# 11-20 round 6: cloth / leather materials (M_PilotCloth instances MI6_PM_*, Scripts/pilot/ue_manny.materials6). Missing
+# instance or GYROSIM_PILOT_CLOTH=0 -> the flat MI_PM_* ones. set_cloth() switches in a running Play world (A/B shots).
+CLOTH = os.environ.get("GYROSIM_PILOT_CLOTH", "1").strip() != "0"
 _use = dict(path=None)
 SLOTS = ("PM_Suit", "PM_GSuit", "PM_Glove", "PM_Boot", "PM_Harness")
 _st = {}                                    # actor path -> (old mesh, old materials)
@@ -65,7 +68,7 @@ def _swap(actor, new, path=None):
         names = [str(n) for n in c.get_material_slot_names()]
         for i in range(len(names)):                 # by slot name (the FBX build keeps only the used slots), else by index
             sl = next((s for s in SLOTS if names[i].startswith(s)), SLOTS[i] if i < len(SLOTS) else None)
-            mi = unreal.load_asset("/Game/ThirdParty/Mannequins/MI_" + sl) if sl else None
+            mi = (unreal.load_asset("/Game/ThirdParty/Mannequins/MI6_" + sl) if sl and CLOTH else None) or                  (unreal.load_asset("/Game/ThirdParty/Mannequins/MI_" + sl) if sl else None)
             if mi is not None:
                 c.set_material(i, mi)
         _use["path"] = path
@@ -106,3 +109,13 @@ def set_mode(world, mode):
     if not a:
         return None
     return _swap(a[0], mode != "old", {"static": MESH, "hands": MESH_M, "hands_prev": MESH_M_PREV}.get(mode))
+
+
+def set_cloth(world, on):
+    """runtime A/B: cloth / leather materials on or off; re-applies the mesh now on the PilotBody actor"""
+    global CLOTH
+    CLOTH = bool(on)
+    a = list(unreal.GameplayStatics.get_all_actors_with_tag(world, "PilotBody"))
+    if a and _use["path"]:
+        _swap(a[0], True, _use["path"])
+    return CLOTH

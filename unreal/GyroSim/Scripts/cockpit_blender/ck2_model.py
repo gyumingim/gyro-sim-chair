@@ -611,11 +611,11 @@ def build_seat():
     # 11-18: rounded black pad on a grey headbox (was two flat boxes), seat rails with bolts behind it, canopy breakers,
     # data placard on the headbox sides, inertia reel bar
     blob(P, "CK2_Fleece", tuple(c[i] + fw[i] * 6.0 for i in range(3)), (12.5, (hz1 - hz0) / 2 - 1.0, 3.6), ex, up, fw, e=0.5, nu=8, nv=5)
-    box(P, "CK2_SeatPaint", tuple(c[i] - fw[i] * 2.0 for i in range(3)), (30.0, hz1 - hz0 + 4.0, 9.0), ex, up, fw)
+    box(P, "CK2_SeatBox", tuple(c[i] - fw[i] * 2.0 for i in range(3)), (30.0, hz1 - hz0 + 4.0, 9.0), ex, up, fw)       # 11-20: own slot (grey-green, edge wear)
     for sd in (-1, 1):
         rc = tuple(c[i] - fw[i] * 9.5 + ex[i] * sd * 12.0 - up[i] * 20.0 for i in range(3))
-        box(P, "CK2_SeatPaint", rc, (5.0, 78.0, 3.6), ex, up, fw)
-        box(P, "CK2_Sill", tuple(rc[i] + fw[i] * 1.85 for i in range(3)), (2.4, 78.0, 0.3), ex, up, fw)
+        box(P, "CK2_SeatBox", rc, (5.0, 78.0, 3.6), ex, up, fw)
+        box(P, "CK2_Frame", tuple(rc[i] + fw[i] * 1.85 for i in range(3)), (2.4, 78.0, 0.3), ex, up, fw)      # 11-20: was CK2_Sill = a pale flat strip in the look-back view
         for k in range(9):
             screwhead(P, tuple(rc[i] + ex[i] * sd * 2.52 + up[i] * (-32.0 + 8.0 * k) for i in range(3)), tuple(e * sd for e in ex), 0.4)
         bk = tuple(c[i] + ex[i] * sd * 9.0 + up[i] * ((hz1 - hz0) / 2 + 3.2) - fw[i] * 2.0 for i in range(3))
@@ -678,8 +678,12 @@ def build_seat():
         pts = [L.add(L.panel_pt(u, 40.0, 0.0), (L.WELL_DEPTH * 0.6, 0, 0)), L.add(L.panel_pt(u, 28.0, 0.0), (L.WELL_DEPTH * 0.8, 0, 0)),
                L.add(L.panel_pt(u, 12.0, 0.0), (L.WELL_DEPTH * 0.9, 0, 0))]
         tube(P, "CK2_Rubber", [(p[0], p[1] + sd * 0.4, p[2]) for p in pts], 0.35, seg=6)
-    box(P, "CK2_Strap", (412.0, -46.5, 52.0), (16.0, 2.6, 10.0), (1, 0, 0), (0, 1, 0), (0, 0, 1))
-    box(P, "CK2_Metal", (412.0, -45.0, 56.6), (10.0, 0.4, 0.6))
+    # 11-20 round 6: canvas map case = rounded pouch + flap + two webbing straps with buckles (was a flat tan block + bright bar)
+    blob(P, "CK2_Harness", (412.0, -46.4, 51.6), (8.2, 1.9, 5.2), (1, 0, 0), (0, 1, 0), (0, 0, 1), e=0.25, nu=10, nv=6)
+    box(P, "CK2_Harness", (412.0, -44.9, 55.0), (16.6, 0.5, 3.6))
+    for dx in (-4.6, 4.6):
+        box(P, "CK2_Strap", (412.0 + dx, -44.55, 51.8), (1.9, 0.3, 10.2))
+        box(P, "CK2_Screw", (412.0 + dx, -44.3, 53.4), (2.3, 0.3, 1.3))
     tube(P, "CK2_Plate", [(446.0, 25.2, 36.0), (452.0, 25.2, 37.0), (452.0, 25.2, 31.0)], 0.7, seg=8, uv_len=4.0)
 
 
@@ -819,7 +823,7 @@ def build_wall_details(P, sd):
         wall_panel(P, sd, x, t, w, h)
     if sd < 0:
         # canopy jettison T-handle (yellow / black) in a black recess box, flood light
-        c, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 463.0, 0.55, (9.0, 7.0, 1.2))     # 11-19 round 5: out of the throttle hand sweep (x 423..452)
+        c, ex, ey, n = wall_box(P, "CK2_Bezel", sd, 458.5, 0.60, (9.0, 7.0, 1.2))     # 11-20 round 6: just clear of the throttle hand sweep (x 423..452); at 463 / 0.55 it sat in the dark and read as a plain bar
         top = frame_pt(c, ex, ey, n, 0.0, 0.0, 0.6)
         tube(P, "CK2_Screw", [top, frame_pt(top, ex, ey, n, 0.0, 0.0, 2.2)], 0.45, seg=2)
         tube(P, "CK2_Plate", [frame_pt(top, ex, ey, n, -3.0, 0.0, 2.6), frame_pt(top, ex, ey, n, 0.0, 0.0, 2.6), frame_pt(top, ex, ey, n, 3.0, 0.0, 2.6)], 0.62, seg=2,
@@ -1089,11 +1093,14 @@ def build_stick():
     z0 = s[2]
     # small fixed force-sensor base (round 4: the real stick is a short grip on a small base, short grey boot)
     lathe(P, "CK2_Bezel", ((s[0], s[1], z0 - 2.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), [(2.3, 0.0), (2.3, 1.0), (2.0, 1.3), (1.8, 1.3)], seg=24)
+    # 11-20 round 6: rubber bellows with ROUNDED folds (was 4 steps = read as stacked rings): 4 folds x 8 points, tapering
     prof = [(1.8, z0 - 0.7)]
-    for k in range(4):
-        prof.append((1.75 - 0.06 * k + (0.18 if k % 2 else 0.0), z0 - 0.4 + 0.45 * k))
-    prof += [(1.45, z0 + 1.5), (1.35, z0 + 1.7)]
-    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=24)
+    NB = 32
+    for k in range(NB + 1):
+        q = k / float(NB)
+        prof.append((1.72 - 0.30 * q + 0.13 * math.sin(2 * math.pi * 4 * q), z0 - 0.5 + 2.1 * q))
+    prof += [(1.38, z0 + 1.7)]
+    lathe(P, "CK2_Boot", ((s[0], s[1], 0.0), (1, 0, 0), (0, 1, 0), (0, 0, 1)), prof, seg=56, keep=True)
     z0 = z0 - 2.7                              # grip starts right above the short boot
     # grip: sections swept along a forward-leaning curve
     lean = math.radians(L.STICK_SIDE["lean"])
@@ -1104,8 +1111,12 @@ def build_stick():
         h = 8.5 * t
         x = s[0] + math.sin(lean) * h + 0.8 * math.sin(math.pi * t)
         path.append((x, s[1] - 0.4 * t, z0 + 5.2 + math.cos(lean) * h))
-        rs.append(1.0 + 0.18 * math.sin(math.pi * t * 0.9) + (0.25 if t > 0.75 else 0.0))
-    tube(P, "CK2_Grip", path, 1.55, seg=14, rscale=rs, reg=L.KNURL_SW, rep=(6.0, 4.0))
+        rs.append(1.0 + 0.10 * math.sin(math.pi * t * 0.9) + (0.12 if t > 0.75 else 0.0))
+    # 11-20 round 6: grip body 4.0 - 4.5 cm across (was 3.1 - 3.7: the gloved fingers closed round nothing and read as
+    # blobs beside a rod); coarser knurl repeat (moire). Scripts/pilot/manny_pose.py right-hand values belong to this shape.
+    tube(P, "CK2_Grip", path, 2.0, seg=12, rscale=rs, reg=L.KNURL_SW, rep=(4.0, 2.5))
+    # hand rest shelf under the heel of the hand, aft / outboard at the bottom of the grip
+    blob(P, "CK2_Grip", (path[1][0] - 1.5, path[1][1] + 1.1, path[1][2] + 0.1), (2.3, 2.2, 0.55), e=0.7, nu=8, nv=4)
     # head: rounded box with the trim hat, red button, trigger
     top = path[-1]
     fw = (math.cos(lean), 0.0, -math.sin(lean))
@@ -1113,17 +1124,17 @@ def build_stick():
     hs = math.radians(22.0)                    # head slopes forward-down over the fingers (F-16 grip silhouette)
     hfw = tuple(fw[i] * math.cos(hs) - up[i] * math.sin(hs) for i in range(3))
     hup = tuple(up[i] * math.cos(hs) + fw[i] * math.sin(hs) for i in range(3))
-    blob(P, "CK2_Grip", tuple(top[i] + up[i] * 0.7 + fw[i] * 1.0 for i in range(3)), (2.9, 1.9, 1.45), hfw, (0, 1, 0), hup, e=0.55, reg=L.KNURL_SW)
-    blob(P, "CK2_Grip", tuple(top[i] - up[i] * 0.9 + fw[i] * 2.3 for i in range(3)), (0.9, 1.5, 1.2), hfw, (0, 1, 0), hup, e=0.6)      # nose over trigger
+    blob(P, "CK2_Grip", tuple(top[i] + up[i] * 0.7 + fw[i] * 1.0 for i in range(3)), (3.2, 2.45, 1.55), hfw, (0, 1, 0), hup, e=0.55, nu=14, nv=9, reg=L.KNURL_SW)
+    blob(P, "CK2_Grip", tuple(top[i] - up[i] * 0.9 + fw[i] * 2.3 for i in range(3)), (1.0, 1.9, 1.25), hfw, (0, 1, 0), hup, e=0.6, nu=8, nv=5)      # nose over trigger
     lathe(P, "CK2_Knob", (tuple(top[i] + up[i] * 2.1 + fw[i] * 0.2 for i in range(3)), fw, (0, 1, 0), up), [(0.55, 0.0), (0.5, 0.5), (0.0, 0.6)], seg=10)
     lathe(P, "CK2_Red", (tuple(top[i] + up[i] * 2.1 + fw[i] * 1.6 for i in range(3)), fw, (0, 1, 0), up), [(0.45, 0.0), (0.42, 0.35), (0.0, 0.4)], seg=10)
-    lathe(P, "CK2_Chrome", (tuple(top[i] + up[i] * 1.6 - fw[i] * 1.5 + (0, -1.6, 0)[i] for i in range(3)), (0, -1, 0), fw, up), [(0.5, 0.0), (0.45, 0.4), (0.0, 0.5)], seg=10)
+    lathe(P, "CK2_Chrome", (tuple(top[i] + up[i] * 1.6 - fw[i] * 1.5 + (0, -2.15, 0)[i] for i in range(3)), (0, -1, 0), fw, up), [(0.5, 0.0), (0.45, 0.4), (0.0, 0.5)], seg=10)
     box(P, "CK2_Red", tuple(top[i] - up[i] * 1.6 + fw[i] * 2.0 for i in range(3)), (0.8, 1.4, 2.4), fw, (0, 1, 0), up)     # trigger
-    box(P, "CK2_Knob", tuple(path[8][i] + (0, -1.5, 0)[i] for i in range(3)), (1.0, 0.6, 1.0))                      # pinky switch
+    box(P, "CK2_Knob", tuple(path[8][i] + (0, -2.2, 0)[i] for i in range(3)), (1.0, 0.6, 1.0))                      # pinky switch
     side = (0.0, -1.0, 0.0)
     # 4-way trim hat and the TMS / DMS hats on the head (small cylinders + nubs), trigger guard loop
     for k, (df, du) in enumerate(((0.9, 2.15), (-0.6, 2.1), (-1.7, 1.2))):
-        c = tuple(top[i] + up[i] * du + fw[i] * df + side[i] * (0.9 if k == 2 else 0.0) for i in range(3))
+        c = tuple(top[i] + up[i] * du + fw[i] * df + side[i] * (2.3 if k == 2 else 0.0) for i in range(3))
         nn = up if k < 2 else side
         aa = fw if k < 2 else up
         lathe(P, "CK2_Knob", (c, aa, cross(nn, aa), nn), [(0.42, 0.0), (0.4, 0.35), (0.28, 0.45), (0.0, 0.48)], seg=10)

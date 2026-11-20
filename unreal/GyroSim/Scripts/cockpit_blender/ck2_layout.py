@@ -25,8 +25,9 @@ EYE = OLD.EYE
 # the earlier build stays in ...\assets\cockpit + /Game/ThirdParty/Cockpit2 (GYROSIM_COCKPIT_V=old shows it)
 # 11-19 round 4: "cockpit4" (throttle / stick grips, sill); cockpit3 stays as GYROSIM_COCKPIT_V=prev
 # 11-19 round 5: "cockpit5" (bigger throttle grip, sill bolts, headbox detail); cockpit4 = GYROSIM_COCKPIT_V=prev
-ASSET_DIR = os.environ.get("GYROSIM_CK2_DIR", r"C:/GyroSimTiles/assets/cockpit5".replace("/", os.sep))
-UE_DST = os.environ.get("GYROSIM_CK2_UE", "/Game/ThirdParty/Cockpit5")
+# 11-20 round 6: "cockpit6" (thicker stick grip, seat headbox / map case, jettison handle); cockpit5 = GYROSIM_COCKPIT_V=prev
+ASSET_DIR = os.environ.get("GYROSIM_CK2_DIR", r"C:/GyroSimTiles/assets/cockpit6".replace("/", os.sep))
+UE_DST = os.environ.get("GYROSIM_CK2_UE", "/Game/ThirdParty/Cockpit6")
 skin_half_width, glass_bottom, glass_top = OLD.skin_half_width, OLD.glass_bottom, OLD.glass_top
 
 # ---------------------------------------------------------------------------------------------------------------------

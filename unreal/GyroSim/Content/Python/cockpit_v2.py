@@ -11,8 +11,8 @@ meshes and move them:
   MFD_L / MFD_R screen planes     -> the 4 in class MFD windows;  MFD_C (training display) -> kneeboard on the left thigh
   BeginnerLabel planes            -> next to the v2 instruments
   HUD clip (C_Wd / C_H1 params)   -> the narrower v2 combiner glass
-Assets: /Game/ThirdParty/Cockpit5 (Scripts/cockpit_blender/ck2_ue_import.py, gitignored), positions: the export
-manifest (C:/GyroSimTiles/assets/cockpit5/export/manifest.json). GYROSIM_COCKPIT_V=prev = round 4 (/Game/ThirdParty/Cockpit4),
+Assets: /Game/ThirdParty/Cockpit6 (Scripts/cockpit_blender/ck2_ue_import.py, gitignored), positions: the export
+manifest (C:/GyroSimTiles/assets/cockpit6/export/manifest.json). GYROSIM_COCKPIT_V=prev = round 5 (Cockpit5), =r4 = round 4 (Cockpit4),
 =r3 = the build of 11-18 rounds 1-3 (/Game/ThirdParty/Cockpit3), =old = the build before the realism rounds (/Game/ThirdParty/Cockpit2). Anything missing -> v1 stays. GYROSIM_COCKPIT_V2=0 = v1.
 set_mode(False / True) switches back and forth at runtime (A/B shots).
 """
@@ -25,13 +25,14 @@ ON = os.environ.get("GYROSIM_COCKPIT_V2", "1") != "0"
 STICK = os.environ.get("GYROSIM_CK2_STICK", "side")
 # 11-18 realism rounds: the new build lives in /Game/ThirdParty/Cockpit3 (+ its own export manifest); the build before
 # it stays in Cockpit2. GYROSIM_COCKPIT_V=old shows the old one; a missing new build falls back to it as well.
-VARIANTS = {"new": ("/Game/ThirdParty/Cockpit5/Meshes/", "C:/GyroSimTiles/assets/cockpit5/export/manifest.json"),      # 11-19 round 5
-            "prev": ("/Game/ThirdParty/Cockpit4/Meshes/", "C:/GyroSimTiles/assets/cockpit4/export/manifest.json"),     # round 4
+VARIANTS = {"new": ("/Game/ThirdParty/Cockpit6/Meshes/", "C:/GyroSimTiles/assets/cockpit6/export/manifest.json"),      # 11-20 round 6
+            "prev": ("/Game/ThirdParty/Cockpit5/Meshes/", "C:/GyroSimTiles/assets/cockpit5/export/manifest.json"),     # round 5
+            "r4": ("/Game/ThirdParty/Cockpit4/Meshes/", "C:/GyroSimTiles/assets/cockpit4/export/manifest.json"),       # round 4
             "r3": ("/Game/ThirdParty/Cockpit3/Meshes/", "C:/GyroSimTiles/assets/cockpit3/export/manifest.json"),       # rounds 1-3
             "old": ("/Game/ThirdParty/Cockpit2/Meshes/", "C:/GyroSimTiles/assets/cockpit/export/manifest.json")}
 VARIANT = os.environ.get("GYROSIM_COCKPIT_V", "").strip().lower()
 VARIANT = VARIANT if VARIANT in VARIANTS else "new"
-for _v0, _v1 in (("new", "prev"), ("prev", "r3"), ("r3", "old")):       # a missing build falls back to the one before it
+for _v0, _v1 in (("new", "prev"), ("prev", "r4"), ("r4", "r3"), ("r3", "old")):       # a missing build falls back to the one before it
     if VARIANT == _v0 and not (os.path.exists(VARIANTS[_v0][1]) and unreal.EditorAssetLibrary.does_asset_exist(VARIANTS[_v0][0] + "ck2_shell")):
         VARIANT = _v1
 MESH, MAN_PATH = VARIANTS[VARIANT]
