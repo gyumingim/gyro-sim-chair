@@ -130,8 +130,8 @@ CANOPY_V3_PARAMS = (("Tile", 1.3),
                     ("HaloGlow", 0.04),
                     ("SunSpec", 2.0),    # mirror image of the sun in the glass, very narrow lobe
                     ("F0", 0.07),        # polycarbonate 0.05 + gold / ITO coating (estimate)
-                    ("ReflAmt", 0.85),
-                    ("TintAmt", 0.30),   # straight through: (1, 0.946, 0.856) transmission
+                    ("ReflAmt", 0.85),   # Play overrides (view_fx.CANOPY, 11-13): 0.15
+                    ("TintAmt", 0.30),   # straight through: (1, 0.946, 0.856) transmission. Play overrides: 0 (clear glass)
                     ("PathMax", 3.0),    # grazing (the raked F-16 front, the sill): up to 3x the path -> (1, 0.85, 0.63)
                     ("InSun", 4.0),      # sun-lit interior ~4x brighter than the sky-lit one (estimate)
                     ("PilotRefl", 1.0),  # the pilot's helmet / shoulders in the glass (0 = off)
@@ -142,7 +142,8 @@ CANOPY_V3_PARAMS = (("Tile", 1.3),
                     ("Dist", 0.02),      # refraction index excess at grazing angles (edge distortion)
                     ("SmudgeAmt", 0.03), # faint haze where the smudge texture is (stronger toward the sun)
                     ("VeilPow", 8.0), ("VeilGlow", 0.02))
-CANOPY_V3_TINT = (1.0, 0.85, 0.58)
+CANOPY_V3_TINT = (1.0, 0.85, 0.58)     # amber = the outside gold-coating look; from inside it read as a brown cast (11-13):
+                                       # view_fx.CANOPY sets TintAmt 0 / TintCol white / ReflAmt 0.15 / SmudgeAmt 0.005 at Play
 CANOPY_V3_INCOL = (0.30, 0.29, 0.28)   # console albedo seen in the glass (grey panels); glare shield / pilot darker
 
 # small nodes for the transmittance and refraction pins (a Custom node with texture / sky light inputs gave transmittance 0

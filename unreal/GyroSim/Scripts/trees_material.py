@@ -5,9 +5,10 @@ Scripts/trees_foliage.hlsl in one Custom node on the tiles' vertex colour - no t
 Run in an editor that does not have the asset open (new asset, nothing else is touched or saved):
     UnrealEditor-Cmd.exe GyroSim.uproject -run=pythonscript -script=<this file> -unattended -nosplash -nullrhi
 Re-running rebuilds the graph in place. Builds M_GyroTree (v1) and the v2 pair M_GyroTree2 / M_GyroTree2W
-(GYROSIM_TREE_MAT=1 or 2 = only that one; =card = only the leaf-card material M_GyroTreeCard + its atlas).
+(GYROSIM_TREE_MAT=1 or 2 = only that one; =card = only the leaf-card material M_GyroTreeCard + its atlas;
+=cardm = only M_GyroTreeCardM, the 11-12 'mottle' variant of it, atlas asset reused).
 """
-import os
+import json, os
 import unreal
 
 PATH, NAME = "/Game/Trees", "M_GyroTree"
@@ -193,9 +194,17 @@ ATLAS_C = r"C:/GyroSimTiles/veg/cards_atlas.png"
 HLSL_C = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trees_card.hlsl")
 PARAMS_C = dict(Gain=1.15, VarAmt=1.0, AoBase=0.6, AoAmb=0.85, SssAmt=0.4, RimAmt=0.25, TexLum=0.0589, TexChroma=0.1,
                 OakSat=1.0, MipScale=0.3, UpBias=0.3)
+# 11-12 mottle params (trees_card.hlsl): 0 = the look before; M_GyroTreeCardM (GYROSIM_TREE_MAT=cardm, tiles_cards_mottle,
+# trees_look GYROSIM_TREES_MOTTLE) gets MOTTLE_ON as its defaults
+NAME_CM = "M_GyroTreeCardM"
+MOTTLE_OFF = dict(PosVar=0.0, TreeBri=0.0, TreeHue=0.0, Mottle=0.0, MottleM=25.0, MottleHue=0.0, Bleed=0.0)
+MOTTLE_ON = dict(PosVar=1.0, TreeBri=0.16, TreeHue=0.18, Mottle=0.12, MottleM=25.0, MottleHue=0.10, Bleed=0.35)
 
 
-def import_atlas():
+def import_atlas(reuse=False):
+    if reuse and unreal.EditorAssetLibrary.does_asset_exist(PATH + "/" + TEX_C):
+        log("atlas asset kept", PATH + "/" + TEX_C)
+        return unreal.load_asset(PATH + "/" + TEX_C)
     t = unreal.AssetImportTask()
     t.set_editor_property("filename", ATLAS_C)
     t.set_editor_property("destination_path", PATH)
@@ -213,15 +222,15 @@ def import_atlas():
     return tex
 
 
-def build_card():
+def build_card(name=NAME_C, mottle=MOTTLE_OFF, reuse_atlas=False):
     """masked two-sided-foliage material: atlas leaves (UV >= 0) with coverage-preserving mips, veg_v2 vertex colour decode."""
-    tex = import_atlas()
-    full = PATH + "/" + NAME_C
+    tex = import_atlas(reuse_atlas)
+    full = PATH + "/" + name
     if unreal.EditorAssetLibrary.does_asset_exist(full):
         m = unreal.load_asset(full)
         MEL.delete_all_material_expressions(m)
     else:
-        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(NAME_C, PATH, unreal.Material, unreal.MaterialFactoryNew())
+        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, PATH, unreal.Material, unreal.MaterialFactoryNew())
     m.set_editor_property("tangent_space_normal", False)
     m.set_editor_property("two_sided", False)
     m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
@@ -240,9 +249,15 @@ def build_card():
     ts = X(unreal.MaterialExpressionTextureSample, -1300, 600)
     ts.set_editor_property("texture", tex)
     MEL.connect_material_expressions(tc, "", ts, "UVs")
-    srcs = [("VC", vc, ""), ("VA", vc, "A"), ("N", nrm, ""), ("PIR", pir, ""), ("V", cam, ""), ("UV", tc, ""), ("TexRGB", ts, ""), ("TexA", ts, "A")]
+    ip = X(unreal.MaterialExpressionTransformPosition, -1300, 500)     # instance origin: local (0,0,0) -> absolute world
+    ip.set_editor_property("transform_source_type", unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_LOCAL)
+    ip.set_editor_property("transform_type", unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD)
+    zero = X(unreal.MaterialExpressionConstant3Vector, -1600, 500)
+    MEL.connect_material_expressions(zero, "", ip, "")
+    srcs = [("VC", vc, ""), ("VA", vc, "A"), ("N", nrm, ""), ("PIR", pir, ""), ("V", cam, ""), ("UV", tc, ""), ("TexRGB", ts, ""), ("TexA", ts, "A"),
+            ("IP", ip, "")]
     y = 900
-    for k, v in PARAMS_C.items():
+    for k, v in list(PARAMS_C.items()) + list(mottle.items()):
         e = X(unreal.MaterialExpressionScalarParameter, -1300, y)
         e.set_editor_property("parameter_name", k)
         e.set_editor_property("default_value", float(v))
@@ -278,13 +293,15 @@ def build_card():
     MEL.connect_material_property(sp, "", MP.MP_SPECULAR)
     MEL.recompile_material(m)
     unreal.EditorAssetLibrary.save_asset(full, only_if_is_dirty=False)
-    log("built", full)
+    log("built", full, json.dumps(mottle))
     return m
 
 
 if __name__ in ("__main__", "gyrosim_tree_mat"):
     if os.environ.get("GYROSIM_TREE_MAT", "") == "card":
         build_card()
+    elif os.environ.get("GYROSIM_TREE_MAT", "") == "cardm":                  # the mottle material only (atlas asset reused)
+        build_card(NAME_CM, MOTTLE_ON, reuse_atlas=True)
     elif os.environ.get("GYROSIM_TREE_MAT", "") in ("", "1", "all"):
         build()
     if os.environ.get("GYROSIM_TREE_MAT", "") in ("", "2", "all"):

@@ -9,6 +9,9 @@ Art pass 11-10: material /Game/Trees/M_GyroTree (Scripts/trees_material.py + tre
 per-clump lighting on the vertex-coloured blob crowns); GYROSIM_TREES_ART=0 = Cesium's stock material (the look before).
 v2 (default, see V2 below): tiles_v2 + M_GyroTree2; GYROSIM_TREES_V2=0 = v1.
 11-12: leaf-card trees tiles_cards + M_GyroTreeCard on top of v2 (GYROSIM_TREES_CARDS=0 = the v2 blobs).
+11-12 'mottle' (owner: forest colours split too sharply): tiles_cards_mottle (sim/veg_cards_tiles.py with GYROSIM_VEG_MOTTLE=1:
+pine / broadleaf mixed at stand borders) + M_GyroTreeCardM (per-tree / cluster colour variation, species colours overlap);
+GYROSIM_TREES_MOTTLE=0 / 1 picks the old / new pair (default MOTTLE_DEFAULT; falls back to the old pair when not built).
 11-15 'photo' (owner: tree colours stand out, hard tree-area edges, colours the photo does not have): tiles_cards_photo
 (sim/veg_cards_tiles.py with GYROSIM_VEG_PHOTO=1: crown colour = the V-World photo under the trees per tile / prototype /
 half, soft thinned tree-area edges) with the same M_GyroTreeCard; default when built, GYROSIM_TREES_PHOTO=0 = tiles_cards."""
@@ -32,6 +35,9 @@ _V1_TILES = r"C:/GyroSimTiles/veg/tiles"
 _CARD_TILES = r"C:/GyroSimTiles/veg/tiles_cards"
 _CARD_MAT = "/Game/Trees/M_GyroTreeCard"
 CARDS_DEFAULT = "1"
+_MOTTLE_TILES = r"C:/GyroSimTiles/veg/tiles_cards_mottle"
+_MOTTLE_MAT = "/Game/Trees/M_GyroTreeCardM"
+MOTTLE_DEFAULT = "0"
 _PHOTO_TILES = r"C:/GyroSimTiles/veg/tiles_cards_photo"
 PHOTO_DEFAULT = "1"
 
@@ -45,6 +51,17 @@ def photo_on():
     return True
 
 
+def mottle_on(force=None, tiles=None):
+    on = (os.environ.get("GYROSIM_TREES_MOTTLE", MOTTLE_DEFAULT) != "0") if force is None else bool(force)
+    if not on:
+        return False
+    why = [k for k, ok in (("no tiles", os.path.isfile((tiles or _MOTTLE_TILES) + "/tileset.json")),
+                           ("no material", unreal.load_asset(_MOTTLE_MAT) is not None)) if not ok]
+    if why:
+        unreal.log("[trees] mottle trees unavailable (%s) -> the leaf-card tiles before" % ", ".join(why))
+    return not why
+
+
 def cards_on():
     if os.environ.get("GYROSIM_TREES_CARDS", CARDS_DEFAULT) == "0" or os.environ.get("GYROSIM_TREES_TILES"):
         return False
@@ -54,24 +71,26 @@ def cards_on():
         unreal.log("[trees] leaf-card trees unavailable (%s) -> blob tiles" % ", ".join(why))
     return not why
 LOOK2_OFF = dict(VarAmt=0.0, GapDark=0.0, Bump=0.0, SssAmt=0.0, AoBase=0.0, AoAmb=0.0, RimAmt=0.0)
+CARD_PRE_PHOTO = dict(TexChroma=0.3, OakSat=0.8)   # M_GyroTreeCard values before the photo-matched trees (0e6c5c7)
 STATE = dict(v2=None)
 
 
-def config(v2=None):
-    """-> (v2, tiles folder, material path) for this launch (env) or the forced version."""
+def config(v2=None, mottle=None, tiles=None):
+    """-> (v2, tiles folder, material path) for this launch (env) or the forced version (mottle: None = env)."""
     if v2 is None:
         v2 = os.environ.get("GYROSIM_TREES_V2", "1") != "0"
     if v2 and not os.path.isfile(_V2_TILES + "/tileset.json") and not os.environ.get("GYROSIM_TREES_TILES"):
         v2 = False                                     # no v2 tiles built yet -> v1
     tiles = os.environ.get("GYROSIM_TREES_TILES", _V2_TILES if v2 else _V1_TILES).replace("\\", "/")
     if v2 and cards_on():
+        if mottle_on(mottle, tiles):
+            return v2, _MOTTLE_TILES, _MOTTLE_MAT
         return v2, (_PHOTO_TILES if photo_on() else _CARD_TILES), _CARD_MAT
     mat = ("/Game/Trees/M_GyroTree2" + ("W" if os.environ.get("GYROSIM_TREES_WIND", "0") == "1" else "")) if v2 else "/Game/Trees/M_GyroTree"
     return v2, tiles, mat
 
 
 V2, TILES, MAT = config()
-CARD_PRE_PHOTO = dict(TexChroma=0.3, OakSat=0.8)   # M_GyroTreeCard values before the photo-matched trees (0e6c5c7)
 
 
 def url(tiles=None):
@@ -99,7 +118,7 @@ def spawn_editor(log=unreal.log):
     return a
 
 
-def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
+def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None, mottle=None):
     """point the map's trees tileset in `world` at the local tiles. -> the actor, or None (off / no tiles / no actor).
     v2 / look2: force the version / the v2 material extras (shot scripts' one-run A/B), else the env toggles."""
     if os.environ.get("GYROSIM_TREES", "1") == "0":
@@ -127,7 +146,7 @@ def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
             log("[trees] impostor trees unavailable -> blob tiles")
     except Exception as e:
         log("[trees] impostor trees %r" % (e,))
-    V2, TILES, MAT = config(v2)
+    V2, TILES, MAT = config(v2, mottle, tiles and tiles.replace("\\", "/"))
     if tiles:                                      # shot scripts: another tile build (e.g. the previous round) in the same run
         TILES = tiles.replace("\\", "/")
     if look2 is None:
@@ -169,6 +188,15 @@ def apply(world, log=unreal.log, georef=None, v2=None, look2=None, tiles=None):
                     m.set_scalar_parameter_value(k, v)
             except Exception as e:
                 log("[trees] look2 off %r" % (e,))
+        if m is not None and MAT == _CARD_MAT and TILES == _CARD_TILES and not isinstance(m, unreal.MaterialInstanceDynamic):
+            # 11-19: GYROSIM_TREES_PHOTO=0 gave the old tiles but the card material tuned for the photo tiles (7a99b8e) ->
+            # the values before on a dynamic instance. Not restored: the old green SSS tint x (1.2, 1.4, 0.9) (in the HLSL).
+            try:
+                m = unreal.MaterialLibrary.create_dynamic_material_instance(world, m)
+                for k, v in CARD_PRE_PHOTO.items():
+                    m.set_scalar_parameter_value(k, v)
+            except Exception as e:
+                log("[trees] pre-photo card values %r" % (e,))
         try:
             a.set_editor_property("material", m)
         except Exception as e:
@@ -186,12 +214,3 @@ def hide(world):
     a = find(world)
     if a is not None:
         a.set_actor_hidden_in_game(True)
-        if m is not None and MAT == _CARD_MAT and TILES == _CARD_TILES and not isinstance(m, unreal.MaterialInstanceDynamic):
-            # 11-19: GYROSIM_TREES_PHOTO=0 gave the old tiles but the card material tuned for the photo tiles (7a99b8e) ->
-            # the values before on a dynamic instance. Not restored: the old green SSS tint x (1.2, 1.4, 0.9) (in the HLSL).
-            try:
-                m = unreal.MaterialLibrary.create_dynamic_material_instance(world, m)
-                for k, v in CARD_PRE_PHOTO.items():
-                    m.set_scalar_parameter_value(k, v)
-            except Exception as e:
-                log("[trees] pre-photo card values %r" % (e,))

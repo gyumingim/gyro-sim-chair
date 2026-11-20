@@ -12,7 +12,8 @@ Env:
   GYROSIM_ART_GPU     comma list of views with a GPU measurement (startfpschart 10 s, ~1080p pixels)
   GYROSIM_ART_LOG     the -ABSLOG file (GPU numbers are read from it)
   GYROSIM_ART_VARIANTS JSON file (sweeps only): [{"name": .., "ground": {MI param: value}, "bldg": {param: value}, "tree": {param: value},
-                      "trees": {"v2": 0|1, "look2": 0|1, "tiles": folder} (trees_look version / v2 material extras / tile build),
+                      "trees": {"v2": 0|1, "look2": 0|1, "tiles": folder, "mottle": 0|1} (trees_look version / v2 material extras / tile build /
+                      11-12 mottle pair),
                       "cloud": {VolumetricCloudComponent prop: value}, "cloudmat": {cloud material param: value}, "sky": {SkyAtmosphereComponent prop: value},
                       "fog": {..}, "skylight": {SkyLightComponent prop: value}, "light": {DirectionalLightComponent prop: value},
                       "cvars": {console variable: value}, "pp": {grade_look extra},
@@ -178,7 +179,8 @@ def set_variant(v):
         _mid(ST["b"], "bldg", v.get("bldg")); ST["b"].refresh_tileset(); reload = True
     if "trees" in v and v.get("trees") != prev.get("trees"):          # trees v1 / v2 / v2 without look extras (one-run A/B)
         tv = v["trees"]
-        trees_look.apply(w, log, ST["gr"], v2=bool(tv.get("v2", True)), look2=bool(tv.get("look2", True)), tiles=tv.get("tiles"))
+        trees_look.apply(w, log, ST["gr"], v2=bool(tv.get("v2", True)), look2=bool(tv.get("look2", True)), tiles=tv.get("tiles"),
+                         mottle=tv.get("mottle"))
         ST.get("base_mat", {}).pop("tree", None)
         reload = True
     lm = landmarks_look.find(w)                  # landmark glass parameters (MI_GyroLandmark scalars)

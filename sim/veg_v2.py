@@ -51,6 +51,12 @@ PROTOS_DIR = "" if _PD.lower() in ("", "none", "0") or not os.path.isdir(_PD) el
 # round 2: A refines at ~3.9 km (v1 / first v2: 2.6 km) - the far trees reach further, the tree line edge moves into the haze
 GE2 = dict(root=20000.0, a=float(os.environ.get("GYROSIM_VEG2_GEA", "45.0")), b=float(os.environ.get("GYROSIM_VEG2_GEB", "12.0")), c=0.0)
 NBIN = 2                                                  # colour bins per shape (+ per-instance variation in the material)
+# 11-12 'mottle' build (owner: forest colours split too sharply): GYROSIM_VEG_MOTTLE=1 widens the per-tree noise of the species
+# logit (0.35 -> MOTTLE_SD) so pine / broadleaf mix over tens of metres at stand borders instead of a ~10 m hard edge (same
+# random stream, only the noise scale; MOTTLE_BIAS keeps the city-wide pine share). Default 0 = the build before.
+MOTTLE = os.environ.get("GYROSIM_VEG_MOTTLE", "0") == "1"
+MOTTLE_SD = float(os.environ.get("GYROSIM_VEG_MOTTLE_SD", "1.2"))
+MOTTLE_BIAS = float(os.environ.get("GYROSIM_VEG_MOTTLE_BIAS", "0.0"))
 # 11-15 'photo' build (owner: tree colours stand out, hard tree-area edges, colours the aerial photo does not have; the
 # species palette below put lime broadleaf / dark blue-green pine patches on a photo whose forest is one grey teal-green,
 # 25 sample blocks: photo under the trees sRGB (40, 64, 52) for 'pine' and 'broad' trees alike, broadleaf tint after the
@@ -590,7 +596,8 @@ def block_attrs(f):
     tpi4 = h0 - dem.msl_ov(lat, lon, 4)
     patch = _vnoise(lat, lon, 70.0, 3) * 2 - 1
     logit = (-0.15 + 0.02 * np.clip(tpi, -30, 30) + 0.07 * np.clip(tpi4, -12, 12) + 0.5 * sw * (slope > 10) + 1.2 * coast
-             - 0.3 * (h0 > 450) + 0.25 * np.clip(ph, -2.5, 2.5) + 1.2 * patch + rng.normal(0, 0.35, n))
+             - 0.3 * (h0 > 450) + 0.25 * np.clip(ph, -2.5, 2.5) + 1.2 * patch
+             + rng.normal(0, 0.35, n) * ((MOTTLE_SD / 0.35) if MOTTLE else 1.0) + (MOTTLE_BIAS if MOTTLE else 0.0))
     pine = logit > 0
     h = z["h"].astype(np.float64).copy()
     shrub = ((z["lc"] == 20) & (h < 7.0)) | ((h < 4.5) & (rng.random(n) < 0.6))
@@ -836,6 +843,12 @@ def tiles2(args):
     from multiprocessing import Pool
     t0 = time.time()
     fs = sorted(glob.glob(os.path.join(V.WORK, "b_*.npz")))
+    bbox = os.environ.get("GYROSIM_VEG_BBOX", "")         # "lat0,lon0,lat1,lon1": only the prep blocks touching it (test builds)
+    if bbox:
+        la0, lo0, la1, lo1 = (float(x) for x in bbox.split(","))
+        ij = lambda f: tuple(int(x) for x in os.path.basename(f)[2:-4].split("_"))
+        fs = [f for f in fs if math.floor(la0 / V.DLA) <= ij(f)[0] <= math.floor(la1 / V.DLA) and math.floor(lo0 / V.DLO) <= ij(f)[1] <= math.floor(lo1 / V.DLO)]
+        print("bbox", bbox, "->", len(fs), "prep blocks", flush=True)
     parts, stats = {}, []
     import power_rule as PR                         # power rule: half the cores unless GYROSIM_VEG_PROCS is set
     with Pool(PR.workers("GYROSIM_VEG_PROCS"), initializer=_init2) as pool:
@@ -946,9 +959,11 @@ def tiles2(args):
                                                     far_mean=round(float(np.mean(nodes_per["far"])), 1)),
                prototype_triangles=dict(near=[tri[pidx[(p, True, 0)]] for p in range(len(PROTOS))], far=[tri[pidx[(p, False, 0)]] for p in range(len(PROTOS))]),
                palettes={GROUPS[k]: np.asarray(v).round(4).tolist() for k, v in pals.items()}, tint=TINT, r_fac=R_FAC, r_cap=R_CAP, ge=GE2,
+               mottle=dict(on=MOTTLE, sd=MOTTLE_SD, bias=MOTTLE_BIAS) if MOTTLE else False,
                photo=dict(on=True, gain=PHOTO_GAIN, rgb=PHOTO_RGB.tolist(), oak_sat=OAK_SAT, chroma=PHOTO_CHROMA, species=PHOTO_SPECIES, edge_m=EDGE_M, edge_keep=EDGE_KEEP,
                           edge_size=EDGE_SIZE, sigma_m=__import__("veg_photo").SIGMA_M, card_det=CARD_DET.tolist(), sss_tilt=SSS_TILT.tolist(),
                           note="per-tile mean photo colours only; no imagery stored") if PHOTO else False,
+               bbox=bbox or None,
                dropin=dict(dir=PROTOS_DIR, glb={k: len(v) for k, v in drop.items()}, proxies={g: [os.path.basename(f) for f in proxy_files(g)] for g in ("pine", "broad")},
                            pick=PROXY_PICK), inputs=dict(work=V.WORK))
     json.dump(out, open(os.path.join(tmp, "build.json"), "w"), indent=1)
